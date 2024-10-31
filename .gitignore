@@ -12,11 +12,6 @@ logs/
 
 # Docker
 docker-compose.override.yml
-Dockerfile
-
-# MongoDB
-/data/db/
-mongodb/
 
 .angular/
 .angular-cache/
