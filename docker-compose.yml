@@ -1,0 +1,30 @@
+services:
+  frontend-admin:
+    build: ./frontend-admin
+    ports:
+      - "89:3000"
+    volumes:
+      - ./frontend-admin:/app
+      - /app/node_modules
+    stdin_open: true
+    tty: true
+
+  frontend-user:
+    build: ./frontend-user
+    ports:
+      - "82:3000"
+    volumes:
+      - ./frontend-user:/app
+      - /app/node_modules
+    stdin_open: true
+    tty: true
+
+  backend:
+    build: ./backend
+    ports:
+      - "83:5000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      - mongo

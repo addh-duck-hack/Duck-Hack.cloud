@@ -1,0 +1,45 @@
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Logs
+logs/
+*.log
+*.log.*
+
+# Docker
+docker-compose.override.yml
+Dockerfile
+
+# MongoDB
+/data/db/
+mongodb/
+
+# Build de React/Angular
+frontend-user/build/
+frontend-admin/build/
+
+# Dependencias de Angular
+frontend-admin/node_modules/
+frontend-user/node_modules/
+
+# Angular archivos generados
+frontend-admin/dist/
+frontend-user/dist/
+.angular/
+.angular-cache/
+
+# Archivos de entorno
+*.env
+
+# Editor/IDE
+.vscode/
+.idea/
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Otros
+coverage/
