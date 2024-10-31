@@ -1,5 +1,5 @@
-# Dockerfile para el frontend (React)
-FROM node:18
+# Fase de construcción
+FROM node:18 AS build
 
 # Establecer el directorio de la app
 WORKDIR /app
@@ -8,14 +8,20 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
-# Copiar los archivos de la app
+# Copiar los archivos de la app y construir para producción
 COPY . .
-
-# Construir la app para producción
 RUN npm run build
 
-# Exponer el puerto 3000
-EXPOSE 3000
+# Fase de producción
+FROM nginx:stable-alpine
 
-# Comando para ejecutar la app
-CMD ["npm", "start"]
+# Copiar los archivos de construcción generados en /app/build al directorio donde nginx sirve archivos estáticos
+COPY --from=build /app/build /usr/share/nginx/html
+
+# Exponer el puerto en el que Nginx está escuchando
+EXPOSE 80
+
+# Opcional: Configuración de nginx personalizada
+# COPY nginx.conf /etc/nginx/nginx.conf
+
+# Comando de inicio (Nginx ya inicia automáticamente en la imagen base)
