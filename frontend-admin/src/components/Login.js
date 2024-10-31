@@ -87,9 +87,9 @@ const Login = () => {
         </form>
       )}
       {message && <p>{message}</p>}
-      <p>
+      {/*<p>
         ¿No tienes una cuenta? <Link to="/register">Crear cuenta nueva</Link>
-      </p>
+      </p>*/}
     </div>
   );
 };
