@@ -1,0 +1,176 @@
+/* src/components/NavBar.css */
+.navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 60px;
+    background-color: var(--ColorPrincipalNav);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 5em;
+    box-sizing: border-box;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+  }
+
+  .navbar-left,
+    .navbar-right {
+    flex: 1; /* Ambos ocupan el mismo espacio */
+    display: flex;
+    align-items: center;
+    }
+  
+  .navbar-logo-container {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+  }
+  
+  .navbar-logo {
+    width: 50px;
+    height: 50px;
+    margin-right: 10px;
+  }
+  
+  .brand-name {
+    font-family: var(--FuenteSpaceGrotesk);
+    font-size: 2rem;
+    font-weight: 500;
+    color: var(--FuenteSecundaria);
+  }
+  
+  /* Opciones de navegación centradas (PC) */
+  .navbar-center {
+    display: flex;
+    justify-content: center;
+    flex-grow: 1;
+  }
+  
+  .nav-links {
+    list-style: none;
+    display: flex;
+    gap: 20px;
+    padding: 0;
+    margin: 0;
+  }
+  
+  .nav-links li a {
+    font-family: var(--FuenteRubik);
+    font-size: 1rem;
+    text-decoration: none;
+    color: var(--FuentePrincipal);
+    transition: color 0.3s ease;
+    padding: 10px 15px;
+  }
+  
+  .nav-links li a:hover {
+    color: var(--ColorResalte);
+  }
+  
+  /* Redes sociales a la derecha (PC) */
+  .navbar-right {
+    justify-content: flex-end;
+  }
+  
+  .social-link {
+    font-size: 1.5rem;
+    color: var(--FuentePrincipal);
+    text-decoration: none;
+    transition: color 0.3s ease;
+    margin-left: 15px;
+  }
+  
+  .social-link:hover {
+    color: var(--ColorResalte);
+  }
+
+  .menu-overlay {
+    display: none;
+  }
+  
+  /* Menú hamburguesa oculto en pantallas grandes */
+  .hamburger-menu {
+    display: none;
+    font-size: 1.8rem;
+    cursor: pointer;
+  }
+  
+  /* Estilos para dispositivos móviles */
+  @media (max-width: 768px) {
+    .navbar {
+        padding: 0 20px;
+    }
+    /* Ocultar el menú centrado y redes sociales en móviles */
+    .navbar-center,
+    .navbar-right {
+      display: none;
+    }
+  
+    /* Mostrar el menú hamburguesa */
+    .hamburger-menu {
+      display: block;
+    }
+  
+    /* Menú desplegable (overlay) */
+    .menu-overlay {
+      display: none;
+      position: fixed;
+      top: 60px;
+      right: 0;
+      width: 100%;
+      background-color: var(--ColorPrincipal);
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 0;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      z-index: 999;
+    }
+  
+    /* Mostrar el menú cuando está activo */
+    .menu-overlay.active {
+      display: flex;
+    }
+  
+    .nav-links {
+      flex-direction: column;
+      gap: 15px;
+      padding: 0;
+      margin: 0;
+    }
+  
+    .nav-links li a {
+      font-family: var(--FuenteRubik);
+      font-size: 1.2rem;
+      text-decoration: none;
+      color: var(--FuentePrincipal);
+      padding: 10px 0;
+      text-align: center;
+    }
+  
+    /* Separador antes de las redes sociales */
+    .menu-separator {
+      width: 100%;
+      border: none;
+      border-top: 1px solid var(--FuentePrincipal);
+      margin: 20px 0;
+    }
+  
+    /* Redes sociales en una fila */
+    .social-links {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+    }
+  
+    .social-link {
+      font-size: 1.5rem;
+      color: var(--FuentePrincipal);
+    }
+  
+    .social-link:hover {
+      color: var(--ColorResalte);
+    }
+  }
+  

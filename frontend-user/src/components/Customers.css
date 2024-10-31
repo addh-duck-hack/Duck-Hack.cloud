@@ -1,0 +1,75 @@
+.customers-section {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  
+  .customers-title {
+    font-size: 4rem; /* Tamaño aumentado del título */
+    font-family: var(--FuenteRubik);
+    color: var(--FuenteSecundaria);
+    position: relative;
+    z-index: 1;
+    display: inline-block;
+  }
+  
+  .customers-title::before {
+    content: "CLIENTES";
+    position: absolute;
+    top: 50%; /* Centrado vertical */
+    left: 50%;
+    transform: translate(-50%, -50%); /* Centrado tanto vertical como horizontal */
+    font-size: 12rem; /* Tamaño aumentado del texto de fondo */
+    color: var(--FuenteDegradado);
+    z-index: 0;
+  }
+  
+  .customers-scroll {
+    width: 100%;
+    overflow: hidden;
+    height: 150px;
+    background-color: var(--ColorPrincipal);
+    display: flex;
+    align-items: center;
+    position: relative;
+  }
+  
+  .customers-container {
+    display: flex;
+    gap: 50px;
+    animation: scroll-infinite 30s linear infinite;
+  }
+  
+  .customer-logo {
+    flex: 0 0 auto;
+    height: 150px;
+  }
+  
+  .customer-logo img {
+    height: 100%;
+    width: auto;
+    object-fit: contain;
+  }
+  
+  @keyframes scroll-infinite {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+  
+/* Estilos para dispositivos móviles */
+@media (max-width: 768px) {
+  .customers-title::before {
+    display: none;
+  }
+
+  .customers-scroll {
+    height: 80px;
+  }
+  
+  .customer-logo {
+    height: 80px;
+  }
+}

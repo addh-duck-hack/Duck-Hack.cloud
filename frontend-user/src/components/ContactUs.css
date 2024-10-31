@@ -1,0 +1,118 @@
+.contact-us {
+    position: relative;
+    background-size: cover;
+    background-position: center;
+    padding: 20px;
+    min-height: 85vh; /* Asegura que el fondo cubra toda la sección */
+  }
+  
+  .overlay {
+    background-color: var(--FondoDegradado); /* Fondo negro con transparencia */
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .contact-us-title {
+    font-size: 4rem; /* Tamaño aumentado del título */
+    font-family: var(--FuenteRubik);
+    color: var(--FuenteSecundaria);
+    position: relative;
+    z-index: 1;
+    display: inline-block;
+  }
+  
+  .contact-us-title::before {
+    content: "CONTACTANOS";
+    position: absolute;
+    top: 50%; /* Centrado vertical */
+    left: 50%;
+    transform: translate(-50%, -50%); /* Centrado tanto vertical como horizontal */
+    font-size: 8rem; /* Tamaño aumentado del texto de fondo */
+    color: var(--FuenteDegradado);
+    z-index: 0;
+  }
+  
+  .contact-form-container {
+    max-width: 500px;
+    width: 100%;
+    background-color: var(--ColorPrincipal); /* Fondo del formulario con transparencia */
+    margin-top: 80px;
+    padding: 40px 60px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    text-align: center;
+  }
+  
+  .contact-title {
+    font-size: 2.3rem;
+    margin-bottom: 35px;
+    color: var(--FuentePrincipal);
+  }
+  
+  .contact-form * {
+    box-sizing: border-box;
+  }  
+
+  .contact-form input,
+  .contact-form select,
+  .contact-form textarea {
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+    border: none;
+    border-radius: 5px;
+    font-size: 1rem;
+    box-sizing: border-box;
+  }
+  
+  .contact-form textarea {
+    height: 100px;
+    resize: none;
+  }
+  
+  .submit-button {
+    background-color: var(--ColorResalte);
+    color: #fff;
+    padding: 10px 20px;
+    margin-top: 15px;
+    border: none;
+    border-radius: 5px;
+    font-size: 1rem;
+    cursor: pointer;
+    display: block;
+    margin-left: auto;
+  }
+  
+  .submit-button:hover {
+    background-color: var(--ColorResalteHover);
+  }
+
+  .thank-you-message {
+    color: var(--FuenteSecundaria);
+    text-align: center;
+    font-size: 1.5rem;
+    font-family: var(--FuenteRubik);
+  }
+  
+  .thank-you-message h2 {
+    color: var(--FuentePrincipal);
+    font-size: 2rem;
+    margin-bottom: 10px;
+    font-family: var(--FuenteSpaceGrotesk);
+  }
+
+  /* Estilos para dispositivos móviles */
+@media (max-width: 768px) {
+  .contact-us-title::before {
+    display: none;
+  }
+  .contact-us-title {
+    font-size: 3em;
+  }
+}

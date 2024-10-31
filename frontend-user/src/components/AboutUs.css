@@ -1,0 +1,149 @@
+/* src/components/AboutUs.css */
+.about-us {
+  padding: 0 40px;
+  margin: 40px 0;
+  background-color: var(--ColorPrincipal);
+}
+
+.about-us-columns {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.mission {
+  flex: 1;
+  text-align: center;
+}
+
+.mission h3 {
+  font-family: var(--FuenteRubik);
+  font-size: 2.8rem;
+  margin: 0;
+  color: var(--FuenteSecundaria);
+}
+
+.mission p {
+  font-family: var(--FuenteSpaceGrotesk);
+  font-size: 1.3rem;
+  margin: 0 0 30px 0;
+  padding: 0 20px;
+  color: var(--FuentePrincipa);
+}
+/* Imágenes en 2 filas formando un patrón con posiciones específicas */
+.images-container {
+  flex: 1;
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  align-items: center;
+  margin-top: -1em;
+  margin-bottom: 4em;
+}
+
+.image-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.image-grid img {
+  border-radius: 10px;
+}
+
+.image-item-1,
+.image-item-2,
+.image-item-3,
+.image-item-4 {
+  position: relative;
+  height: 18em;
+}
+
+.image-item-1 img{
+  width: 14em;
+  position: absolute;
+  bottom: 0.5em;
+  right: 0.5em;
+}
+
+.image-item-2 img{
+  width: 12em;
+  position: absolute;
+  bottom: 0.5em;
+  left: 0.5em;
+}
+
+.image-item-3 img {
+  width: 18em;
+  position: absolute;
+  top: 0.5em;
+  right: 0.5em;
+}
+
+.image-item-4 img {
+  width: 16em;
+  position: absolute;
+  top: 0.5em;
+  left: 0.5em;
+}
+
+/* Estilos para pantallas móviles */
+@media (max-width: 768px) {
+  .about-us-columns {
+    flex-direction: column;
+  }
+
+  .images-container {
+    margin: 20px 0;
+  }
+
+  .mission h3 {
+    font-size: 2rem;
+  }
+
+  .mission p {
+    font-size: 1rem;
+    padding: 0 10px;
+  }
+
+  .image-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+  }
+
+  .images-container {
+    margin-top: 0;
+    margin-bottom: 3em;
+  }
+
+  .image-item-1,
+  .image-item-2,
+  .image-item-3,
+  .image-item-4 {
+    height: 10em;
+  }
+
+  .image-item-1 img{
+    width: 10em;
+    bottom: 0.2em;
+    right: 0.2em;
+  }
+  
+  .image-item-2 img{
+    width: 9em;
+    bottom: 0.2em;
+    left: 0.2em;
+  }
+  
+  .image-item-3 img {
+    width: 12em;
+    top: 0.2em;
+    right: 0.2em;
+  }
+  
+  .image-item-4 img {
+    width: 11em;
+    top: 0.2em;
+    left: 0.2em;
+  }
+}

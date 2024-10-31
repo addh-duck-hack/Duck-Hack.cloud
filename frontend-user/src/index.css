@@ -1,0 +1,38 @@
+/* src/index.css o src/App.css */
+:root {
+  --ColorPrincipal: #03283a;
+  --FuentePrincipal: #a7cddd;
+  --FuenteSecundaria: #167fbf;
+  --ColorSecundario: #4abdfc;
+  --ColorResalte: #f8af11;
+  --FondoDegradado: #000000aa;
+  --FondoOscuro: #2c2c2c;
+  --FondoClaro: #4b4b4b;
+  --ColorPrincipalBack: #04212f;
+  --ColorPrincipalNav: #043147;
+
+  /* Fuentes */
+  --FuenteRubik: 'Rubik', sans-serif;
+  --FuenteSpaceGrotesk: 'Space Grotesk', sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--FuenteRubik), sans-serif;
+  color: var(--FuentePrincipal);
+  background-color: var(--ColorPrincipal);
+  margin: 0; /* Elimina cualquier margen predeterminado del body */
+  padding: 0;
+  box-sizing: border-box;
+}
+
+h1, h2, h3 {
+  font-family: var(--FuenteSpaceGrotesk), sans-serif; /* Usar Space Grotesk en títulos */
+}
+
+p {
+  font-family: var(--FuenteRubik), sans-serif; /* Usar Rubik en párrafos */
+}

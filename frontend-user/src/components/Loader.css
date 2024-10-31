@@ -1,0 +1,35 @@
+/* src/components/Loader.css */
+.loader-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--FuentePrincipal); /* Fondo con la variable de color */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000; /* Z-index mayor que el del navbar */
+}
+
+.loader-logo {
+  width: 15em;
+  height: auto;
+  animation: fadeInOut 1.5s infinite ease-in-out;
+}
+
+@keyframes fadeInOut {
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+body.loaded .loader-logo {
+  animation: none; /* Detener la animación una vez que la página esté lista */
+}

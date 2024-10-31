@@ -1,0 +1,83 @@
+/* Contenedor principal */
+.our-services {
+    text-align: center;
+    padding: 50px;
+    background-color: var(--ColorPrincipalBack);
+    position: relative;
+  }
+  
+  .section-title {
+    font-size: 4rem; /* Tamaño aumentado del título */
+    font-family: var(--FuenteRubik);
+    color: var(--FuenteSecundaria);
+    position: relative;
+    z-index: 1;
+    display: inline-block;
+  }
+  
+  .section-title::before {
+    content: "SERVICIOS";
+    position: absolute;
+    top: 50%; /* Centrado vertical */
+    left: 50%;
+    transform: translate(-50%, -50%); /* Centrado tanto vertical como horizontal */
+    font-size: 12rem; /* Tamaño aumentado del texto de fondo */
+    color: var(--FuenteDegradado);
+    z-index: 0;
+  }
+  
+  .service-items {
+    display: grid;
+    grid-template-columns: repeat(1, 1fr);
+    gap: 40px;
+    margin-top: 30px;
+  }
+  
+  @media (min-width: 768px) {
+    .service-items {
+      grid-template-columns: repeat(3, 1fr); /* 3 items por fila en pantallas grandes */
+    }
+  }
+  
+  .service-item {
+    width: 100%;
+    max-width: 250px;
+    margin: 0 auto;
+    text-align: center;
+    color: #ffffff;
+  }
+  
+  .service-icon {
+    background-color: #12233b;
+    border-radius: 50%;
+    width: 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 10px;
+  }
+  
+  .service-icon i {
+    font-size: 2rem;
+    color: #4abdfc;
+  }
+  
+  .service-title {
+    font-size: 1.3rem; /* Tamaño ajustado del título de cada servicio */
+    color: #4abdfc;
+    margin-bottom: 10px;
+  }
+  
+  .service-description {
+    font-size: 1rem;
+    color: #c7cfdc;
+  }
+  
+
+    /* Estilos para dispositivos móviles */
+    @media (max-width: 768px) {
+      .section-title::before {
+        display: none;
+      }
+    }
