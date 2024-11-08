@@ -7,16 +7,19 @@ import latitud from '../assets/latitud-logo.png';
 import textuales from '../assets/textuales-logo.png';
 import quintosol from '../assets/quintosol-logo.png';
 import salaverry from '../assets/salaverry-logo.png';
+import empenosrio from '../assets/empenosrio-logo.png';
 
 const customerLogos = [
     { id: 1, src: latitud, alt: 'Latitud megalópolis / El primer diario digital de la megalópolis', url: 'https://latitudmegalopolis.com/' },
     { id: 2, src: textuales, alt: 'Textual-es', url: 'https://textual-es.com/' },
     { id: 3, src: quintosol, alt: 'El quinto sol / Inovación y talento', url: 'https://elquintosolmarketing.com/' },
     { id: 4, src: salaverry, alt: 'Torre Médica Salaverry / Clínica de Especialidades', url: 'https://medicasalaverry.com/' },
-    { id: 5, src: latitud, alt: 'Latitud megalópolis / El primer diario digital de la megalópolis', url: 'https://latitudmegalopolis.com/' },
-    { id: 6, src: textuales, alt: 'Textual-es', url: 'https://textual-es.com/' },
-    { id: 7, src: quintosol, alt: 'El quinto sol / Inovación y talento', url: 'https://elquintosolmarketing.com/' },
-    { id: 8, src: salaverry, alt: 'Torre Médica Salaverry / Clínica de Especialidades', url: 'https://medicasalaverry.com/' }
+    { id: 5, src: empenosrio, alt: 'Empeños Rio / Casa de empeño y venta de productos', url: 'https://empenosrio.com' },
+    { id: 6, src: latitud, alt: 'Latitud megalópolis / El primer diario digital de la megalópolis', url: 'https://latitudmegalopolis.com/' },
+    { id: 7, src: textuales, alt: 'Textual-es', url: 'https://textual-es.com/' },
+    { id: 8, src: quintosol, alt: 'El quinto sol / Inovación y talento', url: 'https://elquintosolmarketing.com/' },
+    { id: 9, src: salaverry, alt: 'Torre Médica Salaverry / Clínica de Especialidades', url: 'https://medicasalaverry.com/' },
+    { id: 10, src: empenosrio, alt: 'Empeños Rio / Casa de empeño y venta de productos', url: 'https://empenosrio.com' }
   ];
   
   const Customers = () => {
