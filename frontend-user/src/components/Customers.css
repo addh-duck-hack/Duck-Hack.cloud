@@ -36,12 +36,12 @@
   .customers-container {
     display: flex;
     gap: 50px;
-    animation: scroll-infinite 30s linear infinite;
+    animation: scroll-infinite 60s linear infinite;
   }
   
   .customer-logo {
     flex: 0 0 auto;
-    height: 150px;
+    height: 100px;
   }
   
   .customer-logo img {
