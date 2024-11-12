@@ -8,6 +8,7 @@ import textuales from '../assets/textuales-logo.png';
 import quintosol from '../assets/quintosol-logo.png';
 import salaverry from '../assets/salaverry-logo.png';
 import empenosrio from '../assets/empenosrio-logo.png';
+import dereporteros from '../assets/dereporteros-logo.png';
 
 const customerLogos = [
     { id: 1, src: latitud, alt: 'Latitud megalópolis / El primer diario digital de la megalópolis', url: 'https://latitudmegalopolis.com/' },
@@ -15,11 +16,13 @@ const customerLogos = [
     { id: 3, src: quintosol, alt: 'El quinto sol / Inovación y talento', url: 'https://elquintosolmarketing.com/' },
     { id: 4, src: salaverry, alt: 'Torre Médica Salaverry / Clínica de Especialidades', url: 'https://medicasalaverry.com/' },
     { id: 5, src: empenosrio, alt: 'Empeños Rio / Casa de empeño y venta de productos', url: 'https://empenosrio.com' },
-    { id: 6, src: latitud, alt: 'Latitud megalópolis / El primer diario digital de la megalópolis', url: 'https://latitudmegalopolis.com/' },
-    { id: 7, src: textuales, alt: 'Textual-es', url: 'https://textual-es.com/' },
-    { id: 8, src: quintosol, alt: 'El quinto sol / Inovación y talento', url: 'https://elquintosolmarketing.com/' },
-    { id: 9, src: salaverry, alt: 'Torre Médica Salaverry / Clínica de Especialidades', url: 'https://medicasalaverry.com/' },
-    { id: 10, src: empenosrio, alt: 'Empeños Rio / Casa de empeño y venta de productos', url: 'https://empenosrio.com' }
+    { id: 6, src: dereporteros, alt: 'DE REPORTEROS / Encontramos la noticia', url: 'https://dereporteros.com' },
+    { id: 7, src: latitud, alt: 'Latitud megalópolis / El primer diario digital de la megalópolis', url: 'https://latitudmegalopolis.com/' },
+    { id: 8, src: textuales, alt: 'Textual-es', url: 'https://textual-es.com/' },
+    { id: 9, src: quintosol, alt: 'El quinto sol / Inovación y talento', url: 'https://elquintosolmarketing.com/' },
+    { id: 10, src: salaverry, alt: 'Torre Médica Salaverry / Clínica de Especialidades', url: 'https://medicasalaverry.com/' },
+    { id: 11, src: empenosrio, alt: 'Empeños Rio / Casa de empeño y venta de productos', url: 'https://empenosrio.com' },
+    { id: 12, src: dereporteros, alt: 'DE REPORTEROS / Encontramos la noticia', url: 'https://dereporteros.com' }
   ];
   
   const Customers = () => {
