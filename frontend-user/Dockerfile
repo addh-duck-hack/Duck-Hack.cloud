@@ -18,6 +18,9 @@ FROM nginx:stable-alpine
 # Copiar los archivos de construcción generados en /app/build al directorio donde nginx sirve archivos estáticos
 COPY --from=build /app/build /usr/share/nginx/html
 
+# Copiar configuración de Nginx
+COPY nginx.conf /etc/nginx/nginx.conf
+
 # Exponer el puerto en el que Nginx está escuchando
 EXPOSE 80
 
