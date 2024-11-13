@@ -1,5 +1,6 @@
 // src/App.js
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 import Loader from './components/Loader';
 import NavBar from './components/NavBar';
 import Inicio from './components/Inicio';
@@ -9,38 +10,68 @@ import Services from './components/Services';
 import Customers from './components/Customers';
 import ContactUs from './components/ContactUs';
 import Footer from './components/Footer';
+import LegalNotice from './components/LegalNotice';
+import PrivacyNotice from './components/PrivacyNotice';
+import { scroller } from 'react-scroll';
 import './App.css';
+
+const ScrollToSection = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.hash) {
+      const section = location.hash.substring(1); // Remueve el "#" de la URL
+      scroller.scrollTo(section, { smooth: true, offset: -70 });
+    }
+  }, [location.hash]);
+
+  return null;
+};
 
 const App = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulamos una carga de la página de 3 segundos (para el efecto de carga)
+    // Simula una carga de 3 segundos para el efecto de carga
     const timer = setTimeout(() => {
       setLoading(false);
-      document.body.classList.add('loaded'); // Añadir la clase 'loaded' para detener la animación
-    }, 3000);
+      document.body.classList.add('loaded');
+    }, 2000);
 
     return () => clearTimeout(timer);
   }, []);
 
   return (
-    <div className="App">
-      <NavBar /> {/* Barra de navegación siempre visible */}
-      {loading ? (
-        <Loader />
-      ) : (
-        <>
-          <Inicio /> 
-          <AboutUs />
-          <OurServices />
-          <Services />
-          <Customers />
-          <ContactUs />
-          <Footer />
-        </>
-      )}
-    </div>
+    <Router>
+      <div className="App">
+        <NavBar /> {/* Barra de navegación siempre visible */}
+        {loading ? (
+          <Loader />
+        ) : (
+          <>
+            <ScrollToSection /> {/* Desplazamiento automático después del loader */}
+            <Routes>
+              <Route
+                path="/"
+                element={
+                  <>
+                    <Inicio />
+                    <AboutUs />
+                    <OurServices />
+                    <Services />
+                    <Customers />
+                    <ContactUs />
+                  </>
+                }
+              />
+              <Route path="/legal-notice" element={<LegalNotice />} />
+              <Route path="/privacy-policy" element={<PrivacyNotice />} />
+            </Routes>
+          </>
+        )}
+        <Footer />
+      </div>
+    </Router>
   );
 };
 

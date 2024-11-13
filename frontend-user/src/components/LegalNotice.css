@@ -1,0 +1,37 @@
+
+.legal-notice-container {
+  margin: 5em 30%;
+  padding: 20px;
+  font-family: var(--FuenteSpaceGrotesk);
+  color: var(--FuentePrincipal);
+}
+
+.legal-notice-container h1 {
+  text-align: center;
+  margin-bottom: 35px;
+  color: var(--ColorResalte);
+  font-size: 3em;
+}
+
+.legal-notice-container h2 {
+  margin-top: 35px;
+  margin-bottom: 5px;
+  text-align: justify;
+  color: var(--FuenteSecundaria);
+  font-family: var(--FuenteRubik);
+}
+
+.legal-notice-container p,
+.legal-notice-container ul {
+  text-align: justify;
+  margin: 5px 0;
+  line-height: 1.6;
+}
+
+
+/* Estilos para pantallas móviles */
+@media (max-width: 768px) {
+  .legal-notice-container {
+    margin: 3em 1em;
+  }
+}
