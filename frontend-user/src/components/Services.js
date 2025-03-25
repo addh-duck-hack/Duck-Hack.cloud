@@ -37,7 +37,7 @@ const services = [
     emailAccounts: 'Ilimitadas',
     bandwidth: 'Ilimitado',
     ssl: 'Incluido',
-    price: 'Cotiza',
+    price: '$1,150.00 MXN',
   },
 ];
 
