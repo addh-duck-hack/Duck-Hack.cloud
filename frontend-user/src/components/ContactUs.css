@@ -78,7 +78,7 @@
   
   .submit-button {
     background-color: var(--ColorResalte);
-    color: var(--FuentePrincipal);
+    color: var(--ColorPrincipal);
     padding: 10px 20px;
     margin-top: 15px;
     border: none;
