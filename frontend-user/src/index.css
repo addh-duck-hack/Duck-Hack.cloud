@@ -5,11 +5,16 @@
   --FuenteSecundaria: #167fbf;
   --ColorSecundario: #4abdfc;
   --ColorResalte: #f8af11;
+  --ColorResalteHover: #9f6f09;
   --FondoDegradado: #000000aa;
+  --FuenteDegradado: #a7cddd11;
   --FondoOscuro: #2c2c2c;
   --FondoClaro: #4b4b4b;
   --ColorPrincipalBack: #04212f;
   --ColorPrincipalNav: #043147;
+  --ColorSombras: rgba(0, 0, 0, 0.3);
+  --ColorSombreBlanca: rgba(200,200,200, 0.1);
+  --FondoIcono: #12233b;
 
   /* Fuentes */
   --FuenteRubik: 'Rubik', sans-serif;

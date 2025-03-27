@@ -45,7 +45,7 @@
     margin-top: 80px;
     padding: 40px 60px;
     border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 8px var(--ColorSombras);
     text-align: center;
   }
   
@@ -78,7 +78,7 @@
   
   .submit-button {
     background-color: var(--ColorResalte);
-    color: #fff;
+    color: var(--FuentePrincipal);
     padding: 10px 20px;
     margin-top: 15px;
     border: none;

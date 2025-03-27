@@ -44,11 +44,10 @@
     max-width: 250px;
     margin: 0 auto;
     text-align: center;
-    color: #ffffff;
   }
   
   .service-icon {
-    background-color: #12233b;
+    background-color: var(--FondoIcono);
     border-radius: 50%;
     width: 80px;
     height: 80px;
@@ -60,18 +59,18 @@
   
   .service-icon i {
     font-size: 2rem;
-    color: #4abdfc;
+    color: var(--ColorSecundario);
   }
   
   .service-title {
     font-size: 1.3rem; /* Tamaño ajustado del título de cada servicio */
-    color: #4abdfc;
+    color: var(--ColorSecundario);
     margin-bottom: 10px;
   }
   
   .service-description {
     font-size: 1rem;
-    color: #c7cfdc;
+    color: var(--FuentePrincipal);
   }
   
 

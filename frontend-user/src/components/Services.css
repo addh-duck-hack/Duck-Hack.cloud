@@ -17,7 +17,7 @@
   .service-card {
     background-color: var(--FondoClaro);
     border-radius: 10px;
-    box-shadow: 2px 4px 8px rgba(200,200,200, 0.1);
+    box-shadow: 2px 4px 8px var(--ColorSombreBlanca);
     overflow: hidden;
     display: flex;
     flex-direction: column;

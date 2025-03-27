@@ -84,13 +84,13 @@
   width: 15px;
   height: 15px;
   border-radius: 50%;
-  border: 2px solid white;
+  border: 2px solid var(--FuentePrincipal);
   cursor: pointer;
   transition: background-color 0.3s ease;
 }
 
 .indicator.active {
-  background-color: white;
+  background-color: var(--FuentePrincipal);
 }
 
 @media (max-width: 768px) {

@@ -12,6 +12,9 @@
   --FondoClaro: #4b4b4b;
   --ColorPrincipalBack: #04212f;
   --ColorPrincipalNav: #043147;
+  --ColorSombras: rgba(0, 0, 0, 0.3);
+  --ColorSombreBlanca: rgba(200,200,200, 0.1);
+  --FondoIcono: #12233b;
 
   /* Fuentes */
   --FuenteRubik: 'Rubik', sans-serif;
