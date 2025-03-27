@@ -28,7 +28,7 @@
   }
   
   .contact-us-title::before {
-    content: "CONTACTANOS";
+    content: "CONTÁCTANOS";
     position: absolute;
     top: 50%; /* Centrado vertical */
     left: 50%;

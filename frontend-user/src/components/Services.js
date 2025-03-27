@@ -5,7 +5,7 @@ import './Services.css';
 const services = [
   {
     name: 'Basic',
-    description: 'Excelente para un negocio pequeño, una pagina personal o un blog personal',
+    description: 'Excelente para un negocio pequeño, una pagina personal o un blog personal.',
     storage: '10 GB',
     emailAccounts: '15',
     bandwidth: '100 GB',
@@ -14,7 +14,7 @@ const services = [
   },
   {
     name: 'Medium',
-    description: 'Quieres un poco mas, aqui podras alojar un sitio mas especializado como un blog con multiples colaboradores',
+    description: 'Quieres un poco más, aquí podrás alojar un sitio más especializado como un blog con múltiples colaboradores.',
     storage: '15 GB',
     emailAccounts: '30',
     bandwidth: '150 GB',
@@ -23,7 +23,7 @@ const services = [
   },
   {
     name: 'Advanced',
-    description: 'Para usuarios avanzados que necesitan el maximo desempeño, velocidad y seguridad para sus proyectos',
+    description: 'Para usuarios avanzados que necesitan el máximo desempeño, velocidad y seguridad para sus proyectos.',
     storage: '30 GB',
     emailAccounts: '100',
     bandwidth: 'Ilimitado',
@@ -32,7 +32,7 @@ const services = [
   },
   {
     name: 'Pro',
-    description: 'Aun necesitas mas, podemos ajustarnos a la medida de tus necesidades, el limite es tu imaginación',
+    description: 'Aún necesitas más, podemos ajustarnos a la medida de tus necesidades, el límite es tu imaginación.',
     storage: '100 GB',
     emailAccounts: 'Ilimitadas',
     bandwidth: 'Ilimitado',
@@ -82,7 +82,7 @@ const Services = () => {
               </div>
               <div className="service-feature">
                 <i className="fas fa-check icon"></i>
-                <p>Se puede escalar o disminur el plan sin penalización</p>
+                <p>Se puede escalar o disminuir el plan sin penalización</p>
               </div>
               <div className="service-feature">
                 <i className="fas fa-check icon"></i>

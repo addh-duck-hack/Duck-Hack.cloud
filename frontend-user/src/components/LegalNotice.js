@@ -12,9 +12,9 @@ const LegalNotice = () => {
         <p><strong>Nombre comercial:</strong> Duck Hack</p>
         <p><strong>Representante legal:</strong> Adrián Cabrera Jacobo</p>
         <p><strong>RFC:</strong> CAJA911127IH1</p>
-        <p><strong>Domicilio legal:</strong> Priv. Flor de Azucena No 112, Col. Paseos de Chavarría, Mineral de la Reforma, Hidalgo, C.P. 42186</p>
+        <p><strong>Domicilio legal:</strong> Priv. Flor de Azucena No 112, Col. Paseos de Chavarría, Mineral de la Reforma, Hidalgo, C.P. 42186.</p>
         <p><strong>Email:</strong> a.jacobo@duck-hack.com</p>
-        <p><strong>Telefono:</strong> (+52) 720-258-6341</p>
+        <p><strong>Télefono:</strong> (+52) 720-258-6341</p>
       </section>
       <section>
         <h2>2. Objeto del Sitio Web</h2>

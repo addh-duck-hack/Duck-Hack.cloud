@@ -20,7 +20,7 @@ const AboutUs = () => {
           </p>
           <h3>Nuestra Misión</h3>
           <p>
-            Ayudar a las empresas a crecer digitalmente con soluciones web personalizadas y un servicio de hosting robusto,garantizando la seguridad y el rendimiento de sus proyectos online.
+            Ayudar a las empresas a crecer digitalmente con soluciones web personalizadas y un servicio de hosting robusto, garantizando la seguridad y el rendimiento de sus proyectos online.
           </p>
           <h3>Nuestra Visión</h3>
           <p>

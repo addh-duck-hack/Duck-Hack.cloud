@@ -52,7 +52,7 @@ const ContactUs = () => {
       className="contact-us"
       style={{ backgroundImage: `url(${backgroundMap})` }}
     >
-      <h2 className="contact-us-title">CONTACTANOS</h2>
+      <h2 className="contact-us-title">CONTÁCTANOS</h2>
       <div className="overlay">
         <div className="contact-form-container">
           {!formSubmitted ? ( // Condicional para mostrar el formulario o el mensaje de agradecimiento
