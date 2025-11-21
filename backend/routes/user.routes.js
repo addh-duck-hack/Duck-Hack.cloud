@@ -42,7 +42,7 @@ router.post("/register", async (req, res) => {
 
     // Se enviara el correo con una url de frontend para verificar el email, esto para dar visibilidad al usuario y no solo consumir un endpoint
     const backendBase = process.env.FRONTEND_URL;
-    const verifyUrl = `${backendBase}/api/users/verify?token=${token}`;
+    const verifyUrl = `${backendBase}/users/verify?token=${token}`;
 
     // Configurar transporter usando variables de entorno
     const transporter = nodemailer.createTransport({

@@ -46,31 +46,33 @@ const App = () => {
     <Router>
       <div className="App">
         <NavBar /> {/* Barra de navegación siempre visible */}
-        {loading ? (
-          <Loader />
-        ) : (
-          <>
-            <ScrollToSection /> {/* Desplazamiento automático después del loader */}
-            <Routes>
-              <Route
-                path="/"
-                element={
-                  <>
-                    <Inicio />
-                    <AboutUs />
-                    <OurServices />
-                    <Services />
-                    <Customers />
-                    <ContactUs />
-                  </>
-                }
-              />
-              <Route path="/legal-notice" element={<LegalNotice />} />
-              <Route path="/privacy-policy" element={<PrivacyNotice />} />
-              <Route path="/users/verify" element={<VerifyUser />} />
-            </Routes>
-          </>
-        )}
+        <main className="main-content">
+          {loading ? (
+            <Loader />
+          ) : (
+            <>
+              <ScrollToSection /> {/* Desplazamiento automático después del loader */}
+              <Routes>
+                <Route
+                  path="/"
+                  element={
+                    <>
+                      <Inicio />
+                      <AboutUs />
+                      <OurServices />
+                      <Services />
+                      <Customers />
+                      <ContactUs />
+                    </>
+                  }
+                />
+                <Route path="/legal-notice" element={<LegalNotice />} />
+                <Route path="/privacy-policy" element={<PrivacyNotice />} />
+                <Route path="/users/verify" element={<VerifyUser />} />
+              </Routes>
+            </>
+          )}
+        </main>
         <Footer />
       </div>
     </Router>
