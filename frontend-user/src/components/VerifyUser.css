@@ -1,0 +1,82 @@
+.verify-container {
+  max-width: 720px;
+  margin: 4rem auto;
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.04));
+  border-radius: 12px;
+  padding: 2.25rem;
+  box-shadow: 0 8px 24px var(--ColorSombras);
+  color: var(--FuentePrincipal);
+  border: 1px solid rgba(167,205,221,0.06);
+}
+
+.verify-container h2 {
+  margin: 0 0 0.5rem 0;
+  color: var(--ColorPrincipalBack);
+  font-size: 1.6rem;
+}
+
+.verify-container p {
+  color: var(--FuentePrincipal);
+  margin: 0 0 1rem 0;
+  line-height: 1.45;
+}
+
+.notice {
+  background: rgba(255,255,255,0.03);
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  border: 1px solid rgba(167,205,221,0.03);
+}
+
+.actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.verify-btn {
+  background: linear-gradient(90deg, var(--FuenteSecundaria), var(--ColorSecundario));
+  color: #fff;
+  border: none;
+  padding: 0.65rem 1.1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  box-shadow: 0 6px 18px rgba(3,40,58,0.18);
+  transition: transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+}
+
+.verify-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.verify-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.result {
+  padding: 0.85rem 1rem;
+  border-radius: 8px;
+  margin-top: 0.5rem;
+  color: #fff;
+}
+
+.result.success {
+  background: linear-gradient(90deg, #2ecc71, #27ae60);
+}
+
+.result.error {
+  background: linear-gradient(90deg, #e74c3c, #c0392b);
+}
+
+@media (max-width: 720px) {
+  .verify-container {
+    margin: 2rem 1rem;
+    padding: 1.25rem;
+  }
+  .verify-container h2 { font-size: 1.25rem; }
+}

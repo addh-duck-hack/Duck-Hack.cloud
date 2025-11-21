@@ -5,6 +5,7 @@ const User = require("../models/user.model");
 const jwt = require('jsonwebtoken');
 const verifyToken = require('../middleware/authMiddleware');
 const multer = require("multer");
+const nodemailer = require('nodemailer');
 
 // Configuración de Multer para subir imágenes a la carpeta "uploads"
 const storage = multer.diskStorage({
@@ -36,9 +37,68 @@ router.post("/register", async (req, res) => {
     const { name, email, password, role } = req.body;
     const user = new User({ name, email, password, role });
     await user.save(); // Aquí la contraseña se encriptará automáticamente
-    res.status(201).json({ message: "Usuario registrado con éxito", user });
+    // Generar token de verificación (expira en 24h)
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+
+    // Se enviara el correo con una url de frontend para verificar el email, esto para dar visibilidad al usuario y no solo consumir un endpoint
+    const backendBase = process.env.FRONTEND_URL;
+    const verifyUrl = `${backendBase}/api/users/verify?token=${token}`;
+
+    // Configurar transporter usando variables de entorno
+    const transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST,
+      port: parseInt(process.env.EMAIL_PORT || '587', 10),
+      secure: false,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: user.email,
+      subject: 'Verifica tu cuenta - Duck Hack',
+      html: `<p>Hola ${user.name || ''},</p>
+             <p>Gracias por registrarte. Para activar tu cuenta, haz clic en el siguiente enlace:</p>
+             <p><a href="${verifyUrl}">Verificar mi correo</a></p>
+             <p>Si no solicitaste este correo, ignóralo.</p>`
+    };
+
+    // Enviar correo (no bloquear el flujo si falla el envío)
+    transporter.sendMail(mailOptions).catch(err => {
+      console.error('Error enviando correo de verificación:', err);
+    });
+
+    res.status(201).json({ message: "Usuario registrado con éxito. Revisa tu correo para verificar la cuenta.", user });
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+});
+
+// Ruta para verificar el token de email y activar la cuenta
+router.get('/verify', async (req, res) => {
+  const token = req.query.token;
+  if (!token) {
+    return res.status(400).json({ message: 'Token de verificación requerido' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id);
+    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+
+    if (user.isVerified) {
+      return res.status(200).json({ message: 'Usuario ya verificado' });
+    }
+
+    user.isVerified = true;
+    await user.save();
+
+    res.status(200).json({ message: 'Usuario verificado correctamente' });
+  } catch (err) {
+    console.error('Error verificando token:', err);
+    res.status(400).json({ message: 'Token inválido o expirado' });
   }
 });
 
@@ -117,6 +177,11 @@ router.post("/login", async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+
+    // Verificar que el usuario haya confirmado su email
+    if (!user.isVerified) {
+      return res.status(403).json({ message: 'Cuenta no verificada. Revisa tu correo para activar la cuenta.' });
     }
 
     // Comparar la contraseña proporcionada con la almacenada en la base de datos

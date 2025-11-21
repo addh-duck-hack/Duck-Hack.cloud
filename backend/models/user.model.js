@@ -26,6 +26,10 @@ const userSchema = new mongoose.Schema({
   profileImage: {
     type: String, // Almacena la ruta de la imagen subida
   },
+  isVerified: {
+    type: Boolean,
+    default: false
+  },
   createdAt: {
     type: Date,
     default: Date.now

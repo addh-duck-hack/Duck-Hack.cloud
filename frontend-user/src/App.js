@@ -12,6 +12,7 @@ import ContactUs from './components/ContactUs';
 import Footer from './components/Footer';
 import LegalNotice from './components/LegalNotice';
 import PrivacyNotice from './components/PrivacyNotice';
+import VerifyUser from './components/VerifyUser';
 import { scroller } from 'react-scroll';
 import './App.css';
 
@@ -66,6 +67,7 @@ const App = () => {
               />
               <Route path="/legal-notice" element={<LegalNotice />} />
               <Route path="/privacy-policy" element={<PrivacyNotice />} />
+              <Route path="/users/verify" element={<VerifyUser />} />
             </Routes>
           </>
         )}
