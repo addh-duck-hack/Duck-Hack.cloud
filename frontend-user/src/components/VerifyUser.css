@@ -10,16 +10,18 @@
 }
 
 .verify-container h2 {
-  color: var(--ColorResalte);
-  font-family: var(--FuenteRubik);
-  font-size: 2rem;
-  margin: 0;
+    color: var(--FuenteSecundaria);
+    font-family: var(--FuenteRubik);
+    font-size: 2.8rem;
+    margin: 0px;
 }
 
 .verify-container p {
-  color: var(--FuentePrincipal);
-  font-family: var(--FuenteSpaceGrotesk);
-  margin: 0;
+    color: var(--FuentePrincipa);
+    font-family: var(--FuenteSpaceGrotesk);
+    font-size: 1.8rem;
+    margin: 0px 0px 30px;
+    padding: 0px 20px;
 }
 
 .notice {
