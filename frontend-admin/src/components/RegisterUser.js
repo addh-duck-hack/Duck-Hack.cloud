@@ -7,9 +7,10 @@ const RegisterUser = () => {
     name: "",
     email: "",
     password: "",
-    role: "user", // Puedes cambiar el valor predeterminado según el rol que desees
+    confirmPassword: "",
   });
   const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -17,19 +18,29 @@ const RegisterUser = () => {
       ...userData,
       [name]: value,
     });
+    // limpiar errores cuando el usuario escribe
+    setError("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Validaciones en cliente
+    if (!userData.password || userData.password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+    if (userData.password !== userData.confirmPassword) {
+      setError('Las contraseñas no coinciden');
+      return;
+    }
+
     try {
-      const response = await axios.post(`${process.env.REACT_APP_HOST_SERVICES_URL}/api/users/register`, userData);
+      // Forzar role por defecto en el payload
+      const { name, email, password } = userData;
+      const payload = { name, email, password, role: 'user' };
+      const response = await axios.post(`${process.env.REACT_APP_HOST_SERVICES_URL}/api/users/register`, payload);
       setMessage(response.data.message || "Usuario registrado correctamente");
-      setUserData({
-        name: "",
-        email: "",
-        password: "",
-        role: "user", // Restablece el valor después de registrar
-      });
+      setUserData({ name: "", email: "", password: "", confirmPassword: "" });
     } catch (error) {
       setMessage(error.response?.data?.message || "Error al registrar el usuario");
     }
@@ -73,21 +84,20 @@ const RegisterUser = () => {
           />
         </div>
         <div>
-          <label htmlFor="role">Rol:</label>
-          <select
-            id="role"
-            name="role"
-            value={userData.role}
+          <label htmlFor="confirmPassword">Confirmar contraseña:</label>
+          <input
+            type="password"
+            id="confirmPassword"
+            name="confirmPassword"
+            value={userData.confirmPassword}
             onChange={handleChange}
             required
-          >
-            <option value="user">Usuario</option>
-            <option value="admin">Administrador</option>
-            <option value="editor">Editor</option>
-          </select>
+          />
         </div>
-        <button type="submit">Registrar</button>
+        {/* El rol se asigna por defecto como 'user' */}
+        <button type="submit" disabled={userData.password !== userData.confirmPassword}>Registrar</button>
       </form>
+      {error && <p style={{ color: 'var(--ColorResalte)' }}>{error}</p>}
       {message && <p>{message}</p>}
 
       <p>

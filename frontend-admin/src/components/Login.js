@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import Loader from "./Loader"; // Importar el componente Loader
+import RegisterUser from "./RegisterUser"; // Reutilizar componente de registro
 
 const Login = () => {
   const [userData, setUserData] = useState({
@@ -11,6 +12,7 @@ const Login = () => {
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false); // Estado para mostrar el loader
   const [isLoggedIn, setIsLoggedIn] = useState(false); // Estado para verificar si el usuario ha iniciado sesión
+  const [showRegister, setShowRegister] = useState(false); // Mostrar form de registro inline
   const navigate = useNavigate(); // React Router v6
 
   const handleChange = (e) => {
@@ -60,7 +62,9 @@ const Login = () => {
       {isLoading ? (
         <Loader /> // Mostrar el loader mientras se está cargando
       ) : (
-        <form onSubmit={handleSubmit}>
+        <>
+        {!showRegister ? (
+          <form onSubmit={handleSubmit}>
           <div>
             <label htmlFor="email">Correo Electrónico:</label>
             <input
@@ -84,7 +88,20 @@ const Login = () => {
             />
           </div>
           <button type="submit">Iniciar Sesión</button>
-        </form>
+          <div style={{ marginTop: '1rem' }}>
+            <button type="button" onClick={() => setShowRegister(true)}>Crear cuenta nueva</button>
+          </div>
+          </form>
+        ) : (
+          <div>
+            <h3>Crear cuenta</h3>
+            <RegisterUser />
+            <div style={{ marginTop: '0.5rem' }}>
+              <button type="button" onClick={() => setShowRegister(false)}>Volver al login</button>
+            </div>
+          </div>
+        )}
+        </>
       )}
       {message && <p>{message}</p>}
       {/*<p>

@@ -34,8 +34,9 @@ const upload = multer({
 // Ruta para registrar un nuevo usuario
 router.post("/register", async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
-    const user = new User({ name, email, password, role });
+    // No aceptar role desde el cliente al registrar; forzar 'user'
+    const { name, email, password } = req.body;
+    const user = new User({ name, email, password, role: 'user' });
     await user.save(); // Aquí la contraseña se encriptará automáticamente
     // Generar token de verificación (expira en 24h)
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
