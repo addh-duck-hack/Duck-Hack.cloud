@@ -44,8 +44,8 @@ const AdminMenu = () => {
       <h2>Menú de Administrador</h2>
 
       {/* Enlace para crear un nuevo post */}
-      <div>
-        <Link to="/create-post" className="btn btn-primary">Crear Nuevo Post</Link>
+      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
+        <Link to="/create-post" className="btn btn-primary" style={{ padding: '0.5rem 1rem', background: 'linear-gradient(90deg, var(--FuenteSecundaria), var(--ColorSecundario))', color: '#fff', borderRadius: 8, textDecoration: 'none' }}>Crear Nuevo Post</Link>
         <button onClick={handleLogout}>Cerrar Sesión</button>
       </div>
 

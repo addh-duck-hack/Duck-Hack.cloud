@@ -7,8 +7,10 @@ const CreatePost = () => {
     title: "",
     content: "",
     tags: "",
+    published: false,
   });
   const [message, setMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
   // Obtener el token desde localStorage
@@ -27,13 +29,20 @@ const CreatePost = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Validación mínima
+      if (!postData.title.trim() || !postData.content.trim()) {
+        setMessage('El título y el contenido son obligatorios');
+        return;
+      }
+      setIsSubmitting(true);
       // Enviar los datos del post al backend
       const response = await axios.post(
         `${process.env.REACT_APP_HOST_SERVICES_URL}/api/posts`,
         {
           title: postData.title,
           content: postData.content,
-          tags: postData.tags.split(",").map((tag) => tag.trim()), // Separar etiquetas por comas
+          tags: postData.tags ? postData.tags.split(",").map((tag) => tag.trim()) : [], // Separar etiquetas por comas
+          published: postData.published,
         },
         {
           headers: {
@@ -41,12 +50,13 @@ const CreatePost = () => {
           },
         }
       );
-
       setMessage("Post creado exitosamente");
+      setIsSubmitting(false);
       navigate("/admin"); // Redirigir al menú de administración después de crear el post
     } catch (error) {
       console.error("Error al crear el post", error);
       setMessage("Error al crear el post. Inténtalo nuevamente.");
+      setIsSubmitting(false);
     }
   };
 
@@ -85,7 +95,17 @@ const CreatePost = () => {
             onChange={handleChange}
           />
         </div>
-        <button type="submit">Crear Post</button>
+        <div>
+          <label htmlFor="published">Publicar ahora:</label>
+          <input
+            type="checkbox"
+            id="published"
+            name="published"
+            checked={postData.published}
+            onChange={(e) => setPostData({ ...postData, published: e.target.checked })}
+          />
+        </div>
+        <button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Creando...' : 'Crear Post'}</button>
       </form>
       {message && <p>{message}</p>}
     </div>
