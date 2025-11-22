@@ -114,20 +114,13 @@ const RegisterUser = ({ onBack }) => {
         </div>
         {/* El rol se asigna por defecto como 'user' */}
         <button type="submit" disabled={userData.password !== userData.confirmPassword}>Registrar</button>
-      </form>
-      {error && <p style={{ color: 'var(--ColorResalte)' }}>{error}</p>}
-      {message && <p>{message}</p>}
-
-      {onBack ? (
         <div>
           <p>¿Ya tienes una cuenta?</p>
           <button type="button" onClick={onBack}>Iniciar sesión</button>
         </div>
-      ) : (
-        <p>
-          ¿Ya tienes una cuenta? <Link to="/">Login</Link>
-        </p>
-      )}
+      </form>
+      {error && <p style={{ color: 'var(--ColorResalte)' }}>{error}</p>}
+      {message && <p>{message}</p>}
     </div>
   );
 };

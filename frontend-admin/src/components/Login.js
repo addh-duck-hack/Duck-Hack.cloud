@@ -58,52 +58,50 @@ const Login = () => {
 
   return (
     <div>
-      <h2>Iniciar Sesión</h2>
       {isLoading ? (
         <Loader /> // Mostrar el loader mientras se está cargando
       ) : (
         <>
         {!showRegister ? (
-          <form onSubmit={handleSubmit}>
           <div>
-            <label htmlFor="email">Correo Electrónico:</label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              value={userData.email}
-              onChange={handleChange}
-              required
-            />
+            <h2>Iniciar Sesión</h2>
+            <form onSubmit={handleSubmit}>
+            <div>
+              <label htmlFor="email">Correo Electrónico:</label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                value={userData.email}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="password">Contraseña:</label>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                value={userData.password}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <button type="submit">Iniciar Sesión</button>
+            <div style={{ marginTop: '1rem' }}>
+              <button type="button" onClick={() => setShowRegister(true)}>Crear cuenta nueva</button>
+            </div>
+            </form>
           </div>
-          <div>
-            <label htmlFor="password">Contraseña:</label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              value={userData.password}
-              onChange={handleChange}
-              required
-            />
-          </div>
-          <button type="submit">Iniciar Sesión</button>
-          <div style={{ marginTop: '1rem' }}>
-            <button type="button" onClick={() => setShowRegister(true)}>Crear cuenta nueva</button>
-          </div>
-          </form>
         ) : (
           <div>
-            <h3>Crear cuenta</h3>
             <RegisterUser onBack={() => setShowRegister(false)} />
           </div>
         )}
         </>
       )}
       {message && <p>{message}</p>}
-      {/*<p>
-        ¿No tienes una cuenta? <Link to="/register">Crear cuenta nueva</Link>
-      </p>*/}
     </div>
   );
 };
