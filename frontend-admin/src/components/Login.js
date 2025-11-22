@@ -95,10 +95,7 @@ const Login = () => {
         ) : (
           <div>
             <h3>Crear cuenta</h3>
-            <RegisterUser />
-            <div style={{ marginTop: '0.5rem' }}>
-              <button type="button" onClick={() => setShowRegister(false)}>Volver al login</button>
-            </div>
+            <RegisterUser onBack={() => setShowRegister(false)} />
           </div>
         )}
         </>

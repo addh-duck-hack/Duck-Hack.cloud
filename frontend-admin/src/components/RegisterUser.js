@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
 
-const RegisterUser = () => {
+const RegisterUser = ({ onBack }) => {
   const [userData, setUserData] = useState({
     name: "",
     email: "",
@@ -118,9 +118,16 @@ const RegisterUser = () => {
       {error && <p style={{ color: 'var(--ColorResalte)' }}>{error}</p>}
       {message && <p>{message}</p>}
 
-      <p>
-        ¿Ya tienes una cuenta? <Link to="/">Login</Link>
-      </p>
+      {onBack ? (
+        <div>
+          <p>¿Ya tienes una cuenta?</p>
+          <button type="button" onClick={onBack}>Iniciar sesión</button>
+        </div>
+      ) : (
+        <p>
+          ¿Ya tienes una cuenta? <Link to="/">Login</Link>
+        </p>
+      )}
     </div>
   );
 };
