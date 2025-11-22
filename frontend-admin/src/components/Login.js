@@ -37,7 +37,7 @@ const Login = () => {
       setIsLoggedIn(true); // Cambiar el estado a "logueado"
       
     } catch (error) {
-      const serverMsg = error.response?.message || error.response?.error;
+      const serverMsg = error.response?.data?.message || error.response?.data?.error;
       if (serverMsg) {
         setMessage(serverMsg);
       } else {
