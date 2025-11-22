@@ -95,7 +95,7 @@ const Login = () => {
             </div>
             <button type="submit">Iniciar Sesión</button>
             <div style={{ marginTop: '1rem' }}>
-              <button type="button" onClick={() => setShowRegister(true)}>Crear cuenta nueva</button>
+              <button type="button" onClick={() => { setShowRegister(true); setMessage(''); }}>Crear cuenta nueva</button>
             </div>
             </form>
           </div>
