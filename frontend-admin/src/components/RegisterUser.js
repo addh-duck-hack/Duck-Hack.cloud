@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
 
@@ -21,6 +21,24 @@ const RegisterUser = () => {
     // limpiar errores cuando el usuario escribe
     setError("");
   };
+
+  // Validación en tiempo real para mostrar errores cuando las contraseñas no coinciden
+  useEffect(() => {
+    // Priorizar longitud mínima
+    if (userData.password && userData.password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+
+    // Si ambos campos están presentes y no coinciden, mostrar error
+    if (userData.confirmPassword && userData.password !== userData.confirmPassword) {
+      setError('Las contraseñas no coinciden');
+      return;
+    }
+
+    // Si todo está bien, limpiar el error
+    setError('');
+  }, [userData.password, userData.confirmPassword]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
