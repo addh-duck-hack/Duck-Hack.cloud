@@ -36,6 +36,13 @@ router.post("/register", async (req, res) => {
   try {
     // No aceptar role desde el cliente al registrar; forzar 'user'
     const { name, email, password } = req.body;
+
+    // Verificar si el correo ya está registrado
+    const existing = await User.findOne({ email });
+    if (existing) {
+      return res.status(409).json({ message: 'El correo ya está registrado' });
+    }
+
     const user = new User({ name, email, password, role: 'user' });
     await user.save(); // Aquí la contraseña se encriptará automáticamente
     // Generar token de verificación (expira en 24h)
@@ -73,7 +80,20 @@ router.post("/register", async (req, res) => {
 
     res.status(201).json({ message: "Usuario registrado con éxito. Revisa tu correo para verificar la cuenta.", user });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    // Manejo de errores comunes
+    if (error.name === 'ValidationError') {
+      // Concatenar mensajes de validación de Mongoose
+      const messages = Object.values(error.errors).map(e => e.message).join(', ');
+      return res.status(400).json({ message: messages });
+    }
+
+    // Error por clave duplicada (por si no se detectó antes)
+    if (error.code === 11000) {
+      return res.status(409).json({ message: 'El correo ya está registrado' });
+    }
+
+    // Error genérico
+    res.status(500).json({ message: 'Error al registrar el usuario' });
   }
 });
 
@@ -177,7 +197,7 @@ router.post("/login", async (req, res) => {
     // Verificar si el usuario existe
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+      return res.status(404).json({ message: "Error al iniciar sesión. Verifica tus credenciales." });
     }
 
     // Verificar que el usuario haya confirmado su email
@@ -188,7 +208,7 @@ router.post("/login", async (req, res) => {
     // Comparar la contraseña proporcionada con la almacenada en la base de datos
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      return res.status(400).json({ message: "Contraseña incorrecta" });
+      return res.status(400).json({ message: "Error al iniciar sesión. Verifica tus credenciales." });
     }
 
     // Crear un token JWT

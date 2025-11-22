@@ -37,7 +37,12 @@ const Login = () => {
       setIsLoggedIn(true); // Cambiar el estado a "logueado"
       
     } catch (error) {
-      setMessage("Error al iniciar sesión. Verifica tus credenciales.");
+      const serverMsg = error.response?.message || error.response?.error;
+      if (serverMsg) {
+        setMessage(serverMsg);
+      } else {
+        setMessage("Error no identificado en el servidor, intenta nuevamente más tarde.");
+      }
       setIsLoading(false); // Dejar de mostrar el loader si hay un error
     }
   };

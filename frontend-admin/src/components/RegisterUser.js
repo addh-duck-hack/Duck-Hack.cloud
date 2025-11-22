@@ -60,7 +60,14 @@ const RegisterUser = ({ onBack }) => {
       setMessage(response.data.message || "Usuario registrado correctamente");
       setUserData({ name: "", email: "", password: "", confirmPassword: "" });
     } catch (error) {
-      setMessage(error.response?.data?.message || "Error al registrar el usuario");
+      // Mostrar el mensaje del servidor como error si existe
+      const serverMsg = error.response?.message || error.response?.error;
+      if (serverMsg) {
+        setError(serverMsg);
+      } else {
+        setError("Error al registrar el usuario");
+      }
+      setMessage("");
     }
   };
 
