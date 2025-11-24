@@ -18,11 +18,13 @@ mongoose.connect(process.env.MONGO_URL)
 const userRoutes = require("./routes/user.routes");
 const postRoutes = require("./routes/post.routes");
 const mailRoutes = require("./routes/mail.routes");
+const categoryRoutes = require("./routes/category.routes");
 
 app.use(cors()); // Permitir CORS para todas las solicitudes
 app.use("/api/users", userRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/mail", mailRoutes);
+app.use("/api/categories", categoryRoutes);
 // Servir la carpeta uploads como estática
 app.use('/uploads', express.static('uploads'));
 

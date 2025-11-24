@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
@@ -8,7 +8,9 @@ const CreatePost = () => {
     content: "",
     tags: "",
     published: false,
+    category: "",
   });
+  const [categories, setCategories] = useState([]);
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
@@ -43,6 +45,7 @@ const CreatePost = () => {
           content: postData.content,
           tags: postData.tags ? postData.tags.split(",").map((tag) => tag.trim()) : [], // Separar etiquetas por comas
           published: postData.published,
+          category: postData.category || undefined,
         },
         {
           headers: {
@@ -59,6 +62,19 @@ const CreatePost = () => {
       setIsSubmitting(false);
     }
   };
+
+  // Obtener categorias al montar
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_HOST_SERVICES_URL}/api/categories`);
+        setCategories(res.data || []);
+      } catch (err) {
+        console.error('Error fetching categories', err);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   return (
     <div>
@@ -94,6 +110,15 @@ const CreatePost = () => {
             value={postData.tags}
             onChange={handleChange}
           />
+        </div>
+        <div>
+          <label htmlFor="category">Categoría:</label>
+          <select id="category" name="category" value={postData.category} onChange={handleChange}>
+            <option value="">-- Selecciona una categoría --</option>
+            {categories.map(cat => (
+              <option key={cat._id} value={cat._id}>{cat.name}</option>
+            ))}
+          </select>
         </div>
         <div>
           <label htmlFor="published">Publicar ahora:</label>
