@@ -6,6 +6,13 @@ const categorySchema = new mongoose.Schema({
     required: true,
     trim: true,
   },
+  path: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true,
+    trim: true
+  },
   description: {
     type: String,
     default: ''
