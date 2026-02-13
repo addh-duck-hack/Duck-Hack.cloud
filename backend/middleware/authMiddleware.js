@@ -88,10 +88,26 @@ const authorizeSelfOrRoles = (idParam, ...allowedRoles) => {
   };
 };
 
+const authorizeSelf = (idParam) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "No autenticado." });
+    }
+
+    const requestedId = req.params[idParam];
+    if (!requestedId || String(req.user.id) !== String(requestedId)) {
+      return res.status(403).json({ message: "No tienes permisos para realizar esta acción." });
+    }
+
+    return next();
+  };
+};
+
 module.exports = {
   verifyToken,
   authorizeRoles,
   authorizeSelfOrRoles,
+  authorizeSelf,
   isValidRole,
   ROLES,
   STAFF_ROLES,

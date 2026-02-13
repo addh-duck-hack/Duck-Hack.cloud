@@ -3,9 +3,16 @@ const router = express.Router();
 const mongoose = require("mongoose");
 const User = require("../models/user.model");
 const jwt = require('jsonwebtoken');
-const { verifyToken, authorizeRoles, authorizeSelfOrRoles, isValidRole, ROLES } = require('../middleware/authMiddleware');
+const { verifyToken, authorizeRoles, authorizeSelfOrRoles, authorizeSelf, isValidRole, ROLES } = require('../middleware/authMiddleware');
 const multer = require("multer");
 const nodemailer = require('nodemailer');
+
+const sanitizeUser = (userDoc) => {
+  if (!userDoc) return null;
+  const user = typeof userDoc.toObject === "function" ? userDoc.toObject() : { ...userDoc };
+  delete user.password;
+  return user;
+};
 
 // Configuración de Multer para subir imágenes a la carpeta "uploads"
 const storage = multer.diskStorage({
@@ -78,7 +85,10 @@ router.post("/register", async (req, res) => {
       console.error('Error enviando correo de verificación:', err);
     });
 
-    res.status(201).json({ message: "Usuario registrado con éxito. Revisa tu correo para verificar la cuenta.", user });
+    res.status(201).json({
+      message: "Usuario registrado con éxito. Revisa tu correo para verificar la cuenta.",
+      user: sanitizeUser(user),
+    });
   } catch (error) {
     // Manejo de errores comunes
     if (error.name === 'ValidationError') {
@@ -132,11 +142,20 @@ router.put(
   async (req, res) => {
   try {
     const userId = req.params.id;
+    const actorRole = req.user.role;
+    const actorId = String(req.user.id);
 
-    const { name } = req.body;
+    const { name, email, role } = req.body;
+
+    if (email !== undefined) {
+      return res.status(400).json({ message: "El correo electrónico no puede modificarse." });
+    }
 
     // Crear objeto de actualización con los datos enviados
-    let updateData = { name };
+    const updateData = {};
+    if (name !== undefined) {
+      updateData.name = name;
+    }
 
     // Si se ha subido una imagen, añadir la ruta al campo profileImage
     if (req.file) {
@@ -144,22 +163,89 @@ router.put(
     }
 
     // Actualizar el usuario en la base de datos
+    const currentUser = await User.findById(userId).select("role");
+    if (!currentUser) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+
+    // El store_admin no puede editar perfiles de super_admin
+    if (actorRole === ROLES.STORE_ADMIN && currentUser.role === ROLES.SUPER_ADMIN) {
+      return res.status(403).json({ message: "No tienes permisos para editar este usuario." });
+    }
+
+    const isSelfUpdate = actorId === String(currentUser._id);
+    if (role !== undefined) {
+      if (!isValidRole(role)) {
+        return res.status(400).json({ message: "Rol no válido" });
+      }
+
+      // Solo admins pueden modificar rol
+      if (![ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN].includes(actorRole)) {
+        return res.status(403).json({ message: "No tienes permisos para cambiar roles." });
+      }
+
+      // Un usuario no puede cambiar su propio rol desde este endpoint
+      if (isSelfUpdate) {
+        return res.status(400).json({ message: "No puedes cambiar tu propio rol." });
+      }
+
+      // Un store_admin no puede asignar ni gestionar rol super_admin
+      if (actorRole === ROLES.STORE_ADMIN && role === ROLES.SUPER_ADMIN) {
+        return res.status(403).json({ message: "No tienes permisos para asignar este rol." });
+      }
+
+      updateData.role = role;
+    }
+
     const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true });
 
     if (!updatedUser) {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
-    res.status(200).json({ message: "Usuario actualizado correctamente", user: updatedUser });
+    res.status(200).json({ message: "Usuario actualizado correctamente", user: sanitizeUser(updatedUser) });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Ruta para cambiar la contraseña del usuario autenticado (solo dueño de la cuenta)
+router.patch("/:id/password", verifyToken, authorizeSelf("id"), async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: "currentPassword y newPassword son requeridos." });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: "La nueva contraseña debe tener al menos 6 caracteres." });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      return res.status(400).json({ message: "La contraseña actual no es correcta." });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    return res.status(200).json({ message: "Contraseña actualizada correctamente." });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
   }
 });
 
 // Ruta para obtener todos los usuarios
 router.get("/", verifyToken, authorizeRoles(ROLES.STORE_ADMIN, ROLES.SUPER_ADMIN), async (req, res) => {
   try {
-    const users = await User.find().select("_id name email");
+    const users = await User.find().select("_id name email role isVerified createdAt");
     res.json(users);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -170,6 +256,11 @@ router.get("/", verifyToken, authorizeRoles(ROLES.STORE_ADMIN, ROLES.SUPER_ADMIN
 router.get("/:id", verifyToken, authorizeSelfOrRoles("id", ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN), async (req, res) => {
   try {
     const userId = req.params.id;
+    const actorRole = req.user.role;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "ID no válido" });
+    }
 
     const user = await User.findById(userId);
 
@@ -178,7 +269,12 @@ router.get("/:id", verifyToken, authorizeSelfOrRoles("id", ROLES.SUPER_ADMIN, RO
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
-    res.status(200).json(user);
+    // El store_admin no puede consultar detalle de super_admin
+    if (actorRole === ROLES.STORE_ADMIN && user.role === ROLES.SUPER_ADMIN) {
+      return res.status(403).json({ message: "No tienes permisos para consultar este usuario." });
+    }
+
+    res.status(200).json(sanitizeUser(user));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -219,7 +315,7 @@ router.post("/login", async (req, res) => {
 
     // Si todo está bien, autentica el usuario (puedes generar un token JWT aquí si lo deseas)
     const userResponse = {
-      ...user.toObject(),
+      ...sanitizeUser(user),
       role: user.role,
     };
     res.status(200).json({ message: "Inicio de sesión exitoso", token, user: userResponse });
@@ -232,10 +328,27 @@ router.post("/login", async (req, res) => {
 router.delete("/:id", verifyToken, authorizeRoles(ROLES.STORE_ADMIN, ROLES.SUPER_ADMIN), async (req, res) => {
   try {
     const userId = req.params.id;
+    const actorRole = req.user.role;
+    const actorId = String(req.user.id);
 
     // Verificar si el ID es un ObjectId válido
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: "ID no válido" });
+    }
+
+    const userToDelete = await User.findById(userId);
+    if (!userToDelete) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+
+    // Un store_admin no puede eliminar cuentas super_admin
+    if (actorRole === ROLES.STORE_ADMIN && userToDelete.role === ROLES.SUPER_ADMIN) {
+      return res.status(403).json({ message: "No tienes permisos para eliminar este usuario." });
+    }
+
+    // Evitar auto-eliminación de cuentas administrativas por accidente
+    if (actorId === String(userToDelete._id)) {
+      return res.status(400).json({ message: "No puedes eliminar tu propia cuenta." });
     }
 
     // Buscar y eliminar el usuario por su ID
@@ -246,7 +359,7 @@ router.delete("/:id", verifyToken, authorizeRoles(ROLES.STORE_ADMIN, ROLES.SUPER
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
-    res.status(200).json({ message: "Usuario eliminado correctamente", user: deletedUser });
+    res.status(200).json({ message: "Usuario eliminado correctamente", user: sanitizeUser(deletedUser) });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
