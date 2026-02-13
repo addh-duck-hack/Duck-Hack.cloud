@@ -20,8 +20,8 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['admin', 'editor', 'user'],
-    default: 'user'
+    enum: ['super_admin', 'store_admin', 'catalog_manager', 'order_manager', 'customer'],
+    default: 'customer'
   },
   profileImage: {
     type: String, // Almacena la ruta de la imagen subida

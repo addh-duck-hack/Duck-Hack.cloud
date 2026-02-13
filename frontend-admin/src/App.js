@@ -3,12 +3,13 @@ import { HashRouter as Router, Route, Routes, Navigate } from "react-router-dom"
 import AdminMenu from "./components/AdminMenu";
 import Login from "./components/Login";
 import RegisterUser from "./components/RegisterUser";
-import CreatePost from "./components/CreatePost";
-import EditPost from "./components/EditPost";
 import './index.css';
 
 const App = () => {
-  const isLoggedIn = !!localStorage.getItem("token"); // Verificar si hay un token JWT en localStorage
+  const token = localStorage.getItem("token");
+  const role = localStorage.getItem("role");
+  const adminRoles = ["super_admin", "store_admin", "catalog_manager", "order_manager"];
+  const isLoggedIn = !!token && adminRoles.includes(role); // Verificar token y rol permitido
 
   return (
     <Router>
@@ -17,8 +18,6 @@ const App = () => {
           <Route path="/" element={isLoggedIn ? <Navigate to="/admin" /> : <Login />} />
           <Route path="/admin" element={isLoggedIn ? <AdminMenu /> : <Navigate to="/" />} />
           <Route path="/register" element={<RegisterUser />} />
-          <Route path="/create-post" element={isLoggedIn ? <CreatePost /> : <Navigate to="/" />} />
-          <Route path="/edit-post/:id" element={isLoggedIn ? <EditPost /> : <Navigate to="/" />} />
         </Routes>
       </div>
     </Router>
@@ -26,4 +25,3 @@ const App = () => {
 };
 
 export default App;
-

@@ -3,7 +3,7 @@ const router = express.Router();
 const mongoose = require("mongoose");
 const User = require("../models/user.model");
 const jwt = require('jsonwebtoken');
-const verifyToken = require('../middleware/authMiddleware');
+const { verifyToken, authorizeRoles, isValidRole, ROLES } = require('../middleware/authMiddleware');
 const multer = require("multer");
 const nodemailer = require('nodemailer');
 
@@ -34,7 +34,7 @@ const upload = multer({
 // Ruta para registrar un nuevo usuario
 router.post("/register", async (req, res) => {
   try {
-    // No aceptar role desde el cliente al registrar; forzar 'user'
+    // No aceptar role desde el cliente al registrar; forzar 'customer'
     const { name, email, password } = req.body;
 
     // Verificar si el correo ya está registrado
@@ -43,7 +43,7 @@ router.post("/register", async (req, res) => {
       return res.status(409).json({ message: 'El correo ya está registrado' });
     }
 
-    const user = new User({ name, email, password, role: 'user' });
+    const user = new User({ name, email, password, role: ROLES.CUSTOMER });
     await user.save(); // Aquí la contraseña se encriptará automáticamente
     // Generar token de verificación (expira en 24h)
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
@@ -133,10 +133,10 @@ router.put("/:id", verifyToken, upload.single('profileImage'), async (req, res) 
       return res.status(401).json({ message: "Usuario no autorizado" })
     }
 
-    const { name, role } = req.body;
+    const { name } = req.body;
 
     // Crear objeto de actualización con los datos enviados
-    let updateData = { name, role };
+    let updateData = { name };
 
     // Si se ha subido una imagen, añadir la ruta al campo profileImage
     if (req.file) {
@@ -157,7 +157,7 @@ router.put("/:id", verifyToken, upload.single('profileImage'), async (req, res) 
 });
 
 // Ruta para obtener todos los usuarios
-router.get("/", verifyToken, async (req, res) => {
+router.get("/", verifyToken, authorizeRoles(ROLES.STORE_ADMIN, ROLES.SUPER_ADMIN), async (req, res) => {
   try {
     const users = await User.find().select("_id name email");
     res.json(users);
@@ -211,6 +211,10 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Error al iniciar sesión. Verifica tus credenciales." });
     }
 
+    if (!isValidRole(user.role)) {
+      return res.status(403).json({ message: "La cuenta tiene un rol no soportado por el sistema." });
+    }
+
     // Crear un token JWT
     const token = jwt.sign(
       { id: user._id, role: user.role },  // Información a incluir en el token
@@ -219,14 +223,18 @@ router.post("/login", async (req, res) => {
     );
 
     // Si todo está bien, autentica el usuario (puedes generar un token JWT aquí si lo deseas)
-    res.status(200).json({ message: "Inicio de sesión exitoso", token, user });
+    const userResponse = {
+      ...user.toObject(),
+      role: user.role,
+    };
+    res.status(200).json({ message: "Inicio de sesión exitoso", token, user: userResponse });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
 // Eliminar un usuario por ID
-router.delete("/:id", verifyToken, async (req, res) => {
+router.delete("/:id", verifyToken, authorizeRoles(ROLES.STORE_ADMIN, ROLES.SUPER_ADMIN), async (req, res) => {
   try {
     const userId = req.params.id;
 

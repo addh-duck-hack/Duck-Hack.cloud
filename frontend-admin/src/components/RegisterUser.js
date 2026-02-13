@@ -53,9 +53,8 @@ const RegisterUser = ({ onBack }) => {
     }
 
     try {
-      // Forzar role por defecto en el payload
       const { name, email, password } = userData;
-      const payload = { name, email, password, role: 'user' };
+      const payload = { name, email, password };
       const response = await axios.post(`${process.env.REACT_APP_HOST_SERVICES_URL}/api/users/register`, payload);
       setMessage(response.data.message || "Usuario registrado correctamente");
       setUserData({ name: "", email: "", password: "", confirmPassword: "" });
@@ -119,7 +118,7 @@ const RegisterUser = ({ onBack }) => {
             required
           />
         </div>
-        {/* El rol se asigna por defecto como 'user' */}
+        {/* El rol se asigna por defecto en backend como 'customer' */}
         <button type="submit" disabled={userData.password !== userData.confirmPassword}>Registrar</button>
         <div>
           <p>¿Ya tienes una cuenta?</p>

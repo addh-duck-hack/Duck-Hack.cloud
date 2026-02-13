@@ -5,6 +5,7 @@ import Loader from "./Loader"; // Importar el componente Loader
 import RegisterUser from "./RegisterUser"; // Reutilizar componente de registro
 
 const Login = () => {
+  const adminRoles = ["super_admin", "store_admin", "catalog_manager", "order_manager"];
   const [userData, setUserData] = useState({
     email: "",
     password: "",
@@ -28,9 +29,19 @@ const Login = () => {
     try {
       setIsLoading(true); // Mostrar el loader después de hacer clic en "Iniciar Sesión"
       const response = await axios.post(`${process.env.REACT_APP_HOST_SERVICES_URL}/api/users/login`, userData);
-      
-      // Guardar el token en localStorage
+      const role = response.data?.user?.role;
+
+      if (!adminRoles.includes(role)) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("role");
+        setMessage("Tu cuenta no tiene permisos para ingresar al panel administrativo.");
+        setIsLoading(false);
+        return;
+      }
+
+      // Guardar credenciales de sesión para el panel
       localStorage.setItem("token", response.data.token);
+      localStorage.setItem("role", role);
 
       // Actualizar el estado para indicar que el login fue exitoso
       setMessage("Login exitoso");
