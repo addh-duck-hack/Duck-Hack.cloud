@@ -9,6 +9,12 @@ const ROLES = Object.freeze({
 });
 
 const ALLOWED_ROLES = Object.values(ROLES);
+const STAFF_ROLES = Object.freeze([
+  ROLES.SUPER_ADMIN,
+  ROLES.STORE_ADMIN,
+  ROLES.CATALOG_MANAGER,
+  ROLES.ORDER_MANAGER,
+]);
 
 const isValidRole = (role) => ALLOWED_ROLES.includes(role);
 
@@ -44,9 +50,14 @@ const verifyToken = (req, res, next) => {
 };
 
 const authorizeRoles = (...allowedRoles) => {
+  const invalidRoles = allowedRoles.filter((role) => !isValidRole(role));
   const validAllowedRoles = allowedRoles.filter(isValidRole);
 
   return (req, res, next) => {
+    if (invalidRoles.length > 0) {
+      return res.status(500).json({ message: "Configuración RBAC inválida en el servidor." });
+    }
+
     if (!req.user) {
       return res.status(401).json({ message: "No autenticado." });
     }
@@ -60,9 +71,28 @@ const authorizeRoles = (...allowedRoles) => {
   };
 };
 
+const authorizeSelfOrRoles = (idParam, ...allowedRoles) => {
+  const roleCheckMiddleware = authorizeRoles(...allowedRoles);
+
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "No autenticado." });
+    }
+
+    const requestedId = req.params[idParam];
+    if (requestedId && String(req.user.id) === String(requestedId)) {
+      return next();
+    }
+
+    return roleCheckMiddleware(req, res, next);
+  };
+};
+
 module.exports = {
   verifyToken,
   authorizeRoles,
+  authorizeSelfOrRoles,
   isValidRole,
   ROLES,
+  STAFF_ROLES,
 };

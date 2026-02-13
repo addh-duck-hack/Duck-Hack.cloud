@@ -3,7 +3,7 @@ const router = express.Router();
 const mongoose = require("mongoose");
 const User = require("../models/user.model");
 const jwt = require('jsonwebtoken');
-const { verifyToken, authorizeRoles, isValidRole, ROLES } = require('../middleware/authMiddleware');
+const { verifyToken, authorizeRoles, authorizeSelfOrRoles, isValidRole, ROLES } = require('../middleware/authMiddleware');
 const multer = require("multer");
 const nodemailer = require('nodemailer');
 
@@ -124,14 +124,14 @@ router.get('/verify', async (req, res) => {
 });
 
 // Ruta para actualizar un usuario y agregar imagen de perfil
-router.put("/:id", verifyToken, upload.single('profileImage'), async (req, res) => {
+router.put(
+  "/:id",
+  verifyToken,
+  authorizeSelfOrRoles("id", ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN),
+  upload.single('profileImage'),
+  async (req, res) => {
   try {
     const userId = req.params.id;
-    const tokenUserId = req.user.id;
-
-    if (userId != tokenUserId){
-      return res.status(401).json({ message: "Usuario no autorizado" })
-    }
 
     const { name } = req.body;
 
@@ -167,14 +167,9 @@ router.get("/", verifyToken, authorizeRoles(ROLES.STORE_ADMIN, ROLES.SUPER_ADMIN
 });
 
 // Ruta para obtener usuario en especifico
-router.get("/:id", verifyToken, async (req, res) => {
+router.get("/:id", verifyToken, authorizeSelfOrRoles("id", ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN), async (req, res) => {
   try {
     const userId = req.params.id;
-    const tokenUserId = req.user.id;
-
-    if (userId != tokenUserId){
-      return res.status(401).json({ message: "Usuario no autorizado" })
-    }
 
     const user = await User.findById(userId);
 
