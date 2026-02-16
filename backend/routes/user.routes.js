@@ -11,6 +11,7 @@ const {
   validateUpdateUserPayload,
   validatePasswordChangePayload,
 } = require("../middleware/validationMiddleware");
+const { sendError } = require("../utils/httpResponses");
 const multer = require("multer");
 const nodemailer = require('nodemailer');
 
@@ -54,7 +55,7 @@ router.post("/register", validateRegisterPayload, async (req, res) => {
     // Verificar si el correo ya está registrado
     const existing = await User.findOne({ email });
     if (existing) {
-      return res.status(409).json({ message: 'El correo ya está registrado' });
+      return sendError(res, 409, "EMAIL_ALREADY_REGISTERED", "El correo ya está registrado");
     }
 
     const user = new User({ name, email, password, role: ROLES.CUSTOMER });
@@ -101,16 +102,16 @@ router.post("/register", validateRegisterPayload, async (req, res) => {
     if (error.name === 'ValidationError') {
       // Concatenar mensajes de validación de Mongoose
       const messages = Object.values(error.errors).map(e => e.message).join(', ');
-      return res.status(400).json({ message: messages });
+      return sendError(res, 400, "VALIDATION_ERROR", messages);
     }
 
     // Error por clave duplicada (por si no se detectó antes)
     if (error.code === 11000) {
-      return res.status(409).json({ message: 'El correo ya está registrado' });
+      return sendError(res, 409, "EMAIL_ALREADY_REGISTERED", "El correo ya está registrado");
     }
 
     // Error genérico
-    res.status(500).json({ message: 'Error al registrar el usuario' });
+    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al registrar el usuario");
   }
 });
 
@@ -118,13 +119,13 @@ router.post("/register", validateRegisterPayload, async (req, res) => {
 router.get('/verify', async (req, res) => {
   const token = req.query.token;
   if (!token) {
-    return res.status(400).json({ message: 'Token de verificación requerido' });
+    return sendError(res, 400, "VERIFICATION_TOKEN_REQUIRED", "Token de verificación requerido");
   }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.id);
-    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+    if (!user) return sendError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado");
 
     if (user.isVerified) {
       return res.status(200).json({ message: 'Usuario ya verificado' });
@@ -136,7 +137,7 @@ router.get('/verify', async (req, res) => {
     res.status(200).json({ message: 'Usuario verificado correctamente' });
   } catch (err) {
     console.error('Error verificando token:', err);
-    res.status(400).json({ message: 'Token inválido o expirado' });
+    return sendError(res, 400, "VERIFICATION_TOKEN_INVALID_OR_EXPIRED", "Token inválido o expirado");
   }
 });
 
@@ -168,39 +169,39 @@ router.put(
     }
 
     if (Object.keys(updateData).length === 0 && role === undefined) {
-      return res.status(400).json({ message: "No se enviaron datos para actualizar." });
+      return sendError(res, 400, "NO_UPDATE_FIELDS", "No se enviaron datos para actualizar.");
     }
 
     // Actualizar el usuario en la base de datos
     const currentUser = await User.findById(userId).select("role");
     if (!currentUser) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+      return sendError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado");
     }
 
     // El store_admin no puede editar perfiles de super_admin
     if (actorRole === ROLES.STORE_ADMIN && currentUser.role === ROLES.SUPER_ADMIN) {
-      return res.status(403).json({ message: "No tienes permisos para editar este usuario." });
+      return sendError(res, 403, "FORBIDDEN_EDIT_USER", "No tienes permisos para editar este usuario.");
     }
 
     const isSelfUpdate = actorId === String(currentUser._id);
     if (role !== undefined) {
       if (!isValidRole(role)) {
-        return res.status(400).json({ message: "Rol no válido" });
+        return sendError(res, 400, "INVALID_ROLE", "Rol no válido");
       }
 
       // Solo admins pueden modificar rol
       if (![ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN].includes(actorRole)) {
-        return res.status(403).json({ message: "No tienes permisos para cambiar roles." });
+        return sendError(res, 403, "FORBIDDEN_CHANGE_ROLE", "No tienes permisos para cambiar roles.");
       }
 
       // Un usuario no puede cambiar su propio rol desde este endpoint
       if (isSelfUpdate) {
-        return res.status(400).json({ message: "No puedes cambiar tu propio rol." });
+        return sendError(res, 400, "CANNOT_CHANGE_OWN_ROLE", "No puedes cambiar tu propio rol.");
       }
 
       // Un store_admin no puede asignar ni gestionar rol super_admin
       if (actorRole === ROLES.STORE_ADMIN && role === ROLES.SUPER_ADMIN) {
-        return res.status(403).json({ message: "No tienes permisos para asignar este rol." });
+        return sendError(res, 403, "FORBIDDEN_ASSIGN_ROLE", "No tienes permisos para asignar este rol.");
       }
 
       updateData.role = role;
@@ -209,12 +210,12 @@ router.put(
     const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true });
 
     if (!updatedUser) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+      return sendError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado");
     }
 
     res.status(200).json({ message: "Usuario actualizado correctamente", user: sanitizeUser(updatedUser) });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al actualizar el usuario");
   }
 });
 
@@ -232,12 +233,12 @@ router.patch(
 
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+      return sendError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado");
     }
 
     const isMatch = await user.comparePassword(currentPassword);
     if (!isMatch) {
-      return res.status(400).json({ message: "La contraseña actual no es correcta." });
+      return sendError(res, 400, "INVALID_CURRENT_PASSWORD", "La contraseña actual no es correcta.");
     }
 
     user.password = newPassword;
@@ -245,7 +246,7 @@ router.patch(
 
     return res.status(200).json({ message: "Contraseña actualizada correctamente." });
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al actualizar contraseña");
   }
 });
 
@@ -255,7 +256,7 @@ router.get("/", verifyToken, authorizeRoles(ROLES.STORE_ADMIN, ROLES.SUPER_ADMIN
     const users = await User.find().select("_id name email role isVerified createdAt");
     res.json(users);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al obtener usuarios");
   }
 });
 
@@ -274,17 +275,17 @@ router.get(
 
     // Verificar si el usuario existe
     if (!user) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+      return sendError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado");
     }
 
     // El store_admin no puede consultar detalle de super_admin
     if (actorRole === ROLES.STORE_ADMIN && user.role === ROLES.SUPER_ADMIN) {
-      return res.status(403).json({ message: "No tienes permisos para consultar este usuario." });
+      return sendError(res, 403, "FORBIDDEN_VIEW_USER", "No tienes permisos para consultar este usuario.");
     }
 
     res.status(200).json(sanitizeUser(user));
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al consultar usuario");
   }
 });
 
@@ -296,22 +297,22 @@ router.post("/login", validateLoginPayload, async (req, res) => {
     // Verificar si el usuario existe
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ message: "Error al iniciar sesión. Verifica tus credenciales." });
+      return sendError(res, 401, "INVALID_CREDENTIALS", "Error al iniciar sesión. Verifica tus credenciales.");
     }
 
     // Verificar que el usuario haya confirmado su email
     if (!user.isVerified) {
-      return res.status(403).json({ message: 'Cuenta no verificada. Revisa tu correo para activar la cuenta.' });
+      return sendError(res, 403, "ACCOUNT_NOT_VERIFIED", "Cuenta no verificada. Revisa tu correo para activar la cuenta.");
     }
 
     // Comparar la contraseña proporcionada con la almacenada en la base de datos
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      return res.status(400).json({ message: "Error al iniciar sesión. Verifica tus credenciales." });
+      return sendError(res, 401, "INVALID_CREDENTIALS", "Error al iniciar sesión. Verifica tus credenciales.");
     }
 
     if (!isValidRole(user.role)) {
-      return res.status(403).json({ message: "La cuenta tiene un rol no soportado por el sistema." });
+      return sendError(res, 403, "ROLE_NOT_SUPPORTED", "La cuenta tiene un rol no soportado por el sistema.");
     }
 
     // Crear un token JWT
@@ -328,7 +329,7 @@ router.post("/login", validateLoginPayload, async (req, res) => {
     };
     res.status(200).json({ message: "Inicio de sesión exitoso", token, user: userResponse });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al iniciar sesión");
   }
 });
 
@@ -346,17 +347,17 @@ router.delete(
 
     const userToDelete = await User.findById(userId);
     if (!userToDelete) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+      return sendError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado");
     }
 
     // Un store_admin no puede eliminar cuentas super_admin
     if (actorRole === ROLES.STORE_ADMIN && userToDelete.role === ROLES.SUPER_ADMIN) {
-      return res.status(403).json({ message: "No tienes permisos para eliminar este usuario." });
+      return sendError(res, 403, "FORBIDDEN_DELETE_USER", "No tienes permisos para eliminar este usuario.");
     }
 
     // Evitar auto-eliminación de cuentas administrativas por accidente
     if (actorId === String(userToDelete._id)) {
-      return res.status(400).json({ message: "No puedes eliminar tu propia cuenta." });
+      return sendError(res, 400, "CANNOT_DELETE_OWN_ACCOUNT", "No puedes eliminar tu propia cuenta.");
     }
 
     // Buscar y eliminar el usuario por su ID
@@ -364,12 +365,12 @@ router.delete(
 
     // Verificar si el usuario existía
     if (!deletedUser) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+      return sendError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado");
     }
 
     res.status(200).json({ message: "Usuario eliminado correctamente", user: sanitizeUser(deletedUser) });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al eliminar usuario");
   }
 });
 

@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const { sendError } = require("../utils/httpResponses");
 
 const ROLES = Object.freeze({
   SUPER_ADMIN: "super_admin",
@@ -31,13 +32,13 @@ const verifyToken = (req, res, next) => {
   const token = extractBearerToken(authHeader);
 
   if (!token) {
-    return res.status(401).json({ message: "Acceso denegado. Token Bearer requerido." });
+    return sendError(res, 401, "TOKEN_REQUIRED", "Acceso denegado. Token Bearer requerido.");
   }
 
   try {
     const verified = jwt.verify(token, process.env.JWT_SECRET);
     if (!isValidRole(verified.role)) {
-      return res.status(401).json({ message: "Token con rol inválido." });
+      return sendError(res, 401, "TOKEN_INVALID_ROLE", "Token con rol inválido.");
     }
     req.user = {
       ...verified,
@@ -45,7 +46,7 @@ const verifyToken = (req, res, next) => {
     };
     next();
   } catch (error) {
-    return res.status(401).json({ message: "Token no válido o expirado." });
+    return sendError(res, 401, "TOKEN_INVALID_OR_EXPIRED", "Token no válido o expirado.");
   }
 };
 
@@ -55,16 +56,16 @@ const authorizeRoles = (...allowedRoles) => {
 
   return (req, res, next) => {
     if (invalidRoles.length > 0) {
-      return res.status(500).json({ message: "Configuración RBAC inválida en el servidor." });
+      return sendError(res, 500, "RBAC_CONFIGURATION_INVALID", "Configuración RBAC inválida en el servidor.");
     }
 
     if (!req.user) {
-      return res.status(401).json({ message: "No autenticado." });
+      return sendError(res, 401, "AUTHENTICATION_REQUIRED", "No autenticado.");
     }
 
     const userRole = req.user.role;
     if (!validAllowedRoles.includes(userRole)) {
-      return res.status(403).json({ message: "No tienes permisos para realizar esta acción." });
+      return sendError(res, 403, "FORBIDDEN", "No tienes permisos para realizar esta acción.");
     }
 
     next();
@@ -76,7 +77,7 @@ const authorizeSelfOrRoles = (idParam, ...allowedRoles) => {
 
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({ message: "No autenticado." });
+      return sendError(res, 401, "AUTHENTICATION_REQUIRED", "No autenticado.");
     }
 
     const requestedId = req.params[idParam];
@@ -91,12 +92,12 @@ const authorizeSelfOrRoles = (idParam, ...allowedRoles) => {
 const authorizeSelf = (idParam) => {
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({ message: "No autenticado." });
+      return sendError(res, 401, "AUTHENTICATION_REQUIRED", "No autenticado.");
     }
 
     const requestedId = req.params[idParam];
     if (!requestedId || String(req.user.id) !== String(requestedId)) {
-      return res.status(403).json({ message: "No tienes permisos para realizar esta acción." });
+      return sendError(res, 403, "FORBIDDEN", "No tienes permisos para realizar esta acción.");
     }
 
     return next();

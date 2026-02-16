@@ -2,6 +2,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 require("dotenv").config();
 const cors = require("cors");
+const { sendError } = require("./utils/httpResponses");
 
 const app = express();
 app.use(express.json());
@@ -22,6 +23,10 @@ app.use("/api/users", userRoutes);
 app.use("/api/mail", mailRoutes);
 // Servir la carpeta uploads como estática
 app.use('/uploads', express.static('uploads'));
+
+app.use((req, res) => {
+  return sendError(res, 404, "ROUTE_NOT_FOUND", "Ruta no encontrada");
+});
 
 // Iniciar el servidor
 app.listen(PORT, () => {

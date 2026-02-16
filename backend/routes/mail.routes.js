@@ -2,6 +2,7 @@ const express = require("express");
 const nodemailer = require('nodemailer');
 const router = express.Router();
 const { validateContactEmailPayload } = require("../middleware/validationMiddleware");
+const { sendError } = require("../utils/httpResponses");
 
 router.post('/send-email', validateContactEmailPayload, async (req, res) => {
     const { fullName, email, phone, service, message } = req.body;
@@ -25,10 +26,10 @@ router.post('/send-email', validateContactEmailPayload, async (req, res) => {
   
     try {
       await transporter.sendMail(mailOptions);
-      res.status(200).send('Email enviado');
+      return res.status(200).json({ message: "Email enviado" });
     } catch (error) {
       console.error("Error enviando email", error);
-      res.status(500).send('Error enviando email');
+      return sendError(res, 500, "EMAIL_SEND_FAILED", "Error enviando email");
     }
   });
 
