@@ -2,9 +2,10 @@ const express = require("express");
 const nodemailer = require('nodemailer');
 const router = express.Router();
 const { validateContactEmailPayload } = require("../middleware/validationMiddleware");
+const { contactEmailRateLimiter } = require("../middleware/rateLimitMiddleware");
 const { sendError } = require("../utils/httpResponses");
 
-router.post('/send-email', validateContactEmailPayload, async (req, res) => {
+router.post('/send-email', contactEmailRateLimiter, validateContactEmailPayload, async (req, res) => {
     const { fullName, email, phone, service, message } = req.body;
   
     const transporter = nodemailer.createTransport({

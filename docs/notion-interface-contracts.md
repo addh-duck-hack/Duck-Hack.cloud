@@ -18,6 +18,36 @@ Base URL local: `http://localhost:5000`
 }
 ```
 
+## Rate Limit (BL-013-ST001)
+
+| Endpoint | Ventana | Límite por IP | Código 429 |
+|---|---:|---:|---|
+| `POST /api/users/register` | 15 minutos | 10 requests | `RATE_LIMIT_REGISTER_EXCEEDED` |
+| `POST /api/users/login` | 15 minutos | 20 requests | `RATE_LIMIT_LOGIN_EXCEEDED` |
+| `POST /api/mail/send-email` | 10 minutos | 8 requests | `RATE_LIMIT_CONTACT_EXCEEDED` |
+
+Headers de respuesta relevantes:
+- `Retry-After`
+- `X-RateLimit-Limit`
+- `X-RateLimit-Remaining`
+- `X-RateLimit-Reset`
+
+Ejemplo de error 429:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "status": 429,
+    "code": "RATE_LIMIT_LOGIN_EXCEEDED",
+    "message": "Demasiados intentos de inicio de sesión. Intenta nuevamente más tarde.",
+    "details": {
+      "retryAfterSec": 120
+    }
+  }
+}
+```
+
 ## Matriz de endpoints
 
 | ID | Método | Endpoint | Auth | Descripción |

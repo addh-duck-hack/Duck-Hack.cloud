@@ -11,6 +11,10 @@ const {
   validateUpdateUserPayload,
   validatePasswordChangePayload,
 } = require("../middleware/validationMiddleware");
+const {
+  registerRateLimiter,
+  loginRateLimiter,
+} = require("../middleware/rateLimitMiddleware");
 const { sendError } = require("../utils/httpResponses");
 const multer = require("multer");
 const nodemailer = require('nodemailer');
@@ -47,7 +51,7 @@ const upload = multer({
 });
 
 // Ruta para registrar un nuevo usuario
-router.post("/register", validateRegisterPayload, async (req, res) => {
+router.post("/register", registerRateLimiter, validateRegisterPayload, async (req, res) => {
   try {
     // No aceptar role desde el cliente al registrar; forzar 'customer'
     const { name, email, password } = req.body;
@@ -290,7 +294,7 @@ router.get(
 });
 
 // Ruta de login
-router.post("/login", validateLoginPayload, async (req, res) => {
+router.post("/login", loginRateLimiter, validateLoginPayload, async (req, res) => {
   try {
     const { email, password } = req.body;
 
