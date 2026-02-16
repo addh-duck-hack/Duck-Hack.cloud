@@ -136,6 +136,16 @@ Rutas activas:
 - `POST /api/mail/send-email`
 - `GET /uploads/...`
 
+## Modelo de despliegue
+
+- Este proyecto se trabajará como **single-tenant por instancia**.
+- El código se reutiliza, pero cada cliente tendrá su propio:
+  - `backend`
+  - `frontend-admin`
+  - `frontend-user`
+  - base de datos MongoDB
+- No hay aislamiento por `tenantId` dentro del código; el aislamiento es por infraestructura y despliegue independiente.
+
 ## Roles del sistema
 
 - `super_admin`
