@@ -1,8 +1,9 @@
 const express = require("express");
 const nodemailer = require('nodemailer');
 const router = express.Router();
+const { validateContactEmailPayload } = require("../middleware/validationMiddleware");
 
-router.post('/send-email', async (req, res) => {
+router.post('/send-email', validateContactEmailPayload, async (req, res) => {
     const { fullName, email, phone, service, message } = req.body;
   
     const transporter = nodemailer.createTransport({

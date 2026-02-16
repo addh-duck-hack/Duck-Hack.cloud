@@ -4,6 +4,13 @@ const mongoose = require("mongoose");
 const User = require("../models/user.model");
 const jwt = require('jsonwebtoken');
 const { verifyToken, authorizeRoles, authorizeSelfOrRoles, authorizeSelf, isValidRole, ROLES } = require('../middleware/authMiddleware');
+const {
+  validateObjectIdParam,
+  validateRegisterPayload,
+  validateLoginPayload,
+  validateUpdateUserPayload,
+  validatePasswordChangePayload,
+} = require("../middleware/validationMiddleware");
 const multer = require("multer");
 const nodemailer = require('nodemailer');
 
@@ -39,7 +46,7 @@ const upload = multer({
 });
 
 // Ruta para registrar un nuevo usuario
-router.post("/register", async (req, res) => {
+router.post("/register", validateRegisterPayload, async (req, res) => {
   try {
     // No aceptar role desde el cliente al registrar; forzar 'customer'
     const { name, email, password } = req.body;
@@ -136,9 +143,11 @@ router.get('/verify', async (req, res) => {
 // Ruta para actualizar un usuario y agregar imagen de perfil
 router.put(
   "/:id",
+  validateObjectIdParam("id"),
   verifyToken,
   authorizeSelfOrRoles("id", ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN),
   upload.single('profileImage'),
+  validateUpdateUserPayload,
   async (req, res) => {
   try {
     const userId = req.params.id;
@@ -146,10 +155,6 @@ router.put(
     const actorId = String(req.user.id);
 
     const { name, email, role } = req.body;
-
-    if (email !== undefined) {
-      return res.status(400).json({ message: "El correo electrónico no puede modificarse." });
-    }
 
     // Crear objeto de actualización con los datos enviados
     const updateData = {};
@@ -160,6 +165,10 @@ router.put(
     // Si se ha subido una imagen, añadir la ruta al campo profileImage
     if (req.file) {
       updateData.profileImage = req.file.path; // Guardar la ruta de la imagen en la base de datos
+    }
+
+    if (Object.keys(updateData).length === 0 && role === undefined) {
+      return res.status(400).json({ message: "No se enviaron datos para actualizar." });
     }
 
     // Actualizar el usuario en la base de datos
@@ -210,18 +219,16 @@ router.put(
 });
 
 // Ruta para cambiar la contraseña del usuario autenticado (solo dueño de la cuenta)
-router.patch("/:id/password", verifyToken, authorizeSelf("id"), async (req, res) => {
+router.patch(
+  "/:id/password",
+  validateObjectIdParam("id"),
+  verifyToken,
+  authorizeSelf("id"),
+  validatePasswordChangePayload,
+  async (req, res) => {
   try {
     const userId = req.params.id;
     const { currentPassword, newPassword } = req.body;
-
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({ message: "currentPassword y newPassword son requeridos." });
-    }
-
-    if (newPassword.length < 6) {
-      return res.status(400).json({ message: "La nueva contraseña debe tener al menos 6 caracteres." });
-    }
 
     const user = await User.findById(userId);
     if (!user) {
@@ -253,14 +260,15 @@ router.get("/", verifyToken, authorizeRoles(ROLES.STORE_ADMIN, ROLES.SUPER_ADMIN
 });
 
 // Ruta para obtener usuario en especifico
-router.get("/:id", verifyToken, authorizeSelfOrRoles("id", ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN), async (req, res) => {
+router.get(
+  "/:id",
+  validateObjectIdParam("id"),
+  verifyToken,
+  authorizeSelfOrRoles("id", ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN),
+  async (req, res) => {
   try {
     const userId = req.params.id;
     const actorRole = req.user.role;
-
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: "ID no válido" });
-    }
 
     const user = await User.findById(userId);
 
@@ -281,7 +289,7 @@ router.get("/:id", verifyToken, authorizeSelfOrRoles("id", ROLES.SUPER_ADMIN, RO
 });
 
 // Ruta de login
-router.post("/login", async (req, res) => {
+router.post("/login", validateLoginPayload, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -325,16 +333,16 @@ router.post("/login", async (req, res) => {
 });
 
 // Eliminar un usuario por ID
-router.delete("/:id", verifyToken, authorizeRoles(ROLES.STORE_ADMIN, ROLES.SUPER_ADMIN), async (req, res) => {
+router.delete(
+  "/:id",
+  validateObjectIdParam("id"),
+  verifyToken,
+  authorizeRoles(ROLES.STORE_ADMIN, ROLES.SUPER_ADMIN),
+  async (req, res) => {
   try {
     const userId = req.params.id;
     const actorRole = req.user.role;
     const actorId = String(req.user.id);
-
-    // Verificar si el ID es un ObjectId válido
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: "ID no válido" });
-    }
 
     const userToDelete = await User.findById(userId);
     if (!userToDelete) {
