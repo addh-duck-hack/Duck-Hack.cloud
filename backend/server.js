@@ -2,10 +2,12 @@ const express = require("express");
 const mongoose = require("mongoose");
 require("dotenv").config();
 const cors = require("cors");
+const helmet = require("helmet");
 const { sendError } = require("./utils/httpResponses");
 
 const app = express();
 app.set("trust proxy", 1);
+app.disable("x-powered-by");
 app.use(express.json());
 
 const PORT = process.env.PORT || 5000;
@@ -43,6 +45,14 @@ const mailRoutes = require("./routes/mail.routes");
 const uploadRoutes = require("./routes/upload.routes");
 
 app.use(cors(corsOptions));
+app.use(
+  helmet({
+    // API-only backend: CSP se gestiona en frontends.
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    hsts: process.env.NODE_ENV === "production",
+  })
+);
 app.use("/api/users", userRoutes);
 app.use("/api/mail", mailRoutes);
 app.use("/api/uploads", uploadRoutes);
