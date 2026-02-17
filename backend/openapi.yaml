@@ -157,6 +157,7 @@ paths:
       summary: Actualizar usuario (datos generales y/o rol)
       description: >
         No permite cambiar email. Soporta multipart/form-data para profileImage.
+        El archivo se valida por contenido real (no solo mimetype) y se aceptan únicamente JPG/PNG.
       security:
         - bearerAuth: []
       parameters:
@@ -269,6 +270,43 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /api/uploads/products-image:
+    post:
+      tags: [Uploads]
+      summary: Subir imagen de producto
+      description: >
+        Requiere autenticación y rol administrativo (`super_admin`, `store_admin`, `catalog_manager`).
+        El archivo se valida por contenido real y se acepta únicamente JPG/PNG (máx. 5MB).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                productImage:
+                  type: string
+                  format: binary
+                  description: Imagen del producto en JPG o PNG
+              required: [productImage]
+      responses:
+        "201":
+          description: Imagen de producto subida correctamente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductImageUploadResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /uploads/{fileName}:
     get:
@@ -488,6 +526,7 @@ components:
         profileImage:
           type: string
           format: binary
+          description: Imagen real en formato JPG o PNG (máximo 5MB).
 
     UpdateUserResponse:
       type: object
@@ -545,6 +584,16 @@ components:
         message:
           type: string
       required: [message]
+
+    ProductImageUploadResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        imagePath:
+          type: string
+          example: uploads/productImage-1718282784-uuid.jpg
+      required: [message, imagePath]
 
     ErrorResponse:
       type: object

@@ -40,10 +40,12 @@ mongoose.connect(process.env.MONGO_URL)
 // Importar y usar rutas
 const userRoutes = require("./routes/user.routes");
 const mailRoutes = require("./routes/mail.routes");
+const uploadRoutes = require("./routes/upload.routes");
 
 app.use(cors(corsOptions));
 app.use("/api/users", userRoutes);
 app.use("/api/mail", mailRoutes);
+app.use("/api/uploads", uploadRoutes);
 // Servir la carpeta uploads como estática
 app.use('/uploads', express.static('uploads'));
 

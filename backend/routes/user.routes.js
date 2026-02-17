@@ -15,8 +15,8 @@ const {
   registerRateLimiter,
   loginRateLimiter,
 } = require("../middleware/rateLimitMiddleware");
+const { createSingleImageUploadMiddlewares } = require("../middleware/imageUploadMiddleware");
 const { sendError } = require("../utils/httpResponses");
-const multer = require("multer");
 const nodemailer = require('nodemailer');
 
 const sanitizeUser = (userDoc) => {
@@ -26,28 +26,13 @@ const sanitizeUser = (userDoc) => {
   return user;
 };
 
-// Configuración de Multer para subir imágenes a la carpeta "uploads"
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/'); // Carpeta de destino para las imágenes
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + '.' + file.mimetype.split('/')[1]); // Generar nombre único
-  }
-});
-
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // Limitar el tamaño de la imagen a 5MB
-  fileFilter: function (req, file, cb) {
-    // Aceptar solo imágenes (jpg, jpeg, png)
-    if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png') {
-      cb(null, true);
-    } else {
-      cb(new Error('Solo se permiten imágenes (jpg, jpeg, png)'));
-    }
-  }
+const {
+  uploadMiddleware: uploadProfileImage,
+  sanitizeAndStoreMiddleware: sanitizeProfileImageUpload,
+} = createSingleImageUploadMiddlewares({
+  fieldName: "profileImage",
+  filePrefix: "profileImage",
+  maxFileSizeMB: 5,
 });
 
 // Ruta para registrar un nuevo usuario
@@ -151,7 +136,8 @@ router.put(
   validateObjectIdParam("id"),
   verifyToken,
   authorizeSelfOrRoles("id", ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN),
-  upload.single('profileImage'),
+  uploadProfileImage,
+  sanitizeProfileImageUpload,
   validateUpdateUserPayload,
   async (req, res) => {
   try {
@@ -168,8 +154,8 @@ router.put(
     }
 
     // Si se ha subido una imagen, añadir la ruta al campo profileImage
-    if (req.file) {
-      updateData.profileImage = req.file.path; // Guardar la ruta de la imagen en la base de datos
+    if (req.savedImagePath) {
+      updateData.profileImage = req.savedImagePath; // Guardar la ruta sanitizada de la imagen
     }
 
     if (Object.keys(updateData).length === 0 && role === undefined) {

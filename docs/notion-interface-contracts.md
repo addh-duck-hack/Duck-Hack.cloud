@@ -61,6 +61,7 @@ Ejemplo de error 429:
 | USER-004 | PATCH | `/api/users/:id/password` | Sí | Cambio de contraseña (solo self) |
 | USER-005 | DELETE | `/api/users/:id` | Sí | Eliminar usuario (staff autorizado) |
 | MAIL-001 | POST | `/api/mail/send-email` | No | Envío de correo de contacto |
+| UPLOAD-001 | POST | `/api/uploads/products-image` | Sí | Subir imagen de producto (JPG/PNG) |
 | FILE-001 | GET | `/uploads/:fileName` | No | Lectura de archivo estático subido |
 
 ## Contratos request/response
@@ -246,5 +247,26 @@ Ejemplo de error 429:
 ```json
 {
   "message": "Email enviado"
+}
+```
+
+### UPLOAD-001 - Upload Product Image
+**Headers**
+- `Authorization: Bearer <JWT>`
+- `Content-Type: multipart/form-data`
+
+**Roles permitidos**
+- `super_admin`
+- `store_admin`
+- `catalog_manager`
+
+**Request (form-data)**
+- `productImage` (file) obligatorio, JPG o PNG, máximo 5MB.
+
+**Response 201**
+```json
+{
+  "message": "Imagen de producto subida correctamente.",
+  "imagePath": "uploads/productImage-1718282784-uuid.jpg"
 }
 ```
