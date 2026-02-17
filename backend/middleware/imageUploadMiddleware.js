@@ -1,14 +1,9 @@
-const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const multer = require("multer");
 const sharp = require("sharp");
 const { sendError } = require("../utils/httpResponses");
-
-const UPLOADS_DIR = path.join(__dirname, "..", "uploads");
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-}
+const { resolveUploadsDir } = require("../utils/uploads");
 
 const ALLOWED_IMAGE_FORMATS = new Set(["jpeg", "png"]);
 
@@ -28,6 +23,16 @@ const createSingleImageUploadMiddlewares = ({
     }
 
     try {
+      const uploadsDir = resolveUploadsDir();
+      if (!uploadsDir) {
+        return sendError(
+          res,
+          500,
+          "UPLOAD_STORAGE_UNAVAILABLE",
+          "No hay un directorio de uploads con permisos de escritura."
+        );
+      }
+
       const metadata = await sharp(req.file.buffer).metadata();
       if (!metadata?.format || !ALLOWED_IMAGE_FORMATS.has(metadata.format)) {
         return sendError(
@@ -41,7 +46,7 @@ const createSingleImageUploadMiddlewares = ({
       const extension = metadata.format === "png" ? "png" : "jpg";
       const uniqueSuffix = `${Date.now()}-${crypto.randomUUID()}`;
       const outputFileName = `${filePrefix}-${uniqueSuffix}.${extension}`;
-      const outputPath = path.join(UPLOADS_DIR, outputFileName);
+      const outputPath = path.join(uploadsDir, outputFileName);
 
       // Re-encodado para eliminar contenido no esperado y normalizar el archivo.
       const imagePipeline = sharp(req.file.buffer).rotate();

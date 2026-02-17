@@ -51,6 +51,7 @@ EMAIL_USER=user@example.com
 EMAIL_PASS=xxxxx
 FRONTEND_URL=http://localhost:3000
 CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:82,http://localhost:89
+UPLOADS_DIR=/tmp/media-uploads
 ```
 
 ### Frontend Admin (`frontend-admin/.env`)
@@ -175,6 +176,8 @@ La API devuelve errores en formato uniforme:
   - Revisar `MONGO_URL` y conectividad.
 - Error SMTP al registrar/contacto:
   - Revisar `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASS`.
+- Error de permisos al subir imágenes (`EACCES`):
+  - Configurar `UPLOADS_DIR` a una ruta escribible (por ejemplo `/tmp/media-uploads`).
 - Frontend no llega al backend:
   - Revisar `REACT_APP_HOST_SERVICES_URL` en ambos frontends.
 - Error CORS (origen no permitido):

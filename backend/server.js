@@ -4,6 +4,7 @@ require("dotenv").config();
 const cors = require("cors");
 const helmet = require("helmet");
 const { sendError } = require("./utils/httpResponses");
+const { resolveUploadsDir } = require("./utils/uploads");
 
 const app = express();
 app.set("trust proxy", 1);
@@ -57,7 +58,11 @@ app.use("/api/users", userRoutes);
 app.use("/api/mail", mailRoutes);
 app.use("/api/uploads", uploadRoutes);
 // Servir la carpeta uploads como estática
-app.use('/uploads', express.static('uploads'));
+const uploadsDir = resolveUploadsDir();
+if (!uploadsDir) {
+  throw new Error("No hay un directorio de uploads con permisos de escritura.");
+}
+app.use('/uploads', express.static(uploadsDir));
 
 app.use((err, req, res, next) => {
   if (err?.message === "CORS_ORIGIN_NOT_ALLOWED") {
