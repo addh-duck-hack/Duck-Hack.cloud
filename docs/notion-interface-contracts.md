@@ -5,6 +5,12 @@ Base URL local: `http://localhost:5000`
 ## Convenciones
 
 - Auth: `Bearer <JWT>` en header `Authorization`.
+- JWT restringido por backend:
+  - Algoritmo permitido: `HS256`.
+  - Claims obligatorios en validación: `iss` (`JWT_ISSUER`) y `aud` (`JWT_AUDIENCE`).
+  - Tipo de token (`tokenType`) requerido:
+    - `access` para endpoints autenticados.
+    - `email_verification` para `/api/users/verify`.
 - Error estándar:
 
 ```json

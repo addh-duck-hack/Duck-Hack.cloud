@@ -1,8 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const mongoose = require("mongoose");
 const User = require("../models/user.model");
-const jwt = require('jsonwebtoken');
 const { verifyToken, authorizeRoles, authorizeSelfOrRoles, authorizeSelf, isValidRole, ROLES } = require('../middleware/authMiddleware');
 const {
   validateObjectIdParam,
@@ -18,6 +16,11 @@ const {
 const { createSingleImageUploadMiddlewares } = require("../middleware/imageUploadMiddleware");
 const { sendError } = require("../utils/httpResponses");
 const nodemailer = require('nodemailer');
+const {
+  signAccessToken,
+  signEmailVerificationToken,
+  verifyEmailVerificationToken,
+} = require("../utils/jwt");
 
 const sanitizeUser = (userDoc) => {
   if (!userDoc) return null;
@@ -50,7 +53,7 @@ router.post("/register", registerRateLimiter, validateRegisterPayload, async (re
     const user = new User({ name, email, password, role: ROLES.CUSTOMER });
     await user.save(); // Aquí la contraseña se encriptará automáticamente
     // Generar token de verificación (expira en 24h)
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+    const token = signEmailVerificationToken({ id: user._id });
 
     // Se enviara el correo con una url de frontend para verificar el email, esto para dar visibilidad al usuario y no solo consumir un endpoint
     const backendBase = process.env.FRONTEND_URL;
@@ -112,7 +115,7 @@ router.get('/verify', async (req, res) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = verifyEmailVerificationToken(token);
     const user = await User.findById(decoded.id);
     if (!user) return sendError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado");
 
@@ -306,11 +309,7 @@ router.post("/login", loginRateLimiter, validateLoginPayload, async (req, res) =
     }
 
     // Crear un token JWT
-    const token = jwt.sign(
-      { id: user._id, role: user.role },  // Información a incluir en el token
-      process.env.JWT_SECRET,             // Llave secreta para firmar el token (define una variable en .env)
-      { expiresIn: '1h' }                 // Tiempo de expiración del token
-    );
+    const token = signAccessToken({ id: user._id, role: user.role });
 
     // Si todo está bien, autentica el usuario (puedes generar un token JWT aquí si lo deseas)
     const userResponse = {

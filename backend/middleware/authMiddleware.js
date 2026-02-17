@@ -1,5 +1,5 @@
-const jwt = require("jsonwebtoken");
 const { sendError } = require("../utils/httpResponses");
+const { verifyAccessToken } = require("../utils/jwt");
 
 const ROLES = Object.freeze({
   SUPER_ADMIN: "super_admin",
@@ -36,7 +36,7 @@ const verifyToken = (req, res, next) => {
   }
 
   try {
-    const verified = jwt.verify(token, process.env.JWT_SECRET);
+    const verified = verifyAccessToken(token);
     if (!isValidRole(verified.role)) {
       return sendError(res, 401, "TOKEN_INVALID_ROLE", "Token con rol inválido.");
     }

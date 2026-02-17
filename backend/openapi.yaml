@@ -330,6 +330,9 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+      description: >
+        JWT de acceso (tokenType=access) firmado con HS256.
+        Validación estricta de issuer (JWT_ISSUER) y audience (JWT_AUDIENCE).
 
   parameters:
     UserIdParam:

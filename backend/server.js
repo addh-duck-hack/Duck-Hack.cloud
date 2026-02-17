@@ -5,6 +5,7 @@ const cors = require("cors");
 const helmet = require("helmet");
 const { sendError } = require("./utils/httpResponses");
 const { resolveUploadsDir } = require("./utils/uploads");
+const { validateJwtEnvConfig } = require("./utils/jwt");
 
 const app = express();
 app.set("trust proxy", 1);
@@ -12,6 +13,7 @@ app.disable("x-powered-by");
 app.use(express.json());
 
 const PORT = process.env.PORT || 5000;
+validateJwtEnvConfig();
 const configuredCorsOrigins = (process.env.CORS_ALLOWED_ORIGINS || "")
   .split(",")
   .map((origin) => origin.trim())

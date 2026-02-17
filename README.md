@@ -44,7 +44,11 @@ cp frontend-user/.env.example frontend-user/.env
 ```env
 PORT=5000
 MONGO_URL=mongodb://localhost:27017/duckhackdb
-JWT_SECRET=xxxxx
+JWT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+JWT_ISSUER=duckhack-cloud-backend
+JWT_AUDIENCE=duckhack-cloud-clients
+JWT_ACCESS_EXPIRES_IN=1h
+JWT_EMAIL_VERIFY_EXPIRES_IN=24h
 EMAIL_HOST=smtp.example.com
 EMAIL_PORT=587
 EMAIL_USER=user@example.com
@@ -174,6 +178,8 @@ La API devuelve errores en formato uniforme:
 
 - Error de conexión MongoDB:
   - Revisar `MONGO_URL` y conectividad.
+- Error al iniciar backend por JWT:
+  - Revisar `JWT_SECRET` (mínimo 32 chars), `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_ACCESS_EXPIRES_IN`, `JWT_EMAIL_VERIFY_EXPIRES_IN`.
 - Error SMTP al registrar/contacto:
   - Revisar `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASS`.
 - Error de permisos al subir imágenes (`EACCES`):
