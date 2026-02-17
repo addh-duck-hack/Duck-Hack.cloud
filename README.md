@@ -174,6 +174,14 @@ La API devuelve errores en formato uniforme:
 }
 ```
 
+## Documentación complementaria
+
+- API OpenAPI: `backend/openapi.yaml`
+- Contratos para Notion: `docs/notion-interface-contracts.md`
+- Handbook técnico de API (BL-015): `docs/bl-015-api-handbook.md`
+- Plantilla Notion para cambios de API: `docs/notion-bl015-api-change-template.md`
+- Smoke tests de flujo (BL-014): `docs/bl-014-test-flow.md`
+
 ## Troubleshooting rápido
 
 - Error de conexión MongoDB:
