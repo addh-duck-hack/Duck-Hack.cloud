@@ -138,6 +138,114 @@ const validateContactEmailPayload = (req, res, next) => {
   return next();
 };
 
+const HEX_COLOR_REGEX = /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/;
+const SLUG_REGEX = /^[a-z0-9-]+$/;
+
+const validateStoreConfigPayload = (req, res, next) => {
+  const payload = req.body || {};
+
+  if (payload.storeName !== undefined) {
+    const storeName = asTrimmedString(payload.storeName);
+    if (!storeName || storeName.length < 2 || storeName.length > 120) {
+      return badRequest(
+        res,
+        "VALIDATION_ERROR",
+        "storeName debe tener entre 2 y 120 caracteres."
+      );
+    }
+    req.body.storeName = storeName;
+  }
+
+  if (payload.storeSlug !== undefined) {
+    const storeSlug = asTrimmedString(payload.storeSlug).toLowerCase();
+    if (!storeSlug || storeSlug.length < 2 || storeSlug.length > 80 || !SLUG_REGEX.test(storeSlug)) {
+      return badRequest(
+        res,
+        "VALIDATION_ERROR",
+        "storeSlug solo permite minúsculas, números y guiones (2-80 chars)."
+      );
+    }
+    req.body.storeSlug = storeSlug;
+  }
+
+  if (payload.contactEmail !== undefined) {
+    const contactEmail = asTrimmedString(payload.contactEmail).toLowerCase();
+    if (contactEmail && !validateEmail(contactEmail)) {
+      return badRequest(res, "VALIDATION_ERROR", "contactEmail no es válido.");
+    }
+    req.body.contactEmail = contactEmail;
+  }
+
+  if (payload.contactPhone !== undefined) {
+    const contactPhone = asTrimmedString(payload.contactPhone);
+    if (contactPhone.length > 30) {
+      return badRequest(res, "VALIDATION_ERROR", "contactPhone excede 30 caracteres.");
+    }
+    req.body.contactPhone = contactPhone;
+  }
+
+  if (payload.logoUrl !== undefined) {
+    const logoUrl = asTrimmedString(payload.logoUrl);
+    if (logoUrl.length > 300) {
+      return badRequest(res, "VALIDATION_ERROR", "logoUrl excede 300 caracteres.");
+    }
+    req.body.logoUrl = logoUrl;
+  }
+
+  if (payload.isActive !== undefined && typeof payload.isActive !== "boolean") {
+    return badRequest(res, "VALIDATION_ERROR", "isActive debe ser boolean.");
+  }
+
+  if (payload.theme !== undefined) {
+    if (typeof payload.theme !== "object" || payload.theme === null || Array.isArray(payload.theme)) {
+      return badRequest(res, "VALIDATION_ERROR", "theme debe ser un objeto.");
+    }
+
+    const { primaryColor, secondaryColor, accentColor, fontFamilyHeading, fontFamilyBody } = payload.theme;
+
+    for (const colorField of [primaryColor, secondaryColor, accentColor]) {
+      if (colorField !== undefined) {
+        const value = asTrimmedString(colorField);
+        if (value && !HEX_COLOR_REGEX.test(value)) {
+          return badRequest(res, "VALIDATION_ERROR", "Los colores del theme deben ser hex válidos.");
+        }
+      }
+    }
+
+    if (fontFamilyHeading !== undefined && asTrimmedString(fontFamilyHeading).length > 80) {
+      return badRequest(res, "VALIDATION_ERROR", "fontFamilyHeading excede 80 caracteres.");
+    }
+    if (fontFamilyBody !== undefined && asTrimmedString(fontFamilyBody).length > 80) {
+      return badRequest(res, "VALIDATION_ERROR", "fontFamilyBody excede 80 caracteres.");
+    }
+  }
+
+  if (payload.homeBlocks !== undefined) {
+    if (!Array.isArray(payload.homeBlocks)) {
+      return badRequest(res, "VALIDATION_ERROR", "homeBlocks debe ser un arreglo.");
+    }
+
+    const allowedBlockTypes = new Set(["hero", "featured_products", "banners", "rich_text"]);
+    for (const [index, block] of payload.homeBlocks.entries()) {
+      if (!block || typeof block !== "object" || Array.isArray(block)) {
+        return badRequest(res, "VALIDATION_ERROR", `homeBlocks[${index}] debe ser un objeto.`);
+      }
+      const type = asTrimmedString(block.type);
+      if (!allowedBlockTypes.has(type)) {
+        return badRequest(res, "VALIDATION_ERROR", `homeBlocks[${index}].type no es válido.`);
+      }
+      if (block.title !== undefined && asTrimmedString(block.title).length > 120) {
+        return badRequest(res, "VALIDATION_ERROR", `homeBlocks[${index}].title excede 120 caracteres.`);
+      }
+      if (block.sortOrder !== undefined && (!Number.isInteger(block.sortOrder) || block.sortOrder < 0)) {
+        return badRequest(res, "VALIDATION_ERROR", `homeBlocks[${index}].sortOrder debe ser entero >= 0.`);
+      }
+    }
+  }
+
+  return next();
+};
+
 module.exports = {
   validateObjectIdParam,
   validateRegisterPayload,
@@ -145,4 +253,5 @@ module.exports = {
   validateUpdateUserPayload,
   validatePasswordChangePayload,
   validateContactEmailPayload,
+  validateStoreConfigPayload,
 };

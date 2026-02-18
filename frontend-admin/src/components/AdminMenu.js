@@ -1,6 +1,10 @@
 import React from "react";
+import StoreConfigManager from "./StoreConfigManager";
 
 const AdminMenu = () => {
+  const role = localStorage.getItem("role");
+  const canManageStoreConfig = ["super_admin", "store_admin"].includes(role);
+
   const handleLogout = () => {
     localStorage.removeItem("token"); // Eliminar el token del localStorage al cerrar sesión
     localStorage.removeItem("role");
@@ -22,6 +26,12 @@ const AdminMenu = () => {
         <li>Módulo de pedidos (pendiente)</li>
         <li>Módulo de clientes (pendiente)</li>
       </ul>
+
+      {canManageStoreConfig ? (
+        <StoreConfigManager />
+      ) : (
+        <p>Tu rol no tiene permisos para configurar la tienda.</p>
+      )}
     </div>
   );
 };
