@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 const initialState = {
   storeName: "",
@@ -18,6 +19,7 @@ const initialState = {
 };
 
 const StoreConfigManager = () => {
+  const navigate = useNavigate();
   const [form, setForm] = useState(initialState);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -126,6 +128,11 @@ const StoreConfigManager = () => {
 
   return (
     <section style={{ marginTop: "2rem", textAlign: "left", maxWidth: 900 }}>
+      <div style={{ marginBottom: "1rem" }}>
+        <button type="button" onClick={() => navigate("/admin")}>
+          Volver al panel
+        </button>
+      </div>
       <h3>Configuración de Tienda</h3>
       <p>Gestiona los datos base y el tema de la instancia.</p>
 

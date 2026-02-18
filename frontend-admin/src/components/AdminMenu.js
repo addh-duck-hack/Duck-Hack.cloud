@@ -1,7 +1,8 @@
 import React from "react";
-import StoreConfigManager from "./StoreConfigManager";
+import { useNavigate } from "react-router-dom";
 
 const AdminMenu = () => {
+  const navigate = useNavigate();
   const role = localStorage.getItem("role");
   const canManageStoreConfig = ["super_admin", "store_admin"].includes(role);
 
@@ -28,7 +29,11 @@ const AdminMenu = () => {
       </ul>
 
       {canManageStoreConfig ? (
-        <StoreConfigManager />
+        <div style={{ marginTop: "1rem" }}>
+          <button onClick={() => navigate("/admin/store-config")}>
+            Configurar tienda
+          </button>
+        </div>
       ) : (
         <p>Tu rol no tiene permisos para configurar la tienda.</p>
       )}
