@@ -209,6 +209,27 @@ Variables opcionales:
 - `TENANT_PLAN` (default: `starter`)
 - `TENANT_LOGO_URL` (default: `uploads/store-logo-default.png`)
 
+## INF-002 — Variables de entorno tenant-aware (híbrido)
+
+Se actualizaron los `.env.example` para preparar el paso a arquitectura híbrida:
+
+- `backend/.env.example`
+  - `MONGO_URL_GLOBAL`
+  - `TENANT_DB_PREFIX`
+  - `TENANT_RESOLUTION_ORDER`
+  - `TENANT_HEADER_NAME`
+  - `TENANT_STRICT_MODE`
+  - `TENANT_FALLBACK_SLUG`
+  - `CORS_ALLOW_CREDENTIALS`
+- `frontend-admin/.env.example`
+  - `REACT_APP_TENANT_SLUG`
+  - `REACT_APP_TENANT_HEADER_NAME`
+- `frontend-user/.env.example`
+  - `REACT_APP_STORE_SLUG`
+  - `REACT_APP_TENANT_HEADER_NAME`
+
+> Nota: algunas variables quedan preparadas para fases siguientes (tenantResolver + DB por tienda), aunque el código actual aún esté migrando desde single-db.
+
 ## DOC-002 — Guía de uso: Tabla de errores conocidos
 
 Ubicación en Notion:
