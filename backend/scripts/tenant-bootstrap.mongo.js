@@ -17,9 +17,11 @@
 (function () {
   const now = new Date();
 
-  const slug = (process.env.TENANT_SLUG || "").trim().toLowerCase();
-  const tenantName = (process.env.TENANT_NAME || "").trim();
-  const tenantDomain = (process.env.TENANT_DOMAIN || "").trim().toLowerCase();
+  // --- Configuración editable para Mongo Compass ---
+  // Cambia estos valores y pega TODO el archivo en la consola de Compass.
+  const slug = "duck-hack".trim().toLowerCase();
+  const tenantName = "Duck-Hack Store".trim();
+  const tenantDomain = "mx.duck-hack.cloud".trim().toLowerCase();
 
   if (!slug) {
     throw new Error("TENANT_SLUG es obligatorio");
@@ -37,13 +39,13 @@
     throw new Error("TENANT_SLUG solo acepta minúsculas, números y guiones");
   }
 
-  const dbName = (process.env.TENANT_DB_NAME || `store_${slug.replace(/-/g, "_")}`).trim();
-  const status = (process.env.TENANT_STATUS || "active").trim();
-  const plan = (process.env.TENANT_PLAN || "starter").trim();
+  const dbName = "store_duck_hack".trim();
+  const status = "active".trim();
+  const plan = "starter".trim();
 
-  const contactEmail = (process.env.TENANT_CONTACT_EMAIL || "store@duck-hack.com").trim().toLowerCase();
-  const contactPhone = (process.env.TENANT_CONTACT_PHONE || "+52 000 000 0000").trim();
-  const logoUrl = (process.env.TENANT_LOGO_URL || "uploads/store-logo-default.png").trim();
+  const contactEmail = "contacto@duck-hack.com".trim().toLowerCase();
+  const contactPhone = "+52 720 258 6341".trim();
+  const logoUrl = "static/media/logo.png".trim();
 
   const globalDb = db.getSiblingDB("duckhub_admin");
   const storeDb = db.getSiblingDB(dbName);
