@@ -182,6 +182,44 @@ La API devuelve errores en formato uniforme:
 - Plantilla Notion para cambios de API: `docs/notion-bl015-api-change-template.md`
 - Smoke tests de flujo (BL-014): `docs/bl-014-test-flow.md`
 
+## DOC-002 — Guía de uso: Tabla de errores conocidos
+
+Ubicación en Notion:
+- `Documentación técnica -> Tabla de errores conocidos`
+
+Objetivo:
+- Registrar errores reales y recurrentes para acelerar diagnóstico, soporte y prevención.
+
+Cuándo registrar un error:
+- Se repite en más de 1 ocasión.
+- Bloquea desarrollo/despliegue o afecta flujo de negocio.
+- Genera incertidumbre operativa (causa no documentada).
+
+Campos mínimos recomendados por registro:
+- `code`: identificador único (ej. `TENANT_NOT_FOUND`, `RATE_LIMIT_LOGIN_EXCEEDED`).
+- `HTTP`: estatus asociado (400/401/403/404/409/500, etc.).
+- `descripcion_breve`: síntoma + causa principal + acción rápida.
+
+Convenciones:
+- `code` en MAYÚSCULAS con `_`.
+- 1 error por registro (no mezclar varios casos en una fila).
+- Si cambia la solución, actualizar el mismo registro (evitar duplicados).
+
+Plantilla sugerida para `descripcion_breve`:
+- `Síntoma: ... | Causa raíz: ... | Solución: ... | Prevención: ...`
+
+Flujo operativo:
+1. Detectar error en logs/UI/API.
+2. Confirmar si ya existe en la tabla por `code`.
+3. Si no existe: crear registro con campos mínimos.
+4. Si existe: mejorar causa/solución/preventivo.
+5. Referenciar `code` en commits/PR cuando aplique.
+
+Buenas prácticas:
+- Priorizar primero errores de seguridad, aislamiento tenant y autenticación.
+- Mantener textos cortos y accionables.
+- Revisar semanalmente la tabla para cerrar huecos de prevención.
+
 ## Troubleshooting rápido
 
 - Error de conexión MongoDB:
