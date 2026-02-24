@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { apiFetch } from '../utils/apiClient';
 import './VerifyUser.css';
 
 const VerifyUser = () => {
@@ -26,17 +27,9 @@ const VerifyUser = () => {
     setMessage('Verificando tu cuenta...');
 
     try {
-      const backend = process.env.REACT_APP_HOST_SERVICES_URL || '';
-      const res = await fetch(`${backend}/api/users/verify?token=${encodeURIComponent(token)}`);
-      if (res.ok) {
-        const data = await res.json();
-        setStatus('success');
-        setMessage(data.message || 'Cuenta verificada correctamente. Ahora puedes iniciar sesión.');
-      } else {
-        const err = await res.json().catch(() => ({}));
-        setStatus('error');
-        setMessage(err.message || 'Error verificando el token. Puede estar expirado o ser inválido.');
-      }
+      const data = await apiFetch(`/api/users/verify?token=${encodeURIComponent(token)}`);
+      setStatus('success');
+      setMessage(data.message || 'Cuenta verificada correctamente. Ahora puedes iniciar sesión.');
     } catch (error) {
       console.error('Error verificando usuario:', error);
       setStatus('error');

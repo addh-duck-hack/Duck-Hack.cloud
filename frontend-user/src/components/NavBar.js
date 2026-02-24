@@ -40,8 +40,14 @@ const NavBar = () => {
         </ul>
       </div>
 
-      {/* Redes sociales a la derecha */}
+      {/* Acciones de cuenta + contacto */}
       <div className="navbar-right">
+        <Link to="/login" className="social-link" title="Iniciar sesión">
+          <i className="fas fa-user"></i>
+        </Link>
+        <Link to="/register" className="social-link" title="Crear cuenta">
+          <i className="fas fa-user-plus"></i>
+        </Link>
         <a href="https://wa.me/5217202586341?text=Hola,%20estoy%20visitando%20su%20sitio%20web%20y%20me%20gustaría%20obtener%20más%20información%20sobre%20sus%20servicios." target="_blank" rel="noopener noreferrer" className="social-link">
           <i className="fab fa-whatsapp"></i>
         </a>
@@ -64,6 +70,12 @@ const NavBar = () => {
         <hr className="menu-separator" />
 
         <div className="social-links">
+          <Link to="/login" className="social-link" title="Iniciar sesión">
+            <i className="fas fa-user"></i>
+          </Link>
+          <Link to="/register" className="social-link" title="Crear cuenta">
+            <i className="fas fa-user-plus"></i>
+          </Link>
           <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="social-link">
             <i className="fab fa-facebook-f"></i>
           </a>
