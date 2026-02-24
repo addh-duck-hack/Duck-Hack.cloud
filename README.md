@@ -182,6 +182,33 @@ La API devuelve errores en formato uniforme:
 - Plantilla Notion para cambios de API: `docs/notion-bl015-api-change-template.md`
 - Smoke tests de flujo (BL-014): `docs/bl-014-test-flow.md`
 
+## INF-001 — Bootstrap de tenant (Modelo B)
+
+Script incluido:
+- `backend/scripts/tenant-bootstrap.mongo.js`
+
+Qué hace:
+1. Registra/actualiza tenant en DB global `duckhub_admin.tenants`.
+2. Inicializa `storeconfigs` en la DB de tienda `store_<slug>`.
+3. Crea índices mínimos de unicidad (`slug`, `dbName`, `domains`, `singletonKey`).
+
+Ejemplo de uso:
+
+```bash
+TENANT_SLUG=duck-hack \
+TENANT_NAME="Duck-Hack Store" \
+TENANT_DOMAIN="mx.duck-hack.cloud" \
+TENANT_CONTACT_EMAIL="a.jacobo@duck-hack.com" \
+TENANT_CONTACT_PHONE="+52 720 258 6341" \
+mongosh "mongodb://localhost:27017/duckhub_admin" backend/scripts/tenant-bootstrap.mongo.js
+```
+
+Variables opcionales:
+- `TENANT_DB_NAME` (default: `store_<slug>` con `_`)
+- `TENANT_STATUS` (default: `active`)
+- `TENANT_PLAN` (default: `starter`)
+- `TENANT_LOGO_URL` (default: `uploads/store-logo-default.png`)
+
 ## DOC-002 — Guía de uso: Tabla de errores conocidos
 
 Ubicación en Notion:
