@@ -1,7 +1,7 @@
 # Duck-Hack Cloud (Base CRM/eCommerce)
 
 Base técnica del proyecto orientado a CRM/eCommerce single-tenant por instancia.
-##Prueba de push
+
 Estado actual:
 - `backend`: API en Node.js + Express + MongoDB + JWT.
 - `frontend-admin`: panel administrativo (React).
