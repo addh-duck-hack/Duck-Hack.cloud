@@ -220,6 +220,9 @@ Se actualizaron los `.env.example` para preparar el paso a arquitectura híbrida
   - `TENANT_HEADER_NAME`
   - `TENANT_STRICT_MODE`
   - `TENANT_FALLBACK_SLUG`
+  - `TENANT_DB_MAX_POOL`
+  - `TENANT_DB_MIN_POOL`
+  - `TENANT_DB_SERVER_SELECTION_TIMEOUT_MS`
   - `CORS_ALLOW_CREDENTIALS`
 - `frontend-admin/.env.example`
   - `REACT_APP_TENANT_SLUG`
@@ -229,6 +232,27 @@ Se actualizaron los `.env.example` para preparar el paso a arquitectura híbrida
   - `REACT_APP_TENANT_HEADER_NAME`
 
 > Nota: algunas variables quedan preparadas para fases siguientes (tenantResolver + DB por tienda), aunque el código actual aún esté migrando desde single-db.
+
+## BE-001 — dbConnectionManager por tienda
+
+Archivo principal: `backend/utils/dbConnectionManager.js`
+
+Qué resuelve:
+- Construye URIs por tienda reutilizando `MONGO_URL_GLOBAL` + `TENANT_DB_PREFIX`.
+- Mantiene un caché de conexiones `mongoose.createConnection` por `dbName`, con limpieza automática al desconectarse.
+- Expone utilidades para normalizar `slug` → `dbName`, obtener conexiones (`getTenantConnection`) y registrar modelos (`getTenantModel`).
+- Permite cerrar todas las conexiones (útil en tests o scripts) con `closeAllTenantConnections`.
+
+Ejemplo de uso:
+
+```js
+const { getTenantModel, resolveDbName } = require("../utils/dbConnectionManager");
+const productSchema = new mongoose.Schema({ name: String });
+
+const dbName = resolveDbName({ slug: tenant.slug, dbName: tenant.dbName });
+const Product = await getTenantModel({ dbName }, "Product", productSchema);
+const list = await Product.find();
+```
 
 ## DOC-002 — Guía de uso: Tabla de errores conocidos
 
