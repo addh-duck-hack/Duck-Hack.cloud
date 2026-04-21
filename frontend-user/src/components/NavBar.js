@@ -48,7 +48,7 @@ const NavBar = () => {
         <Link to="/register" className="social-link" title="Crear cuenta">
           <i className="fas fa-user-plus"></i>
         </Link>
-        <a href="https://wa.me/5217202586341?text=Hola,%20estoy%20visitando%20su%20sitio%20web%20y%20me%20gustaría%20obtener%20más%20información%20sobre%20sus%20servicios." target="_blank" rel="noopener noreferrer" className="social-link">
+        <a href="https://wa.me/5215661653418?text=Hola,%20estoy%20visitando%20su%20sitio%20web%20y%20me%20gustaría%20obtener%20más%20información%20sobre%20sus%20servicios." target="_blank" rel="noopener noreferrer" className="social-link">
           <i className="fab fa-whatsapp"></i>
         </a>
       </div>
@@ -82,7 +82,7 @@ const NavBar = () => {
           <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="social-link">
             <i className="fab fa-instagram"></i>
           </a>
-          <a href="https://wa.me/5217202586341?text=Hola,%20estoy%20visitando%20su%20sitio%20web%20y%20me%20gustaría%20obtener%20más%20información%20sobre%20sus%20servicios." target="_blank" rel="noopener noreferrer" className="social-link">
+          <a href="https://wa.me/5215661653418?text=Hola,%20estoy%20visitando%20su%20sitio%20web%20y%20me%20gustaría%20obtener%20más%20información%20sobre%20sus%20servicios." target="_blank" rel="noopener noreferrer" className="social-link">
             <i className="fab fa-whatsapp"></i>
           </a>
         </div>

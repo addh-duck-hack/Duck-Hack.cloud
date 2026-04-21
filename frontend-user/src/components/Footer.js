@@ -12,7 +12,7 @@ const Footer = () => {
         <div className="footer-section">
           <h4>Redes Sociales:</h4>
           <div className="social-links">
-            <a href="https://wa.me/5217202586341?text=Hola,%20estoy%20visitando%20su%20sitio%20web%20y%20me%20gustaría%20obtener%20más%20información%20sobre%20sus%20servicios." target="_blank" rel="noopener noreferrer" className="social-link">
+            <a href="https://wa.me/5215661653418?text=Hola,%20estoy%20visitando%20su%20sitio%20web%20y%20me%20gustaría%20obtener%20más%20información%20sobre%20sus%20servicios." target="_blank" rel="noopener noreferrer" className="social-link">
               <i className="fab fa-whatsapp"></i>
             </a>
           </div>
@@ -21,8 +21,8 @@ const Footer = () => {
         {/* Contacto */}
         <div className="footer-section">
           <h4>Contacto:</h4>
-          <p>Email: <a href="mailto:a.jacobo@duck-hack.com">a.jacobo@duck-hack.com</a></p>
-          <p>Teléfono: <a href="tel:+527202586341">+52 720-258-6341</a></p>
+          <p>Email: <a href="mailto:redes.sociales@duck-hack.com">redes.sociales@duck-hack.com</a></p>
+          <p>Teléfono: <a href="tel:+525661653418">+52 566-165-3418</a></p>
         </div>
 
         {/* Legales */}

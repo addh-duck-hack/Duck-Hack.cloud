@@ -199,7 +199,7 @@ TENANT_SLUG=duck-hack \
 TENANT_NAME="Duck-Hack Store" \
 TENANT_DOMAIN="mx.duck-hack.cloud" \
 TENANT_CONTACT_EMAIL="a.jacobo@duck-hack.com" \
-TENANT_CONTACT_PHONE="+52 720 258 6341" \
+TENANT_CONTACT_PHONE="+52 566 165 3418" \
 mongosh "mongodb://localhost:27017/duckhub_admin" backend/scripts/tenant-bootstrap.mongo.js
 ```
 
