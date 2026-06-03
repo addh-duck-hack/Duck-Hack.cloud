@@ -182,6 +182,116 @@ La API devuelve errores en formato uniforme:
 - Plantilla Notion para cambios de API: `docs/notion-bl015-api-change-template.md`
 - Smoke tests de flujo (BL-014): `docs/bl-014-test-flow.md`
 
+## INF-001 — Bootstrap de tenant (Modelo B)
+
+Script incluido:
+- `backend/scripts/tenant-bootstrap.mongo.js`
+
+Qué hace:
+1. Registra/actualiza tenant en DB global `duckhub_admin.tenants`.
+2. Inicializa `storeconfigs` en la DB de tienda `store_<slug>`.
+3. Crea índices mínimos de unicidad (`slug`, `dbName`, `domains`, `singletonKey`).
+
+Ejemplo de uso:
+
+```bash
+TENANT_SLUG=duck-hack \
+TENANT_NAME="Duck-Hack Store" \
+TENANT_DOMAIN="mx.duck-hack.cloud" \
+TENANT_CONTACT_EMAIL="a.jacobo@duck-hack.com" \
+TENANT_CONTACT_PHONE="+52 566 165 3418" \
+mongosh "mongodb://localhost:27017/duckhub_admin" backend/scripts/tenant-bootstrap.mongo.js
+```
+
+Variables opcionales:
+- `TENANT_DB_NAME` (default: `store_<slug>` con `_`)
+- `TENANT_STATUS` (default: `active`)
+- `TENANT_PLAN` (default: `starter`)
+- `TENANT_LOGO_URL` (default: `uploads/store-logo-default.png`)
+
+## INF-002 — Variables de entorno tenant-aware (híbrido)
+
+Se actualizaron los `.env.example` para preparar el paso a arquitectura híbrida:
+
+- `backend/.env.example`
+  - `MONGO_URL_GLOBAL`
+  - `TENANT_DB_PREFIX`
+  - `TENANT_RESOLUTION_ORDER`
+  - `TENANT_HEADER_NAME`
+  - `TENANT_STRICT_MODE`
+  - `TENANT_FALLBACK_SLUG`
+  - `TENANT_DB_MAX_POOL`
+  - `TENANT_DB_MIN_POOL`
+  - `TENANT_DB_SERVER_SELECTION_TIMEOUT_MS`
+  - `CORS_ALLOW_CREDENTIALS`
+- `frontend-admin/.env.example`
+  - `REACT_APP_TENANT_SLUG`
+  - `REACT_APP_TENANT_HEADER_NAME`
+- `frontend-user/.env.example`
+  - `REACT_APP_STORE_SLUG`
+  - `REACT_APP_TENANT_HEADER_NAME`
+
+> Nota: algunas variables quedan preparadas para fases siguientes (tenantResolver + DB por tienda), aunque el código actual aún esté migrando desde single-db.
+
+## BE-001 — dbConnectionManager por tienda
+
+Archivo principal: `backend/utils/dbConnectionManager.js`
+
+Qué resuelve:
+- Construye URIs por tienda reutilizando `MONGO_URL_GLOBAL` + `TENANT_DB_PREFIX`.
+- Mantiene un caché de conexiones `mongoose.createConnection` por `dbName`, con limpieza automática al desconectarse.
+- Expone utilidades para normalizar `slug` → `dbName`, obtener conexiones (`getTenantConnection`) y registrar modelos (`getTenantModel`).
+- Permite cerrar todas las conexiones (útil en tests o scripts) con `closeAllTenantConnections`.
+
+Ejemplo de uso:
+
+```js
+const { getTenantModel, resolveDbName } = require("../utils/dbConnectionManager");
+const productSchema = new mongoose.Schema({ name: String });
+
+const dbName = resolveDbName({ slug: tenant.slug, dbName: tenant.dbName });
+const Product = await getTenantModel({ dbName }, "Product", productSchema);
+const list = await Product.find();
+```
+
+## DOC-002 — Guía de uso: Tabla de errores conocidos
+
+Ubicación en Notion:
+- `Documentación técnica -> Tabla de errores conocidos`
+
+Objetivo:
+- Registrar errores reales y recurrentes para acelerar diagnóstico, soporte y prevención.
+
+Cuándo registrar un error:
+- Se repite en más de 1 ocasión.
+- Bloquea desarrollo/despliegue o afecta flujo de negocio.
+- Genera incertidumbre operativa (causa no documentada).
+
+Campos mínimos recomendados por registro:
+- `code`: identificador único (ej. `TENANT_NOT_FOUND`, `RATE_LIMIT_LOGIN_EXCEEDED`).
+- `HTTP`: estatus asociado (400/401/403/404/409/500, etc.).
+- `descripcion_breve`: síntoma + causa principal + acción rápida.
+
+Convenciones:
+- `code` en MAYÚSCULAS con `_`.
+- 1 error por registro (no mezclar varios casos en una fila).
+- Si cambia la solución, actualizar el mismo registro (evitar duplicados).
+
+Plantilla sugerida para `descripcion_breve`:
+- `Síntoma: ... | Causa raíz: ... | Solución: ... | Prevención: ...`
+
+Flujo operativo:
+1. Detectar error en logs/UI/API.
+2. Confirmar si ya existe en la tabla por `code`.
+3. Si no existe: crear registro con campos mínimos.
+4. Si existe: mejorar causa/solución/preventivo.
+5. Referenciar `code` en commits/PR cuando aplique.
+
+Buenas prácticas:
+- Priorizar primero errores de seguridad, aislamiento tenant y autenticación.
+- Mantener textos cortos y accionables.
+- Revisar semanalmente la tabla para cerrar huecos de prevención.
+
 ## Troubleshooting rápido
 
 - Error de conexión MongoDB:

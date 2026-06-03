@@ -23,7 +23,7 @@ db.storeconfigs.updateOne(
       storeName: "Ecommerce Test Store",
       storeSlug: "ecommerce-test-store",
       contactEmail: "ecommerce@duck-hack.com",
-      contactPhone: "+52 720 258 6341",
+      contactPhone: "+52 566 165 3418",
       logoUrl: "uploads/store-logo-default.png",
       theme: {
         primaryColor: "#043147",

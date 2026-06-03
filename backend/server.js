@@ -14,6 +14,10 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 5000;
 validateJwtEnvConfig();
+const mongoGlobalUrl = (process.env.MONGO_URL_GLOBAL || "").trim();
+if (!mongoGlobalUrl) {
+  throw new Error("MONGO_URL_GLOBAL es obligatorio y no puede estar vacío.");
+}
 const configuredCorsOrigins = (process.env.CORS_ALLOWED_ORIGINS || "")
   .split(",")
   .map((origin) => origin.trim())
@@ -37,10 +41,10 @@ const corsOptions = {
   optionsSuccessStatus: 204,
 };
 
-// Conectar a MongoDB
-mongoose.connect(process.env.MONGO_URL)
-  .then(() => console.log("Conectado a MongoDB"))
-  .catch((err) => console.error("Error al conectar a MongoDB", err));
+// Conectar a MongoDB global (Modelo B)
+mongoose.connect(mongoGlobalUrl)
+  .then(() => console.log("Conectado a MongoDB global"))
+  .catch((err) => console.error("Error al conectar a MongoDB global", err));
 
 // Importar y usar rutas
 const userRoutes = require("./routes/user.routes");
