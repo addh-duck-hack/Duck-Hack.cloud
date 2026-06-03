@@ -1,7 +1,7 @@
 // src/components/ContactUs.js
 import React, { useState } from 'react';
 import './ContactUs.css';
-import backgroundMap from '../assets/background_map.png'; // Importa la imagen de fondo
+import backgroundMap from '../assets/background_map_v2.png'; // Importa la imagen de fondo
 
 const ContactUs = () => {
   const [formData, setFormData] = useState({
