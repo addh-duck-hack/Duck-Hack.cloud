@@ -1,22 +1,41 @@
 services:
-  frontend-admin:
+  duck-hack.frontend-admin:
     build: ./frontend-admin
-    ports:
-      - "89:80"
+    container_name: duck-hack.frontend-admin
     volumes:
       - ./frontend-admin:/app
+    networks:
+      - npm
+      - duck-hack.frontend-admin-net
 
-  frontend-user:
+  duck-hack.frontend-user:
     build: ./frontend-user
-    ports:
-      - "82:80"
+    container_name: duck-hack.frontend-user
     volumes:
       - ./frontend-user:/app
+    networks:
+      - npm
+      - duck-hack.frontend-user-net
 
-  backend:
+  duck-hack.backend:
     build: ./backend
-    ports:
-      - "83:5000"
+    container_name: duck-hack.backend
     volumes:
       - ./backend:/app
       - /app/node_modules
+    networks:
+      - npm
+      - duck-hack.backend-net
+
+networks:
+  duck-hack.frontend-admin-net:
+    name: duck-hack.frontend-admin-net
+    driver: bridge
+  duck-hack.frontend-user-net:
+    name: duck-hack.frontend-user-net
+    driver: bridge
+  duck-hack.backend-net:
+    name: duck-hack.backend-net
+    driver: bridge
+  npm:
+    external: true
