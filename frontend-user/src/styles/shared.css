@@ -1,0 +1,89 @@
+/* src/styles/shared.css
+   Utilidades compartidas entre páginas (evita repetir las mismas reglas en cada
+   CSS de componente — mismo espíritu que el dedup de tokens en index.css). */
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  color: var(--signal);
+  text-transform: uppercase;
+}
+
+.section-title {
+  font-size: clamp(1.6rem, 3.4vw, 2.2rem);
+  margin-top: 0.5rem;
+  text-wrap: balance;
+}
+
+.section-sub {
+  max-width: 56ch;
+  margin-top: 0.6rem;
+  margin-bottom: 2rem;
+}
+
+.btn {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  border-radius: 8px;
+  padding: 0.68rem 1.15rem;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--line);
+  cursor: pointer;
+  background: none;
+  color: var(--text);
+  text-transform: uppercase;
+}
+
+.btn:hover {
+  border-color: var(--signal);
+  color: var(--signal);
+}
+
+.btn-solid {
+  background: var(--action);
+  border-color: var(--action);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+.btn-solid:hover {
+  background: var(--action-hover);
+  color: var(--on-accent);
+  border-color: var(--action-hover);
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-decoration: none;
+}
+
+.auth-brand img {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.auth-brand span {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  color: var(--white);
+  letter-spacing: 0.02em;
+}
+
+.badge {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  background: var(--signal);
+  color: var(--on-accent);
+  padding: 0.25rem 0.5rem;
+  border-radius: 5px;
+  display: inline-block;
+}

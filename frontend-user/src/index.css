@@ -1,24 +1,32 @@
-/* src/index.css o src/App.css */
-:root {
-  --ColorPrincipal: #03283a;
-  --FuentePrincipal: #a7cddd;
-  --FuenteSecundaria: #167fbf;
-  --ColorSecundario: #4abdfc;
-  --ColorResalte: #f8af11;
-  --ColorResalteHover: #9f6f09;
-  --FondoDegradado: #000000aa;
-  --FuenteDegradado: #a7cddd11;
-  --FondoOscuro: #2c2c2c;
-  --FondoClaro: #4b4b4b;
-  --ColorPrincipalBack: #04212f;
-  --ColorPrincipalNav: #043147;
-  --ColorSombras: rgba(0, 0, 0, 0.3);
-  --ColorSombreBlanca: rgba(200,200,200, 0.1);
-  --FondoIcono: #12233b;
+/* Tokens de diseño globales — única fuente de verdad (ver CLAUDE.md: antes duplicados
+   entre index.css y App.css). App.css solo debe consumir estas variables, no redeclararlas. */
+@import './styles/shared.css';
 
-  /* Fuentes */
-  --FuenteRubik: 'Rubik', sans-serif;
-  --FuenteSpaceGrotesk: 'Space Grotesk', sans-serif;
+:root {
+  /* Superficies (derivadas del navy del ícono de marca) */
+  --ink: #050f16;
+  --panel: #0d2130;
+  --panel2: #112838;
+  --line: #1c3547;
+
+  /* Acentos (colores reales del ícono, verificados a nivel de píxel) */
+  --signal: #4abdfc;
+  --signal-dim: #4abdfc33;
+  --action: #f8af11;
+  --action-hover: #ffc94d;
+  --on-accent: #03141c;
+
+  /* Texto */
+  --text: #c7dbe8;
+  --text-dim: #7f9aab;
+  --white: #f3f9ff;
+
+  /* Sombras */
+  --shadow: rgba(0, 0, 0, 0.35);
+
+  /* Tipografía */
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --font-body: 'Rubik', sans-serif;
 }
 
 html {
@@ -26,18 +34,47 @@ html {
 }
 
 body {
-  font-family: var(--FuenteRubik), sans-serif;
-  color: var(--FuentePrincipal);
-  background-color: var(--ColorPrincipal);
-  margin: 0; /* Elimina cualquier margen predeterminado del body */
+  font-family: var(--font-body);
+  color: var(--text);
+  background-color: var(--ink);
+  margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
 h1, h2, h3 {
-  font-family: var(--FuenteSpaceGrotesk), sans-serif; /* Usar Space Grotesk en títulos */
+  font-family: var(--font-mono);
+  color: var(--white);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin: 0;
 }
 
 p {
-  font-family: var(--FuenteRubik), sans-serif; /* Usar Rubik en párrafos */
+  font-family: var(--font-body);
+  line-height: 1.65;
+  color: var(--text-dim);
+  margin: 0;
+}
+
+a {
+  color: inherit;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: var(--signal);
+  color: var(--on-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { apiFetch } from "../utils/apiClient";
+import logo from "../assets/logo.png";
 import "./Auth.css";
 
 const RegisterUser = () => {
@@ -32,6 +33,10 @@ const RegisterUser = () => {
 
   return (
     <section className="auth-page">
+      <Link to="/" className="auth-brand">
+        <img src={logo} alt="Duck-Hack" />
+        <span>Duck-Hack</span>
+      </Link>
       <div className="auth-card">
         <h2>Crear cuenta</h2>
         <p>Regístrate para guardar pedidos y avanzar más rápido en checkout.</p>

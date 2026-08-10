@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { apiFetch } from '../utils/apiClient';
+import logo from '../assets/logo.png';
 import './VerifyUser.css';
 
 const VerifyUser = () => {
@@ -38,8 +39,13 @@ const VerifyUser = () => {
   };
 
   return (
-    <div className="verify-container">
-      <h2>Verificar correo</h2>
+    <div className="verify-page">
+      <Link to="/" className="auth-brand">
+        <img src={logo} alt="Duck-Hack" />
+        <span>Duck-Hack</span>
+      </Link>
+      <div className="verify-container">
+        <h2>Verificar correo</h2>
       <p>
         Gracias por registrarte. Para activar tu cuenta debes verificar tu correo electrónico.
         Haz clic en el botón de abajo para completar la verificación.
@@ -57,11 +63,12 @@ const VerifyUser = () => {
         </button>
       </div>
 
-      {message && (
-        <div className={`result ${status}`}>
-          <p>{message}</p>
-        </div>
-      )}
+        {message && (
+          <div className={`result ${status}`}>
+            <p>{message}</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

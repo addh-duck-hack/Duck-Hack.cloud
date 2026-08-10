@@ -1,25 +1,36 @@
 // src/components/Services.js
 import React from 'react';
+import { usePageMeta } from '../hooks/usePageMeta';
 import './Services.css';
 
-const services = [
+const COMMON_CHECKS = [
+  'Soporte técnico y en español',
+  'Disponibilidad del 99.9%',
+  'Se puede escalar o disminuir el plan sin penalización',
+  'Política de devolución de 30 días',
+];
+
+const PLANS = [
   {
     name: 'Basic',
-    description: 'Excelente para un negocio pequeño, una pagina personal o un blog personal.',
+    description: 'Excelente para un negocio pequeño, una página personal o un blog personal.',
     storage: '10 GB',
     emailAccounts: '15',
     bandwidth: '100 GB',
     ssl: 'Costo preferencial',
-    price: '$250.00 MXN',
+    price: '250.00',
+    featured: false,
   },
   {
     name: 'Medium',
-    description: 'Quieres un poco más, aquí podrás alojar un sitio más especializado como un blog con múltiples colaboradores.',
+    description:
+      'Quieres un poco más, aquí podrás alojar un sitio más especializado como un blog con múltiples colaboradores.',
     storage: '15 GB',
     emailAccounts: '30',
     bandwidth: '150 GB',
     ssl: 'Incluido',
-    price: '$500.00 MXN',
+    price: '500.00',
+    featured: false,
   },
   {
     name: 'Advanced',
@@ -28,7 +39,8 @@ const services = [
     emailAccounts: '100',
     bandwidth: 'Ilimitado',
     ssl: 'Incluido',
-    price: '$750.00 MXN',
+    price: '750.00',
+    featured: true,
   },
   {
     name: 'Pro',
@@ -37,59 +49,90 @@ const services = [
     emailAccounts: 'Ilimitadas',
     bandwidth: 'Ilimitado',
     ssl: 'Incluido',
-    price: '$1,150.00 MXN',
+    price: '1,150.00',
+    featured: false,
+  },
+];
+
+const FAQS = [
+  {
+    q: '¿Puedo cambiar de plan después?',
+    a: 'Sí, todos los planes se pueden escalar o disminuir sin penalización, según lo que necesite tu proyecto en cada momento.',
+  },
+  {
+    q: '¿Qué pasa si no me convence el servicio?',
+    a: 'Aplicamos una política de devolución de 30 días en todos los planes de hosting.',
+  },
+  {
+    q: '¿El soporte es en español?',
+    a: 'Sí, todo nuestro soporte técnico se ofrece en español, directo con nuestro equipo.',
+  },
+  {
+    q: '¿Qué disponibilidad garantizan?',
+    a: '99.9% de disponibilidad en todos los planes, monitoreada de forma continua.',
   },
 ];
 
 const Services = () => {
-  return (
-    <section className="services">
+  usePageMeta(
+    'Planes y Precios de Hosting',
+    'Cuatro planes de hosting desde $250 MXN al mes: almacenamiento, correos, ancho de banda y SSL incluido. Soporte técnico en español.'
+  );
 
-      {/* Vista para PC */}
-      <div className="services-grid">
-        {services.map((service, index) => (
-          <div className="service-card" key={index}>
-            <div className="service-header">
-              <h3>{service.name}</h3>
-              <p>{service.description}</p>
-              <h4>{service.price}</h4>
-              <h5>*Precio mensual</h5>
+  return (
+    <section className="pricing-view">
+      <span className="eyebrow">/precios</span>
+      <h1 className="section-title">Planes de hosting</h1>
+      <p className="section-sub">
+        Cuatro niveles según el tamaño de tu proyecto — todos con soporte en español y sin
+        permanencia forzosa.
+      </p>
+
+      <div className="price-grid">
+        {PLANS.map((plan) => (
+          <div className={`price-card ${plan.featured ? 'featured' : ''}`} key={plan.name}>
+            {plan.featured && <span className="badge price-badge">recomendado</span>}
+            <div className="price-head">
+              <div className="route">/precios/{plan.name.toLowerCase()}</div>
+              <h3>{plan.name}</h3>
+              <p>{plan.description}</p>
+              <div className="price-amount">
+                ${plan.price}
+                <span> MXN/mes</span>
+              </div>
             </div>
-            <div className="service-body">
-              <div className="service-feature">
-                <i className="fas fa-hdd icon"></i>
-                <p>Almacenamiento: {service.storage}</p>
-              </div>
-              <div className="service-feature">
-                <i className="fas fa-envelope icon"></i>
-                <p>Cuentas de correo: {service.emailAccounts}</p>
-              </div>
-              <div className="service-feature">
-                <i className="fas fa-wifi icon"></i>
-                <p>Ancho de banda: {service.bandwidth}</p>
-              </div>
-              <div className="service-feature">
-                <i className="fas fa-lock icon"></i>
-                <p>Certificado SSL: {service.ssl}</p>
-              </div>
-              <div className="service-feature">
-                <i className="fas fa-check icon"></i>
-                <p>Soporte técnico y en español</p>
-              </div>
-              <div className="service-feature">
-                <i className="fas fa-check icon"></i>
-                <p>Disponibilidad del 99.9%</p>
-              </div>
-              <div className="service-feature">
-                <i className="fas fa-check icon"></i>
-                <p>Se puede escalar o disminuir el plan sin penalización</p>
-              </div>
-              <div className="service-feature">
-                <i className="fas fa-check icon"></i>
-                <p>Política de devolución de 30 días</p>
-              </div>
+            <div className="price-body">
+              <ul>
+                <li>
+                  <i className="fas fa-hdd" /> Almacenamiento: {plan.storage}
+                </li>
+                <li>
+                  <i className="fas fa-envelope" /> Cuentas de correo: {plan.emailAccounts}
+                </li>
+                <li>
+                  <i className="fas fa-wifi" /> Ancho de banda: {plan.bandwidth}
+                </li>
+                <li>
+                  <i className="fas fa-lock" /> Certificado SSL: {plan.ssl}
+                </li>
+                {COMMON_CHECKS.map((check) => (
+                  <li key={check}>
+                    <i className="fas fa-check" /> {check}
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
+        ))}
+      </div>
+
+      <h2 className="faq-title">Preguntas frecuentes</h2>
+      <div className="faq">
+        {FAQS.map((f) => (
+          <details key={f.q}>
+            <summary>{f.q}</summary>
+            <p>{f.a}</p>
+          </details>
         ))}
       </div>
     </section>

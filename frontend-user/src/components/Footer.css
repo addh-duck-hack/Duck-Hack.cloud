@@ -1,7 +1,9 @@
+/* src/components/Footer.css */
 .footer {
-  background-color: var(--ColorPrincipalBack);
-  color: var(--FuentePrincipal);
-  padding: 10px 0; /* Reducir el padding para hacer el footer más compacto */
+  background-color: var(--panel);
+  border-top: 1px solid var(--line);
+  color: var(--text);
+  padding: 1.6rem 0 1rem;
   text-align: center;
 }
 
@@ -9,9 +11,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 0 20px;
-  font-family: var(--FuenteSpaceGrotesk);
+  gap: 1.4rem;
+  padding: 0 clamp(1.2rem, 4vw, 3rem);
 }
 
 .footer-section {
@@ -19,66 +20,72 @@
 }
 
 .footer-section h4 {
-  color: var(--FuenteSecundaria);
-  margin-bottom: 5px;
-  margin-top: 5px;
-  font-size: 1.2rem;
-  font-family: var(--FuenteRubik);
+  color: var(--white);
+  margin-bottom: 0.6rem;
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.footer-section p {
+  margin: 0.35rem 0;
 }
 
 .footer-section p,
 .footer-section a {
-  color: var(--FuentePrincipal);
-  font-size: 1rem;
+  color: var(--text-dim);
+  font-size: 0.88rem;
   text-decoration: none;
-  font-family: var(--FuenteSpaceGrotesk);
+  font-family: var(--font-body);
 }
 
 .footer-section a:hover {
-  color: var(--ColorResalte);
+  color: var(--signal);
 }
 
 .social-links {
   display: flex;
   gap: 10px;
-  justify-content: center; /* Alineación a la izquierda */
+  justify-content: center;
 }
 
 .social-link {
-  color: var(--FuentePrincipal);
-  font-size: 1.5rem;
+  color: var(--text-dim);
+  font-size: 1.4rem;
   text-decoration: none;
 }
 
 .social-link:hover {
-  color: var(--ColorResalte);
+  color: var(--signal);
 }
 
 .footer-separator {
-  width: 100%; /* Ajuste al 100% del contenedor para evitar scroll horizontal */
-  border: 0.5px solid var(--ColorResalte);
-  margin: 10px 0; /* Reducir margen para hacerlo más compacto */
-  box-sizing: border-box; /* Asegura que el borde no aumente el ancho */
+  width: 100%;
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 1.4rem 0 1rem;
+  box-sizing: border-box;
 }
 
 .footer-bottom {
-  color: var(--FuentePrincipal);
-  font-size: 0.8rem; /* Reducir tamaño de fuente */
-  font-family: var(--FuenteRubik);
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
 }
 
-/* Diseño horizontal en pantallas grandes, ocupando 100% del ancho y alineado hacia arriba */
-@media (min-width: 768px) {
+@media (min-width: 900px) {
   .footer-content {
     flex-direction: row;
     justify-content: space-between;
-    align-items: flex-start; /* Alineación hacia arriba */
+    align-items: flex-start;
   }
 
   .footer-section {
-    flex: 1; /* Cada sección ocupa un tercio del ancho */
-    text-align: left; /* Alinear el contenido al lado izquierdo */
+    flex: 1;
+    text-align: left;
   }
+
   .social-links {
     justify-content: flex-start;
   }

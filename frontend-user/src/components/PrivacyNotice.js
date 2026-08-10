@@ -1,10 +1,17 @@
 // src/components/PrivacyNotice.js
 import React from 'react';
+import { Link } from 'react-router-dom';
+import logo from '../assets/logo.png';
 import './LegalNotice.css';
 
 const PrivacyNotice = () => {
   return (
-    <div className="legal-notice-container">
+    <div className="legal-page">
+      <Link to="/" className="auth-brand">
+        <img src={logo} alt="Duck-Hack" />
+        <span>Duck-Hack</span>
+      </Link>
+      <div className="legal-notice-container">
       <h1>Aviso de Privacidad</h1>
       <section>
         <p>Duck Hack (en adelante, "la Empresa"), representada legalmente por Adrián Cabrera Jacobo, con domicilio en Priv. Flor de Azucena No 112, Col. Paseos de Chavarría, Mineral de la Reforma, Hidalgo, y con el Registro Federal de Contribuyentes CAJA911127IH1, reconoce la importancia de proteger los datos personales proporcionados por sus clientes, proveedores, colaboradores y usuarios (en adelante, "Titulares").</p>
@@ -60,6 +67,7 @@ const PrivacyNotice = () => {
         <h2>7. Consentimiento</h2>
         <p>Al proporcionar sus datos personales, el Titular confirma que ha leído y comprendido el contenido de este Aviso de Privacidad y que otorga su consentimiento para el tratamiento de sus datos conforme a los términos aquí establecidos.</p>
       </section>
+      </div>
     </div>
   );
 };

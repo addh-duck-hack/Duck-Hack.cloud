@@ -1,53 +1,11 @@
-/* src/index.css o src/App.css */
-:root {
-  --ColorPrincipal: #03283a;
-  --FuentePrincipal: #a7cddd;
-  --FuenteSecundaria: #167fbf;
-  --ColorSecundario: #4abdfc;
-  --ColorResalte: #f8af11;
-  --ColorResalteHover: #9f6f09;
-  --FondoDegradado: #000000aa;
-  --FuenteDegradado: #a7cddd11;
-  --FondoOscuro: #2c2c2c;
-  --FondoClaro: #4b4b4b;
-  --ColorPrincipalBack: #04212f;
-  --ColorPrincipalNav: #043147;
-  --ColorSombras: rgba(0, 0, 0, 0.3);
-  --ColorSombreBlanca: rgba(200,200,200, 0.1);
-  --FondoIcono: #12233b;
-
-  /* Fuentes */
-  --FuenteRubik: 'Rubik', sans-serif;
-  --FuenteSpaceGrotesk: 'Space Grotesk', sans-serif;
-}
-
-html {
-  scroll-behavior: smooth;
-}
-
-body {
-  font-family: var(--FuenteRubik), sans-serif;
-  color: var(--FuentePrincipal);
-  background-color: var(--ColorPrincipal);
-  margin: 0; /* Elimina cualquier margen predeterminado del body */
-  padding: 0;
-  box-sizing: border-box;
-}
-
-h1, h2, h3 {
-  font-family: var(--FuenteSpaceGrotesk), sans-serif; /* Usar Space Grotesk en títulos */
-}
-
-p {
-  font-family: var(--FuenteRubik), sans-serif; /* Usar Rubik en párrafos */
-}
-
-
+/* Layout raíz de la app. Los tokens de color/tipografía viven en index.css —
+   este archivo solo consume var(...), no los redeclara (ver CLAUDE.md). */
 .App {
   text-align: center;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  background: var(--ink);
 }
 
 .main-content {
@@ -55,4 +13,3 @@ p {
   display: flex;
   flex-direction: column;
 }
-

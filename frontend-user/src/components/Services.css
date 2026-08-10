@@ -1,102 +1,145 @@
 /* src/components/Services.css */
-.services {
-    padding: 40px;
-    background-color: var(--ColorPrincipalBack);
-    text-align: center;
-  }
-  
-  /* Grid para PC */
-  .services-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 40px;
-    padding: 0 20px;
-  }
-  
-  /* Estilos para la tarjeta de servicio */
-  .service-card {
-    background-color: var(--FondoClaro);
-    border-radius: 10px;
-    box-shadow: 2px 4px 8px var(--ColorSombreBlanca);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .service-header {
-    background-color: var(--FondoOscuro);
-    padding: 15px;
-    text-align: center;
-  }
-  
-  .service-header h3 {
-    font-family: var(--FuenteRubik);
-    font-size: 2rem;
-    color: var(--ColorResalte);
-    margin: 0;
-  }
+.pricing-view {
+  max-width: 1120px;
+  margin: 0 auto;
+  width: 100%;
+  text-align: left;
+}
 
-  .service-header h4 {
-    font-family: var(--FuenteRubik);
-    font-size: 1.5rem;
-    color: var(--FuenteSecundaria);
-    margin: 20px 0 0 0;
-  }
-  
-  .service-header h5{
-    font-family: var(--FuenteSpaceGrotesk);
-    font-size: 0.7rem;
-    color: var(--FuentePrincipal);;
-    margin: 0;
-  }
+.price-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
 
-  .service-header p{
-    font-family: var(--FuenteSpaceGrotesk);
-    font-size: 1.2rem;
-    color: var(--FuentePrincipal);;
-    margin: 0;
-    padding: 5px 20px;
-  }
-  
-  .service-body {
-    padding: 20px;
-    background-color: var(--FondoClaro);;
-    text-align: left;
-  }
-  
-  .service-feature {
-    display: flex;
-    align-items: center;
-  }
-  
-  .service-feature p {
-    margin-left: 10px;
-    font-size: 1rem;
-  }
-  
-  .icon {
-    font-size: 1.5rem;
-    color: var(--ColorSecundario);
-  }
-  
-  .price-feature .icon {
-    color: var(--ColorResalte);
-  }
-  
-  .service-card .price {
-    font-size: 1.5rem;
-    font-weight: bold;
-    margin-top: 15px;
-  }
+.price-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
 
-  /* Grid para dispositivos móviles */
-@media (max-width: 768px) {
-  .services{
-    padding: 50px 20px;
-  }
+.price-card.featured {
+  border-color: var(--signal);
+}
 
-  .services-grid {
-    grid-template-columns: 1fr; /* Una columna en pantallas pequeñas */
-    gap: 50px; /* Ajuste del espacio entre tarjetas */
+.price-badge {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+}
+
+.price-head {
+  padding: 1.3rem 1.3rem 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.price-head .route {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-dim);
+}
+
+.price-head h3 {
+  font-size: 1.05rem;
+  margin-top: 0.4rem;
+  text-transform: none;
+  color: var(--white);
+}
+
+.price-head p {
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+  min-height: 3.4em;
+}
+
+.price-amount {
+  font-family: var(--font-mono);
+  font-size: 1.7rem;
+  color: var(--signal);
+  font-variant-numeric: tabular-nums;
+  margin-top: 0.8rem;
+}
+
+.price-amount span {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.price-body {
+  padding: 1.2rem 1.3rem 1.5rem;
+  flex: 1;
+}
+
+.price-body ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.price-body li {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  color: var(--text);
+}
+
+.price-body li i {
+  color: var(--signal);
+  margin-top: 0.2em;
+  font-size: 0.8rem;
+}
+
+.faq-title {
+  margin-top: 2.6rem;
+  font-size: 1.1rem;
+  text-transform: none;
+  color: var(--white);
+}
+
+.faq {
+  margin-top: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  max-width: 760px;
+}
+
+.faq details {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.9rem 1.1rem;
+}
+
+.faq summary {
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.86rem;
+  color: var(--white);
+}
+
+.faq p {
+  margin-top: 0.7rem;
+  font-size: 0.86rem;
+}
+
+@media (max-width: 900px) {
+  .price-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .price-grid {
+    grid-template-columns: 1fr;
   }
 }
