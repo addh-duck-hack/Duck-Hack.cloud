@@ -1,6 +1,7 @@
 // src/components/Footer.js
 import React from 'react';
 import { Link } from 'react-router-dom';
+import logo from '../assets/logo.png';
 import './Footer.css';
 
 const Footer = () => {
@@ -69,6 +70,10 @@ const Footer = () => {
           <p>
             <Link to="/privacy-policy">Aviso de Privacidad</Link>
           </p>
+        </div>
+
+        <div className="footer-section footer-brand">
+          <img src={logo} alt="Duck-Hack" className="footer-logo" />
         </div>
       </div>
 

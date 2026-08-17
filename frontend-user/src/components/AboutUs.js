@@ -1,8 +1,46 @@
 // src/components/AboutUs.js
 import React from 'react';
-import teamImage from '../assets/team-image.jpg';
+import teamPlaceholder from '../assets/team-placeholder.jpg';
 import { usePageMeta } from '../hooks/usePageMeta';
 import './AboutUs.css';
+
+const TEAM = [
+  {
+    name: 'Adrián Jacobo',
+    role: 'Arquitecto de Software — Backend, DevOps & Seguridad',
+    bio: 'Diseña la arquitectura de cada proyecto y está a cargo de todo el ciclo: del código a producción, pasando por DevOps, infraestructura y seguridad, para que todo funcione y escale sin sorpresas.',
+    email: 'adrian.jacobo@duck-hack.com',
+    phone: '+52 55 0000 0001',
+  },
+  {
+    name: 'Gerardo Jacobo',
+    role: 'Desarrollador Web — Angular, React & CSS',
+    bio: 'Se especializa en interfaces rápidas y bien cuidadas, combinando Angular, React y CSS para que cada sitio se sienta tan bien como se ve.',
+    email: 'gerardo.jacobo@duck-hack.com',
+    phone: '',
+  },
+  {
+    name: 'César Jacobo',
+    role: 'Desarrollador Móvil — Android & iOS',
+    bio: 'Lleva tu negocio al bolsillo de tus clientes con aplicaciones nativas fluidas para Android y iOS.',
+    email: 'cesar.jacobo@duck-hack.com',
+    phone: '+52 55 0000 0003',
+  },
+  {
+    name: 'Denisse Maldonado',
+    role: 'Ventas',
+    bio: 'Te acompaña desde la primera conversación hasta encontrar el plan que mejor se ajusta a tu proyecto y presupuesto.',
+    email: '',
+    phone: '+52 55 0000 0004',
+  },
+  {
+    name: 'Paola Martínez',
+    role: 'Contabilidad y Administración',
+    bio: 'Mantiene la operación de Duck-Hack funcionando sin fricciones, para que cada proyecto avance a tiempo.',
+    email: 'paola.martinez@duck-hack.com',
+    phone: '+52 55 0000 0005',
+  },
+];
 
 const AboutUs = () => {
   usePageMeta(
@@ -13,41 +51,69 @@ const AboutUs = () => {
   return (
     <section className="about-view">
       <span className="eyebrow">/nosotros</span>
-      <h1 className="section-title">El equipo detrás del panel</h1>
+      <h1 className="section-title">El equipo detrás del software</h1>
+      <p className="section-sub">
+        Nuestros colaboradores, quienes cuentan con más de 5 años de experiencia en el campo de
+        la tecnología, te ofrecerán las mejores soluciones digitales a medida.
+      </p>
 
-      <div className="about-grid">
-        <figure className="about-photo">
-          <span className="tag">team.jpg</span>
-          <img src={teamImage} alt="Equipo Duck-Hack" />
-        </figure>
-
-        <div className="about-copy">
+      <div className="mission-vision">
+        <div className="mv-cell">
+          <div className="mv-icon">
+            <i className="fas fa-bullseye" />
+          </div>
+          <h3>Misión</h3>
           <p>
-            Nuestros colaboradores, quienes cuentan con más de 5 años de experiencia en el
-            campo de la tecnología, te ofrecerán las mejores soluciones digitales a medida.
-            Nuestra pasión por la tecnología y el diseño nos impulsa a superar tus
-            expectativas. Conoce al equipo que hará realidad tus proyectos.
+            Ayudar a las empresas a crecer digitalmente con soluciones web personalizadas y un
+            servicio de hosting robusto, garantizando la seguridad y el rendimiento de sus
+            proyectos online. Trabajamos codo a codo con cada cliente para entender su negocio
+            antes de escribir una sola línea de código, y nos mantenemos a su lado después del
+            lanzamiento, con soporte real, en español y sin letra chica.
           </p>
+        </div>
+        <div className="mv-cell">
+          <div className="mv-icon">
+            <i className="fas fa-eye" />
+          </div>
+          <h3>Visión</h3>
+          <p>
+            Ser una empresa líder en desarrollo web y hosting, reconocida por nuestro compromiso
+            con la innovación, la calidad y la satisfacción de nuestros clientes. Aspiramos a que
+            cada negocio que confía en nosotros, sin importar su tamaño, tenga acceso a la misma
+            calidad de tecnología, diseño y soporte que normalmente solo las grandes empresas
+            pueden pagar.
+          </p>
+        </div>
+      </div>
 
-          <div className="kv">
-            <div className="cell">
-              <h3>misión</h3>
-              <p>
-                Ayudar a las empresas a crecer digitalmente con soluciones web
-                personalizadas y un servicio de hosting robusto, garantizando la seguridad
-                y el rendimiento de sus proyectos online.
-              </p>
+      <h2 className="team-title">Nuestro equipo</h2>
+      <p className="section-sub">Las personas que hacen posible cada proyecto, de principio a fin.</p>
+
+      <div className="team-heroes">
+        {TEAM.map((member) => (
+          <div className="team-hero" key={member.name}>
+            <div className="team-hero-media">
+              <img src={teamPlaceholder} alt={member.name} />
             </div>
-            <div className="cell">
-              <h3>visión</h3>
-              <p>
-                Ser una empresa líder en desarrollo web y hosting, reconocida por nuestro
-                compromiso con la innovación, la calidad y la satisfacción de nuestros
-                clientes.
-              </p>
+            <div className="team-hero-content">
+              <h3>{member.name}</h3>
+              <p className="team-role">{member.role}</p>
+              <p className="team-bio">{member.bio}</p>
+              <div className="team-contact">
+                {member.email && (
+                  <a href={`mailto:${member.email}`}>
+                    <i className="fas fa-envelope" /> {member.email}
+                  </a>
+                )}
+                {member.phone && (
+                  <a href={`tel:${member.phone.replace(/\s+/g, '')}`}>
+                    <i className="fas fa-phone" /> {member.phone}
+                  </a>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        ))}
       </div>
     </section>
   );

@@ -72,6 +72,20 @@
   color: var(--text-dim);
   font-size: 0.75rem;
   font-family: var(--font-mono);
+  text-align: left;
+  padding-left: 2em;
+}
+
+.footer-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.footer-logo {
+  height: 52px;
+  width: auto;
+  opacity: 0.9;
 }
 
 @media (min-width: 900px) {
@@ -88,5 +102,10 @@
 
   .social-links {
     justify-content: flex-start;
+  }
+
+  .footer-brand {
+    justify-content: flex-end;
+    align-self: center;
   }
 }

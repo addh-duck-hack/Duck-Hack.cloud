@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Bloque superior con moneda de costo -->
+  <rect x="40" y="4" width="20" height="11" rx="2" fill="#1B1B18"/>
+  <circle cx="50" cy="9.5" r="5.5" fill="#E4572E" stroke="#1B1B18" stroke-width="1.5"/>
+  <text x="50" y="12.2" text-anchor="middle" font-family="Arial, sans-serif" font-size="7" font-weight="800" fill="#FFFFFF">$</text>
+
+  <!-- Dintel del portico -->
+  <rect x="16" y="17" width="68" height="8" rx="1.5" fill="#1B1B18"/>
+
+  <!-- Antenas laterales -->
+  <rect x="12" y="30" width="4" height="22" rx="2" fill="#1B1B18"/>
+  <rect x="84" y="30" width="4" height="22" rx="2" fill="#1B1B18"/>
+
+  <!-- Columnas -->
+  <rect x="22" y="25" width="10" height="28" fill="#1B1B18"/>
+  <rect x="68" y="25" width="10" height="28" fill="#1B1B18"/>
+
+  <!-- Casetas en la base, con ventanilla -->
+  <polygon points="14,50 40,50 36,66 10,66" fill="#1B1B18"/>
+  <rect x="16" y="53" width="15" height="9" rx="1.5" fill="#FBE4D8"/>
+  <polygon points="60,50 86,50 90,66 64,66" fill="#1B1B18"/>
+  <rect x="69" y="53" width="15" height="9" rx="1.5" fill="#FBE4D8"/>
+
+  <!-- Camino en perspectiva -->
+  <path d="M36,66 L6,95" stroke="#1B1B18" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M64,66 L94,95" stroke="#1B1B18" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M50,46 L50,92" stroke="#E4572E" stroke-width="4.5" stroke-linecap="round" stroke-dasharray="1 10"/>
+</svg>

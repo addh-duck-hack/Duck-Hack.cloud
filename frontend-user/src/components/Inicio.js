@@ -23,16 +23,16 @@ const SLIDES = [
 ];
 
 const METRICS = [
-  { num: '5', label: 'Clientes activos' },
+  { num: '8', label: 'Clientes activos' },
   { num: '99.9%', label: 'Disponibilidad' },
   { num: '30d', label: 'Garantía de devolución' },
-  { num: '6', label: 'Servicios activos' },
+  { num: '24', label: 'Endpoints funcionales' },
 ];
 
 const COMMANDS = [
-  { p: '$', cmd: 'desplegar hosting', note: '4 planes, de $250 a $1,150 MXN/mes' },
+  { p: '$', cmd: 'desplegar hosting', note: 'planes adecuados a todo tipo de clientes' },
   { p: '$', cmd: 'construir sitio', note: 'diseño + desarrollo web a medida' },
-  { p: '$', cmd: 'publicar app', note: 'nativa, iOS y Android' },
+  { p: '$', cmd: 'publicar app', note: 'aplicaciones nativas (iOS y Android)' },
   { p: '$', cmd: 'configurar marca', note: 'imagen corporativa e identidad visual' },
 ];
 

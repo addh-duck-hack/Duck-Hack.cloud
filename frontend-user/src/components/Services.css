@@ -6,6 +6,20 @@
   text-align: left;
 }
 
+.pricing-discount-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--action);
+  background: color-mix(in srgb, var(--action) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--action) 35%, transparent);
+  border-radius: 8px;
+  padding: 0.5rem 0.85rem;
+  margin-bottom: 2rem;
+}
+
 .price-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -26,10 +40,17 @@
   border-color: var(--signal);
 }
 
-.price-badge {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
+.price-badges {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 1.9rem;
+  padding: 1rem 1.3rem 0;
+}
+
+.discount-badge {
+  background: var(--action);
+  color: var(--on-accent);
 }
 
 .price-head {
@@ -56,17 +77,51 @@
   min-height: 3.4em;
 }
 
+.price-original {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  text-decoration: line-through;
+  margin-top: 0.9rem;
+}
+
+.price-original span {
+  font-size: 0.72rem;
+}
+
 .price-amount {
   font-family: var(--font-mono);
   font-size: 1.7rem;
   color: var(--signal);
   font-variant-numeric: tabular-nums;
-  margin-top: 0.8rem;
+  margin-top: 0.2rem;
+}
+
+.price-original + .price-amount {
+  margin-top: 0.1rem;
 }
 
 .price-amount span {
   font-size: 0.72rem;
   color: var(--text-dim);
+}
+
+.price-amount-quote {
+  font-size: 1.15rem;
+}
+
+.price-amount-quote span {
+  display: block;
+  margin-top: 0.3rem;
+}
+
+.price-amount-quote span a {
+  color: var(--signal);
+  text-decoration: none;
+}
+
+.price-amount-quote span a:hover {
+  text-decoration: underline;
 }
 
 .price-body {
@@ -96,6 +151,19 @@
   color: var(--signal);
   margin-top: 0.2em;
   font-size: 0.8rem;
+}
+
+.extra-features {
+  margin-top: 1.1rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--line);
+}
+
+.extra-features-title {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--white);
+  margin-bottom: 0.6rem;
 }
 
 .faq-title {

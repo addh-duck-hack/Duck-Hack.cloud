@@ -1,21 +1,66 @@
 // src/components/Customers.js
 import React from 'react';
-import latitud from '../assets/latitud-logo.png';
-import textuales from '../assets/textuales-logo.png';
-import quintosol from '../assets/quintosol-logo.png';
-import salaverry from '../assets/salaverry-logo.png';
-import empenosrio from '../assets/empenosrio-logo.png';
-import dereporteros from '../assets/dereporteros-logo.png';
+import quintosolShot from '../assets/client-shots/quintosol-shot.jpg';
+import latitudShot from '../assets/client-shots/latitud-shot.jpg';
+import textualesShot from '../assets/client-shots/textuales-shot.jpg';
+import empenosrioShot from '../assets/client-shots/empenosrio-shot.jpg';
+import dereporterosShot from '../assets/client-shots/dereporteros-shot.jpg';
+import romagaShot from '../assets/client-shots/romaga-shot.jpg';
+import peajesmxShot from '../assets/client-shots/peajesmx-shot.jpg';
 import { usePageMeta } from '../hooks/usePageMeta';
 import './Customers.css';
 
 const CLIENTS = [
-  { src: latitud, name: 'Latitud Megalópolis', rubro: 'Medio digital', url: 'https://latitudmegalopolis.com/' },
-  { src: textuales, name: 'Textual-es', rubro: 'Contenido editorial', url: 'https://textual-es.com/' },
-  { src: quintosol, name: 'El Quinto Sol', rubro: 'Marketing e innovación', url: 'https://elquintosolmarketing.com/' },
-  { src: salaverry, name: 'Torre Médica Salaverry', rubro: 'Clínica de especialidades', url: 'https://medicasalaverry.com/' },
-  { src: empenosrio, name: 'Empeños Río', rubro: 'Casa de empeño', url: 'https://empenosrio.com' },
-  { src: dereporteros, name: 'De Reporteros', rubro: 'Medio digital', url: 'https://dereporteros.com' },
+  {
+    shot: latitudShot,
+    name: 'Latitud Megalópolis',
+    rubro: 'Medio digital',
+    description: 'Medio digital de noticias y opinión. Su sitio web y hosting están desarrollados y administrados por Duck-Hack.',
+    url: 'https://latitudmegalopolis.com/',
+  },
+  {
+    shot: textualesShot,
+    name: 'Textual-es',
+    rubro: 'Contenido editorial',
+    description: 'Estudio de contenido editorial. Construimos y alojamos su sitio web.',
+    url: 'https://textual-es.com/',
+  },
+  {
+    shot: quintosolShot,
+    name: 'El Quinto Sol',
+    rubro: 'Marketing e innovación',
+    description: 'Agencia de marketing e innovación. Desarrollamos su sitio web y administramos su hosting.',
+    url: 'https://elquintosolmarketing.com/',
+  },
+  {
+    shot: empenosrioShot,
+    name: 'Empeños Río',
+    rubro: 'Casa de empeño',
+    description: 'Casa de empeño con presencia física y en línea. Su sitio web corre con hosting de Duck-Hack.',
+    url: 'https://empenosrio.com',
+  },
+  {
+    shot: dereporterosShot,
+    name: 'De Reporteros',
+    rubro: 'Medio digital',
+    description: 'Medio digital de noticias. Sitio web y hosting desarrollados y administrados por Duck-Hack.',
+    url: 'https://dereporteros.com',
+  },
+  {
+    shot: romagaShot,
+    name: 'Transportes Romaga',
+    rubro: 'Transporte y logística industrial',
+    description:
+      'Transporte, maniobras y suministro de agua para operaciones industriales y del sector petrolero. Su sitio web y hosting los desarrollamos y administramos nosotros.',
+    url: 'https://romaga.duck-hack.cloud/',
+  },
+  {
+    shot: peajesmxShot,
+    name: 'Peajes MX',
+    rubro: 'Cálculo de rutas y costos',
+    description: 'Servicio para el cálculo de costos y tiempos de viaje en carretera. Su sitio web y hosting están desarrollados y administrados por Duck-Hack.',
+    url: 'https://www.peajesmx.com/',
+  },
 ];
 
 const Customers = () => {
@@ -33,10 +78,27 @@ const Customers = () => {
       <div className="client-grid">
         {CLIENTS.map((c) => (
           <a className="client-card" href={c.url} target="_blank" rel="noopener noreferrer" key={c.name}>
-            <img src={c.src} alt={c.name} />
-            <div>
-              <div className="name">{c.name}</div>
-              <div className="rubro">{c.rubro}</div>
+            <div className="client-thumb">
+              {c.shot ? (
+                <img src={c.shot} alt={`Sitio web de ${c.name}`} />
+              ) : (
+                <div className="client-thumb-fallback">
+                  <img src={c.logo} alt={c.name} />
+                </div>
+              )}
+              <div className="client-thumb-overlay">
+                <span className="client-thumb-icon">
+                  <i className="fas fa-arrow-up-right-from-square" />
+                </span>
+              </div>
+            </div>
+            <div className="client-body">
+              <span className="rubro">{c.rubro}</span>
+              <h3 className="name">{c.name}</h3>
+              <p className="client-description">{c.description}</p>
+              <span className="client-cta">
+                Visitar sitio <i className="fas fa-arrow-right" />
+              </span>
             </div>
           </a>
         ))}
