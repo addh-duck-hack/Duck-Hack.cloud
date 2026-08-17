@@ -17,8 +17,36 @@ const Footer = () => {
               target="_blank"
               rel="noopener noreferrer"
               className="social-link"
+              aria-label="WhatsApp"
             >
               <i className="fab fa-whatsapp"></i>
+            </a>
+            <a
+              href="https://www.instagram.com/duckhack.cloud/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="social-link"
+              aria-label="Instagram"
+            >
+              <i className="fab fa-instagram"></i>
+            </a>
+            <a
+              href="https://www.facebook.com/profile.php?id=61593021786500"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="social-link"
+              aria-label="Facebook"
+            >
+              <i className="fab fa-facebook-f"></i>
+            </a>
+            <a
+              href="https://www.threads.com/@duckhack.cloud"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="social-link"
+              aria-label="Threads"
+            >
+              <i className="fab fa-threads"></i>
             </a>
           </div>
         </div>
