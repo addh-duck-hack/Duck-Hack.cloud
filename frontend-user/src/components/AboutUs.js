@@ -1,6 +1,9 @@
 // src/components/AboutUs.js
 import React from 'react';
 import teamPlaceholder from '../assets/team-placeholder.jpg';
+import adrianPhoto from '../assets/collaborators/adrian.webp';
+import gerardoPhoto from '../assets/collaborators/gerardo.webp';
+import cesarPhoto from '../assets/collaborators/cesar.webp';
 import { usePageMeta } from '../hooks/usePageMeta';
 import './AboutUs.css';
 
@@ -10,7 +13,8 @@ const TEAM = [
     role: 'Arquitecto de Software — Backend, DevOps & Seguridad',
     bio: 'Diseña la arquitectura de cada proyecto y está a cargo de todo el ciclo: del código a producción, pasando por DevOps, infraestructura y seguridad, para que todo funcione y escale sin sorpresas.',
     email: 'adrian.jacobo@duck-hack.com',
-    phone: '+52 55 0000 0001',
+    phone: '+52 771 774 2823',
+    photo: adrianPhoto,
   },
   {
     name: 'Gerardo Jacobo',
@@ -18,28 +22,30 @@ const TEAM = [
     bio: 'Se especializa en interfaces rápidas y bien cuidadas, combinando Angular, React y CSS para que cada sitio se sienta tan bien como se ve.',
     email: 'gerardo.jacobo@duck-hack.com',
     phone: '',
+    photo: gerardoPhoto,
   },
   {
     name: 'César Jacobo',
     role: 'Desarrollador Móvil — Android & iOS',
     bio: 'Lleva tu negocio al bolsillo de tus clientes con aplicaciones nativas fluidas para Android y iOS.',
     email: 'cesar.jacobo@duck-hack.com',
-    phone: '+52 55 0000 0003',
+    phone: '+52 771 762 1512',
+    photo: cesarPhoto,
   },
   {
     name: 'Denisse Maldonado',
-    role: 'Ventas',
-    bio: 'Te acompaña desde la primera conversación hasta encontrar el plan que mejor se ajusta a tu proyecto y presupuesto.',
-    email: '',
-    phone: '+52 55 0000 0004',
+    role: 'Project Manager',
+    bio: 'Coordina cada proyecto de principio a fin, asegurando que tiempos, entregables y comunicación con el cliente avancen sin fricciones.',
+    email: 'denisse.maldonado@duck-hack.com',
+    phone: '+52 56 3102 5569',
   },
-  {
+  /*{
     name: 'Paola Martínez',
     role: 'Contabilidad y Administración',
     bio: 'Mantiene la operación de Duck-Hack funcionando sin fricciones, para que cada proyecto avance a tiempo.',
     email: 'paola.martinez@duck-hack.com',
     phone: '+52 55 0000 0005',
-  },
+  },*/
 ];
 
 const AboutUs = () => {
@@ -93,7 +99,7 @@ const AboutUs = () => {
         {TEAM.map((member) => (
           <div className="team-hero" key={member.name}>
             <div className="team-hero-media">
-              <img src={teamPlaceholder} alt={member.name} />
+              <img src={member.photo || teamPlaceholder} alt={member.name} />
             </div>
             <div className="team-hero-content">
               <h3>{member.name}</h3>
