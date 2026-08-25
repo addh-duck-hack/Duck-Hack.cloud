@@ -59,7 +59,7 @@ const AboutUs = () => {
       <span className="eyebrow">/nosotros</span>
       <h1 className="section-title">El equipo detrás del software</h1>
       <p className="section-sub">
-        Nuestros colaboradores, quienes cuentan con más de 5 años de experiencia en el campo de
+        Nuestros colaboradores, quienes cuentan con más de 8 años de experiencia en el campo de
         la tecnología, te ofrecerán las mejores soluciones digitales a medida.
       </p>
 
