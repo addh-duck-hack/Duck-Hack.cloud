@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import logo from '../assets/logo.png';
+import contactMapBg from '../assets/background_map_contact.webp';
 import Footer from './Footer';
 import './AppShell.css';
 
@@ -33,6 +34,7 @@ const AppShell = () => {
   }, [location.pathname]);
 
   const breadcrumb = ROUTE_LABELS[location.pathname] || location.pathname.replace(/^\//, '');
+  const isContact = location.pathname === '/contacto';
 
   return (
     <div className="app-shell">
@@ -122,7 +124,10 @@ const AppShell = () => {
           </div>
         </div>
 
-        <main className="main-content">
+        <main
+          className={`main-content${isContact ? ' has-map-bg' : ''}`}
+          style={isContact ? { '--map-bg': `url(${contactMapBg})` } : undefined}
+        >
           <Outlet />
         </main>
 

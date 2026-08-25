@@ -226,8 +226,23 @@
 }
 
 .main-content {
+  position: relative;
+  z-index: 0;
   padding: 2.4rem clamp(1.2rem, 4vw, 3rem) 5rem;
   flex: 1 1 auto;
+}
+
+.main-content.has-map-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: var(--map-bg);
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  opacity: 0.12;
+  pointer-events: none;
 }
 
 .shell-scrim {

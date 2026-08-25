@@ -1,7 +1,6 @@
 // src/components/ContactUs.js
 import React, { useState } from 'react';
 import { usePageMeta } from '../hooks/usePageMeta';
-import mapBackground from '../assets/background_map_v2.webp';
 import './ContactUs.css';
 
 const SERVICES = [
@@ -54,7 +53,7 @@ const ContactUs = () => {
   };
 
   return (
-    <section className="contact-view" style={{ backgroundImage: `url(${mapBackground})` }}>
+    <section className="contact-view">
       <span className="eyebrow">/contacto</span>
       <h1 className="section-title">Cuéntanos qué necesitas</h1>
 
