@@ -11,6 +11,18 @@ const ROUTE_LABELS = {
   "/admin/agency-clients": "agency-clients",
 };
 
+// Herramientas de infraestructura del servidor — confidencial, solo super_admin
+// (mismo criterio que "Clientes de agencia": no son datos ni accesos que un
+// store_admin de un cliente deba ver).
+const INFRA_TOOLS = [
+  { label: "Portainer", url: "https://portainer.server.duck-hack.cloud", icon: "fa-brands fa-docker" },
+  { label: "NGINX Proxy Manager", url: "https://npm.server.duck-hack.cloud", icon: "fas fa-network-wired" },
+  { label: "Panel de deploy", url: "https://deploy.server.duck-hack.cloud", icon: "fas fa-rocket" },
+  { label: "Servidor FTP", url: "https://ftp.server.duck-hack.cloud", icon: "fas fa-folder-open" },
+  { label: "MongoDB", url: "https://mongo.duck-hack.cloud", icon: "fas fa-database" },
+  { label: "PHP My Admin", url: "https://pma.server.duck-hack.cloud", icon: "fa-brands fa-php" },
+];
+
 const AdminShell = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -18,7 +30,7 @@ const AdminShell = () => {
 
   const role = localStorage.getItem("role");
   const canManageStoreConfig = ["super_admin", "store_admin"].includes(role);
-  const canManageAgencyClients = ["super_admin"].includes(role);
+  const isSuperAdmin = role === "super_admin";
 
   useEffect(() => {
     setDrawerOpen(false);
@@ -27,7 +39,7 @@ const AdminShell = () => {
   const navItems = [
     { path: "/admin", label: "Panel", end: true },
     ...(canManageStoreConfig ? [{ path: "/admin/store-config", label: "Configurar tienda" }] : []),
-    ...(canManageAgencyClients ? [{ path: "/admin/agency-clients", label: "Clientes de agencia" }] : []),
+    ...(isSuperAdmin ? [{ path: "/admin/agency-clients", label: "Clientes de agencia" }] : []),
   ];
 
   const handleLogout = () => {
@@ -72,10 +84,21 @@ const AdminShell = () => {
           ))}
         </nav>
 
+        {isSuperAdmin ? (
+          <div className="rail-actions">
+            <div className="rail-label">{"// infraestructura"}</div>
+            {INFRA_TOOLS.map((tool) => (
+              <a key={tool.url} href={tool.url} target="_blank" rel="noopener noreferrer">
+                <i className={tool.icon} aria-hidden="true" /> {tool.label}
+              </a>
+            ))}
+          </div>
+        ) : null}
+
         <div className="rail-actions">
           <div className="rail-label">{"// sesión"}</div>
           <button type="button" className="rail-logout" onClick={handleLogout}>
-            Cerrar sesión
+            <i className="fas fa-power-off" aria-hidden="true" /> Cerrar sesión
           </button>
         </div>
 
