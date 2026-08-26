@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { verifyToken, authorizeRoles, ROLES } = require("../middleware/authMiddleware");
 const { sendError } = require("../utils/httpResponses");
+const { getServerMetrics, PortainerConfigError, PortainerRequestError } = require("../utils/portainerClient");
 
 // Herramientas de infraestructura del servidor — confidencial, solo super_admin
 // (mismo criterio que /api/agency-clients: no son datos que un store_admin de
@@ -53,6 +54,25 @@ router.get("/status", verifyToken, authorizeRoles(ROLES.SUPER_ADMIN), async (req
     return res.status(200).json({ items, checkedAt: new Date().toISOString() });
   } catch (error) {
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al verificar el estado de la infraestructura.");
+  }
+});
+
+// Uso de recursos del VPS (CPU/memoria/disco/red), aproximado sumando el uso
+// de todos los contenedores del host vía la API de Portainer. Ver
+// utils/portainerClient.js para las fórmulas y limitaciones (disco = solo
+// footprint de Docker, red = acumulado desde que arrancó cada contenedor).
+router.get("/metrics", verifyToken, authorizeRoles(ROLES.SUPER_ADMIN), async (req, res) => {
+  try {
+    const metrics = await getServerMetrics();
+    return res.status(200).json(metrics);
+  } catch (error) {
+    if (error instanceof PortainerConfigError) {
+      return sendError(res, 501, "PORTAINER_NOT_CONFIGURED", error.message);
+    }
+    if (error instanceof PortainerRequestError) {
+      return sendError(res, 502, "PORTAINER_UNREACHABLE", "No fue posible consultar Portainer.", error.message);
+    }
+    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al obtener métricas del servidor.");
   }
 });
 
