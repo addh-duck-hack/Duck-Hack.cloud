@@ -1,6 +1,7 @@
 // src/components/ContactUs.js
 import React, { useState } from 'react';
 import { usePageMeta } from '../hooks/usePageMeta';
+import { getApiBaseUrl } from '../utils/apiClient';
 import './ContactUs.css';
 
 const SERVICES = [
@@ -35,7 +36,7 @@ const ContactUs = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch(`${process.env.REACT_APP_HOST_SERVICES_URL}/api/mail/send-email`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/mail/send-email`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -56,7 +56,7 @@ router.post("/register", registerRateLimiter, validateRegisterPayload, async (re
     const token = signEmailVerificationToken({ id: user._id });
 
     // Se enviara el correo con una url de frontend para verificar el email, esto para dar visibilidad al usuario y no solo consumir un endpoint
-    const backendBase = process.env.FRONTEND_URL;
+    const backendBase = (process.env.FRONTEND_URL || "").replace(/\/+$/, "");
     const verifyUrl = `${backendBase}/users/verify?token=${token}`;
 
     // Configurar transporter usando variables de entorno
