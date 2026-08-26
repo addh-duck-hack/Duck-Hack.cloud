@@ -21,6 +21,7 @@ const {
   signEmailVerificationToken,
   verifyEmailVerificationToken,
 } = require("../utils/jwt");
+const { verificationEmailTemplate } = require("../utils/emailTemplates");
 
 const sanitizeUser = (userDoc) => {
   if (!userDoc) return null;
@@ -70,14 +71,18 @@ router.post("/register", registerRateLimiter, validateRegisterPayload, async (re
       },
     });
 
+    const { html, text } = verificationEmailTemplate({
+      name: user.name,
+      verifyUrl,
+      logoUrl: backendBase ? `${backendBase}/logo192.png` : undefined,
+    });
+
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: user.email,
       subject: 'Verifica tu cuenta - Duck Hack',
-      html: `<p>Hola ${user.name || ''},</p>
-             <p>Gracias por registrarte. Para activar tu cuenta, haz clic en el siguiente enlace:</p>
-             <p><a href="${verifyUrl}">Verificar mi correo</a></p>
-             <p>Si no solicitaste este correo, ignóralo.</p>`
+      html,
+      text,
     };
 
     // Enviar correo (no bloquear el flujo si falla el envío)

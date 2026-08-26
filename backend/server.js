@@ -38,7 +38,10 @@ const corsOptions = {
     return callback(new Error("CORS_ORIGIN_NOT_ALLOWED"));
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  // X-Tenant-Slug: frontend-user/src/utils/apiClient.js lo manda en cada apiFetch
+  // (resolución de tenant, ver TENANT_HEADER_NAME) — sin listarlo aquí, el navegador
+  // bloquea el preflight de cualquier request que lo incluya (ej. /users/verify).
+  allowedHeaders: ["Content-Type", "Authorization", process.env.TENANT_HEADER_NAME || "X-Tenant-Slug"],
   optionsSuccessStatus: 204,
 };
 
