@@ -49,7 +49,7 @@ const Login = () => {
       setIsLoggedIn(true); // Cambiar el estado a "logueado"
       
     } catch (error) {
-      const serverMsg = error.response?.data?.message || error.response?.data?.error;
+      const serverMsg = error.response?.data?.error?.message;
       if (serverMsg) {
         setMessage(serverMsg);
       } else {

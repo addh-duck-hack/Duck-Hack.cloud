@@ -46,10 +46,12 @@ const ContactUs = () => {
       if (response.ok) {
         setFormSubmitted(true);
       } else {
-        alert('Error enviando el mensaje');
+        const payload = await response.json().catch(() => null);
+        alert(payload?.error?.message || 'Error enviando el mensaje');
       }
     } catch (error) {
       console.error('Error:', error);
+      alert('Error enviando el mensaje. Intenta nuevamente más tarde.');
     }
   };
 
