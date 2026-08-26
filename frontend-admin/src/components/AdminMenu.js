@@ -5,6 +5,7 @@ const AdminMenu = () => {
   const navigate = useNavigate();
   const role = localStorage.getItem("role");
   const canManageStoreConfig = ["super_admin", "store_admin"].includes(role);
+  const canManageAgencyClients = ["super_admin"].includes(role);
 
   const handleLogout = () => {
     localStorage.removeItem("token"); // Eliminar el token del localStorage al cerrar sesión
@@ -25,7 +26,6 @@ const AdminMenu = () => {
         <li>Módulo de productos (pendiente)</li>
         <li>Módulo de inventario (pendiente)</li>
         <li>Módulo de pedidos (pendiente)</li>
-        <li>Módulo de clientes (pendiente)</li>
       </ul>
 
       {canManageStoreConfig ? (
@@ -37,6 +37,14 @@ const AdminMenu = () => {
       ) : (
         <p>Tu rol no tiene permisos para configurar la tienda.</p>
       )}
+
+      {canManageAgencyClients ? (
+        <div style={{ marginTop: "1rem" }}>
+          <button onClick={() => navigate("/admin/agency-clients")}>
+            Clientes de agencia
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 };

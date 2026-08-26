@@ -51,6 +51,7 @@ const userRoutes = require("./routes/user.routes");
 const mailRoutes = require("./routes/mail.routes");
 const uploadRoutes = require("./routes/upload.routes");
 const storeConfigRoutes = require("./routes/storeConfig.routes");
+const agencyClientRoutes = require("./routes/agencyClient.routes");
 
 app.use(cors(corsOptions));
 app.use(
@@ -65,6 +66,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/mail", mailRoutes);
 app.use("/api/uploads", uploadRoutes);
 app.use("/api/store-config", storeConfigRoutes);
+app.use("/api/agency-clients", agencyClientRoutes);
 // Servir la carpeta uploads como estática
 const uploadsDir = resolveUploadsDir();
 if (!uploadsDir) {

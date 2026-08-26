@@ -15,6 +15,7 @@ tags:
   - name: Users
   - name: Mail
   - name: Uploads
+  - name: AgencyClients
 paths:
   /api/users/register:
     post:
@@ -324,6 +325,422 @@ paths:
         "404":
           $ref: "#/components/responses/RouteNotFound"
 
+  /api/agency-clients:
+    get:
+      tags: [AgencyClients]
+      summary: Listar clientes de agencia con estado calculado
+      description: >
+        Información confidencial de facturación interna de la agencia (no confundir con el rol `customer`).
+        Acceso exclusivo a `super_admin`. Cada item incluye `hostingPaidUntil` (fecha del último pago vigente)
+        y `pendingDebtTotal`/`pendingDebtCount` (deuda de diseño pendiente), calculados vía agregación.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Listado de clientes de agencia
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AgencyClientListItem"
+                required: [items]
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      tags: [AgencyClients]
+      summary: Crear cliente de agencia
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgencyClientCreateRequest"
+      responses:
+        "201":
+          description: Cliente de agencia creado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  client:
+                    $ref: "#/components/schemas/AgencyClient"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/agency-clients/{id}:
+    get:
+      tags: [AgencyClients]
+      summary: Obtener ficha de un cliente de agencia
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AgencyClientIdParam"
+      responses:
+        "200":
+          description: Cliente de agencia
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgencyClient"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/AgencyClientNotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    put:
+      tags: [AgencyClients]
+      summary: Editar cliente de agencia
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AgencyClientIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgencyClientCreateRequest"
+      responses:
+        "200":
+          description: Cliente de agencia actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  client:
+                    $ref: "#/components/schemas/AgencyClient"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/AgencyClientNotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    delete:
+      tags: [AgencyClients]
+      summary: Eliminar cliente de agencia
+      description: >
+        Bloqueado con 409 si el cliente tiene pagos de hosting o deudas de diseño asociados
+        (sin borrado en cascada, para no destruir historial financiero por accidente).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AgencyClientIdParam"
+      responses:
+        "200":
+          description: Cliente de agencia eliminado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/AgencyClientNotFound"
+        "409":
+          $ref: "#/components/responses/AgencyClientHasRelatedRecords"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/agency-clients/{id}/hosting-payments:
+    get:
+      tags: [AgencyClients]
+      summary: Listar historial de pagos de hosting de un cliente
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AgencyClientIdParam"
+      responses:
+        "200":
+          description: Historial de pagos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/HostingPayment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/AgencyClientNotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      tags: [AgencyClients]
+      summary: Registrar pago de hosting
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AgencyClientIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HostingPaymentCreateRequest"
+      responses:
+        "201":
+          description: Pago de hosting registrado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  payment:
+                    $ref: "#/components/schemas/HostingPayment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/AgencyClientNotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/agency-clients/{id}/hosting-payments/{paymentId}:
+    put:
+      tags: [AgencyClients]
+      summary: Editar pago de hosting
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AgencyClientIdParam"
+        - $ref: "#/components/parameters/HostingPaymentIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HostingPaymentCreateRequest"
+      responses:
+        "200":
+          description: Pago de hosting actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  payment:
+                    $ref: "#/components/schemas/HostingPayment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Cliente o pago de hosting no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    delete:
+      tags: [AgencyClients]
+      summary: Eliminar pago de hosting
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AgencyClientIdParam"
+        - $ref: "#/components/parameters/HostingPaymentIdParam"
+      responses:
+        "200":
+          description: Pago de hosting eliminado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Cliente o pago de hosting no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/agency-clients/{id}/design-debts:
+    get:
+      tags: [AgencyClients]
+      summary: Listar deudas de diseño de un cliente
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AgencyClientIdParam"
+      responses:
+        "200":
+          description: Historial de deudas de diseño
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DesignDebt"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/AgencyClientNotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      tags: [AgencyClients]
+      summary: Registrar deuda de diseño
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AgencyClientIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DesignDebtCreateRequest"
+      responses:
+        "201":
+          description: Deuda de diseño registrada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  debt:
+                    $ref: "#/components/schemas/DesignDebt"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/AgencyClientNotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/agency-clients/{id}/design-debts/{debtId}:
+    put:
+      tags: [AgencyClients]
+      summary: Editar deuda de diseño (incluye marcar pagada vía amountPaid)
+      description: >
+        `status` no se acepta del cliente: se recalcula server-side a partir de `amount`/`amountPaid`
+        (`pending`/`partial`/`paid`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AgencyClientIdParam"
+        - $ref: "#/components/parameters/DesignDebtIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DesignDebtCreateRequest"
+      responses:
+        "200":
+          description: Deuda de diseño actualizada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  debt:
+                    $ref: "#/components/schemas/DesignDebt"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Cliente o deuda de diseño no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    delete:
+      tags: [AgencyClients]
+      summary: Eliminar deuda de diseño
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AgencyClientIdParam"
+        - $ref: "#/components/parameters/DesignDebtIdParam"
+      responses:
+        "200":
+          description: Deuda de diseño eliminada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Cliente o deuda de diseño no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -342,6 +759,30 @@ components:
       schema:
         type: string
       description: ObjectId de usuario
+
+    AgencyClientIdParam:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+      description: ObjectId del cliente de agencia
+
+    HostingPaymentIdParam:
+      in: path
+      name: paymentId
+      required: true
+      schema:
+        type: string
+      description: ObjectId del pago de hosting
+
+    DesignDebtIdParam:
+      in: path
+      name: debtId
+      required: true
+      schema:
+        type: string
+      description: ObjectId de la deuda de diseño
 
   responses:
     BadRequest:
@@ -416,6 +857,18 @@ components:
                     retryAfterSec: 120
     RouteNotFound:
       description: Ruta no encontrada
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    AgencyClientNotFound:
+      description: Cliente de agencia no encontrado
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    AgencyClientHasRelatedRecords:
+      description: No se puede eliminar el cliente porque tiene pagos de hosting o deudas de diseño asociados
       content:
         application/json:
           schema:
@@ -623,3 +1076,182 @@ components:
                   items: {}
           required: [status, code, message]
       required: [ok, error]
+
+    AgencyClient:
+      type: object
+      description: >
+        Registro interno de agencia (negocio-cliente de Duck-Hack). No confundir con el rol `customer`
+        (comprador final de una tienda). Información confidencial, solo accesible a `super_admin`.
+      properties:
+        _id:
+          type: string
+        businessName:
+          type: string
+        contactName:
+          type: string
+        contactEmail:
+          type: string
+          format: email
+        contactPhone:
+          type: string
+        siteUrl:
+          type: string
+        hostingProvider:
+          type: string
+        serverLocation:
+          type: string
+        notes:
+          type: string
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [_id, businessName, isActive, createdAt, updatedAt]
+
+    AgencyClientCreateRequest:
+      type: object
+      properties:
+        businessName:
+          type: string
+          minLength: 2
+          maxLength: 150
+        contactName:
+          type: string
+          maxLength: 120
+        contactEmail:
+          type: string
+          format: email
+        contactPhone:
+          type: string
+          maxLength: 30
+        siteUrl:
+          type: string
+          maxLength: 300
+        hostingProvider:
+          type: string
+          maxLength: 120
+        serverLocation:
+          type: string
+          maxLength: 200
+        notes:
+          type: string
+          maxLength: 2000
+        isActive:
+          type: boolean
+      required: [businessName]
+
+    AgencyClientListItem:
+      allOf:
+        - $ref: "#/components/schemas/AgencyClient"
+        - type: object
+          properties:
+            hostingPaidUntil:
+              type: string
+              format: date-time
+              nullable: true
+              description: coversUntil del último pago de hosting registrado (null si nunca se registró uno).
+            pendingDebtTotal:
+              type: number
+              description: Suma de (amount - amountPaid) de las deudas de diseño con status != paid.
+            pendingDebtCount:
+              type: integer
+          required: [pendingDebtTotal, pendingDebtCount]
+
+    HostingPayment:
+      type: object
+      properties:
+        _id:
+          type: string
+        client:
+          type: string
+          description: ObjectId del AgencyClient
+        paidAt:
+          type: string
+          format: date-time
+        coversUntil:
+          type: string
+          format: date-time
+        amount:
+          type: number
+          nullable: true
+        notes:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [_id, client, paidAt, coversUntil]
+
+    HostingPaymentCreateRequest:
+      type: object
+      properties:
+        paidAt:
+          type: string
+          format: date
+        coversUntil:
+          type: string
+          format: date
+        amount:
+          type: number
+          minimum: 0
+        notes:
+          type: string
+          maxLength: 500
+      required: [paidAt, coversUntil]
+
+    DesignDebtStatus:
+      type: string
+      readOnly: true
+      enum: [pending, partial, paid]
+      description: Recalculado server-side a partir de amount/amountPaid; nunca se acepta del cliente.
+
+    DesignDebt:
+      type: object
+      properties:
+        _id:
+          type: string
+        client:
+          type: string
+          description: ObjectId del AgencyClient
+        description:
+          type: string
+        amount:
+          type: number
+        amountPaid:
+          type: number
+        status:
+          $ref: "#/components/schemas/DesignDebtStatus"
+        invoicedAt:
+          type: string
+          format: date-time
+        notes:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [_id, client, description, amount, amountPaid, status]
+
+    DesignDebtCreateRequest:
+      type: object
+      properties:
+        description:
+          type: string
+          minLength: 1
+          maxLength: 300
+        amount:
+          type: number
+          exclusiveMinimum: 0
+        amountPaid:
+          type: number
+          minimum: 0
+          description: No puede superar amount.
+        invoicedAt:
+          type: string
+          format: date
+        notes:
+          type: string
+          maxLength: 500
+      required: [description, amount]
