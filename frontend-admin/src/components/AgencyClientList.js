@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { getApiBaseUrl } from "../utils/apiBaseUrl";
 
 const HOSTING_WARNING_DAYS = 15;
 
@@ -29,7 +30,7 @@ const AgencyClientList = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const baseUrl = process.env.REACT_APP_HOST_SERVICES_URL;
+  const baseUrl = getApiBaseUrl();
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem("token");

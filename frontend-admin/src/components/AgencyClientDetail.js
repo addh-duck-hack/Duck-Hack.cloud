@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
+import { getApiBaseUrl } from "../utils/apiBaseUrl";
 
 const initialPaymentForm = { paidAt: "", coversUntil: "", amount: "", notes: "" };
 const initialDebtForm = { description: "", amount: "", notes: "" };
@@ -22,7 +23,7 @@ const AgencyClientDetail = () => {
   const [paymentForm, setPaymentForm] = useState(initialPaymentForm);
   const [debtForm, setDebtForm] = useState(initialDebtForm);
 
-  const baseUrl = process.env.REACT_APP_HOST_SERVICES_URL;
+  const baseUrl = getApiBaseUrl();
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem("token");

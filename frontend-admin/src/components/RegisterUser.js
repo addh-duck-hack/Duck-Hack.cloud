@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
+import { getApiBaseUrl } from "../utils/apiBaseUrl";
 
 const RegisterUser = ({ onBack }) => {
   const [userData, setUserData] = useState({
@@ -55,7 +56,7 @@ const RegisterUser = ({ onBack }) => {
     try {
       const { name, email, password } = userData;
       const payload = { name, email, password };
-      const response = await axios.post(`${process.env.REACT_APP_HOST_SERVICES_URL}/api/users/register`, payload);
+      const response = await axios.post(`${getApiBaseUrl()}/api/users/register`, payload);
       setMessage(response.data.message || "Usuario registrado correctamente");
       setUserData({ name: "", email: "", password: "", confirmPassword: "" });
     } catch (error) {

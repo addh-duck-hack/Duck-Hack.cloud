@@ -29,3 +29,6 @@ Thumbs.db
 
 # Otros
 coverage/
+
+# Notas de planificación locales (no compartidas en el repo)
+AGENCY-CLIENTS-PLAN.md

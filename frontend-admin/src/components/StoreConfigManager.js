@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { getApiBaseUrl } from "../utils/apiBaseUrl";
 
 const initialState = {
   storeName: "",
@@ -25,7 +26,7 @@ const StoreConfigManager = () => {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const baseUrl = process.env.REACT_APP_HOST_SERVICES_URL;
+  const baseUrl = getApiBaseUrl();
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem("token");

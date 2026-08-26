@@ -20,7 +20,7 @@ if (!mongoGlobalUrl) {
 }
 const configuredCorsOrigins = (process.env.CORS_ALLOWED_ORIGINS || "")
   .split(",")
-  .map((origin) => origin.trim())
+  .map((origin) => origin.trim().replace(/\/+$/, "")) // tolera slash final por error de tipeo en el .env
   .filter(Boolean);
 
 if (configuredCorsOrigins.length === 0) {
@@ -34,6 +34,7 @@ const corsOptions = {
     // Permite herramientas sin origen (curl/postman/server-to-server)
     if (!origin) return callback(null, true);
     if (allowedCorsOrigins.has(origin)) return callback(null, true);
+    console.warn(`CORS rechazado para origin="${origin}". Permitidos: ${configuredCorsOrigins.join(", ")}`);
     return callback(new Error("CORS_ORIGIN_NOT_ALLOWED"));
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],

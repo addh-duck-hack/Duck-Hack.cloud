@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
+import { getApiBaseUrl } from "../utils/apiBaseUrl";
 
 const initialState = {
   businessName: "",
@@ -24,7 +25,7 @@ const AgencyClientForm = () => {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const baseUrl = process.env.REACT_APP_HOST_SERVICES_URL;
+  const baseUrl = getApiBaseUrl();
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem("token");

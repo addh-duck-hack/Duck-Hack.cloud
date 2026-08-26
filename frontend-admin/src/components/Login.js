@@ -3,6 +3,7 @@ import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import Loader from "./Loader"; // Importar el componente Loader
 import RegisterUser from "./RegisterUser"; // Reutilizar componente de registro
+import { getApiBaseUrl } from "../utils/apiBaseUrl";
 
 const Login = () => {
   const adminRoles = ["super_admin", "store_admin", "catalog_manager", "order_manager"];
@@ -28,7 +29,7 @@ const Login = () => {
     e.preventDefault();
     try {
       setIsLoading(true); // Mostrar el loader después de hacer clic en "Iniciar Sesión"
-      const response = await axios.post(`${process.env.REACT_APP_HOST_SERVICES_URL}/api/users/login`, userData);
+      const response = await axios.post(`${getApiBaseUrl()}/api/users/login`, userData);
       const role = response.data?.user?.role;
 
       if (!adminRoles.includes(role)) {
