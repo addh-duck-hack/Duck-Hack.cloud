@@ -12,6 +12,11 @@ const PORTAINER_API_TOKEN = process.env.PORTAINER_API_TOKEN || "";
 const CONFIGURED_ENDPOINT_ID = (process.env.PORTAINER_ENDPOINT_ID || "").trim();
 const REQUEST_TIMEOUT_MS = 8000;
 
+// Capacidad total del VPS (plan de hosting) — no viene de Portainer, se
+// configura a mano porque Portainer no conoce el plan contratado.
+const DISK_TOTAL_BYTES = (Number(process.env.SERVER_DISK_TOTAL_GB) || 200) * 1024 ** 3;
+const BANDWIDTH_TOTAL_BYTES = (Number(process.env.SERVER_BANDWIDTH_TOTAL_TB) || 16) * 1024 ** 4;
+
 class PortainerConfigError extends Error {}
 class PortainerRequestError extends Error {}
 
@@ -125,17 +130,24 @@ const getServerMetrics = async () => {
 
   // Uso de disco de Docker (capas de imágenes + capa escribible de contenedores
   // + volúmenes). No incluye disco fuera de Docker (SO, logs del host, etc.),
-  // así que es el footprint de Docker, no el disco total del VPS.
+  // así que subestima el uso real del VPS — es un piso, no el total exacto.
   const diskUsedBytes =
     (df?.LayersSize || 0) +
     (df?.Containers || []).reduce((acc, c) => acc + (c?.SizeRw || 0), 0) +
     (df?.Volumes || []).reduce((acc, v) => acc + (v?.UsageData?.Size > 0 ? v.UsageData.Size : 0), 0);
 
+  const diskPercent = DISK_TOTAL_BYTES > 0 ? Math.min(100, (diskUsedBytes / DISK_TOTAL_BYTES) * 100) : 0;
+  const downloadPercent = BANDWIDTH_TOTAL_BYTES > 0 ? Math.min(100, (rxBytes / BANDWIDTH_TOTAL_BYTES) * 100) : 0;
+  const uploadPercent = BANDWIDTH_TOTAL_BYTES > 0 ? Math.min(100, (txBytes / BANDWIDTH_TOTAL_BYTES) * 100) : 0;
+
   return {
     cpu: { percent: round1(cpuPercent), cores: ncpu },
     memory: { usedBytes: memoryUsedBytes, totalBytes: memTotal, percent: round1(memoryPercent) },
-    disk: { usedBytes: diskUsedBytes },
-    network: { rxBytes, txBytes },
+    disk: { usedBytes: diskUsedBytes, totalBytes: DISK_TOTAL_BYTES, percent: round1(diskPercent) },
+    network: {
+      download: { bytes: rxBytes, totalBytes: BANDWIDTH_TOTAL_BYTES, percent: round1(downloadPercent) },
+      upload: { bytes: txBytes, totalBytes: BANDWIDTH_TOTAL_BYTES, percent: round1(uploadPercent) },
+    },
     containersRunning: (containers || []).length,
     checkedAt: new Date().toISOString(),
   };

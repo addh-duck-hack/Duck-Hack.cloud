@@ -135,24 +135,50 @@ const AdminMenu = () => {
                 <div className="metric-tile">
                   <div className="metric-tile-head">
                     <i className="fas fa-hdd" aria-hidden="true" />
-                    <span>Disco (Docker)</span>
+                    <span>Uso de disco</span>
                   </div>
-                  <div className="metric-value">{formatBytes(metrics.disk.usedBytes)}</div>
-                  <div className="metric-sub">Imágenes + contenedores + volúmenes</div>
+                  <div className="metric-value">{metrics.disk.percent}%</div>
+                  <div className="metric-bar">
+                    <div className="metric-bar-fill" style={{ width: `${Math.min(100, metrics.disk.percent)}%` }} />
+                  </div>
+                  <div className="metric-sub">
+                    {formatBytes(metrics.disk.usedBytes)} de {formatBytes(metrics.disk.totalBytes)} (footprint de Docker)
+                  </div>
                 </div>
 
                 <div className="metric-tile">
                   <div className="metric-tile-head">
-                    <i className="fas fa-network-wired" aria-hidden="true" />
-                    <span>Tráfico de red</span>
+                    <i className="fas fa-arrow-down" aria-hidden="true" />
+                    <span>Descarga (bajada)</span>
                   </div>
-                  <div className="metric-value" style={{ fontSize: "1.1rem" }}>
-                    ↓ {formatBytes(metrics.network.rxBytes)} · ↑ {formatBytes(metrics.network.txBytes)}
+                  <div className="metric-value">{metrics.network.download.percent}%</div>
+                  <div className="metric-bar">
+                    <div className="metric-bar-fill" style={{ width: `${Math.min(100, metrics.network.download.percent)}%` }} />
                   </div>
-                  <div className="metric-sub">Acumulado desde que arrancaron los contenedores</div>
+                  <div className="metric-sub">
+                    {formatBytes(metrics.network.download.bytes)} de {formatBytes(metrics.network.download.totalBytes)}
+                  </div>
+                </div>
+
+                <div className="metric-tile">
+                  <div className="metric-tile-head">
+                    <i className="fas fa-arrow-up" aria-hidden="true" />
+                    <span>Subida</span>
+                  </div>
+                  <div className="metric-value">{metrics.network.upload.percent}%</div>
+                  <div className="metric-bar">
+                    <div className="metric-bar-fill" style={{ width: `${Math.min(100, metrics.network.upload.percent)}%` }} />
+                  </div>
+                  <div className="metric-sub">
+                    {formatBytes(metrics.network.upload.bytes)} de {formatBytes(metrics.network.upload.totalBytes)}
+                  </div>
                 </div>
               </div>
             ) : null}
+            <p style={{ fontSize: "0.75rem", marginTop: "1rem" }}>
+              Disco: solo footprint de Docker (imágenes, contenedores, volúmenes) — no incluye archivos fuera de Docker.
+              Red: acumulada desde que arrancaron los contenedores, no un contador mensual real del proveedor.
+            </p>
           </section>
 
           <section style={{ marginTop: "2.5rem" }}>
