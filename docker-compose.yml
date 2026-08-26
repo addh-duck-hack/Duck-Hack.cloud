@@ -2,8 +2,6 @@ services:
   duck-hack.frontend-admin:
     build: ./frontend-admin
     container_name: duck-hack.frontend-admin
-    volumes:
-      - ./frontend-admin:/app
     networks:
       - npm
       - duck-hack.frontend-admin-net
@@ -11,8 +9,6 @@ services:
   duck-hack.frontend-user:
     build: ./frontend-user
     container_name: duck-hack.frontend-user
-    volumes:
-      - ./frontend-user:/app
     networks:
       - npm
       - duck-hack.frontend-user-net
@@ -20,9 +16,6 @@ services:
   duck-hack.backend:
     build: ./backend
     container_name: duck-hack.backend
-    volumes:
-      - ./backend:/app
-      - /app/node_modules
     networks:
       - npm
       - duck-hack.backend-net
