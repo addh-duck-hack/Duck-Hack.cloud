@@ -1,5 +1,6 @@
 import React from "react";
 import { HashRouter as Router, Route, Routes, Navigate } from "react-router-dom";
+import AdminShell from "./components/AdminShell";
 import AdminMenu from "./components/AdminMenu";
 import Login from "./components/Login";
 import RegisterUser from "./components/RegisterUser";
@@ -24,28 +25,31 @@ const App = () => {
       <div className="App">
         <Routes>
           <Route path="/" element={isLoggedIn ? <Navigate to="/admin" /> : <Login />} />
-          <Route path="/admin" element={isLoggedIn ? <AdminMenu /> : <Navigate to="/" />} />
-          <Route
-            path="/admin/store-config"
-            element={canManageStoreConfig ? <StoreConfigManager /> : <Navigate to="/admin" />}
-          />
-          <Route
-            path="/admin/agency-clients"
-            element={canManageAgencyClients ? <AgencyClientList /> : <Navigate to="/admin" />}
-          />
-          <Route
-            path="/admin/agency-clients/new"
-            element={canManageAgencyClients ? <AgencyClientForm /> : <Navigate to="/admin" />}
-          />
-          <Route
-            path="/admin/agency-clients/:id"
-            element={canManageAgencyClients ? <AgencyClientDetail /> : <Navigate to="/admin" />}
-          />
-          <Route
-            path="/admin/agency-clients/:id/edit"
-            element={canManageAgencyClients ? <AgencyClientForm /> : <Navigate to="/admin" />}
-          />
           <Route path="/register" element={<RegisterUser />} />
+
+          <Route path="/admin" element={isLoggedIn ? <AdminShell /> : <Navigate to="/" />}>
+            <Route index element={<AdminMenu />} />
+            <Route
+              path="store-config"
+              element={canManageStoreConfig ? <StoreConfigManager /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="agency-clients"
+              element={canManageAgencyClients ? <AgencyClientList /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="agency-clients/new"
+              element={canManageAgencyClients ? <AgencyClientForm /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="agency-clients/:id"
+              element={canManageAgencyClients ? <AgencyClientDetail /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="agency-clients/:id/edit"
+              element={canManageAgencyClients ? <AgencyClientForm /> : <Navigate to="/admin" />}
+            />
+          </Route>
         </Routes>
       </div>
     </Router>

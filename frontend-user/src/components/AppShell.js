@@ -15,6 +15,8 @@ const NAV_ITEMS = [
   { path: '/contacto', label: 'Contacto' },
 ];
 
+const ADMIN_URL = process.env.REACT_APP_ADMIN_URL || 'https://admin.duck-hack.cloud';
+
 const ROUTE_LABELS = {
   '/': 'inicio',
   '/servicios': 'servicios',
@@ -88,6 +90,13 @@ const AppShell = () => {
           </a>
           <a href="https://www.threads.com/@duckhack.cloud" target="_blank" rel="noopener noreferrer">
             <i className="fab fa-threads" aria-hidden="true" /> Threads
+          </a>
+        </div>
+
+        <div className="rail-actions">
+          <div className="rail-label">{'// staff'}</div>
+          <a href={ADMIN_URL} target="_blank" rel="noopener noreferrer">
+            <i className="fas fa-lock" aria-hidden="true" /> Administrador
           </a>
         </div>
 

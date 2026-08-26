@@ -61,11 +61,8 @@ const AgencyClientList = () => {
   }, []);
 
   return (
-    <section style={{ marginTop: "2rem", textAlign: "left", maxWidth: 1000, marginLeft: "auto", marginRight: "auto" }}>
+    <section style={{ maxWidth: 1000 }}>
       <div style={{ marginBottom: "1rem", display: "flex", gap: "0.75rem" }}>
-        <button type="button" onClick={() => navigate("/admin")}>
-          Volver al panel
-        </button>
         <button type="button" onClick={() => navigate("/admin/agency-clients/new")}>
           Nuevo cliente
         </button>

@@ -111,12 +111,7 @@ const AgencyClientForm = () => {
   };
 
   return (
-    <section style={{ marginTop: "2rem", textAlign: "left", maxWidth: 900, marginLeft: "auto", marginRight: "auto" }}>
-      <div style={{ marginBottom: "1rem" }}>
-        <button type="button" onClick={() => navigate("/admin/agency-clients")}>
-          Volver al listado
-        </button>
-      </div>
+    <section style={{ maxWidth: 900 }}>
       <h3>{isEditing ? "Editar cliente de agencia" : "Nuevo cliente de agencia"}</h3>
 
       {message ? <p style={{ color: "#256029" }}>{message}</p> : null}

@@ -1,50 +1,15 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
 
 const AdminMenu = () => {
-  const navigate = useNavigate();
-  const role = localStorage.getItem("role");
-  const canManageStoreConfig = ["super_admin", "store_admin"].includes(role);
-  const canManageAgencyClients = ["super_admin"].includes(role);
-
-  const handleLogout = () => {
-    localStorage.removeItem("token"); // Eliminar el token del localStorage al cerrar sesión
-    localStorage.removeItem("role");
-    window.location.href = "/"; // Redirigir al login
-  };
-
   return (
     <div>
-      <h2>Panel Administrativo eCommerce</h2>
-
-      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
-        <button onClick={handleLogout}>Cerrar Sesión</button>
-      </div>
-
+      <h2>Panel administrativo</h2>
       <p>Este panel está enfocado al roadmap de eCommerce.</p>
       <ul>
         <li>Módulo de productos (pendiente)</li>
         <li>Módulo de inventario (pendiente)</li>
         <li>Módulo de pedidos (pendiente)</li>
       </ul>
-
-      {canManageStoreConfig ? (
-        <div style={{ marginTop: "1rem" }}>
-          <button onClick={() => navigate("/admin/store-config")}>
-            Configurar tienda
-          </button>
-        </div>
-      ) : (
-        <p>Tu rol no tiene permisos para configurar la tienda.</p>
-      )}
-
-      {canManageAgencyClients ? (
-        <div style={{ marginTop: "1rem" }}>
-          <button onClick={() => navigate("/admin/agency-clients")}>
-            Clientes de agencia
-          </button>
-        </div>
-      ) : null}
     </div>
   );
 };
