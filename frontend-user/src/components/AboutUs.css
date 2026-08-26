@@ -1,149 +1,169 @@
 /* src/components/AboutUs.css */
-.about-us {
-  padding: 0 40px;
-  margin: 40px 0;
-  background-color: var(--ColorPrincipal);
-}
-
-.about-us-columns {
-  display: flex;
-  justify-content: space-between;
-  gap: 20px;
-}
-
-.mission {
-  flex: 1;
-  text-align: center;
-}
-
-.mission h3 {
-  font-family: var(--FuenteRubik);
-  font-size: 2.8rem;
-  margin: 0;
-  color: var(--FuenteSecundaria);
-}
-
-.mission p {
-  font-family: var(--FuenteSpaceGrotesk);
-  font-size: 1.3rem;
-  margin: 0 0 30px 0;
-  padding: 0 20px;
-  color: var(--FuentePrincipa);
-}
-/* Imágenes en 2 filas formando un patrón con posiciones específicas */
-.images-container {
-  flex: 1;
-  display: grid;
-  gap: 10px;
-  justify-items: center;
-  align-items: center;
-  margin-top: -1em;
-  margin-bottom: 4em;
-}
-
-.image-grid {
+.about-view {
+  max-width: 1120px;
+  margin: 0 auto;
   width: 100%;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  text-align: left;
 }
 
-.image-grid img {
-  border-radius: 10px;
+.mission-vision {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+  margin-bottom: 4rem;
 }
 
-.image-item-1,
-.image-item-2,
-.image-item-3,
-.image-item-4 {
-  position: relative;
-  height: 18em;
+.mv-cell {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: clamp(1.6rem, 4vw, 3rem);
 }
 
-.image-item-1 img{
-  width: 14em;
-  position: absolute;
-  bottom: 0.5em;
-  right: 0.5em;
+.mv-icon {
+  background-color: var(--panel2);
+  border-radius: 18px;
+  width: 76px;
+  height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.2rem;
 }
 
-.image-item-2 img{
-  width: 12em;
-  position: absolute;
-  bottom: 0.5em;
-  left: 0.5em;
+.mv-icon i {
+  font-size: 2rem;
+  color: var(--signal);
 }
 
-.image-item-3 img {
-  width: 18em;
-  position: absolute;
-  top: 0.5em;
-  right: 0.5em;
+.mv-cell h3 {
+  font-size: clamp(1.5rem, 3vw, 2.1rem);
+  color: var(--white);
+  text-transform: none;
 }
 
-.image-item-4 img {
-  width: 16em;
-  position: absolute;
-  top: 0.5em;
-  left: 0.5em;
+.mv-cell p {
+  font-size: clamp(1rem, 1.6vw, 1.18rem);
+  line-height: 1.8;
+  margin-top: 1rem;
+  color: var(--text);
+  max-width: 76ch;
 }
 
-/* Estilos para pantallas móviles */
-@media (max-width: 768px) {
-  .about-us-columns {
+.team-title {
+  margin-top: 1rem;
+  font-size: clamp(1.3rem, 2.6vw, 1.7rem);
+  text-transform: none;
+  color: var(--white);
+}
+
+.team-heroes {
+  display: flex;
+  flex-direction: column;
+  margin-top: 1rem;
+}
+
+.team-hero {
+  display: flex;
+  align-items: center;
+  gap: 2.5rem;
+  padding: 2.4rem 0;
+}
+
+.team-hero:first-child {
+  padding-top: 0.5rem;
+}
+
+.team-hero:not(:last-child) {
+  border-bottom: 1px solid var(--line);
+}
+
+.team-hero:nth-child(even) {
+  flex-direction: row-reverse;
+}
+
+.team-hero-media {
+  flex: 0 0 320px;
+}
+
+.team-hero-media img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  display: block;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  filter: grayscale(0.15) contrast(1.05);
+}
+
+.team-hero-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.team-hero-content h3 {
+  font-size: clamp(1.4rem, 3vw, 1.9rem);
+  color: var(--white);
+  text-transform: none;
+}
+
+.team-role {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--signal);
+  margin-top: 0.4rem;
+}
+
+.team-bio {
+  font-size: 1.05rem;
+  line-height: 1.75;
+  margin-top: 1.1rem;
+  color: var(--text);
+  max-width: 60ch;
+}
+
+.team-contact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.6rem;
+  margin-top: 1.4rem;
+}
+
+.team-contact a {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.team-contact a i {
+  color: var(--signal);
+  width: 1em;
+  flex-shrink: 0;
+}
+
+.team-contact a:hover {
+  color: var(--signal);
+}
+
+@media (max-width: 900px) {
+  .team-hero,
+  .team-hero:nth-child(even) {
     flex-direction: column;
+    align-items: flex-start;
+    gap: 1.5rem;
   }
 
-  .images-container {
-    margin: 20px 0;
-  }
-
-  .mission h3 {
-    font-size: 2rem;
-  }
-
-  .mission p {
-    font-size: 1rem;
-    padding: 0 10px;
-  }
-
-  .image-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 5px;
-  }
-
-  .images-container {
-    margin-top: 0;
-    margin-bottom: 3em;
-  }
-
-  .image-item-1,
-  .image-item-2,
-  .image-item-3,
-  .image-item-4 {
-    height: 10em;
-  }
-
-  .image-item-1 img{
-    width: 10em;
-    bottom: 0.2em;
-    right: 0.2em;
-  }
-  
-  .image-item-2 img{
-    width: 9em;
-    bottom: 0.2em;
-    left: 0.2em;
-  }
-  
-  .image-item-3 img {
-    width: 12em;
-    top: 0.2em;
-    right: 0.2em;
-  }
-  
-  .image-item-4 img {
-    width: 11em;
-    top: 0.2em;
-    left: 0.2em;
+  .team-hero-media {
+    flex: none;
+    width: 100%;
+    max-width: 280px;
+    align-self: center;
   }
 }

@@ -1,37 +1,60 @@
+.legal-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.6rem;
+  padding: 2.4rem 1rem 3rem;
+  background: var(--ink);
+}
 
 .legal-notice-container {
-  margin: 5em 30%;
+  max-width: 760px;
+  width: 100%;
   padding: 20px;
-  font-family: var(--FuenteSpaceGrotesk);
-  color: var(--FuentePrincipal);
+  font-family: var(--font-body);
+  color: var(--text);
 }
 
 .legal-notice-container h1 {
   text-align: center;
-  margin-bottom: 35px;
-  color: var(--ColorResalte);
-  font-size: 3em;
+  margin-bottom: 2rem;
+  color: var(--action);
+  font-size: 2.2rem;
+  text-transform: none;
 }
 
 .legal-notice-container h2 {
-  margin-top: 35px;
-  margin-bottom: 5px;
-  text-align: justify;
-  color: var(--FuenteSecundaria);
-  font-family: var(--FuenteRubik);
+  margin-top: 2rem;
+  margin-bottom: 0.4rem;
+  text-align: left;
+  color: var(--signal);
+  font-size: 1.05rem;
+  text-transform: none;
+}
+
+.legal-notice-container h3 {
+  margin-top: 1rem;
+  margin-bottom: 0.3rem;
+  color: var(--white);
+  font-size: 0.92rem;
+  text-transform: none;
 }
 
 .legal-notice-container p,
 .legal-notice-container ul {
-  text-align: justify;
+  text-align: left;
   margin: 5px 0;
-  line-height: 1.6;
+  line-height: 1.7;
+  color: var(--text-dim);
+  font-size: 0.92rem;
 }
 
+.legal-notice-container strong {
+  color: var(--text);
+}
 
-/* Estilos para pantallas móviles */
 @media (max-width: 768px) {
-  .legal-notice-container {
-    margin: 3em 1em;
+  .legal-page {
+    padding: 1.6rem 1rem 2.4rem;
   }
 }

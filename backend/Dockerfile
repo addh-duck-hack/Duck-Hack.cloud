@@ -1,5 +1,5 @@
 # Cambia la imagen base a una versión estable de Node.js
-FROM node:18
+FROM node:20
 
 # Crear y establecer el directorio de la app
 WORKDIR /app

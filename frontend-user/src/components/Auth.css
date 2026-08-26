@@ -1,69 +1,103 @@
 .auth-page {
-  min-height: 70vh;
+  min-height: 100vh;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 1.6rem;
   padding: 40px 16px;
+  background: var(--ink);
 }
 
 .auth-card {
   width: 100%;
-  max-width: 480px;
-  background: #ffffff;
+  max-width: 440px;
+  background: var(--panel);
+  border: 1px solid var(--line);
   border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-  padding: 24px;
+  box-shadow: 0 12px 32px var(--shadow);
+  padding: 2rem;
 }
 
 .auth-card h2 {
   margin-top: 0;
-  margin-bottom: 8px;
+  margin-bottom: 0.5rem;
+  text-transform: none;
+  font-size: 1.4rem;
 }
 
 .auth-card p {
   margin-top: 0;
-  color: #5f6b7a;
+  color: var(--text-dim);
 }
 
 .auth-form {
   display: grid;
-  gap: 12px;
+  gap: 0.8rem;
+  margin-top: 1.2rem;
 }
 
 .auth-form input {
-  border: 1px solid #d8dce2;
+  background: var(--ink);
+  border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 12px;
-  font-size: 14px;
+  padding: 0.75rem 0.85rem;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  color: var(--white);
+}
+
+.auth-form input:focus {
+  outline: 2px solid var(--signal);
+  outline-offset: 1px;
 }
 
 .auth-form button {
   border: none;
   border-radius: 10px;
-  background: #043147;
-  color: white;
-  padding: 12px;
+  background: var(--action);
+  color: var(--on-accent);
+  padding: 0.8rem;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
 }
 
+.auth-form button:hover {
+  background: var(--action-hover);
+}
+
 .auth-error {
-  color: #b3261e;
-  background: #fbe9e8;
-  padding: 10px;
+  color: #ff9a9a;
+  background: rgba(255, 107, 107, 0.12);
+  padding: 0.7rem 0.85rem;
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 0.85rem;
+  margin-top: 1rem;
 }
 
 .auth-success {
-  color: #1d6f42;
-  background: #e9f8ef;
-  padding: 10px;
+  color: #7fe0a8;
+  background: rgba(74, 222, 128, 0.12);
+  padding: 0.7rem 0.85rem;
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 0.85rem;
+  margin-top: 1rem;
 }
 
 .auth-link {
-  margin-top: 10px;
-  font-size: 14px;
+  margin-top: 1.2rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.auth-link a {
+  color: var(--signal);
+  text-decoration: none;
+}
+
+.auth-link a:hover {
+  text-decoration: underline;
 }

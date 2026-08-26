@@ -1,10 +1,17 @@
 
 import React from 'react';
+import { Link } from 'react-router-dom';
+import logo from '../assets/logo.png';
 import './LegalNotice.css';
 
 const LegalNotice = () => {
   return (
-    <div className="legal-notice-container">
+    <div className="legal-page">
+      <Link to="/" className="auth-brand">
+        <img src={logo} alt="Duck-Hack" />
+        <span>Duck-Hack</span>
+      </Link>
+      <div className="legal-notice-container">
       <h1>Aviso Legal</h1>
       <section>
         <h2>1. Identificación de la Empresa</h2>
@@ -57,6 +64,7 @@ const LegalNotice = () => {
         <h2>9. Ley Aplicable y Jurisdicción</h2>
         <p>El presente Aviso Legal se rige por la legislación mexicana. Para cualquier controversia que pudiera surgir del uso de los servicios ofrecidos en este sitio, ambas partes se someterán a los tribunales competentes en México.</p>
       </section>
+      </div>
     </div>
   );
 };

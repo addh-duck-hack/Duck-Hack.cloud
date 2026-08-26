@@ -1,75 +1,156 @@
-.customers-section {
-    text-align: center;
-    margin-bottom: 20px;
-  }
-  
-  .customers-title {
-    font-size: 4rem; /* Tamaño aumentado del título */
-    font-family: var(--FuenteRubik);
-    color: var(--FuenteSecundaria);
-    position: relative;
-    z-index: 1;
-    display: inline-block;
-  }
-  
-  .customers-title::before {
-    content: "CLIENTES";
-    position: absolute;
-    top: 50%; /* Centrado vertical */
-    left: 50%;
-    transform: translate(-50%, -50%); /* Centrado tanto vertical como horizontal */
-    font-size: 12rem; /* Tamaño aumentado del texto de fondo */
-    color: var(--FuenteDegradado);
-    z-index: 0;
-  }
-  
-  .customers-scroll {
-    width: 100%;
-    overflow: hidden;
-    height: 150px;
-    background-color: var(--ColorPrincipal);
-    display: flex;
-    align-items: center;
-    position: relative;
-  }
-  
-  .customers-container {
-    display: flex;
-    gap: 50px;
-    animation: scroll-infinite 60s linear infinite;
-  }
-  
-  .customer-logo {
-    flex: 0 0 auto;
-    height: 100px;
-  }
-  
-  .customer-logo img {
-    height: 100%;
-    width: auto;
-    object-fit: contain;
-  }
-  
-  @keyframes scroll-infinite {
-    from {
-      transform: translateX(0);
-    }
-    to {
-      transform: translateX(-50%);
-    }
-  }
-  
-/* Estilos para dispositivos móviles */
-@media (max-width: 768px) {
-  .customers-title::before {
-    display: none;
-  }
+/* src/components/Customers.css */
+.clients-view {
+  max-width: 1120px;
+  margin: 0 auto;
+  width: 100%;
+  text-align: left;
+}
 
-  .customers-scroll {
-    height: 80px;
-  }
-  
-  .customer-logo {
-    height: 80px;
+.client-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+.client-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.client-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--signal);
+}
+
+.client-thumb {
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--line);
+}
+
+.client-thumb img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  object-position: top;
+  display: block;
+  transition: transform 0.35s ease;
+}
+
+.client-card:hover .client-thumb img {
+  transform: scale(1.05);
+}
+
+.client-thumb-fallback {
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 30% 20%, var(--panel2), var(--ink) 75%);
+}
+
+.client-thumb-fallback img {
+  aspect-ratio: auto;
+  width: auto;
+  max-width: 55%;
+  max-height: 55%;
+  object-fit: contain;
+  filter: grayscale(1) brightness(1.7);
+  opacity: 0.9;
+}
+
+.client-card:hover .client-thumb-fallback img {
+  filter: none;
+  opacity: 1;
+  transform: none;
+}
+
+.client-thumb-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 35%, color-mix(in srgb, var(--ink) 90%, transparent) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.client-card:hover .client-thumb-overlay {
+  opacity: 1;
+}
+
+.client-thumb-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--signal);
+  color: var(--on-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  transform: translateY(6px);
+  transition: transform 0.25s ease;
+}
+
+.client-card:hover .client-thumb-icon {
+  transform: translateY(0);
+}
+
+.client-body {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.client-body .rubro {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--signal);
+}
+
+.client-body .name {
+  color: var(--white);
+  font-weight: 600;
+  font-size: 1.15rem;
+  font-family: var(--font-body);
+  text-transform: none;
+}
+
+.client-description {
+  font-size: 0.94rem;
+  line-height: 1.6;
+  color: var(--text);
+  flex: 1;
+}
+
+.client-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  margin-top: 0.4rem;
+}
+
+.client-card:hover .client-cta {
+  color: var(--signal);
+}
+
+@media (max-width: 900px) {
+  .client-grid {
+    grid-template-columns: 1fr;
   }
 }

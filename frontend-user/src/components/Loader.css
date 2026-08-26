@@ -5,11 +5,11 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: var(--FuentePrincipal); /* Fondo con la variable de color */
+  background-color: var(--ink);
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 2000; /* Z-index mayor que el del navbar */
+  z-index: 2000; /* Z-index mayor que el del rail/topbar */
 }
 
 .loader-logo {
