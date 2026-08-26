@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Loader from "./Loader"; // Importar el componente Loader
 import RegisterUser from "./RegisterUser"; // Reutilizar componente de registro
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
+import logo from "../assets/logo.png";
 
 const Login = () => {
   const adminRoles = ["super_admin", "store_admin", "catalog_manager", "order_manager"];
@@ -47,7 +48,7 @@ const Login = () => {
       // Actualizar el estado para indicar que el login fue exitoso
       setMessage("Login exitoso");
       setIsLoggedIn(true); // Cambiar el estado a "logueado"
-      
+
     } catch (error) {
       const serverMsg = error.response?.data?.error?.message;
       if (serverMsg) {
@@ -74,52 +75,61 @@ const Login = () => {
   }, [isLoggedIn, navigate]);
 
   return (
-    <div>
+    <section className="auth-page">
+      <div className="auth-brand">
+        <img src={logo} alt="Duck-Hack" />
+        <span>Duck-Hack</span>
+      </div>
+
       {isLoading ? (
         <Loader /> // Mostrar el loader mientras se está cargando
       ) : (
-        <>
-        {!showRegister ? (
-          <div>
-            <h2>Iniciar Sesión</h2>
-            <form onSubmit={handleSubmit}>
-            <div>
-              <label htmlFor="email">Correo Electrónico:</label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={userData.email}
-                onChange={handleChange}
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="password">Contraseña:</label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                value={userData.password}
-                onChange={handleChange}
-                required
-              />
-            </div>
-            <button type="submit">Iniciar Sesión</button>
-            <div style={{ marginTop: '1rem' }}>
-              <button type="button" onClick={() => { setShowRegister(true); setMessage(''); }}>Crear cuenta nueva</button>
-            </div>
-            </form>
-          </div>
-        ) : (
-          <div>
+        <div className="auth-card">
+          {!showRegister ? (
+            <>
+              <h2>Iniciar sesión</h2>
+              <p>Panel administrativo Duck-Hack Cloud.</p>
+              <form className="auth-form" onSubmit={handleSubmit}>
+                <input
+                  type="email"
+                  name="email"
+                  placeholder="Correo electrónico"
+                  aria-label="Correo electrónico"
+                  value={userData.email}
+                  onChange={handleChange}
+                  required
+                />
+                <input
+                  type="password"
+                  name="password"
+                  placeholder="Contraseña"
+                  aria-label="Contraseña"
+                  value={userData.password}
+                  onChange={handleChange}
+                  required
+                />
+                <button type="submit">Iniciar sesión</button>
+              </form>
+
+              {message && <div className="auth-error">{message}</div>}
+
+              <div className="auth-link">
+                ¿No tienes cuenta?{" "}
+                <button
+                  type="button"
+                  className="auth-link-btn"
+                  onClick={() => { setShowRegister(true); setMessage(""); }}
+                >
+                  Crear cuenta nueva
+                </button>
+              </div>
+            </>
+          ) : (
             <RegisterUser onBack={() => setShowRegister(false)} />
-          </div>
-        )}
-        </>
+          )}
+        </div>
       )}
-      {message && <p>{message}</p>}
-    </div>
+    </section>
   );
 };
 

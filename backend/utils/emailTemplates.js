@@ -52,7 +52,7 @@ const verificationEmailTemplate = ({ name, verifyUrl, logoUrl }) => {
               </td>
             </tr>
             <tr>
-              <td style="background-color:${BRAND.panel}; border:1px solid ${BRAND.line}; border-radius:12px; padding:32px;">
+              <td style="background-color:${BRAND.panel}; border-radius:12px; padding:32px;">
                 <h1 style="margin:0 0 16px; font-family:${monoFont}; font-size:20px; color:${BRAND.white}; font-weight:700;">
                   Verifica tu cuenta
                 </h1>

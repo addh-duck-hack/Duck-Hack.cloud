@@ -231,3 +231,105 @@ code {
   background-color: rgba(255, 107, 107, 0.18);
   color: var(--error-color);
 }
+
+/* Login / registro (mismo lenguaje visual que frontend-user/src/components/Auth.css) */
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.6rem;
+  padding: 40px 16px;
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.auth-brand img {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.auth-brand span {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  color: var(--heading-color);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 440px;
+  background: var(--form-background-color);
+  border: 1px solid var(--input-border-color);
+  border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  padding: 2rem;
+}
+
+.auth-card h2 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  text-align: left;
+}
+
+.auth-card > p {
+  margin: 0 0 1.2rem;
+  text-align: left;
+  color: var(--placeholder-color);
+}
+
+.auth-form {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.auth-form input {
+  margin-bottom: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.auth-form button {
+  margin-top: 0.4rem;
+}
+
+.auth-error {
+  color: var(--error-color);
+  background: rgba(255, 107, 107, 0.12);
+  padding: 0.7rem 0.85rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  margin-top: 1rem;
+  text-align: left;
+}
+
+.auth-success {
+  color: var(--link-color);
+  background: rgba(74, 189, 252, 0.12);
+  padding: 0.7rem 0.85rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  margin-top: 1rem;
+  text-align: left;
+}
+
+.auth-link {
+  margin-top: 1.2rem;
+  font-size: 0.85rem;
+  color: var(--placeholder-color);
+  text-align: left;
+}
+
+.auth-link-btn {
+  all: unset;
+  cursor: pointer;
+  color: var(--link-color);
+  text-decoration: underline;
+}

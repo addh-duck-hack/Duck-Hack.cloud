@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Link } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 
 const RegisterUser = ({ onBack }) => {
@@ -72,63 +71,58 @@ const RegisterUser = ({ onBack }) => {
   };
 
   return (
-    <div>
-      <h2>Registrar Usuario</h2>
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label htmlFor="name">Nombre:</label>
-          <input
-            type="text"
-            id="name"
-            name="name"
-            value={userData.name}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        <div>
-          <label htmlFor="email">Correo Electrónico:</label>
-          <input
-            type="email"
-            id="email"
-            name="email"
-            value={userData.email}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        <div>
-          <label htmlFor="password">Contraseña:</label>
-          <input
-            type="password"
-            id="password"
-            name="password"
-            value={userData.password}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        <div>
-          <label htmlFor="confirmPassword">Confirmar contraseña:</label>
-          <input
-            type="password"
-            id="confirmPassword"
-            name="confirmPassword"
-            value={userData.confirmPassword}
-            onChange={handleChange}
-            required
-          />
-        </div>
+    <>
+      <h2>Registrar usuario</h2>
+      <p>Crea una cuenta nueva (rol customer).</p>
+      <form className="auth-form" onSubmit={handleSubmit}>
+        <input
+          type="text"
+          name="name"
+          placeholder="Nombre"
+          aria-label="Nombre"
+          value={userData.name}
+          onChange={handleChange}
+          required
+        />
+        <input
+          type="email"
+          name="email"
+          placeholder="Correo electrónico"
+          aria-label="Correo electrónico"
+          value={userData.email}
+          onChange={handleChange}
+          required
+        />
+        <input
+          type="password"
+          name="password"
+          placeholder="Contraseña"
+          aria-label="Contraseña"
+          value={userData.password}
+          onChange={handleChange}
+          required
+        />
+        <input
+          type="password"
+          name="confirmPassword"
+          placeholder="Confirmar contraseña"
+          aria-label="Confirmar contraseña"
+          value={userData.confirmPassword}
+          onChange={handleChange}
+          required
+        />
         {/* El rol se asigna por defecto en backend como 'customer' */}
         <button type="submit" disabled={userData.password !== userData.confirmPassword}>Registrar</button>
-        <div>
-          <p>¿Ya tienes una cuenta?</p>
-          <button type="button" onClick={onBack}>Iniciar sesión</button>
-        </div>
       </form>
-      {error && <p style={{ color: 'var(--ColorResalte)' }}>{error}</p>}
-      {message && <p>{message}</p>}
-    </div>
+
+      {error && <div className="auth-error">{error}</div>}
+      {message && <div className="auth-success">{message}</div>}
+
+      <div className="auth-link">
+        ¿Ya tienes una cuenta?{" "}
+        <button type="button" className="auth-link-btn" onClick={onBack}>Iniciar sesión</button>
+      </div>
+    </>
   );
 };
 
