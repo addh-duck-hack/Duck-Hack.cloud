@@ -10,5 +10,6 @@ export const formatCalendarDate = (value, locale = "es-MX") => {
   if (!value) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleDateString(locale, { timeZone: "UTC" });
+  // day/month a 2 dígitos (05/07/2026, no 5/7/2026).
+  return date.toLocaleDateString(locale, { timeZone: "UTC", day: "2-digit", month: "2-digit", year: "numeric" });
 };
