@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { HOSTING_PLAN_IDS } = require("../utils/hostingPlans");
 
 // Registro de clientes de agencia (negocios externos que Duck-Hack administra),
 // no confundir con el rol "customer" (compradores finales de una tienda).
@@ -33,15 +34,37 @@ const agencyClientSchema = new mongoose.Schema(
       trim: true,
       maxlength: 300,
     },
-    hostingProvider: {
+    // Plan de hosting contratado (ver utils/hostingPlans.js) — de aquí sale
+    // cuánto cobrarle al cliente cada mes.
+    hostingPlan: {
       type: String,
-      trim: true,
-      maxlength: 120,
+      enum: HOSTING_PLAN_IDS,
     },
-    serverLocation: {
+    // Para basic/medium/advanced se deriva y sobreescribe server-side del
+    // precio de lista (utils/hostingPlans.js); solo "enterprise" lo captura
+    // a mano, porque su precio es "bajo cotización" en el sitio público.
+    hostingMonthlyCost: {
+      type: Number,
+      min: 0,
+    },
+    // Imagen Docker con la que corre el sitio (ej. "duckhackcloud-duck-hack.frontend-user").
+    dockerImage: {
       type: String,
       trim: true,
       maxlength: 200,
+    },
+    // Dominio donde está montado el sitio del cliente (no confundir con siteUrl,
+    // que puede llevar protocolo/paths; este es solo el dominio, para tracking
+    // de vencimiento de dominio).
+    domain: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      maxlength: 200,
+    },
+    // Para poder avisar al cliente antes de que el dominio caduque.
+    domainExpiresAt: {
+      type: Date,
     },
     notes: {
       type: String,

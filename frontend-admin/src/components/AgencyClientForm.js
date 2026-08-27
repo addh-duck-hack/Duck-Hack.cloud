@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
+import { HOSTING_PLANS, HOSTING_PLAN_IDS, formatMxn } from "../utils/hostingPlans";
 
 const initialState = {
   businessName: "",
@@ -9,8 +10,11 @@ const initialState = {
   contactEmail: "",
   contactPhone: "",
   siteUrl: "",
-  hostingProvider: "",
-  serverLocation: "",
+  hostingPlan: "",
+  hostingMonthlyCost: "",
+  dockerImage: "",
+  domain: "",
+  domainExpiresAt: "",
   notes: "",
   isActive: true,
 };
@@ -40,8 +44,11 @@ const AgencyClientForm = () => {
     contactEmail: data?.contactEmail || "",
     contactPhone: data?.contactPhone || "",
     siteUrl: data?.siteUrl || "",
-    hostingProvider: data?.hostingProvider || "",
-    serverLocation: data?.serverLocation || "",
+    hostingPlan: data?.hostingPlan || "",
+    hostingMonthlyCost: typeof data?.hostingMonthlyCost === "number" ? String(data.hostingMonthlyCost) : "",
+    dockerImage: data?.dockerImage || "",
+    domain: data?.domain || "",
+    domainExpiresAt: data?.domainExpiresAt ? data.domainExpiresAt.slice(0, 10) : "",
     notes: data?.notes || "",
     isActive: typeof data?.isActive === "boolean" ? data.isActive : true,
   });
@@ -85,6 +92,11 @@ const AgencyClientForm = () => {
 
     try {
       const payload = { ...form };
+      if (payload.hostingPlan === "enterprise") {
+        payload.hostingMonthlyCost = Number(payload.hostingMonthlyCost);
+      } else {
+        delete payload.hostingMonthlyCost;
+      }
 
       if (isEditing) {
         await axios.put(`${baseUrl}/api/agency-clients/${id}`, payload, {
@@ -145,13 +157,58 @@ const AgencyClientForm = () => {
           </label>
 
           <label>
-            Proveedor de hosting
-            <input name="hostingProvider" value={form.hostingProvider} onChange={handleChange} placeholder="VPS Docker - servidor 2" />
+            Plan de hosting contratado
+            <select name="hostingPlan" value={form.hostingPlan} onChange={handleChange}>
+              <option value="">Selecciona un plan</option>
+              {HOSTING_PLAN_IDS.map((planId) => (
+                <option key={planId} value={planId}>
+                  {HOSTING_PLANS[planId].label}
+                  {HOSTING_PLANS[planId].price !== null ? ` — ${formatMxn(HOSTING_PLANS[planId].price)}/mes` : " — bajo cotización"}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {form.hostingPlan === "enterprise" ? (
+            <label>
+              Costo mensual acordado (Enterprise)
+              <input
+                type="number"
+                name="hostingMonthlyCost"
+                value={form.hostingMonthlyCost}
+                onChange={handleChange}
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                required
+              />
+            </label>
+          ) : (
+            <label>
+              Costo mensual
+              <input type="text" value={form.hostingPlan ? `${formatMxn(HOSTING_PLANS[form.hostingPlan].price)}/mes` : "—"} disabled />
+            </label>
+          )}
+
+          <label>
+            Imagen Docker
+            <input
+              type="text"
+              name="dockerImage"
+              value={form.dockerImage}
+              onChange={handleChange}
+              placeholder="duckhackcloud-duck-hack.frontend-user"
+            />
           </label>
 
           <label>
-            Servidor / ubicación
-            <input name="serverLocation" value={form.serverLocation} onChange={handleChange} />
+            Dominio del sitio
+            <input type="text" name="domain" value={form.domain} onChange={handleChange} placeholder="cliente.com" />
+          </label>
+
+          <label>
+            Vencimiento del dominio
+            <input type="date" name="domainExpiresAt" value={form.domainExpiresAt} onChange={handleChange} />
           </label>
 
           <label style={{ gridColumn: "1 / span 2" }}>

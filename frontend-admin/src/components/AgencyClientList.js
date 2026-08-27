@@ -2,22 +2,8 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
-
-const HOSTING_WARNING_DAYS = 15;
-
-// Regla de presentación pura sobre "hoy": se calcula en el frontend para no
-// acoplar el umbral de aviso al backend ni requerir redeploy si cambia.
-const getHostingBadge = (hostingPaidUntil) => {
-  if (!hostingPaidUntil) return { color: "red", label: "Sin pagos" };
-
-  const until = new Date(hostingPaidUntil);
-  const now = new Date();
-  const warningThreshold = new Date(now.getTime() + HOSTING_WARNING_DAYS * 24 * 60 * 60 * 1000);
-
-  if (until < now) return { color: "red", label: `Vencido (${until.toLocaleDateString()})` };
-  if (until <= warningThreshold) return { color: "yellow", label: `Por vencer (${until.toLocaleDateString()})` };
-  return { color: "green", label: `Al día (${until.toLocaleDateString()})` };
-};
+import { HOSTING_PLANS } from "../utils/hostingPlans";
+import { getDateStatusBadge } from "../utils/dateStatusBadge";
 
 const formatCurrency = (value) => {
   if (!value) return "$0";
@@ -81,7 +67,9 @@ const AgencyClientList = () => {
           <tr>
             <th>Negocio</th>
             <th>Contacto</th>
+            <th>Plan</th>
             <th>Hosting</th>
+            <th>Dominio</th>
             <th>Deuda de diseño</th>
             <th>Acciones</th>
           </tr>
@@ -89,17 +77,46 @@ const AgencyClientList = () => {
         <tbody>
           {clients.length === 0 && !isLoading ? (
             <tr>
-              <td colSpan={5}>No hay clientes de agencia registrados.</td>
+              <td colSpan={7}>No hay clientes de agencia registrados.</td>
             </tr>
           ) : null}
           {clients.map((client) => {
-            const badge = getHostingBadge(client.hostingPaidUntil);
+            const hostingBadge = getDateStatusBadge(client.hostingPaidUntil, { emptyLabel: "Sin pagos" });
+            const domainBadge = client.domain
+              ? getDateStatusBadge(client.domainExpiresAt, { emptyLabel: "Sin fecha registrada" })
+              : null;
             return (
               <tr key={client._id}>
                 <td>{client.businessName}</td>
                 <td>{client.contactName || client.contactEmail || "—"}</td>
                 <td>
-                  <span className={`badge badge-${badge.color}`}>{badge.label}</span>
+                  {client.hostingPlan ? (
+                    <>
+                      {HOSTING_PLANS[client.hostingPlan].label}
+                      {typeof client.hostingMonthlyCost === "number" ? (
+                        <>
+                          <br />
+                          <small>{formatCurrency(client.hostingMonthlyCost)}/mes</small>
+                        </>
+                      ) : null}
+                    </>
+                  ) : (
+                    "—"
+                  )}
+                </td>
+                <td>
+                  <span className={`badge badge-${hostingBadge.color}`}>{hostingBadge.label}</span>
+                </td>
+                <td>
+                  {domainBadge ? (
+                    <>
+                      {client.domain}
+                      <br />
+                      <span className={`badge badge-${domainBadge.color}`}>{domainBadge.label}</span>
+                    </>
+                  ) : (
+                    "—"
+                  )}
                 </td>
                 <td>
                   {client.pendingDebtTotal > 0

@@ -140,8 +140,11 @@ router.put(
         "contactEmail",
         "contactPhone",
         "siteUrl",
-        "hostingProvider",
-        "serverLocation",
+        "hostingPlan",
+        "hostingMonthlyCost",
+        "dockerImage",
+        "domain",
+        "domainExpiresAt",
         "notes",
         "isActive",
       ];

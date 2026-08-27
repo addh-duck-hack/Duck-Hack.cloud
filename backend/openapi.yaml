@@ -1096,10 +1096,21 @@ components:
           type: string
         siteUrl:
           type: string
-        hostingProvider:
+        hostingPlan:
+          $ref: "#/components/schemas/HostingPlan"
+        hostingMonthlyCost:
+          type: number
+          description: >
+            Para basic/medium/advanced se deriva server-side del precio de lista
+            (no editable); solo se captura a mano cuando hostingPlan es "enterprise".
+        dockerImage:
           type: string
-        serverLocation:
+        domain:
           type: string
+        domainExpiresAt:
+          type: string
+          format: date-time
+          nullable: true
         notes:
           type: string
         isActive:
@@ -1131,12 +1142,21 @@ components:
         siteUrl:
           type: string
           maxLength: 300
-        hostingProvider:
-          type: string
-          maxLength: 120
-        serverLocation:
+        hostingPlan:
+          $ref: "#/components/schemas/HostingPlan"
+        hostingMonthlyCost:
+          type: number
+          description: Requerido y > 0 solo cuando hostingPlan es "enterprise"; para los demás planes se ignora y se deriva del precio de lista.
+        dockerImage:
           type: string
           maxLength: 200
+        domain:
+          type: string
+          maxLength: 200
+        domainExpiresAt:
+          type: string
+          format: date
+          nullable: true
         notes:
           type: string
           maxLength: 2000
@@ -1207,6 +1227,13 @@ components:
       readOnly: true
       enum: [pending, partial, paid]
       description: Recalculado server-side a partir de amount/amountPaid; nunca se acepta del cliente.
+
+    HostingPlan:
+      type: string
+      enum: [basic, medium, advanced, enterprise]
+      description: >
+        Plan de hosting contratado (ver backend/utils/hostingPlans.js, debe coincidir con los precios
+        publicados en frontend-user). "enterprise" es "bajo cotización" — sin precio de lista fijo.
 
     DesignDebt:
       type: object

@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const { isValidRole } = require("./authMiddleware");
 const { sendError } = require("../utils/httpResponses");
+const { HOSTING_PLANS, HOSTING_PLAN_IDS } = require("../utils/hostingPlans");
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -300,20 +301,66 @@ const validateAgencyClientPayload = (req, res, next) => {
     req.body.siteUrl = siteUrl;
   }
 
-  if (payload.hostingProvider !== undefined) {
-    const hostingProvider = asTrimmedString(payload.hostingProvider);
-    if (hostingProvider.length > 120) {
-      return badRequest(res, "VALIDATION_ERROR", "hostingProvider excede 120 caracteres.");
+  if (payload.hostingPlan !== undefined) {
+    const hostingPlan = asTrimmedString(payload.hostingPlan).toLowerCase();
+    if (hostingPlan && !HOSTING_PLAN_IDS.includes(hostingPlan)) {
+      return badRequest(res, "VALIDATION_ERROR", `hostingPlan debe ser uno de: ${HOSTING_PLAN_IDS.join(", ")}.`);
     }
-    req.body.hostingProvider = hostingProvider;
+    req.body.hostingPlan = hostingPlan || undefined;
   }
 
-  if (payload.serverLocation !== undefined) {
-    const serverLocation = asTrimmedString(payload.serverLocation);
-    if (serverLocation.length > 200) {
-      return badRequest(res, "VALIDATION_ERROR", "serverLocation excede 200 caracteres.");
+  // El plan "vigente" para esta operación: lo que venga en el payload, o si no
+  // se está tocando, el que ya tenía el cliente (req.agencyClient, disponible
+  // en PUT porque ensureAgencyClientExists corre antes que este middleware).
+  const effectivePlan = payload.hostingPlan !== undefined ? req.body.hostingPlan : req.agencyClient?.hostingPlan;
+
+  if (effectivePlan && effectivePlan !== "enterprise") {
+    // Precio fijo de lista: se deriva siempre server-side, ignorando lo que
+    // mande el cliente, para que nunca se desincronice del precio real.
+    req.body.hostingMonthlyCost = HOSTING_PLANS[effectivePlan].price;
+  } else if (effectivePlan === "enterprise") {
+    const rawCost = payload.hostingMonthlyCost !== undefined ? payload.hostingMonthlyCost : req.agencyClient?.hostingMonthlyCost;
+    const cost = asFiniteNumber(rawCost);
+    if (cost === null || cost <= 0) {
+      return badRequest(res, "VALIDATION_ERROR", "hostingMonthlyCost es requerido (> 0) cuando hostingPlan es 'enterprise'.");
     }
-    req.body.serverLocation = serverLocation;
+    req.body.hostingMonthlyCost = cost;
+  } else if (payload.hostingMonthlyCost !== undefined && payload.hostingMonthlyCost !== "" && payload.hostingMonthlyCost !== null) {
+    // Sin plan definido, no debería mandarse un costo suelto (se ignora un
+    // string vacío, ej. un input controlado sin tocar).
+    return badRequest(res, "VALIDATION_ERROR", "hostingMonthlyCost solo aplica si se define hostingPlan.");
+  } else if (payload.hostingMonthlyCost === "" || payload.hostingMonthlyCost === null) {
+    // Normaliza el "vacío" a undefined para que Mongoose no intente castear
+    // un string vacío a Number.
+    req.body.hostingMonthlyCost = undefined;
+  }
+
+  if (payload.dockerImage !== undefined) {
+    const dockerImage = asTrimmedString(payload.dockerImage);
+    if (dockerImage.length > 200) {
+      return badRequest(res, "VALIDATION_ERROR", "dockerImage excede 200 caracteres.");
+    }
+    req.body.dockerImage = dockerImage;
+  }
+
+  if (payload.domain !== undefined) {
+    const domain = asTrimmedString(payload.domain).toLowerCase();
+    if (domain.length > 200) {
+      return badRequest(res, "VALIDATION_ERROR", "domain excede 200 caracteres.");
+    }
+    req.body.domain = domain;
+  }
+
+  if (payload.domainExpiresAt !== undefined) {
+    if (payload.domainExpiresAt === "" || payload.domainExpiresAt === null) {
+      req.body.domainExpiresAt = null;
+    } else {
+      const domainExpiresAt = asValidDate(payload.domainExpiresAt);
+      if (!domainExpiresAt) {
+        return badRequest(res, "VALIDATION_ERROR", "domainExpiresAt debe ser una fecha válida.");
+      }
+      req.body.domainExpiresAt = domainExpiresAt;
+    }
   }
 
   if (payload.notes !== undefined) {

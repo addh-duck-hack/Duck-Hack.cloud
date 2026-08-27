@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
+import { HOSTING_PLANS } from "../utils/hostingPlans";
+import { getDateStatusBadge } from "../utils/dateStatusBadge";
 
 const initialPaymentForm = { paidAt: "", coversUntil: "", amount: "", notes: "" };
 const initialDebtForm = { description: "", amount: "", notes: "" };
@@ -145,6 +147,10 @@ const AgencyClientDetail = () => {
     return <p>Cargando...</p>;
   }
 
+  const domainBadge = client?.domain
+    ? getDateStatusBadge(client.domainExpiresAt, { emptyLabel: "Sin fecha registrada" })
+    : null;
+
   return (
     <section style={{ maxWidth: 1000 }}>
       <div style={{ marginBottom: "1rem", display: "flex", gap: "0.75rem" }}>
@@ -165,7 +171,20 @@ const AgencyClientDetail = () => {
             {client.contactName || "—"} · {client.contactEmail || "—"} · {client.contactPhone || "—"}
           </p>
           <p>
-            Sitio: {client.siteUrl || "—"} · Hosting: {client.hostingProvider || "—"} ({client.serverLocation || "—"})
+            Sitio: {client.siteUrl || "—"} · Imagen Docker: {client.dockerImage || "—"}
+          </p>
+          <p>
+            Plan: {client.hostingPlan ? HOSTING_PLANS[client.hostingPlan].label : "—"}
+            {typeof client.hostingMonthlyCost === "number" ? ` — ${formatCurrency(client.hostingMonthlyCost)}/mes` : ""}
+          </p>
+          <p>
+            Dominio: {client.domain || "—"}
+            {domainBadge ? (
+              <>
+                {" "}
+                <span className={`badge badge-${domainBadge.color}`}>{domainBadge.label}</span>
+              </>
+            ) : null}
           </p>
           {client.notes ? <p>Notas: {client.notes}</p> : null}
 
