@@ -5,9 +5,10 @@ import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { HOSTING_PLANS } from "../utils/hostingPlans";
 import { getDateStatusBadge } from "../utils/dateStatusBadge";
 import { formatBytes } from "../utils/formatBytes";
+import { formatCalendarDate } from "../utils/formatCalendarDate";
 
 const formatCurrency = (value) => `$${Number(value || 0).toLocaleString()}`;
-const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : "—");
+const formatDate = (value) => formatCalendarDate(value) || "—";
 
 const DOCKER_STATE_LABELS = {
   running: "Corriendo",

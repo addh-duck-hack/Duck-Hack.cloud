@@ -2,9 +2,10 @@ import React, { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
+import { formatCalendarDate } from "../utils/formatCalendarDate";
 
 const formatMxn = (value) => Number(value || 0).toLocaleString("es-MX", { style: "currency", currency: "MXN" });
-const formatDate = (value) => (value ? new Date(value).toLocaleDateString("es-MX") : "—");
+const formatDate = (value) => formatCalendarDate(value) || "—";
 
 const SOURCE_LABELS = {
   manual: "Manual",

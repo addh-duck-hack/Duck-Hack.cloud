@@ -12,8 +12,12 @@ const BRAND_LINE = "#dddddd";
 const formatCurrency = (value) =>
   `$${Number(value).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MXN`;
 
+// issuedAt es una fecha "de calendario" (viene de paidAt/invoicedAt, un
+// <input type="date"> guardado como medianoche UTC) — se formatea en UTC
+// para que el día mostrado no dependa de la zona horaria del servidor
+// (ver frontend-admin/src/utils/formatCalendarDate.js para el mismo caso).
 const formatDate = (date) =>
-  new Date(date).toLocaleDateString("es-MX", { year: "numeric", month: "long", day: "numeric" });
+  new Date(date).toLocaleDateString("es-MX", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
 
 /**
  * Genera el PDF de un comprobante de pago (sin validez fiscal, no es CFDI) y

@@ -15,7 +15,10 @@ const { recordIncomeAndInvoice, deleteLinkedAccountingRecords, syncSingleSourceI
 const { HOSTING_PLANS } = require("../utils/hostingPlans");
 const { getContainersMetrics, PortainerConfigError, PortainerRequestError } = require("../utils/portainerClient");
 
-const MONTH_YEAR_FORMAT = new Intl.DateTimeFormat("es-MX", { month: "long", year: "numeric" });
+// paidAt es una fecha "de calendario" (medianoche UTC, viene de un <input
+// type="date">) — se formatea en UTC para que el mes mostrado no dependa de
+// la zona horaria del servidor (mismo caso que invoicePdf.js#formatDate).
+const MONTH_YEAR_FORMAT = new Intl.DateTimeFormat("es-MX", { month: "long", year: "numeric", timeZone: "UTC" });
 
 // Módulo confidencial: información de facturación/hosting de clientes de agencia.
 // Acceso exclusivo a super_admin (a diferencia de storeConfig.routes.js, aquí NO
