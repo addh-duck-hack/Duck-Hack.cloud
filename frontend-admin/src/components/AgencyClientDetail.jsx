@@ -163,7 +163,12 @@ const AgencyClientDetail = () => {
     return <p>Cargando...</p>;
   }
 
-  const hostingBadge = client ? getDateStatusBadge(client.hostingPaidUntil, { emptyLabel: "Sin pagos" }) : null;
+  // `GET /:id` devuelve el documento crudo del cliente (sin `hostingPaidUntil`,
+  // que solo se calcula vía agregación en el listado `GET /`) — aquí se deriva
+  // del propio historial de pagos que ya se cargó, tomando el `coversUntil` más
+  // lejano (los pagos vienen ordenados por el backend con `coversUntil: -1`).
+  const hostingPaidUntil = payments[0]?.coversUntil;
+  const hostingBadge = client ? getDateStatusBadge(hostingPaidUntil, { emptyLabel: "Sin pagos" }) : null;
   const domainBadge = client?.domain
     ? getDateStatusBadge(client.domainExpiresAt, { emptyLabel: "Sin fecha registrada" })
     : null;
