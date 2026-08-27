@@ -18,6 +18,33 @@ const initialState = {
   isActive: true,
 };
 
+const HEX_COLOR_REGEX = /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/;
+
+// Input de color con un swatch de vista previa junto al hex.
+const ColorField = ({ label, name, value, placeholder, onChange }) => {
+  const swatchColor = HEX_COLOR_REGEX.test(value) ? value : "transparent";
+  return (
+    <label>
+      {label}
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <span
+          aria-hidden="true"
+          style={{
+            width: 34,
+            height: 34,
+            minWidth: 34,
+            borderRadius: 6,
+            border: "1px solid var(--input-border-color)",
+            background: swatchColor,
+            marginBottom: "20px",
+          }}
+        />
+        <input type="text" name={name} value={value} onChange={onChange} placeholder={placeholder} />
+      </div>
+    </label>
+  );
+};
+
 const StoreConfigManager = () => {
   const [form, setForm] = useState(initialState);
   const [isLoading, setIsLoading] = useState(false);
@@ -69,6 +96,7 @@ const StoreConfigManager = () => {
 
   useEffect(() => {
     loadConfig();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleChange = (event) => {
@@ -127,75 +155,92 @@ const StoreConfigManager = () => {
 
   return (
     <section style={{ maxWidth: 900 }}>
-      <h3>Configuración de Tienda</h3>
-      <p>Gestiona los datos base y el tema de la instancia.</p>
+      <h3>Configuración de tienda</h3>
+      <p>
+        Datos base y tema visual de esta instancia. <strong>Nota:</strong> el storefront (frontend-user) todavía
+        no consume este tema — los colores/fuentes de aquí aún no cambian el sitio público.
+      </p>
 
-      {message ? <p style={{ color: "#256029" }}>{message}</p> : null}
-      {error ? <p style={{ color: "#9d1c1c" }}>{error}</p> : null}
+      {message ? <div className="auth-success">{message}</div> : null}
+      {error ? <div className="auth-error">{error}</div> : null}
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
+        <h4>Datos generales</h4>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
           <label>
             Nombre de tienda
-            <input name="storeName" value={form.storeName} onChange={handleChange} required />
+            <input type="text" name="storeName" value={form.storeName} onChange={handleChange} required />
           </label>
 
           <label>
             Slug de tienda
-            <input name="storeSlug" value={form.storeSlug} onChange={handleChange} required />
-          </label>
-
-          <label>
-            Email de contacto
-            <input name="contactEmail" value={form.contactEmail} onChange={handleChange} />
-          </label>
-
-          <label>
-            Teléfono de contacto
-            <input name="contactPhone" value={form.contactPhone} onChange={handleChange} />
-          </label>
-
-          <label style={{ gridColumn: "1 / span 2" }}>
-            Logo URL
-            <input name="logoUrl" value={form.logoUrl} onChange={handleChange} />
-          </label>
-
-          <label>
-            Color primario
-            <input name="theme.primaryColor" value={form.theme.primaryColor} onChange={handleChange} placeholder="#0B1F3A" />
-          </label>
-
-          <label>
-            Color secundario
-            <input name="theme.secondaryColor" value={form.theme.secondaryColor} onChange={handleChange} placeholder="#F2F5F9" />
-          </label>
-
-          <label>
-            Color acento
-            <input name="theme.accentColor" value={form.theme.accentColor} onChange={handleChange} placeholder="#FF6B00" />
-          </label>
-
-          <label>
-            Fuente heading
-            <input name="theme.fontFamilyHeading" value={form.theme.fontFamilyHeading} onChange={handleChange} />
-          </label>
-
-          <label>
-            Fuente body
-            <input name="theme.fontFamilyBody" value={form.theme.fontFamilyBody} onChange={handleChange} />
+            <input type="text" name="storeSlug" value={form.storeSlug} onChange={handleChange} required />
           </label>
 
           <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <input type="checkbox" name="isActive" checked={form.isActive} onChange={handleChange} />
+            <input type="checkbox" name="isActive" checked={form.isActive} onChange={handleChange} style={{ width: "auto", margin: 0 }} />
             Tienda activa
           </label>
         </div>
 
-        <div style={{ marginTop: "1rem", display: "flex", gap: "0.75rem" }}>
-          <button type="submit" disabled={isLoading}>
+        <h4 style={{ marginTop: "2rem" }}>Contacto</h4>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+          <label>
+            Email de contacto
+            <input type="email" name="contactEmail" value={form.contactEmail} onChange={handleChange} />
+          </label>
+
+          <label>
+            Teléfono de contacto
+            <input type="tel" name="contactPhone" value={form.contactPhone} onChange={handleChange} />
+          </label>
+        </div>
+
+        <h4 style={{ marginTop: "2rem" }}>Marca</h4>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+          <label style={{ gridColumn: "1 / span 2" }}>
+            Logo URL
+            <input type="url" name="logoUrl" value={form.logoUrl} onChange={handleChange} placeholder="https://..." />
+          </label>
+
+          <ColorField
+            label="Color primario"
+            name="theme.primaryColor"
+            value={form.theme.primaryColor}
+            placeholder="#0B1F3A"
+            onChange={handleChange}
+          />
+          <ColorField
+            label="Color secundario"
+            name="theme.secondaryColor"
+            value={form.theme.secondaryColor}
+            placeholder="#F2F5F9"
+            onChange={handleChange}
+          />
+          <ColorField
+            label="Color acento"
+            name="theme.accentColor"
+            value={form.theme.accentColor}
+            placeholder="#FF6B00"
+            onChange={handleChange}
+          />
+
+          <label>
+            Fuente heading
+            <input type="text" name="theme.fontFamilyHeading" value={form.theme.fontFamilyHeading} onChange={handleChange} />
+          </label>
+
+          <label>
+            Fuente body
+            <input type="text" name="theme.fontFamilyBody" value={form.theme.fontFamilyBody} onChange={handleChange} />
+          </label>
+        </div>
+
+        <div style={{ marginTop: "1.5rem", display: "flex", gap: "0.75rem" }}>
+          <button type="submit" disabled={isLoading} style={{ width: "auto" }}>
             {isLoading ? "Guardando..." : "Guardar configuración"}
           </button>
-          <button type="button" onClick={loadConfig} disabled={isLoading}>
+          <button type="button" onClick={loadConfig} disabled={isLoading} className="btn-secondary" style={{ width: "auto" }}>
             Recargar
           </button>
         </div>

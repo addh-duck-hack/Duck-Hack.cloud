@@ -155,8 +155,8 @@ const AgencyClientDetail = () => {
         ) : null}
       </div>
 
-      {message ? <p style={{ color: "#256029" }}>{message}</p> : null}
-      {error ? <p style={{ color: "#9d1c1c" }}>{error}</p> : null}
+      {message ? <div className="auth-success">{message}</div> : null}
+      {error ? <div className="auth-error">{error}</div> : null}
 
       {client ? (
         <>

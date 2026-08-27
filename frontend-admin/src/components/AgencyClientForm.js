@@ -114,10 +114,10 @@ const AgencyClientForm = () => {
     <section style={{ maxWidth: 900 }}>
       <h3>{isEditing ? "Editar cliente de agencia" : "Nuevo cliente de agencia"}</h3>
 
-      {message ? <p style={{ color: "#256029" }}>{message}</p> : null}
-      {error ? <p style={{ color: "#9d1c1c" }}>{error}</p> : null}
+      {message ? <div className="auth-success">{message}</div> : null}
+      {error ? <div className="auth-error">{error}</div> : null}
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
           <label style={{ gridColumn: "1 / span 2" }}>
             Nombre del negocio

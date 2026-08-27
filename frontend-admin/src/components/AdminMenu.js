@@ -177,6 +177,7 @@ const AdminMenu = () => {
             ) : null}
             <p style={{ fontSize: "0.75rem", marginTop: "1rem" }}>
               Disco: solo footprint de Docker (imágenes, contenedores, volúmenes) — no incluye archivos fuera de Docker.
+              <br />
               Red: acumulada desde que arrancaron los contenedores, no un contador mensual real del proveedor.
             </p>
           </section>

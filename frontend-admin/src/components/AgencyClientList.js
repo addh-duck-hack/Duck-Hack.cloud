@@ -74,7 +74,7 @@ const AgencyClientList = () => {
       <h3>Clientes de agencia</h3>
       <p>Control interno de hosting y deudas de diseño. Uso confidencial (solo super_admin).</p>
 
-      {error ? <p style={{ color: "#9d1c1c" }}>{error}</p> : null}
+      {error ? <div className="auth-error">{error}</div> : null}
 
       <table>
         <thead>
