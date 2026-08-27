@@ -11,6 +11,11 @@ const {
   validateDesignDebtPayload,
 } = require("../middleware/validationMiddleware");
 const { sendError } = require("../utils/httpResponses");
+const { recordIncomeAndInvoice } = require("../utils/accountingHooks");
+const { HOSTING_PLANS } = require("../utils/hostingPlans");
+const { getContainersMetrics, PortainerConfigError, PortainerRequestError } = require("../utils/portainerClient");
+
+const MONTH_YEAR_FORMAT = new Intl.DateTimeFormat("es-MX", { month: "long", year: "numeric" });
 
 // Módulo confidencial: información de facturación/hosting de clientes de agencia.
 // Acceso exclusivo a super_admin (a diferencia de storeConfig.routes.js, aquí NO
@@ -142,9 +147,13 @@ router.put(
         "siteUrl",
         "hostingPlan",
         "hostingMonthlyCost",
-        "dockerImage",
+        "dockerContainers",
         "domain",
         "domainExpiresAt",
+        "billingName",
+        "billingRfc",
+        "billingAddress",
+        "billingEmail",
         "notes",
         "isActive",
       ];
@@ -187,6 +196,28 @@ router.delete("/:id", validateObjectIdParam("id"), ensureAgencyClientExists, asy
   }
 });
 
+// Estado en vivo de los contenedores Docker del cliente (dashboard por
+// cliente) — vía Portainer, ver utils/portainerClient.js#getContainersMetrics.
+router.get(
+  "/:id/docker-status",
+  validateObjectIdParam("id"),
+  ensureAgencyClientExists,
+  async (req, res) => {
+    try {
+      const containers = await getContainersMetrics(req.agencyClient.dockerContainers || []);
+      return res.status(200).json({ items: containers, checkedAt: new Date().toISOString() });
+    } catch (error) {
+      if (error instanceof PortainerConfigError) {
+        return sendError(res, 501, "PORTAINER_NOT_CONFIGURED", error.message);
+      }
+      if (error instanceof PortainerRequestError) {
+        return sendError(res, 502, "PORTAINER_UNREACHABLE", "No fue posible consultar Portainer.", error.message);
+      }
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al consultar el estado de los contenedores.");
+    }
+  }
+);
+
 // ---------------------------------------------------------------------------
 // Hosting payments (historial de pagos de hosting de un cliente)
 // ---------------------------------------------------------------------------
@@ -220,6 +251,19 @@ router.post(
         notes: req.body.notes,
       });
       await payment.save();
+
+      const planLabel = req.agencyClient.hostingPlan ? ` - Plan ${HOSTING_PLANS[req.agencyClient.hostingPlan].label}` : "";
+      await recordIncomeAndInvoice({
+        client: req.agencyClient,
+        amount: payment.amount,
+        date: payment.paidAt,
+        category: "Hosting",
+        description: `Pago de hosting - ${req.agencyClient.businessName}`,
+        concept: `Pago de hosting${planLabel} - ${MONTH_YEAR_FORMAT.format(payment.paidAt)}`,
+        sourceCollection: "HostingPayment",
+        sourceId: payment._id,
+      });
+
       return res.status(201).json({ message: "Pago de hosting registrado.", payment: sanitizeDoc(payment) });
     } catch (error) {
       return handleMongooseError(res, error, "Error al registrar el pago de hosting.");
@@ -318,6 +362,20 @@ router.post(
         notes: req.body.notes,
       });
       await debt.save();
+
+      if (amountPaid > 0) {
+        await recordIncomeAndInvoice({
+          client: req.agencyClient,
+          amount: amountPaid,
+          date: debt.invoicedAt || new Date(),
+          category: "Diseño",
+          description: `Abono a deuda de diseño - ${debt.description}`,
+          concept: `Abono a deuda de diseño: ${debt.description}`,
+          sourceCollection: "DesignDebt",
+          sourceId: debt._id,
+        });
+      }
+
       return res.status(201).json({ message: "Deuda de diseño registrada.", debt: sanitizeDoc(debt) });
     } catch (error) {
       return handleMongooseError(res, error, "Error al registrar la deuda de diseño.");
@@ -345,6 +403,8 @@ router.put(
         return sendError(res, 400, "VALIDATION_ERROR", "amountPaid no puede superar amount.");
       }
 
+      const previousAmountPaid = debt.amountPaid;
+
       if (req.body.description !== undefined) debt.description = req.body.description;
       if (req.body.notes !== undefined) debt.notes = req.body.notes;
       if (req.body.invoicedAt !== undefined) debt.invoicedAt = req.body.invoicedAt;
@@ -353,6 +413,24 @@ router.put(
       debt.status = recalculateDebtStatus(nextAmount, nextAmountPaid);
 
       await debt.save();
+
+      // Solo se registra el INCREMENTO recién pagado (no el total), para no
+      // duplicar ingreso si esto es solo una corrección de descripción/notas
+      // o un abono parcial adicional sobre uno ya contabilizado antes.
+      const paidIncrement = nextAmountPaid - previousAmountPaid;
+      if (paidIncrement > 0) {
+        await recordIncomeAndInvoice({
+          client: req.agencyClient,
+          amount: paidIncrement,
+          date: new Date(),
+          category: "Diseño",
+          description: `Abono a deuda de diseño - ${debt.description}`,
+          concept: `Abono a deuda de diseño: ${debt.description}`,
+          sourceCollection: "DesignDebt",
+          sourceId: debt._id,
+        });
+      }
+
       return res.status(200).json({ message: "Deuda de diseño actualizada.", debt: sanitizeDoc(debt) });
     } catch (error) {
       return handleMongooseError(res, error, "Error al actualizar la deuda de diseño.");

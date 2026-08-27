@@ -335,12 +335,15 @@ const validateAgencyClientPayload = (req, res, next) => {
     req.body.hostingMonthlyCost = undefined;
   }
 
-  if (payload.dockerImage !== undefined) {
-    const dockerImage = asTrimmedString(payload.dockerImage);
-    if (dockerImage.length > 200) {
-      return badRequest(res, "VALIDATION_ERROR", "dockerImage excede 200 caracteres.");
+  if (payload.dockerContainers !== undefined) {
+    if (!Array.isArray(payload.dockerContainers)) {
+      return badRequest(res, "VALIDATION_ERROR", "dockerContainers debe ser un arreglo de nombres.");
     }
-    req.body.dockerImage = dockerImage;
+    const dockerContainers = payload.dockerContainers.map((name) => asTrimmedString(name)).filter(Boolean);
+    if (dockerContainers.some((name) => name.length > 200)) {
+      return badRequest(res, "VALIDATION_ERROR", "Cada nombre de contenedor excede 200 caracteres.");
+    }
+    req.body.dockerContainers = dockerContainers;
   }
 
   if (payload.domain !== undefined) {
@@ -361,6 +364,38 @@ const validateAgencyClientPayload = (req, res, next) => {
       }
       req.body.domainExpiresAt = domainExpiresAt;
     }
+  }
+
+  if (payload.billingName !== undefined) {
+    const billingName = asTrimmedString(payload.billingName);
+    if (billingName.length > 200) {
+      return badRequest(res, "VALIDATION_ERROR", "billingName excede 200 caracteres.");
+    }
+    req.body.billingName = billingName;
+  }
+
+  if (payload.billingRfc !== undefined) {
+    const billingRfc = asTrimmedString(payload.billingRfc).toUpperCase();
+    if (billingRfc.length > 20) {
+      return badRequest(res, "VALIDATION_ERROR", "billingRfc excede 20 caracteres.");
+    }
+    req.body.billingRfc = billingRfc;
+  }
+
+  if (payload.billingAddress !== undefined) {
+    const billingAddress = asTrimmedString(payload.billingAddress);
+    if (billingAddress.length > 300) {
+      return badRequest(res, "VALIDATION_ERROR", "billingAddress excede 300 caracteres.");
+    }
+    req.body.billingAddress = billingAddress;
+  }
+
+  if (payload.billingEmail !== undefined) {
+    const billingEmail = asTrimmedString(payload.billingEmail).toLowerCase();
+    if (billingEmail && !validateEmail(billingEmail)) {
+      return badRequest(res, "VALIDATION_ERROR", "billingEmail no es válido.");
+    }
+    req.body.billingEmail = billingEmail;
   }
 
   if (payload.notes !== undefined) {
@@ -467,6 +502,116 @@ const validateDesignDebtPayload = (req, res, next) => {
   return next();
 };
 
+const TRANSACTION_TYPES = ["income", "expense"];
+
+const validateTransactionPayload = (req, res, next) => {
+  const payload = req.body || {};
+  const isCreate = req.method === "POST";
+
+  if (isCreate || payload.type !== undefined) {
+    const type = asTrimmedString(payload.type);
+    if (!TRANSACTION_TYPES.includes(type)) {
+      return badRequest(res, "VALIDATION_ERROR", `type debe ser uno de: ${TRANSACTION_TYPES.join(", ")}.`);
+    }
+    req.body.type = type;
+  }
+
+  if (isCreate || payload.amount !== undefined) {
+    const amount = asFiniteNumber(payload.amount);
+    if (amount === null || amount <= 0) {
+      return badRequest(res, "VALIDATION_ERROR", "amount es requerido y debe ser un número > 0.");
+    }
+    req.body.amount = amount;
+  }
+
+  if (payload.date !== undefined) {
+    const date = asValidDate(payload.date);
+    if (!date) return badRequest(res, "VALIDATION_ERROR", "date debe ser una fecha válida.");
+    req.body.date = date;
+  }
+
+  if (payload.category !== undefined) {
+    const category = asTrimmedString(payload.category);
+    if (category.length > 80) return badRequest(res, "VALIDATION_ERROR", "category excede 80 caracteres.");
+    req.body.category = category;
+  }
+
+  if (payload.description !== undefined) {
+    const description = asTrimmedString(payload.description);
+    if (description.length > 500) return badRequest(res, "VALIDATION_ERROR", "description excede 500 caracteres.");
+    req.body.description = description;
+  }
+
+  if (payload.client !== undefined) {
+    if (payload.client === "" || payload.client === null) {
+      req.body.client = null;
+    } else if (!mongoose.Types.ObjectId.isValid(payload.client)) {
+      return badRequest(res, "VALIDATION_ERROR", "client no es un id válido.");
+    }
+  }
+
+  // source/sourceCollection/sourceId nunca se aceptan del cliente: los ponen
+  // las rutas que generan transacciones automáticas (pagos de hosting, abonos
+  // a deuda de diseño). Una transacción creada por esta validación siempre
+  // queda como "manual".
+  delete req.body.source;
+  delete req.body.sourceCollection;
+  delete req.body.sourceId;
+
+  return next();
+};
+
+const validateOpeningBalancePayload = (req, res, next) => {
+  const payload = req.body || {};
+  const amount = asFiniteNumber(payload.amount);
+  if (amount === null || amount < 0) {
+    return badRequest(res, "VALIDATION_ERROR", "amount es requerido y debe ser un número >= 0.");
+  }
+  req.body.amount = amount;
+
+  if (payload.date !== undefined) {
+    const date = asValidDate(payload.date);
+    if (!date) return badRequest(res, "VALIDATION_ERROR", "date debe ser una fecha válida.");
+    req.body.date = date;
+  }
+
+  return next();
+};
+
+const validateInvoicePayload = (req, res, next) => {
+  const payload = req.body || {};
+
+  if (!mongoose.Types.ObjectId.isValid(payload.client)) {
+    return badRequest(res, "VALIDATION_ERROR", "client es requerido y debe ser un id válido.");
+  }
+
+  const concept = asTrimmedString(payload.concept);
+  if (!concept || concept.length > 300) {
+    return badRequest(res, "VALIDATION_ERROR", "concept es requerido (1-300 caracteres).");
+  }
+  req.body.concept = concept;
+
+  const amount = asFiniteNumber(payload.amount);
+  if (amount === null || amount <= 0) {
+    return badRequest(res, "VALIDATION_ERROR", "amount es requerido y debe ser un número > 0.");
+  }
+  req.body.amount = amount;
+
+  if (payload.issuedAt !== undefined) {
+    const issuedAt = asValidDate(payload.issuedAt);
+    if (!issuedAt) return badRequest(res, "VALIDATION_ERROR", "issuedAt debe ser una fecha válida.");
+    req.body.issuedAt = issuedAt;
+  }
+
+  // Una factura creada por esta validación siempre es "manual" — las
+  // automáticas las crean las rutas de pagos/deudas directamente.
+  delete req.body.source;
+  delete req.body.sourceCollection;
+  delete req.body.sourceId;
+
+  return next();
+};
+
 module.exports = {
   validateObjectIdParam,
   validateRegisterPayload,
@@ -478,4 +623,7 @@ module.exports = {
   validateAgencyClientPayload,
   validateHostingPaymentPayload,
   validateDesignDebtPayload,
+  validateTransactionPayload,
+  validateOpeningBalancePayload,
+  validateInvoicePayload,
 };

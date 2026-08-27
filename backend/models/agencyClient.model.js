@@ -47,11 +47,15 @@ const agencyClientSchema = new mongoose.Schema(
       type: Number,
       min: 0,
     },
-    // Imagen Docker con la que corre el sitio (ej. "duckhackcloud-duck-hack.frontend-user").
-    dockerImage: {
-      type: String,
-      trim: true,
-      maxlength: 200,
+    // Nombres exactos de contenedor en Portainer/Docker (un cliente puede tener
+    // varios, ej. frontend + backend + base de datos propia).
+    dockerContainers: {
+      type: [String],
+      default: [],
+      validate: {
+        validator: (arr) => arr.every((name) => typeof name === "string" && name.length <= 200),
+        message: "Cada nombre de contenedor debe ser texto de máximo 200 caracteres.",
+      },
     },
     // Dominio donde está montado el sitio del cliente (no confundir con siteUrl,
     // que puede llevar protocolo/paths; este es solo el dominio, para tracking
@@ -65,6 +69,30 @@ const agencyClientSchema = new mongoose.Schema(
     // Para poder avisar al cliente antes de que el dominio caduque.
     domainExpiresAt: {
       type: Date,
+    },
+    // Datos de facturación del CLIENTE (para la sección "Facturar a" del PDF).
+    // Todos opcionales — si no existen, la factura solo muestra businessName.
+    billingName: {
+      type: String,
+      trim: true,
+      maxlength: 200,
+    },
+    billingRfc: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      maxlength: 20,
+    },
+    billingAddress: {
+      type: String,
+      trim: true,
+      maxlength: 300,
+    },
+    billingEmail: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      maxlength: 160,
     },
     notes: {
       type: String,

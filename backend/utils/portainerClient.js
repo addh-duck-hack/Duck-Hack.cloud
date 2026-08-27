@@ -153,4 +153,64 @@ const getServerMetrics = async () => {
   };
 };
 
-module.exports = { getServerMetrics, PortainerConfigError, PortainerRequestError };
+// Estado/consumo de contenedores específicos de un cliente (dashboard por
+// cliente) — a diferencia de getServerMetrics(), que suma TODO el host, esto
+// busca por nombre exacto de contenedor (AgencyClient.dockerContainers) y
+// devuelve el detalle de cada uno por separado.
+const getContainersMetrics = async (names) => {
+  if (!isConfigured()) {
+    throw new PortainerConfigError("PORTAINER_URL y/o PORTAINER_API_TOKEN no están configurados en el backend.");
+  }
+  if (!Array.isArray(names) || names.length === 0) return [];
+
+  const endpointId = await resolveEndpointId();
+  const base = `/api/endpoints/${endpointId}/docker`;
+
+  const [allContainers, df] = await Promise.all([
+    portainerFetch(`${base}/containers/json?all=true`),
+    portainerFetch(`${base}/system/df`),
+  ]);
+
+  const imagesById = new Map((df?.Images || []).map((img) => [img.Id, img]));
+  const stripSlash = (n) => (n || "").replace(/^\//, "");
+
+  return Promise.all(
+    names.map(async (name) => {
+      const normalized = stripSlash(name);
+      const container = (allContainers || []).find((c) => (c.Names || []).some((n) => stripSlash(n) === normalized));
+
+      if (!container) {
+        return { name, found: false, state: "not_found" };
+      }
+
+      const image = imagesById.get(container.ImageID);
+      const dfEntry = (df?.Containers || []).find((c) => c.Id === container.Id);
+
+      let cpuPercent = null;
+      let memoryUsedBytes = null;
+      let network = null;
+      if (container.State === "running") {
+        const stats = await portainerFetch(`${base}/containers/${container.Id}/stats?stream=false`).catch(() => null);
+        if (stats) {
+          cpuPercent = round1(calculateCpuPercent(stats));
+          memoryUsedBytes = calculateMemoryUsedBytes(stats);
+          network = sumNetworkBytes(stats);
+        }
+      }
+
+      return {
+        name,
+        found: true,
+        state: container.State, // "running" | "exited" | "paused" | ...
+        status: container.Status, // texto legible de Docker, ej. "Up 3 days"
+        imageSizeBytes: image?.Size ?? null,
+        writableLayerSizeBytes: dfEntry?.SizeRw ?? container.SizeRw ?? null,
+        cpuPercent,
+        memoryUsedBytes,
+        network: network ? { rxBytes: network.rx, txBytes: network.tx } : null,
+      };
+    })
+  );
+};
+
+module.exports = { getServerMetrics, getContainersMetrics, PortainerConfigError, PortainerRequestError };
