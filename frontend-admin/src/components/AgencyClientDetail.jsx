@@ -374,18 +374,22 @@ const AgencyClientDetail = () => {
                       {debt.status}
                     </span>
                   </td>
-                  <td style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                  <td style={{ display: "flex", gap: "0.5rem", flexWrap: "nowrap", whiteSpace: "nowrap" }}>
                     {debt.status !== "paid" ? (
                       <>
-                        <button type="button" onClick={() => navigate(`/admin/agency-clients/${id}/design-debts/${debt._id}/payment`)}>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/admin/agency-clients/${id}/design-debts/${debt._id}/payment`)}
+                          style={{ width: "auto" }}
+                        >
                           Abonar
                         </button>
-                        <button type="button" className="btn-secondary" onClick={() => handleMarkDebtPaid(debt)}>
+                        <button type="button" className="btn-secondary" onClick={() => handleMarkDebtPaid(debt)} style={{ width: "auto" }}>
                           Marcar pagada
                         </button>
                       </>
                     ) : null}
-                    <button type="button" className="btn-danger" onClick={() => handleDeleteDebt(debt._id)}>
+                    <button type="button" className="btn-danger" onClick={() => handleDeleteDebt(debt._id)} style={{ width: "auto" }}>
                       Eliminar
                     </button>
                   </td>
