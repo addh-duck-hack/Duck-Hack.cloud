@@ -18,20 +18,20 @@ cd frontend-user && npm install
 ### Run locally (no Docker)
 ```bash
 cd backend && npm start                 # http://localhost:5000, reads backend/.env
-cd frontend-user && npm start           # http://localhost:3000
-cd frontend-admin && PORT=3001 npm start  # http://localhost:3001 (avoid clashing with frontend-user)
+cd frontend-user && npm start           # Vite dev server on http://localhost:3000
+cd frontend-admin && npm start          # Vite dev server on http://localhost:3001 (port set in vite.config.js)
 ```
 
 ### Run with Docker Compose
 ```bash
 docker compose up --build
 ```
-Ports: frontend-admin `89`, frontend-user `82`, backend `83`. There is **no Mongo container** — point `MONGO_URL_GLOBAL` at a reachable Mongo (use `host.docker.internal` on macOS for a host-local instance). The compose file also joins an **external** `npm` network (nginx-proxy-manager); that network must already exist (`docker network create npm`) or `docker compose up` fails.
+Containers expose: frontend-admin `8080`, frontend-user `8080`, backend `5000` (no host port mappings — traffic reaches them through the external `npm` / nginx-proxy-manager network). The frontends run `nginxinc/nginx-unprivileged` (nginx as a non-root user, hence port `8080` not `80`) — if you change this, update the "Forward Port" of each proxy host in NPM. There is **no Mongo container** — point `MONGO_URL_GLOBAL` at a reachable Mongo (use `host.docker.internal` on macOS for a host-local instance). The compose file also joins an **external** `npm` network (nginx-proxy-manager); that network must already exist (`docker network create npm`) or `docker compose up` fails.
 
 ### Tests
 - Backend: no test suite (`npm test` is a stub that exits 1). Manual verification is via `backend/scripts/bl014-smoke-tests.sh`, a curl-based smoke test hitting a running server — configure via env vars (`BASE_URL`, `CUSTOMER_TOKEN`, `STAFF_TOKEN`, `CUSTOMER_ID`, etc.), see the script header for usage.
-- Frontends: `cd frontend-admin|frontend-user && npm test` (CRA/Jest, watch mode by default). Only the default CRA smoke test exists (`App.test.js`) in each — no real coverage yet.
-- No standalone lint command; both frontends lint via CRA's built-in `react-app` eslint config as part of `npm start`/`npm run build`.
+- Frontends: `cd frontend-admin|frontend-user && npm test` runs Vitest once (`vitest run`); `npm run test:watch` for watch mode. Only one smoke test exists (`src/App.test.jsx`) in each — no real coverage yet. Test env is jsdom, setup in `src/setupTests.js`.
+- No standalone lint command. CRA's built-in `react-app` eslint went away with the Vite migration — Vite does not lint during `dev`/`build`. Add ESLint explicitly if you want it back.
 
 ### Env setup
 ```bash

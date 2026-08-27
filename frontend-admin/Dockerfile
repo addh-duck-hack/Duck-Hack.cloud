@@ -1,27 +1,24 @@
-# Fase de construcción
-FROM node:20 AS build
+# ── Fase de construcción ─────────────────────────────────────────────
+FROM node:22-alpine AS build
 
-# Establecer el directorio de la app
 WORKDIR /app
 
-# Copiar package.json e instalar dependencias
-COPY package*.json ./
-RUN npm install
+# Instalar dependencias con el lockfile (reproducible).
+COPY package.json package-lock.json ./
+RUN npm ci
 
-# Copiar los archivos de la app y construir para producción
+# Copiar el resto y compilar con Vite -> /app/build
 COPY . .
 RUN npm run build
 
-# Fase de producción
-FROM nginx:stable-alpine
+# ── Fase de producción ───────────────────────────────────────────────
+# Imagen nginx sin privilegios: el proceso corre como usuario nginx (uid 101),
+# no como root. Escucha en 8080 (ver nginx.conf).
+FROM nginxinc/nginx-unprivileged:stable-alpine
 
-# Copiar los archivos de construcción generados en /app/build al directorio donde nginx sirve archivos estáticos
 COPY --from=build /app/build /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Exponer el puerto en el que Nginx está escuchando
-EXPOSE 80
+EXPOSE 8080
 
-# Opcional: Configuración de nginx personalizada
-# COPY nginx.conf /etc/nginx/nginx.conf
-
-# Comando de inicio (Nginx ya inicia automáticamente en la imagen base)
+# La imagen base ya define USER nginx y el CMD de arranque.

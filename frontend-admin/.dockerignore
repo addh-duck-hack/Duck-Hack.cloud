@@ -1,0 +1,12 @@
+node_modules
+build
+coverage
+.git
+.gitignore
+.DS_Store
+npm-debug.log*
+Dockerfile
+.dockerignore
+README.md
+# OJO: .env NO se ignora — el build de Vite necesita
+# REACT_APP_HOST_SERVICES_URL en tiempo de compilación.

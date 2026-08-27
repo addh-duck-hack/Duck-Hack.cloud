@@ -2,6 +2,13 @@ services:
   duck-hack.frontend-admin:
     build: ./frontend-admin
     container_name: duck-hack.frontend-admin
+    # nginx sin privilegios -> escucha en 8080 (antes 80).
+    # En Nginx Proxy Manager hay que cambiar el "Forward Port" de este host a 8080.
+    expose:
+      - "8080"
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
     networks:
       - npm
       - duck-hack.frontend-admin-net
@@ -9,6 +16,13 @@ services:
   duck-hack.frontend-user:
     build: ./frontend-user
     container_name: duck-hack.frontend-user
+    # nginx sin privilegios -> escucha en 8080 (antes 80).
+    # En Nginx Proxy Manager hay que cambiar el "Forward Port" de este host a 8080.
+    expose:
+      - "8080"
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
     networks:
       - npm
       - duck-hack.frontend-user-net
@@ -16,6 +30,11 @@ services:
   duck-hack.backend:
     build: ./backend
     container_name: duck-hack.backend
+    expose:
+      - "5000"
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
     networks:
       - npm
       - duck-hack.backend-net
