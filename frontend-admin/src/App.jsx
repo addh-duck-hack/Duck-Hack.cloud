@@ -8,6 +8,8 @@ import StoreConfigManager from "./components/StoreConfigManager";
 import AgencyClientList from "./components/AgencyClientList";
 import AgencyClientForm from "./components/AgencyClientForm";
 import AgencyClientDetail from "./components/AgencyClientDetail";
+import AccountingDashboard from "./components/AccountingDashboard";
+import AccountingTransactions from "./components/AccountingTransactions";
 import './index.css';
 
 const App = () => {
@@ -48,6 +50,14 @@ const App = () => {
             <Route
               path="agency-clients/:id/edit"
               element={canManageAgencyClients ? <AgencyClientForm /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="accounting"
+              element={canManageAgencyClients ? <AccountingDashboard /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="accounting/transactions"
+              element={canManageAgencyClients ? <AccountingTransactions /> : <Navigate to="/admin" />}
             />
           </Route>
         </Routes>

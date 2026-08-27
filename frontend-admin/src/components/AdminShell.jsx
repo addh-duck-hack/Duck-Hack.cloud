@@ -27,7 +27,13 @@ const AdminShell = () => {
   const navItems = [
     { path: "/admin", label: "Panel", end: true },
     ...(canManageStoreConfig ? [{ path: "/admin/store-config", label: "Configurar tienda" }] : []),
-    ...(isSuperAdmin ? [{ path: "/admin/agency-clients", label: "Clientes de agencia" }] : []),
+    ...(isSuperAdmin
+      ? [
+          { path: "/admin/agency-clients", label: "Clientes de agencia" },
+          { path: "/admin/accounting", label: "Contabilidad" },
+          { path: "/admin/accounting/transactions", label: "Movimientos" },
+        ]
+      : []),
   ];
 
   const handleLogout = () => {

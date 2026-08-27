@@ -393,6 +393,32 @@ code {
   color: var(--placeholder-color);
 }
 
+/* Tooltip del gráfico de contabilidad (MonthlyBarChart) */
+.chart-tooltip {
+  position: absolute;
+  z-index: 10;
+  pointer-events: none;
+  background: var(--input-background-color);
+  border: 1px solid var(--input-border-color);
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.8rem;
+  color: var(--text-color);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+  white-space: nowrap;
+}
+
+.chart-tooltip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 0.35rem;
+}
+
 /* Infraestructura del servidor (Panel administrativo) */
 .infra-grid {
   display: grid;
