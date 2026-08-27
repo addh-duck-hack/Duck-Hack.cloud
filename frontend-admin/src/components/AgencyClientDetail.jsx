@@ -124,6 +124,41 @@ const AgencyClientDetail = () => {
     }
   };
 
+  const handleToggleActive = async () => {
+    setError("");
+    setMessage("");
+    try {
+      await axios.put(
+        `${baseUrl}/api/agency-clients/${id}`,
+        { isActive: !client.isActive },
+        { headers: { ...getAuthHeaders(), "Content-Type": "application/json" } }
+      );
+      setMessage(client.isActive ? "Cliente marcado como inactivo." : "Cliente marcado como activo.");
+      await loadAll();
+    } catch (err) {
+      setError(err.response?.data?.error?.message || "No fue posible actualizar el estado del cliente.");
+    }
+  };
+
+  const handleDeleteClient = async () => {
+    if (!window.confirm(`¿Eliminar definitivamente a "${client.businessName}"? Esta acción no se puede deshacer.`)) {
+      return;
+    }
+    setError("");
+    setMessage("");
+    try {
+      await axios.delete(`${baseUrl}/api/agency-clients/${id}`, { headers: getAuthHeaders() });
+      navigate("/admin/agency-clients");
+    } catch (err) {
+      const code = err.response?.data?.error?.code;
+      setError(
+        code === "AGENCY_CLIENT_HAS_RELATED_RECORDS"
+          ? "No se puede eliminar: el cliente tiene pagos de hosting o deudas de diseño registrados. Elimina primero ese historial, o márcalo como inactivo en su lugar."
+          : err.response?.data?.error?.message || "No fue posible eliminar el cliente."
+      );
+    }
+  };
+
   if (isLoading && !client) {
     return <p>Cargando...</p>;
   }
@@ -140,9 +175,17 @@ const AgencyClientDetail = () => {
           ← Volver a la cuadrícula
         </button>
         {client ? (
-          <button type="button" onClick={() => navigate(`/admin/agency-clients/${id}/edit`)} style={{ width: "auto" }}>
-            Editar datos
-          </button>
+          <>
+            <button type="button" onClick={() => navigate(`/admin/agency-clients/${id}/edit`)} style={{ width: "auto" }}>
+              Editar datos
+            </button>
+            <button type="button" className="btn-secondary" onClick={handleToggleActive} style={{ width: "auto" }}>
+              {client.isActive ? "Marcar inactivo" : "Marcar activo"}
+            </button>
+            <button type="button" className="btn-danger" onClick={handleDeleteClient} style={{ width: "auto" }}>
+              Eliminar cliente
+            </button>
+          </>
         ) : null}
       </div>
 
@@ -151,7 +194,14 @@ const AgencyClientDetail = () => {
 
       {client ? (
         <>
-          <h3>{client.businessName}</h3>
+          <h3>
+            {client.businessName}
+            {!client.isActive ? (
+              <span className="badge badge-red" style={{ marginLeft: "0.75rem", verticalAlign: "middle" }}>
+                Inactivo
+              </span>
+            ) : null}
+          </h3>
           <p>
             {client.contactName || "—"} · {client.contactEmail || "—"} · {client.contactPhone || "—"}
           </p>

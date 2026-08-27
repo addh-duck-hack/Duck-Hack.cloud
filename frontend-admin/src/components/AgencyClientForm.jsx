@@ -144,6 +144,17 @@ const AgencyClientForm = () => {
 
   return (
     <section style={{ maxWidth: 900 }}>
+      <div style={{ marginBottom: "1rem" }}>
+        <button
+          type="button"
+          className="btn-secondary"
+          onClick={() => navigate(isEditing ? `/admin/agency-clients/${id}` : "/admin/agency-clients")}
+          style={{ width: "auto" }}
+        >
+          ← {isEditing ? "Volver a la ficha" : "Volver a la cuadrícula"}
+        </button>
+      </div>
+
       <h3>{isEditing ? "Editar cliente de agencia" : "Nuevo cliente de agencia"}</h3>
 
       {message ? <div className="auth-success">{message}</div> : null}

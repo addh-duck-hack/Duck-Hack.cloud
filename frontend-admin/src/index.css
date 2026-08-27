@@ -198,6 +198,21 @@ table tr:hover {
   color: var(--on-accent);
 }
 
+.btn-danger {
+  width: auto;
+  background-color: transparent;
+  border: 1px solid var(--error-color);
+  color: var(--error-color);
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-danger:hover {
+  background-color: var(--error-color);
+  color: var(--on-accent);
+}
+
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
