@@ -60,11 +60,9 @@ label {
   color: var(--text-color);
 }
 
-input[type="email"],
-input[type="password"],
-input[type="text"],
-input[type="number"],
-input[type="date"],
+/* :not(checkbox/radio) en vez de listar tipos uno por uno — una lista whitelisted
+   ya se quedó corta dos veces (faltaban tel y url) cuando se agregó un input nuevo. */
+input:not([type="checkbox"]):not([type="radio"]),
 textarea,
 select {
   width: 100%;
