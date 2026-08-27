@@ -419,6 +419,112 @@ code {
   margin-right: 0.35rem;
 }
 
+/* Cuadrícula de clientes de agencia */
+.client-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.25rem;
+  margin-top: 1.5rem;
+}
+
+.client-card {
+  display: block;
+  text-align: left;
+  background: var(--form-background-color);
+  border: 1px solid var(--input-border-color);
+  border-radius: 14px;
+  padding: 1.5rem;
+  text-decoration: none;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.client-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--link-color);
+  text-decoration: none;
+}
+
+.client-card-name {
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--heading-color);
+  margin-bottom: 0.5rem;
+}
+
+.client-card-plan {
+  font-size: 0.85rem;
+  color: var(--placeholder-color);
+  margin-bottom: 0.85rem;
+}
+
+.client-card-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--text-color);
+  padding: 0.4rem 0;
+  border-top: 1px solid var(--input-border-color);
+}
+
+.client-card-row:first-of-type {
+  border-top: none;
+}
+
+/* Estado de contenedores Docker (dashboard de cliente) */
+.docker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.docker-card {
+  background: var(--form-background-color);
+  border: 1px solid var(--input-border-color);
+  border-radius: 12px;
+  padding: 1.1rem;
+}
+
+.docker-card-name {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--heading-color);
+  word-break: break-all;
+  margin-bottom: 0.5rem;
+}
+
+.docker-card-stat {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--placeholder-color);
+  padding: 0.15rem 0;
+}
+
+/* Alertas del dashboard de cliente */
+.client-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  margin-bottom: 0.6rem;
+}
+
+.client-alert-warning {
+  background: rgba(248, 175, 17, 0.12);
+  color: var(--primary-color);
+}
+
+.client-alert-danger {
+  background: rgba(255, 107, 107, 0.12);
+  color: var(--error-color);
+}
+
 /* Infraestructura del servidor (Panel administrativo) */
 .infra-grid {
   display: grid;

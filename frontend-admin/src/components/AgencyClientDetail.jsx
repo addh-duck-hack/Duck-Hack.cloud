@@ -1,15 +1,20 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { HOSTING_PLANS } from "../utils/hostingPlans";
 import { getDateStatusBadge } from "../utils/dateStatusBadge";
-
-const initialPaymentForm = { paidAt: "", coversUntil: "", amount: "", notes: "" };
-const initialDebtForm = { description: "", amount: "", notes: "" };
+import { formatBytes } from "../utils/formatBytes";
 
 const formatCurrency = (value) => `$${Number(value || 0).toLocaleString()}`;
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : "—");
+
+const DOCKER_STATE_LABELS = {
+  running: "Corriendo",
+  exited: "Detenido",
+  paused: "Pausado",
+  not_found: "No encontrado",
+};
 
 const AgencyClientDetail = () => {
   const navigate = useNavigate();
@@ -22,17 +27,14 @@ const AgencyClientDetail = () => {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const [paymentForm, setPaymentForm] = useState(initialPaymentForm);
-  const [debtForm, setDebtForm] = useState(initialDebtForm);
+  const [dockerStatus, setDockerStatus] = useState(null);
+  const [dockerError, setDockerError] = useState("");
+  const [dockerLoading, setDockerLoading] = useState(false);
 
   const baseUrl = getApiBaseUrl();
+  const getAuthHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem("token")}` });
 
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem("token");
-    return { Authorization: `Bearer ${token}` };
-  };
-
-  const loadAll = async () => {
+  const loadAll = useCallback(async () => {
     setIsLoading(true);
     setError("");
     try {
@@ -45,40 +47,41 @@ const AgencyClientDetail = () => {
       setPayments(paymentsRes.data?.items || []);
       setDebts(debtsRes.data?.items || []);
     } catch (err) {
-      const msg = err.response?.data?.error?.message || "No fue posible cargar la ficha del cliente.";
-      setError(msg);
+      setError(err.response?.data?.error?.message || "No fue posible cargar la ficha del cliente.");
     } finally {
       setIsLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const handleAddPayment = async (event) => {
-    event.preventDefault();
-    setError("");
-    setMessage("");
+  const loadDockerStatus = useCallback(async () => {
+    setDockerLoading(true);
+    setDockerError("");
     try {
-      await axios.post(
-        `${baseUrl}/api/agency-clients/${id}/hosting-payments`,
-        {
-          paidAt: paymentForm.paidAt,
-          coversUntil: paymentForm.coversUntil,
-          amount: paymentForm.amount ? Number(paymentForm.amount) : undefined,
-          notes: paymentForm.notes,
-        },
-        { headers: { ...getAuthHeaders(), "Content-Type": "application/json" } }
-      );
-      setPaymentForm(initialPaymentForm);
-      setMessage("Pago de hosting registrado.");
-      await loadAll();
+      const response = await axios.get(`${baseUrl}/api/agency-clients/${id}/docker-status`, { headers: getAuthHeaders() });
+      setDockerStatus(response.data?.items || []);
     } catch (err) {
-      setError(err.response?.data?.error?.message || "No fue posible registrar el pago.");
+      const code = err.response?.data?.error?.code;
+      setDockerError(
+        code === "PORTAINER_NOT_CONFIGURED"
+          ? "Portainer no está configurado en el backend."
+          : err.response?.data?.error?.message || "No fue posible consultar el estado de los contenedores."
+      );
+    } finally {
+      setDockerLoading(false);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
+
+  useEffect(() => {
+    if (client?.dockerContainers?.length > 0) {
+      loadDockerStatus();
+    }
+  }, [client, loadDockerStatus]);
 
   const handleDeletePayment = async (paymentId) => {
     setError("");
@@ -90,28 +93,6 @@ const AgencyClientDetail = () => {
       await loadAll();
     } catch (err) {
       setError(err.response?.data?.error?.message || "No fue posible eliminar el pago.");
-    }
-  };
-
-  const handleAddDebt = async (event) => {
-    event.preventDefault();
-    setError("");
-    setMessage("");
-    try {
-      await axios.post(
-        `${baseUrl}/api/agency-clients/${id}/design-debts`,
-        {
-          description: debtForm.description,
-          amount: Number(debtForm.amount),
-          notes: debtForm.notes,
-        },
-        { headers: { ...getAuthHeaders(), "Content-Type": "application/json" } }
-      );
-      setDebtForm(initialDebtForm);
-      setMessage("Deuda de diseño registrada.");
-      await loadAll();
-    } catch (err) {
-      setError(err.response?.data?.error?.message || "No fue posible registrar la deuda.");
     }
   };
 
@@ -147,15 +128,19 @@ const AgencyClientDetail = () => {
     return <p>Cargando...</p>;
   }
 
+  const hostingBadge = client ? getDateStatusBadge(client.hostingPaidUntil, { emptyLabel: "Sin pagos" }) : null;
   const domainBadge = client?.domain
     ? getDateStatusBadge(client.domainExpiresAt, { emptyLabel: "Sin fecha registrada" })
     : null;
 
   return (
     <section style={{ maxWidth: 1000 }}>
-      <div style={{ marginBottom: "1rem", display: "flex", gap: "0.75rem" }}>
+      <div style={{ marginBottom: "1rem", display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+        <button type="button" className="btn-secondary" onClick={() => navigate("/admin/agency-clients")} style={{ width: "auto" }}>
+          ← Volver a la cuadrícula
+        </button>
         {client ? (
-          <button type="button" onClick={() => navigate(`/admin/agency-clients/${id}/edit`)}>
+          <button type="button" onClick={() => navigate(`/admin/agency-clients/${id}/edit`)} style={{ width: "auto" }}>
             Editar datos
           </button>
         ) : null}
@@ -171,24 +156,98 @@ const AgencyClientDetail = () => {
             {client.contactName || "—"} · {client.contactEmail || "—"} · {client.contactPhone || "—"}
           </p>
           <p>
-            Sitio: {client.siteUrl || "—"} · Imagen Docker: {client.dockerImage || "—"}
+            Sitio: {client.siteUrl || "—"}
           </p>
           <p>
             Plan: {client.hostingPlan ? HOSTING_PLANS[client.hostingPlan].label : "—"}
             {typeof client.hostingMonthlyCost === "number" ? ` — ${formatCurrency(client.hostingMonthlyCost)}/mes` : ""}
           </p>
-          <p>
-            Dominio: {client.domain || "—"}
-            {domainBadge ? (
-              <>
-                {" "}
-                <span className={`badge badge-${domainBadge.color}`}>{domainBadge.label}</span>
-              </>
-            ) : null}
-          </p>
           {client.notes ? <p>Notas: {client.notes}</p> : null}
 
-          <h4>Historial de pagos de hosting</h4>
+          {/* --- Alertas: lo más importante de un vistazo --- */}
+          {(hostingBadge && hostingBadge.color !== "green") || (domainBadge && domainBadge.color !== "green") ? (
+            <div style={{ marginTop: "1.5rem" }}>
+              {hostingBadge && hostingBadge.color !== "green" ? (
+                <div className={`client-alert client-alert-${hostingBadge.color === "red" ? "danger" : "warning"}`}>
+                  <i className="fas fa-triangle-exclamation" aria-hidden="true" />
+                  Hosting: {hostingBadge.label}
+                </div>
+              ) : null}
+              {domainBadge && domainBadge.color !== "green" ? (
+                <div className={`client-alert client-alert-${domainBadge.color === "red" ? "danger" : "warning"}`}>
+                  <i className="fas fa-triangle-exclamation" aria-hidden="true" />
+                  Dominio ({client.domain}): {domainBadge.label}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* --- Estado de contenedores Docker --- */}
+          {client.dockerContainers?.length > 0 ? (
+            <>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "2rem" }}>
+                <h4 style={{ margin: 0 }}>Contenedores Docker</h4>
+                <button type="button" className="btn-secondary" onClick={loadDockerStatus} disabled={dockerLoading} style={{ width: "auto" }}>
+                  {dockerLoading ? "Consultando..." : "Actualizar"}
+                </button>
+              </div>
+              {dockerError ? <div className="auth-error">{dockerError}</div> : null}
+              <div className="docker-grid">
+                {(dockerStatus || []).map((container) => (
+                  <div key={container.name} className="docker-card">
+                    <div className="docker-card-name">{container.name}</div>
+                    <span className={`badge badge-${container.state === "running" ? "green" : container.state === "exited" ? "yellow" : "red"}`}>
+                      {DOCKER_STATE_LABELS[container.state] || container.state}
+                    </span>
+                    {container.found ? (
+                      <>
+                        <div className="docker-card-stat">
+                          <span>Estado</span>
+                          <span>{container.status || "—"}</span>
+                        </div>
+                        <div className="docker-card-stat">
+                          <span>Peso de imagen</span>
+                          <span>{container.imageSizeBytes != null ? formatBytes(container.imageSizeBytes) : "—"}</span>
+                        </div>
+                        <div className="docker-card-stat">
+                          <span>Capa escribible</span>
+                          <span>{container.writableLayerSizeBytes != null ? formatBytes(container.writableLayerSizeBytes) : "—"}</span>
+                        </div>
+                        {container.cpuPercent != null ? (
+                          <div className="docker-card-stat">
+                            <span>CPU</span>
+                            <span>{container.cpuPercent}%</span>
+                          </div>
+                        ) : null}
+                        {container.memoryUsedBytes != null ? (
+                          <div className="docker-card-stat">
+                            <span>Memoria</span>
+                            <span>{formatBytes(container.memoryUsedBytes)}</span>
+                          </div>
+                        ) : null}
+                        {container.network ? (
+                          <div className="docker-card-stat">
+                            <span>Red</span>
+                            <span>
+                              ↓{formatBytes(container.network.rxBytes)} ↑{formatBytes(container.network.txBytes)}
+                            </span>
+                          </div>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : null}
+
+          {/* --- Historial de pagos de hosting (solo lectura) --- */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "2rem" }}>
+            <h4 style={{ margin: 0 }}>Historial de pagos de hosting</h4>
+            <button type="button" onClick={() => navigate(`/admin/agency-clients/${id}/hosting-payments/new`)} style={{ width: "auto" }}>
+              Agregar pago
+            </button>
+          </div>
           <table>
             <thead>
               <tr>
@@ -221,46 +280,13 @@ const AgencyClientDetail = () => {
             </tbody>
           </table>
 
-          <form onSubmit={handleAddPayment} style={{ maxWidth: 500 }}>
-            <label>
-              Fecha de pago
-              <input
-                type="date"
-                required
-                value={paymentForm.paidAt}
-                onChange={(e) => setPaymentForm((prev) => ({ ...prev, paidAt: e.target.value }))}
-              />
-            </label>
-            <label>
-              Cubre hasta
-              <input
-                type="date"
-                required
-                value={paymentForm.coversUntil}
-                onChange={(e) => setPaymentForm((prev) => ({ ...prev, coversUntil: e.target.value }))}
-              />
-            </label>
-            <label>
-              Monto (opcional)
-              <input
-                type="number"
-                min="0"
-                value={paymentForm.amount}
-                onChange={(e) => setPaymentForm((prev) => ({ ...prev, amount: e.target.value }))}
-              />
-            </label>
-            <label>
-              Notas
-              <input
-                type="text"
-                value={paymentForm.notes}
-                onChange={(e) => setPaymentForm((prev) => ({ ...prev, notes: e.target.value }))}
-              />
-            </label>
-            <button type="submit">Registrar pago</button>
-          </form>
-
-          <h4>Deudas de diseño</h4>
+          {/* --- Historial de deudas de diseño (solo lectura) --- */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "2rem" }}>
+            <h4 style={{ margin: 0 }}>Deudas de diseño</h4>
+            <button type="button" onClick={() => navigate(`/admin/agency-clients/${id}/design-debts/new`)} style={{ width: "auto" }}>
+              Agregar deuda
+            </button>
+          </div>
           <table>
             <thead>
               <tr>
@@ -301,38 +327,6 @@ const AgencyClientDetail = () => {
               ))}
             </tbody>
           </table>
-
-          <form onSubmit={handleAddDebt} style={{ maxWidth: 500 }}>
-            <label>
-              Descripción
-              <input
-                type="text"
-                required
-                value={debtForm.description}
-                onChange={(e) => setDebtForm((prev) => ({ ...prev, description: e.target.value }))}
-              />
-            </label>
-            <label>
-              Monto
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                required
-                value={debtForm.amount}
-                onChange={(e) => setDebtForm((prev) => ({ ...prev, amount: e.target.value }))}
-              />
-            </label>
-            <label>
-              Notas
-              <input
-                type="text"
-                value={debtForm.notes}
-                onChange={(e) => setDebtForm((prev) => ({ ...prev, notes: e.target.value }))}
-              />
-            </label>
-            <button type="submit">Registrar deuda</button>
-          </form>
         </>
       ) : null}
     </section>

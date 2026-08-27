@@ -12,9 +12,13 @@ const initialState = {
   siteUrl: "",
   hostingPlan: "",
   hostingMonthlyCost: "",
-  dockerImage: "",
+  dockerContainers: [],
   domain: "",
   domainExpiresAt: "",
+  billingName: "",
+  billingRfc: "",
+  billingAddress: "",
+  billingEmail: "",
   notes: "",
   isActive: true,
 };
@@ -25,6 +29,7 @@ const AgencyClientForm = () => {
   const isEditing = Boolean(id);
 
   const [form, setForm] = useState(initialState);
+  const [newContainerName, setNewContainerName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -46,9 +51,13 @@ const AgencyClientForm = () => {
     siteUrl: data?.siteUrl || "",
     hostingPlan: data?.hostingPlan || "",
     hostingMonthlyCost: typeof data?.hostingMonthlyCost === "number" ? String(data.hostingMonthlyCost) : "",
-    dockerImage: data?.dockerImage || "",
+    dockerContainers: Array.isArray(data?.dockerContainers) ? data.dockerContainers : [],
     domain: data?.domain || "",
     domainExpiresAt: data?.domainExpiresAt ? data.domainExpiresAt.slice(0, 10) : "",
+    billingName: data?.billingName || "",
+    billingRfc: data?.billingRfc || "",
+    billingAddress: data?.billingAddress || "",
+    billingEmail: data?.billingEmail || "",
     notes: data?.notes || "",
     isActive: typeof data?.isActive === "boolean" ? data.isActive : true,
   });
@@ -82,6 +91,17 @@ const AgencyClientForm = () => {
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
+  };
+
+  const addContainer = () => {
+    const name = newContainerName.trim();
+    if (!name || form.dockerContainers.includes(name)) return;
+    setForm((prev) => ({ ...prev, dockerContainers: [...prev.dockerContainers, name] }));
+    setNewContainerName("");
+  };
+
+  const removeContainer = (name) => {
+    setForm((prev) => ({ ...prev, dockerContainers: prev.dockerContainers.filter((c) => c !== name) }));
   };
 
   const handleSubmit = async (event) => {
@@ -130,32 +150,36 @@ const AgencyClientForm = () => {
       {error ? <div className="auth-error">{error}</div> : null}
 
       <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
+        <h4>Datos generales</h4>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
           <label style={{ gridColumn: "1 / span 2" }}>
             Nombre del negocio
-            <input name="businessName" value={form.businessName} onChange={handleChange} required />
+            <input type="text" name="businessName" value={form.businessName} onChange={handleChange} required />
           </label>
 
           <label>
             Nombre de contacto
-            <input name="contactName" value={form.contactName} onChange={handleChange} />
+            <input type="text" name="contactName" value={form.contactName} onChange={handleChange} />
           </label>
 
           <label>
             Email de contacto
-            <input name="contactEmail" value={form.contactEmail} onChange={handleChange} />
+            <input type="email" name="contactEmail" value={form.contactEmail} onChange={handleChange} />
           </label>
 
           <label>
             Teléfono de contacto
-            <input name="contactPhone" value={form.contactPhone} onChange={handleChange} />
+            <input type="tel" name="contactPhone" value={form.contactPhone} onChange={handleChange} />
           </label>
 
           <label>
             URL del sitio
-            <input name="siteUrl" value={form.siteUrl} onChange={handleChange} placeholder="https://..." />
+            <input type="url" name="siteUrl" value={form.siteUrl} onChange={handleChange} placeholder="https://..." />
           </label>
+        </div>
 
+        <h4 style={{ marginTop: "2rem" }}>Hosting</h4>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
           <label>
             Plan de hosting contratado
             <select name="hostingPlan" value={form.hostingPlan} onChange={handleChange}>
@@ -191,17 +215,6 @@ const AgencyClientForm = () => {
           )}
 
           <label>
-            Imagen Docker
-            <input
-              type="text"
-              name="dockerImage"
-              value={form.dockerImage}
-              onChange={handleChange}
-              placeholder="duckhackcloud-duck-hack.frontend-user"
-            />
-          </label>
-
-          <label>
             Dominio del sitio
             <input type="text" name="domain" value={form.domain} onChange={handleChange} placeholder="cliente.com" />
           </label>
@@ -212,18 +225,81 @@ const AgencyClientForm = () => {
           </label>
 
           <label style={{ gridColumn: "1 / span 2" }}>
+            Contenedores Docker
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <input
+                type="text"
+                value={newContainerName}
+                onChange={(e) => setNewContainerName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addContainer();
+                  }
+                }}
+                placeholder="duck-hack.frontend-user (nombre exacto en Portainer)"
+                style={{ marginBottom: 0 }}
+              />
+              <button type="button" onClick={addContainer} className="btn-secondary" style={{ width: "auto" }}>
+                Agregar
+              </button>
+            </div>
+          </label>
+          {form.dockerContainers.length > 0 ? (
+            <div style={{ gridColumn: "1 / span 2", display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "-0.5rem", marginBottom: "0.75rem" }}>
+              {form.dockerContainers.map((name) => (
+                <span key={name} className="badge badge-green" style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                  {name}
+                  <button
+                    type="button"
+                    onClick={() => removeContainer(name)}
+                    style={{ all: "unset", cursor: "pointer", width: "auto", lineHeight: 1 }}
+                    aria-label={`Quitar ${name}`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        <h4 style={{ marginTop: "2rem" }}>Datos de facturación del cliente (opcional)</h4>
+        <p style={{ margin: "0 0 0.75rem", fontSize: "0.8rem" }}>Si se llenan, aparecen en la sección "Facturar a" del PDF; si no, se usa el nombre del negocio.</p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+          <label>
+            Razón social / nombre de facturación
+            <input type="text" name="billingName" value={form.billingName} onChange={handleChange} />
+          </label>
+          <label>
+            RFC
+            <input type="text" name="billingRfc" value={form.billingRfc} onChange={handleChange} />
+          </label>
+          <label style={{ gridColumn: "1 / span 2" }}>
+            Dirección de facturación
+            <input type="text" name="billingAddress" value={form.billingAddress} onChange={handleChange} />
+          </label>
+          <label>
+            Email de facturación
+            <input type="email" name="billingEmail" value={form.billingEmail} onChange={handleChange} />
+          </label>
+        </div>
+
+        <h4 style={{ marginTop: "2rem" }}>Otros</h4>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+          <label style={{ gridColumn: "1 / span 2" }}>
             Notas
             <textarea name="notes" value={form.notes} onChange={handleChange} rows={4} />
           </label>
 
           <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <input type="checkbox" name="isActive" checked={form.isActive} onChange={handleChange} />
+            <input type="checkbox" name="isActive" checked={form.isActive} onChange={handleChange} style={{ width: "auto", margin: 0 }} />
             Cliente activo
           </label>
         </div>
 
-        <div style={{ marginTop: "1rem" }}>
-          <button type="submit" disabled={isLoading}>
+        <div style={{ marginTop: "1.5rem" }}>
+          <button type="submit" disabled={isLoading} style={{ width: "auto" }}>
             {isLoading ? "Guardando..." : "Guardar cliente"}
           </button>
         </div>

@@ -47,12 +47,12 @@ const AgencyClientList = () => {
   }, []);
 
   return (
-    <section style={{ maxWidth: 1000 }}>
+    <section style={{ maxWidth: 1100 }}>
       <div style={{ marginBottom: "1rem", display: "flex", gap: "0.75rem" }}>
-        <button type="button" onClick={() => navigate("/admin/agency-clients/new")}>
+        <button type="button" onClick={() => navigate("/admin/agency-clients/new")} style={{ width: "auto" }}>
           Nuevo cliente
         </button>
-        <button type="button" onClick={loadClients} disabled={isLoading}>
+        <button type="button" onClick={loadClients} disabled={isLoading} className="btn-secondary" style={{ width: "auto" }}>
           {isLoading ? "Cargando..." : "Recargar"}
         </button>
       </div>
@@ -62,77 +62,61 @@ const AgencyClientList = () => {
 
       {error ? <div className="auth-error">{error}</div> : null}
 
-      <table>
-        <thead>
-          <tr>
-            <th>Negocio</th>
-            <th>Contacto</th>
-            <th>Plan</th>
-            <th>Hosting</th>
-            <th>Dominio</th>
-            <th>Deuda de diseño</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {clients.length === 0 && !isLoading ? (
-            <tr>
-              <td colSpan={7}>No hay clientes de agencia registrados.</td>
-            </tr>
-          ) : null}
-          {clients.map((client) => {
-            const hostingBadge = getDateStatusBadge(client.hostingPaidUntil, { emptyLabel: "Sin pagos" });
-            const domainBadge = client.domain
-              ? getDateStatusBadge(client.domainExpiresAt, { emptyLabel: "Sin fecha registrada" })
-              : null;
-            return (
-              <tr key={client._id}>
-                <td>{client.businessName}</td>
-                <td>{client.contactName || client.contactEmail || "—"}</td>
-                <td>
-                  {client.hostingPlan ? (
-                    <>
-                      {HOSTING_PLANS[client.hostingPlan].label}
-                      {typeof client.hostingMonthlyCost === "number" ? (
-                        <>
-                          <br />
-                          <small>{formatCurrency(client.hostingMonthlyCost)}/mes</small>
-                        </>
-                      ) : null}
-                    </>
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td>
-                  <span className={`badge badge-${hostingBadge.color}`}>{hostingBadge.label}</span>
-                </td>
-                <td>
-                  {domainBadge ? (
-                    <>
-                      {client.domain}
-                      <br />
-                      <span className={`badge badge-${domainBadge.color}`}>{domainBadge.label}</span>
-                    </>
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td>
-                  {client.pendingDebtTotal > 0
-                    ? `${formatCurrency(client.pendingDebtTotal)} (${client.pendingDebtCount})`
-                    : "Sin deuda"}
-                </td>
-                <td>
-                  <button type="button" onClick={() => navigate(`/admin/agency-clients/${client._id}`)}>
-                    Ver ficha
-                  </button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      {!isLoading && clients.length === 0 && !error ? <p>No hay clientes de agencia registrados.</p> : null}
+
+      <div className="client-grid">
+        {clients.map((client) => {
+          const hostingBadge = getDateStatusBadge(client.hostingPaidUntil, { emptyLabel: "Sin pagos" });
+          const domainBadge = client.domain
+            ? getDateStatusBadge(client.domainExpiresAt, { emptyLabel: "Sin fecha registrada" })
+            : null;
+
+          return (
+            <a
+              key={client._id}
+              href={`#/admin/agency-clients/${client._id}`}
+              className="client-card"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate(`/admin/agency-clients/${client._id}`);
+              }}
+            >
+              <div className="client-card-name">{client.businessName}</div>
+              <div className="client-card-plan">
+                {client.hostingPlan ? (
+                  <>
+                    {HOSTING_PLANS[client.hostingPlan].label}
+                    {typeof client.hostingMonthlyCost === "number" ? ` · ${formatCurrency(client.hostingMonthlyCost)}/mes` : ""}
+                  </>
+                ) : (
+                  "Sin plan asignado"
+                )}
+              </div>
+
+              <div className="client-card-row">
+                <span>Hosting</span>
+                <span className={`badge badge-${hostingBadge.color}`}>{hostingBadge.label}</span>
+              </div>
+
+              <div className="client-card-row">
+                <span>Dominio</span>
+                {domainBadge ? (
+                  <span className={`badge badge-${domainBadge.color}`}>{domainBadge.label}</span>
+                ) : (
+                  <span>—</span>
+                )}
+              </div>
+
+              <div className="client-card-row">
+                <span>Deuda de diseño</span>
+                <span>
+                  {client.pendingDebtTotal > 0 ? `${formatCurrency(client.pendingDebtTotal)} (${client.pendingDebtCount})` : "Sin deuda"}
+                </span>
+              </div>
+            </a>
+          );
+        })}
+      </div>
     </section>
   );
 };
