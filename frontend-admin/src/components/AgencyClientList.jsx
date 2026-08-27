@@ -64,24 +64,37 @@ const AgencyClientList = () => {
 
       {!isLoading && clients.length === 0 && !error ? <p>No hay clientes de agencia registrados.</p> : null}
 
-      <div className="client-grid">
-        {clients.map((client) => {
+      {/* isActive no siempre viene en el payload de clientes viejos; por
+          default del modelo se consideran activos si no se especifica. */}
+      {(() => {
+        const activeClients = clients.filter((c) => c.isActive !== false);
+        const inactiveClients = clients.filter((c) => c.isActive === false);
+
+        const renderCard = (client) => {
           const hostingBadge = getDateStatusBadge(client.hostingPaidUntil, { emptyLabel: "Sin pagos" });
           const domainBadge = client.domain
             ? getDateStatusBadge(client.domainExpiresAt, { emptyLabel: "Sin fecha registrada" })
             : null;
+          const isInactive = client.isActive === false;
 
           return (
             <a
               key={client._id}
               href={`#/admin/agency-clients/${client._id}`}
-              className="client-card"
+              className={`client-card${isInactive ? " client-card-inactive" : ""}`}
               onClick={(e) => {
                 e.preventDefault();
                 navigate(`/admin/agency-clients/${client._id}`);
               }}
             >
-              <div className="client-card-name">{client.businessName}</div>
+              <div className="client-card-name">
+                {client.businessName}
+                {isInactive ? (
+                  <span className="badge badge-red" style={{ marginLeft: "0.6rem", verticalAlign: "middle" }}>
+                    Inactivo
+                  </span>
+                ) : null}
+              </div>
               <div className="client-card-plan">
                 {client.hostingPlan ? (
                   <>
@@ -115,8 +128,23 @@ const AgencyClientList = () => {
               </div>
             </a>
           );
-        })}
-      </div>
+        };
+
+        return (
+          <>
+            {activeClients.length > 0 ? (
+              <div className="client-grid">{activeClients.map(renderCard)}</div>
+            ) : null}
+
+            {inactiveClients.length > 0 ? (
+              <>
+                <div className="client-grid-section-title">Inactivos ({inactiveClients.length})</div>
+                <div className="client-grid">{inactiveClients.map(renderCard)}</div>
+              </>
+            ) : null}
+          </>
+        );
+      })()}
     </section>
   );
 };

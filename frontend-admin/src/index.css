@@ -488,6 +488,36 @@ code {
   border-top: none;
 }
 
+/* Cliente marcado como inactivo: se atenúa para diferenciarlo de un vistazo
+   dentro de la sección "Inactivos" de la cuadrícula. */
+.client-card-inactive {
+  opacity: 0.55;
+  border-style: dashed;
+}
+
+.client-card-inactive:hover {
+  opacity: 0.85;
+}
+
+.client-grid-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 2rem 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--placeholder-color);
+}
+
+.client-grid-section-title::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--input-border-color);
+}
+
 /* Estado de contenedores Docker (dashboard de cliente) */
 .docker-grid {
   display: grid;
