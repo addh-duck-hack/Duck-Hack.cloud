@@ -10,6 +10,8 @@ import AgencyClientForm from "./components/AgencyClientForm";
 import AgencyClientDetail from "./components/AgencyClientDetail";
 import AccountingDashboard from "./components/AccountingDashboard";
 import AccountingTransactions from "./components/AccountingTransactions";
+import InvoiceList from "./components/InvoiceList";
+import InvoiceForm from "./components/InvoiceForm";
 import './index.css';
 
 const App = () => {
@@ -58,6 +60,14 @@ const App = () => {
             <Route
               path="accounting/transactions"
               element={canManageAgencyClients ? <AccountingTransactions /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="invoices"
+              element={canManageAgencyClients ? <InvoiceList /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="invoices/new"
+              element={canManageAgencyClients ? <InvoiceForm /> : <Navigate to="/admin" />}
             />
           </Route>
         </Routes>

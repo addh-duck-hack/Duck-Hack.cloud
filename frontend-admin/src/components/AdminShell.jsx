@@ -32,6 +32,7 @@ const AdminShell = () => {
           { path: "/admin/agency-clients", label: "Clientes de agencia" },
           { path: "/admin/accounting", label: "Contabilidad" },
           { path: "/admin/accounting/transactions", label: "Movimientos" },
+          { path: "/admin/invoices", label: "Facturación" },
         ]
       : []),
   ];
