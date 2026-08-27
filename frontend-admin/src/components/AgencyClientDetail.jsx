@@ -84,6 +84,9 @@ const AgencyClientDetail = () => {
   }, [client, loadDockerStatus]);
 
   const handleDeletePayment = async (paymentId) => {
+    if (!window.confirm("¿Eliminar este pago? También se eliminará el ingreso y la factura que se generaron automáticamente en contabilidad.")) {
+      return;
+    }
     setError("");
     setMessage("");
     try {
@@ -112,6 +115,9 @@ const AgencyClientDetail = () => {
   };
 
   const handleDeleteDebt = async (debtId) => {
+    if (!window.confirm("¿Eliminar esta deuda? También se eliminarán los ingresos y facturas que se generaron automáticamente por sus abonos.")) {
+      return;
+    }
     setError("");
     setMessage("");
     try {
@@ -326,7 +332,7 @@ const AgencyClientDetail = () => {
                   <td>{payment.amount ? formatCurrency(payment.amount) : "—"}</td>
                   <td>{payment.notes || "—"}</td>
                   <td>
-                    <button type="button" className="btn-secondary" onClick={() => handleDeletePayment(payment._id)}>
+                    <button type="button" className="btn-danger" onClick={() => handleDeletePayment(payment._id)}>
                       Eliminar
                     </button>
                   </td>
@@ -368,13 +374,18 @@ const AgencyClientDetail = () => {
                       {debt.status}
                     </span>
                   </td>
-                  <td style={{ display: "flex", gap: "0.5rem" }}>
+                  <td style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
                     {debt.status !== "paid" ? (
-                      <button type="button" onClick={() => handleMarkDebtPaid(debt)}>
-                        Marcar pagada
-                      </button>
+                      <>
+                        <button type="button" onClick={() => navigate(`/admin/agency-clients/${id}/design-debts/${debt._id}/payment`)}>
+                          Abonar
+                        </button>
+                        <button type="button" className="btn-secondary" onClick={() => handleMarkDebtPaid(debt)}>
+                          Marcar pagada
+                        </button>
+                      </>
                     ) : null}
-                    <button type="button" className="btn-secondary" onClick={() => handleDeleteDebt(debt._id)}>
+                    <button type="button" className="btn-danger" onClick={() => handleDeleteDebt(debt._id)}>
                       Eliminar
                     </button>
                   </td>

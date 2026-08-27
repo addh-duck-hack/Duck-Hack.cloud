@@ -542,6 +542,11 @@ paths:
     put:
       tags: [AgencyClients]
       summary: Editar pago de hosting
+      description: >
+        Además de actualizar el pago, sincroniza la transacción de ingreso y la
+        factura generadas automáticamente al registrarlo (mismo folio, monto y
+        fecha actualizados): las crea si el pago no tenía monto y ahora sí, las
+        actualiza si ya existían, o las elimina si el monto queda en 0/vacío.
       security:
         - bearerAuth: []
       parameters:
@@ -582,6 +587,10 @@ paths:
     delete:
       tags: [AgencyClients]
       summary: Eliminar pago de hosting
+      description: >
+        También elimina la transacción de ingreso y la factura que se generaron
+        automáticamente al registrar este pago (identificadas por sourceCollection
+        + sourceId), para que el saldo de contabilidad no quede desfasado.
       security:
         - bearerAuth: []
       parameters:
@@ -589,7 +598,7 @@ paths:
         - $ref: "#/components/parameters/HostingPaymentIdParam"
       responses:
         "200":
-          description: Pago de hosting eliminado
+          description: Pago de hosting eliminado (junto con su ingreso y factura ligados)
           content:
             application/json:
               schema:
@@ -718,6 +727,11 @@ paths:
     delete:
       tags: [AgencyClients]
       summary: Eliminar deuda de diseño
+      description: >
+        También elimina las transacciones de ingreso y facturas generadas
+        automáticamente por los abonos a esta deuda (puede haber varias si se
+        pagó en partes vía ediciones sucesivas), identificadas por
+        sourceCollection + sourceId.
       security:
         - bearerAuth: []
       parameters:
@@ -725,7 +739,7 @@ paths:
         - $ref: "#/components/parameters/DesignDebtIdParam"
       responses:
         "200":
-          description: Deuda de diseño eliminada
+          description: Deuda de diseño eliminada (junto con sus ingresos y facturas ligados)
           content:
             application/json:
               schema:

@@ -10,6 +10,7 @@ import AgencyClientForm from "./components/AgencyClientForm";
 import AgencyClientDetail from "./components/AgencyClientDetail";
 import AgencyClientHostingPaymentForm from "./components/AgencyClientHostingPaymentForm";
 import AgencyClientDesignDebtForm from "./components/AgencyClientDesignDebtForm";
+import AgencyClientDesignDebtPaymentForm from "./components/AgencyClientDesignDebtPaymentForm";
 import AccountingDashboard from "./components/AccountingDashboard";
 import AccountingTransactions from "./components/AccountingTransactions";
 import InvoiceList from "./components/InvoiceList";
@@ -62,6 +63,10 @@ const App = () => {
             <Route
               path="agency-clients/:id/design-debts/new"
               element={canManageAgencyClients ? <AgencyClientDesignDebtForm /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="agency-clients/:id/design-debts/:debtId/payment"
+              element={canManageAgencyClients ? <AgencyClientDesignDebtPaymentForm /> : <Navigate to="/admin" />}
             />
             <Route
               path="accounting"

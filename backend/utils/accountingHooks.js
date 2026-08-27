@@ -53,4 +53,79 @@ const recordIncomeAndInvoice = async ({ client, amount, date, category, descript
   }
 };
 
-module.exports = { recordIncomeAndInvoice, getNextInvoiceFolio };
+/**
+ * Contraparte de recordIncomeAndInvoice: cuando se elimina un pago de hosting
+ * o una deuda de diseño desde la ficha del cliente, borra también la(s)
+ * transacción(es) e factura(s) que se generaron automáticamente a partir de
+ * ese registro (identificadas por sourceCollection+sourceId), para que el
+ * saldo de contabilidad no quede con un ingreso "fantasma" de un pago que ya
+ * no existe. Un DesignDebt puede tener varias transacciones ligadas (un abono
+ * parcial por edición genera una transacción nueva cada vez), por eso se
+ * borran todas las que coincidan, no solo una. Tampoco lanza, por la misma
+ * razón que recordIncomeAndInvoice: el borrado del pago/deuda ya se hizo y no
+ * debe fallar por un problema secundario de contabilidad.
+ */
+const deleteLinkedAccountingRecords = async ({ sourceCollection, sourceId }) => {
+  try {
+    await Promise.all([
+      Transaction.deleteMany({ sourceCollection, sourceId }),
+      Invoice.deleteMany({ sourceCollection, sourceId }),
+    ]);
+  } catch (error) {
+    console.error("Error eliminando transacción/factura ligadas:", error);
+  }
+};
+
+/**
+ * Mantiene en sincronía el ingreso + factura de un registro que tiene, cuando
+ * mucho, UNA transacción ligada (hosting payments: un pago = un ingreso).
+ * NO usar con DesignDebt, donde varios abonos sucesivos generan varias
+ * transacciones con el mismo sourceId a propósito (ver recordIncomeAndInvoice).
+ *
+ * Se llama al editar el pago, no solo al crearlo, para que un cambio de monto
+ * (o de fecha, que afecta el mes mostrado en la factura) quede reflejado en
+ * contabilidad en vez de dejar la transacción vieja con el monto original:
+ *   - Si ya existía una transacción ligada: se actualiza en el mismo lugar
+ *     (mismo folio de factura), en vez de crear un ingreso duplicado.
+ *   - Si no existía y el nuevo monto es > 0 (el pago se creó sin monto y
+ *     ahora se le puso uno): se crea, igual que en el alta.
+ *   - Si el nuevo monto queda en 0/vacío: se borra la transacción y factura
+ *     ligadas, si había.
+ * Tampoco lanza, por la misma razón que el resto de este módulo.
+ */
+const syncSingleSourceIncome = async ({ client, amount, date, category, description, concept, sourceCollection, sourceId }) => {
+  try {
+    const existingTransaction = await Transaction.findOne({ sourceCollection, sourceId });
+
+    if (!(amount > 0)) {
+      if (existingTransaction) {
+        await deleteLinkedAccountingRecords({ sourceCollection, sourceId });
+      }
+      return null;
+    }
+
+    if (!existingTransaction) {
+      return recordIncomeAndInvoice({ client, amount, date, category, description, concept, sourceCollection, sourceId });
+    }
+
+    existingTransaction.amount = amount;
+    existingTransaction.date = date;
+    existingTransaction.category = category;
+    existingTransaction.description = description;
+    await existingTransaction.save();
+
+    await Invoice.findOneAndUpdate({ sourceCollection, sourceId }, { amount, concept, issuedAt: date });
+
+    return null;
+  } catch (error) {
+    console.error("Error sincronizando ingreso/factura tras edición:", error);
+    return null;
+  }
+};
+
+module.exports = {
+  recordIncomeAndInvoice,
+  getNextInvoiceFolio,
+  deleteLinkedAccountingRecords,
+  syncSingleSourceIncome,
+};

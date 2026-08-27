@@ -11,7 +11,7 @@ const {
   validateDesignDebtPayload,
 } = require("../middleware/validationMiddleware");
 const { sendError } = require("../utils/httpResponses");
-const { recordIncomeAndInvoice } = require("../utils/accountingHooks");
+const { recordIncomeAndInvoice, deleteLinkedAccountingRecords, syncSingleSourceIncome } = require("../utils/accountingHooks");
 const { HOSTING_PLANS } = require("../utils/hostingPlans");
 const { getContainersMetrics, PortainerConfigError, PortainerRequestError } = require("../utils/portainerClient");
 
@@ -293,6 +293,21 @@ router.put(
       if (req.body.notes !== undefined) payment.notes = req.body.notes;
 
       await payment.save();
+
+      // Mantiene el ingreso/factura automáticos en sincronía con la edición
+      // (monto y/o fecha), en vez de dejar la transacción vieja desactualizada.
+      const planLabel = req.agencyClient.hostingPlan ? ` - Plan ${HOSTING_PLANS[req.agencyClient.hostingPlan].label}` : "";
+      await syncSingleSourceIncome({
+        client: req.agencyClient,
+        amount: payment.amount,
+        date: payment.paidAt,
+        category: "Hosting",
+        description: `Pago de hosting - ${req.agencyClient.businessName}`,
+        concept: `Pago de hosting${planLabel} - ${MONTH_YEAR_FORMAT.format(payment.paidAt)}`,
+        sourceCollection: "HostingPayment",
+        sourceId: payment._id,
+      });
+
       return res.status(200).json({ message: "Pago de hosting actualizado.", payment: sanitizeDoc(payment) });
     } catch (error) {
       return handleMongooseError(res, error, "Error al actualizar el pago de hosting.");
@@ -314,6 +329,11 @@ router.delete(
       if (!deleted) {
         return sendError(res, 404, "HOSTING_PAYMENT_NOT_FOUND", "Pago de hosting no encontrado.");
       }
+
+      // Borra también el ingreso y la factura que se generaron automáticamente
+      // al registrar este pago, para que no quede un saldo fantasma en contabilidad.
+      await deleteLinkedAccountingRecords({ sourceCollection: "HostingPayment", sourceId: deleted._id });
+
       return res.status(200).json({ message: "Pago de hosting eliminado." });
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al eliminar el pago de hosting.");
@@ -449,6 +469,11 @@ router.delete(
       if (!deleted) {
         return sendError(res, 404, "DESIGN_DEBT_NOT_FOUND", "Deuda de diseño no encontrada.");
       }
+
+      // Borra también los ingresos y facturas generados por los abonos a esta
+      // deuda (puede haber más de uno si se pagó en partes vía ediciones sucesivas).
+      await deleteLinkedAccountingRecords({ sourceCollection: "DesignDebt", sourceId: deleted._id });
+
       return res.status(200).json({ message: "Deuda de diseño eliminada." });
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al eliminar la deuda de diseño.");
