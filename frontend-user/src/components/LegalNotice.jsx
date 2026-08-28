@@ -1,8 +1,7 @@
 
 import React from 'react';
-import { Link } from 'react-router-dom';
-import logo from '../assets/logo.png';
-import { useStoreConfig, resolveStoreImageUrl } from '../hooks/useStoreConfig';
+import { useStoreConfig } from '../hooks/useStoreConfig';
+import { usePageMeta } from '../hooks/usePageMeta';
 import './LegalNotice.css';
 
 // Fallback — datos de identidad reales, usados mientras carga el
@@ -19,18 +18,13 @@ const FALLBACK_LEGAL_IDENTITY = {
 };
 
 const LegalNotice = () => {
+  usePageMeta('Aviso Legal', 'Identificación de la empresa, condiciones de uso y demás términos legales de Duck-Hack.');
+
   const { config } = useStoreConfig();
   const legal = { ...FALLBACK_LEGAL_IDENTITY, ...Object.fromEntries(Object.entries(config?.legalIdentity || {}).filter(([, v]) => v)) };
-  const logoSrc = resolveStoreImageUrl(config?.logoUrl) || logo;
-  const brandName = config?.storeName || 'Duck-Hack';
 
   return (
-    <div className="legal-page">
-      <Link to="/" className="auth-brand">
-        <img src={logoSrc} alt={brandName} />
-        <span>{brandName}</span>
-      </Link>
-      <div className="legal-notice-container">
+    <div className="legal-notice-container">
       <h1>Aviso Legal</h1>
       <section>
         <h2>1. Identificación de la Empresa</h2>
@@ -83,7 +77,6 @@ const LegalNotice = () => {
         <h2>9. Ley Aplicable y Jurisdicción</h2>
         <p>El presente Aviso Legal se rige por la legislación mexicana. Para cualquier controversia que pudiera surgir del uso de los servicios ofrecidos en este sitio, ambas partes se someterán a los tribunales competentes en México.</p>
       </section>
-      </div>
     </div>
   );
 };

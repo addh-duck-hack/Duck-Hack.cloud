@@ -35,6 +35,8 @@ const ROUTE_LABELS = {
   '/nosotros': 'nosotros',
   '/clientes': 'clientes',
   '/contacto': 'contacto',
+  '/legal-notice': 'aviso-legal',
+  '/privacy-policy': 'aviso-privacidad',
 };
 
 const AppShell = () => {

@@ -1,8 +1,7 @@
 // src/components/PrivacyNotice.js
 import React from 'react';
-import { Link } from 'react-router-dom';
-import logo from '../assets/logo.png';
-import { useStoreConfig, resolveStoreImageUrl } from '../hooks/useStoreConfig';
+import { useStoreConfig } from '../hooks/useStoreConfig';
+import { usePageMeta } from '../hooks/usePageMeta';
 import './LegalNotice.css';
 
 // Ver nota de fallback en LegalNotice.jsx — mismo criterio aquí.
@@ -14,18 +13,13 @@ const FALLBACK_LEGAL_IDENTITY = {
 };
 
 const PrivacyNotice = () => {
+  usePageMeta('Aviso de Privacidad', 'Cómo Duck-Hack recaba, usa y protege los datos personales de clientes, proveedores y usuarios.');
+
   const { config } = useStoreConfig();
   const legal = { ...FALLBACK_LEGAL_IDENTITY, ...Object.fromEntries(Object.entries(config?.legalIdentity || {}).filter(([, v]) => v)) };
-  const logoSrc = resolveStoreImageUrl(config?.logoUrl) || logo;
-  const brandName = config?.storeName || 'Duck-Hack';
 
   return (
-    <div className="legal-page">
-      <Link to="/" className="auth-brand">
-        <img src={logoSrc} alt={brandName} />
-        <span>{brandName}</span>
-      </Link>
-      <div className="legal-notice-container">
+    <div className="legal-notice-container">
       <h1>Aviso de Privacidad</h1>
       <section>
         <p>{legal.legalName} (en adelante, "la Empresa"), representada legalmente por {legal.legalRepresentative}, con domicilio en {legal.legalAddress}, y con el Registro Federal de Contribuyentes {legal.rfc}, reconoce la importancia de proteger los datos personales proporcionados por sus clientes, proveedores, colaboradores y usuarios (en adelante, "Titulares").</p>
@@ -81,7 +75,6 @@ const PrivacyNotice = () => {
         <h2>7. Consentimiento</h2>
         <p>Al proporcionar sus datos personales, el Titular confirma que ha leído y comprendido el contenido de este Aviso de Privacidad y que otorga su consentimiento para el tratamiento de sus datos conforme a los términos aquí establecidos.</p>
       </section>
-      </div>
     </div>
   );
 };

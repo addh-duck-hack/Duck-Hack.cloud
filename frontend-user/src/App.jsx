@@ -44,9 +44,9 @@ const App = () => {
                 <Route path="/precios" element={<Services />} />
                 <Route path="/clientes" element={<Customers />} />
                 <Route path="/contacto" element={<ContactUs />} />
+                <Route path="/legal-notice" element={<LegalNotice />} />
+                <Route path="/privacy-policy" element={<PrivacyNotice />} />
               </Route>
-              <Route path="/legal-notice" element={<LegalNotice />} />
-              <Route path="/privacy-policy" element={<PrivacyNotice />} />
               <Route path="/users/verify" element={<VerifyUser />} />
               <Route path="/login" element={<LoginUser />} />
               <Route path="/register" element={<RegisterUser />} />
