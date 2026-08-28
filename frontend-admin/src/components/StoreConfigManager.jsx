@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
+import ImageUploadField from "./ImageUploadField";
+import StoreConfigTabs from "./StoreConfigTabs";
 
 const initialState = {
   storeName: "",
@@ -14,6 +16,12 @@ const initialState = {
     accentColor: "",
     fontFamilyHeading: "",
     fontFamilyBody: "",
+  },
+  socialLinks: {
+    whatsapp: "",
+    instagram: "",
+    facebook: "",
+    threads: "",
   },
   isActive: true,
 };
@@ -73,6 +81,12 @@ const StoreConfigManager = () => {
       fontFamilyHeading: data?.theme?.fontFamilyHeading || "",
       fontFamilyBody: data?.theme?.fontFamilyBody || "",
     },
+    socialLinks: {
+      whatsapp: data?.socialLinks?.whatsapp || "",
+      instagram: data?.socialLinks?.instagram || "",
+      facebook: data?.socialLinks?.facebook || "",
+      threads: data?.socialLinks?.threads || "",
+    },
     isActive: typeof data?.isActive === "boolean" ? data.isActive : true,
   });
 
@@ -101,12 +115,12 @@ const StoreConfigManager = () => {
 
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
-    if (name.startsWith("theme.")) {
-      const key = name.split(".")[1];
+    if (name.startsWith("theme.") || name.startsWith("socialLinks.")) {
+      const [section, key] = name.split(".");
       setForm((prev) => ({
         ...prev,
-        theme: {
-          ...prev.theme,
+        [section]: {
+          ...prev[section],
           [key]: value,
         },
       }));
@@ -117,6 +131,10 @@ const StoreConfigManager = () => {
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
+  };
+
+  const handleLogoChange = (imagePath) => {
+    setForm((prev) => ({ ...prev, logoUrl: imagePath }));
   };
 
   const handleSubmit = async (event) => {
@@ -134,6 +152,7 @@ const StoreConfigManager = () => {
         logoUrl: form.logoUrl,
         isActive: form.isActive,
         theme: { ...form.theme },
+        socialLinks: { ...form.socialLinks },
       };
 
       const response = await axios.put(`${baseUrl}/api/store-config`, payload, {
@@ -158,10 +177,12 @@ const StoreConfigManager = () => {
   // absurdamente anchos en una pantalla grande.
   return (
     <section style={{ maxWidth: 1300 }}>
+      <StoreConfigTabs />
       <h3>Configuración de tienda</h3>
       <p>
-        Datos base y tema visual de esta instancia. <strong>Nota:</strong> el storefront (frontend-user) todavía
-        no consume este tema — los colores/fuentes de aquí aún no cambian el sitio público.
+        Datos base y tema visual de esta instancia. El storefront (frontend-user) ya consume el logo, contacto,
+        redes sociales y las fuentes/color de acento del tema. <strong>Nota:</strong> los colores primario y
+        secundario todavía no se aplican al sitio público (requieren validar contraste antes de habilitarlos).
       </p>
 
       {message ? <div className="auth-success">{message}</div> : null}
@@ -201,10 +222,9 @@ const StoreConfigManager = () => {
 
         <h4 style={{ marginTop: "2rem" }}>Marca</h4>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-          <label style={{ gridColumn: "1 / span 2" }}>
-            Logo URL
-            <input type="url" name="logoUrl" value={form.logoUrl} onChange={handleChange} placeholder="https://..." />
-          </label>
+          <div style={{ gridColumn: "1 / span 2" }}>
+            <ImageUploadField label="Logo" value={form.logoUrl} onChange={handleLogoChange} previewBaseUrl={baseUrl} />
+          </div>
 
           <ColorField
             label="Color primario"
@@ -236,6 +256,50 @@ const StoreConfigManager = () => {
           <label>
             Fuente body
             <input type="text" name="theme.fontFamilyBody" value={form.theme.fontFamilyBody} onChange={handleChange} />
+          </label>
+        </div>
+
+        <h4 style={{ marginTop: "2rem" }}>Redes sociales</h4>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+          <label>
+            WhatsApp (link completo)
+            <input
+              type="url"
+              name="socialLinks.whatsapp"
+              value={form.socialLinks.whatsapp}
+              onChange={handleChange}
+              placeholder="https://wa.me/..."
+            />
+          </label>
+          <label>
+            Instagram
+            <input
+              type="url"
+              name="socialLinks.instagram"
+              value={form.socialLinks.instagram}
+              onChange={handleChange}
+              placeholder="https://instagram.com/..."
+            />
+          </label>
+          <label>
+            Facebook
+            <input
+              type="url"
+              name="socialLinks.facebook"
+              value={form.socialLinks.facebook}
+              onChange={handleChange}
+              placeholder="https://facebook.com/..."
+            />
+          </label>
+          <label>
+            Threads
+            <input
+              type="url"
+              name="socialLinks.threads"
+              value={form.socialLinks.threads}
+              onChange={handleChange}
+              placeholder="https://threads.com/@..."
+            />
           </label>
         </div>
 

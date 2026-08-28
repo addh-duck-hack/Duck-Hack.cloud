@@ -4,6 +4,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import logo from '../assets/logo.png';
 import contactMapBg from '../assets/background_map_contact.webp';
 import Footer from './Footer';
+import { useStoreConfig, resolveStoreImageUrl } from '../hooks/useStoreConfig';
 import './AppShell.css';
 
 const NAV_ITEMS = [
@@ -17,6 +18,16 @@ const NAV_ITEMS = [
 
 const ADMIN_URL = process.env.REACT_APP_ADMIN_URL || 'https://admin.duck-hack.cloud';
 
+// Fallback fijo — se usa mientras carga el store-config, si el fetch falla,
+// o si el admin todavía no cargó ese link.
+const DEFAULT_SOCIAL_LINKS = {
+  whatsapp:
+    'https://wa.me/5215661653418?text=Hola,%20estoy%20visitando%20su%20sitio%20web%20y%20me%20gustaría%20obtener%20más%20información%20sobre%20sus%20servicios.',
+  instagram: 'https://www.instagram.com/duckhack.cloud/',
+  facebook: 'https://www.facebook.com/profile.php?id=61593021786500',
+  threads: 'https://www.threads.com/@duckhack.cloud',
+};
+
 const ROUTE_LABELS = {
   '/': 'inicio',
   '/servicios': 'servicios',
@@ -29,6 +40,7 @@ const ROUTE_LABELS = {
 const AppShell = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const location = useLocation();
+  const { config } = useStoreConfig();
 
   // Cierra el drawer móvil automáticamente al cambiar de ruta.
   useEffect(() => {
@@ -37,6 +49,15 @@ const AppShell = () => {
 
   const breadcrumb = ROUTE_LABELS[location.pathname] || location.pathname.replace(/^\//, '');
   const isContact = location.pathname === '/contacto';
+
+  const logoSrc = resolveStoreImageUrl(config?.logoUrl) || logo;
+  const social = {
+    whatsapp: config?.socialLinks?.whatsapp || DEFAULT_SOCIAL_LINKS.whatsapp,
+    instagram: config?.socialLinks?.instagram || DEFAULT_SOCIAL_LINKS.instagram,
+    facebook: config?.socialLinks?.facebook || DEFAULT_SOCIAL_LINKS.facebook,
+    threads: config?.socialLinks?.threads || DEFAULT_SOCIAL_LINKS.threads,
+  };
+  const brandName = config?.storeName || 'duck-hack';
 
   return (
     <div className="app-shell">
@@ -48,9 +69,9 @@ const AppShell = () => {
 
       <aside className={`rail ${drawerOpen ? 'open' : ''}`}>
         <NavLink to="/" className="rail-brand">
-          <img src={logo} alt="Duck-Hack" />
+          <img src={logoSrc} alt={brandName} />
           <span>
-            duck-hack<span className="rail-brand-accent">/cloud-os</span>
+            {brandName}<span className="rail-brand-accent">/cloud-os</span>
           </span>
         </NavLink>
 
@@ -71,24 +92,16 @@ const AppShell = () => {
 
         <div className="rail-actions">
           <div className="rail-label">{'// redes'}</div>
-          <a
-            href="https://wa.me/5215661653418?text=Hola,%20estoy%20visitando%20su%20sitio%20web%20y%20me%20gustaría%20obtener%20más%20información%20sobre%20sus%20servicios."
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+          <a href={social.whatsapp} target="_blank" rel="noopener noreferrer">
             <i className="fab fa-whatsapp" aria-hidden="true" /> WhatsApp
           </a>
-          <a href="https://www.instagram.com/duckhack.cloud/" target="_blank" rel="noopener noreferrer">
+          <a href={social.instagram} target="_blank" rel="noopener noreferrer">
             <i className="fab fa-instagram" aria-hidden="true" /> Instagram
           </a>
-          <a
-            href="https://www.facebook.com/profile.php?id=61593021786500"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+          <a href={social.facebook} target="_blank" rel="noopener noreferrer">
             <i className="fab fa-facebook-f" aria-hidden="true" /> Facebook
           </a>
-          <a href="https://www.threads.com/@duckhack.cloud" target="_blank" rel="noopener noreferrer">
+          <a href={social.threads} target="_blank" rel="noopener noreferrer">
             <i className="fab fa-threads" aria-hidden="true" /> Threads
           </a>
         </div>

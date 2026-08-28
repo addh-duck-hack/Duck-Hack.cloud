@@ -4,6 +4,7 @@ const StoreConfig = require("../models/storeConfig.model");
 const { verifyToken, authorizeRoles, ROLES } = require("../middleware/authMiddleware");
 const { validateStoreConfigPayload } = require("../middleware/validationMiddleware");
 const { sendError } = require("../utils/httpResponses");
+const { createSingleImageUploadMiddlewares } = require("../middleware/imageUploadMiddleware");
 
 const sanitizeStoreConfig = (doc) => {
   if (!doc) return null;
@@ -57,6 +58,16 @@ router.put(
         "theme",
         "homeBlocks",
         "isActive",
+        "socialLinks",
+        "legalIdentity",
+        "heroSlides",
+        "metrics",
+        "services",
+        "pricingPlans",
+        "commonPlanChecks",
+        "faqs",
+        "teamMembers",
+        "testimonials",
       ];
 
       const updateData = {};
@@ -98,6 +109,34 @@ router.put(
       }
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al actualizar configuración de tienda.");
     }
+  }
+);
+
+const { uploadMiddleware: uploadStoreImage, sanitizeAndStoreMiddleware: sanitizeStoreImage } =
+  createSingleImageUploadMiddlewares({
+    fieldName: "image",
+    filePrefix: "store-config",
+    maxFileSizeMB: 5,
+  });
+
+// Endpoint genérico de subida de imagen para store-config: sirve tanto para el
+// logo como para las fotos de equipo/testimonios (mismo formato/validación en
+// los tres casos vía sharp). El frontend decide a qué campo asigna el
+// imagePath devuelto (logoUrl, teamMembers[i].photoUrl, testimonials[i].photoUrl).
+router.post(
+  "/upload-image",
+  verifyToken,
+  authorizeRoles(ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN),
+  uploadStoreImage,
+  sanitizeStoreImage,
+  (req, res) => {
+    if (!req.savedImagePath) {
+      return sendError(res, 400, "FILE_REQUIRED", "Se requiere un archivo en el campo image.");
+    }
+    return res.status(201).json({
+      message: "Imagen subida correctamente.",
+      imagePath: req.savedImagePath,
+    });
   }
 );
 

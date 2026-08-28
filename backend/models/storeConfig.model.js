@@ -34,6 +34,116 @@ const homeBlockSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const socialLinksSchema = new mongoose.Schema(
+  {
+    whatsapp: { type: String, trim: true, maxlength: 300 },
+    instagram: { type: String, trim: true, maxlength: 300 },
+    facebook: { type: String, trim: true, maxlength: 300 },
+    threads: { type: String, trim: true, maxlength: 300 },
+  },
+  { _id: false }
+);
+
+const legalIdentitySchema = new mongoose.Schema(
+  {
+    legalName: { type: String, trim: true, maxlength: 160 },
+    rfc: { type: String, trim: true, maxlength: 20 },
+    legalRepresentative: { type: String, trim: true, maxlength: 160 },
+    legalAddress: { type: String, trim: true, maxlength: 400 },
+    legalEmail: { type: String, trim: true, lowercase: true, maxlength: 160 },
+    legalPhone: { type: String, trim: true, maxlength: 30 },
+  },
+  { _id: false }
+);
+
+const heroSlideSchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true, trim: true, maxlength: 160 },
+    description: { type: String, trim: true, maxlength: 300 },
+    sortOrder: { type: Number, default: 0, min: 0 },
+    isActive: { type: Boolean, default: true },
+  },
+  { _id: false }
+);
+
+const metricSchema = new mongoose.Schema(
+  {
+    value: { type: String, required: true, trim: true, maxlength: 20 },
+    label: { type: String, required: true, trim: true, maxlength: 80 },
+    sortOrder: { type: Number, default: 0, min: 0 },
+  },
+  { _id: false }
+);
+
+const serviceItemSchema = new mongoose.Schema(
+  {
+    icon: { type: String, trim: true, maxlength: 60 },
+    route: { type: String, trim: true, maxlength: 120 },
+    title: { type: String, required: true, trim: true, maxlength: 100 },
+    description: { type: String, trim: true, maxlength: 500 },
+    sortOrder: { type: Number, default: 0, min: 0 },
+    isActive: { type: Boolean, default: true },
+  },
+  { _id: false }
+);
+
+const pricingPlanSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true, maxlength: 60 },
+    description: { type: String, trim: true, maxlength: 300 },
+    storage: { type: String, trim: true, maxlength: 40 },
+    emailAccounts: { type: String, trim: true, maxlength: 40 },
+    bandwidth: { type: String, trim: true, maxlength: 40 },
+    ssl: { type: String, trim: true, maxlength: 60 },
+    originalPrice: { type: Number, min: 0, default: null },
+    price: { type: Number, min: 0, default: null },
+    discountPercent: { type: Number, min: 0, max: 100, default: null },
+    featured: { type: Boolean, default: false },
+    extraFeaturesTitle: { type: String, trim: true, maxlength: 120 },
+    extraFeatures: { type: [String], default: [] },
+    sortOrder: { type: Number, default: 0, min: 0 },
+    isActive: { type: Boolean, default: true },
+  },
+  { _id: false }
+);
+
+const faqSchema = new mongoose.Schema(
+  {
+    q: { type: String, required: true, trim: true, maxlength: 200 },
+    a: { type: String, required: true, trim: true, maxlength: 1000 },
+    sortOrder: { type: Number, default: 0, min: 0 },
+    isActive: { type: Boolean, default: true },
+  },
+  { _id: false }
+);
+
+const teamMemberSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true, maxlength: 100 },
+    role: { type: String, trim: true, maxlength: 160 },
+    bio: { type: String, trim: true, maxlength: 500 },
+    email: { type: String, trim: true, lowercase: true, maxlength: 160 },
+    phone: { type: String, trim: true, maxlength: 30 },
+    photoUrl: { type: String, trim: true, maxlength: 300 },
+    sortOrder: { type: Number, default: 0, min: 0 },
+    isActive: { type: Boolean, default: true },
+  },
+  { _id: false }
+);
+
+const testimonialSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true, maxlength: 120 },
+    rubro: { type: String, trim: true, maxlength: 120 },
+    description: { type: String, trim: true, maxlength: 500 },
+    url: { type: String, trim: true, maxlength: 300 },
+    photoUrl: { type: String, trim: true, maxlength: 300 },
+    sortOrder: { type: Number, default: 0, min: 0 },
+    isActive: { type: Boolean, default: true },
+  },
+  { _id: false }
+);
+
 const storeThemeSchema = new mongoose.Schema(
   {
     primaryColor: {
@@ -122,6 +232,46 @@ const storeConfigSchema = new mongoose.Schema(
     },
     homeBlocks: {
       type: [homeBlockSchema],
+      default: [],
+    },
+    socialLinks: {
+      type: socialLinksSchema,
+      default: () => ({}),
+    },
+    legalIdentity: {
+      type: legalIdentitySchema,
+      default: () => ({}),
+    },
+    heroSlides: {
+      type: [heroSlideSchema],
+      default: [],
+    },
+    metrics: {
+      type: [metricSchema],
+      default: [],
+    },
+    services: {
+      type: [serviceItemSchema],
+      default: [],
+    },
+    pricingPlans: {
+      type: [pricingPlanSchema],
+      default: [],
+    },
+    commonPlanChecks: {
+      type: [String],
+      default: [],
+    },
+    faqs: {
+      type: [faqSchema],
+      default: [],
+    },
+    teamMembers: {
+      type: [teamMemberSchema],
+      default: [],
+    },
+    testimonials: {
+      type: [testimonialSchema],
       default: [],
     },
     isActive: {

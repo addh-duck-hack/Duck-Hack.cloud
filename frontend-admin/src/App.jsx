@@ -5,6 +5,10 @@ import AdminMenu from "./components/AdminMenu";
 import Login from "./components/Login";
 import RegisterUser from "./components/RegisterUser";
 import StoreConfigManager from "./components/StoreConfigManager";
+import StoreConfigHome from "./components/StoreConfigHome";
+import StoreConfigServicesPricing from "./components/StoreConfigServicesPricing";
+import StoreConfigTeamTestimonials from "./components/StoreConfigTeamTestimonials";
+import StoreConfigLegal from "./components/StoreConfigLegal";
 import AgencyClientList from "./components/AgencyClientList";
 import AgencyClientForm from "./components/AgencyClientForm";
 import AgencyClientDetail from "./components/AgencyClientDetail";
@@ -39,6 +43,22 @@ const App = () => {
             <Route
               path="store-config"
               element={canManageStoreConfig ? <StoreConfigManager /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="store-config/home"
+              element={canManageStoreConfig ? <StoreConfigHome /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="store-config/servicios-precios"
+              element={canManageStoreConfig ? <StoreConfigServicesPricing /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="store-config/equipo-testimonios"
+              element={canManageStoreConfig ? <StoreConfigTeamTestimonials /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="store-config/legal"
+              element={canManageStoreConfig ? <StoreConfigLegal /> : <Navigate to="/admin" />}
             />
             <Route
               path="agency-clients"

@@ -2,9 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { apiFetch } from '../utils/apiClient';
 import logo from '../assets/logo.png';
+import { useStoreConfig, resolveStoreImageUrl } from '../hooks/useStoreConfig';
 import './VerifyUser.css';
 
 const VerifyUser = () => {
+  const { config } = useStoreConfig();
+  const logoSrc = resolveStoreImageUrl(config?.logoUrl) || logo;
+  const brandName = config?.storeName || 'Duck-Hack';
   const location = useLocation();
   const [token, setToken] = useState('');
   const [status, setStatus] = useState('idle'); // idle | loading | success | error
@@ -41,8 +45,8 @@ const VerifyUser = () => {
   return (
     <div className="verify-page">
       <Link to="/" className="auth-brand">
-        <img src={logo} alt="Duck-Hack" />
-        <span>Duck-Hack</span>
+        <img src={logoSrc} alt={brandName} />
+        <span>{brandName}</span>
       </Link>
       <div className="verify-container">
         <h2>Verificar correo</h2>

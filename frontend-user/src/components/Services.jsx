@@ -1,17 +1,21 @@
 // src/components/Services.js
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { usePageMeta } from '../hooks/usePageMeta';
+import { useStoreConfig } from '../hooks/useStoreConfig';
+import { pickList } from '../utils/storeConfigLists';
 import './Services.css';
 
-const COMMON_CHECKS = [
+const formatPrice = (value) => (value === null || value === undefined ? null : Number(value).toFixed(2));
+
+const FALLBACK_COMMON_CHECKS = [
   'Soporte técnico y en español',
   'Disponibilidad del 99.9%',
   'Se puede escalar o disminuir el plan sin penalización',
   'Política de devolución de 30 días',
 ];
 
-const PLANS = [
+const FALLBACK_PLANS = [
   {
     name: 'Basic',
     description: 'Excelente para un negocio pequeño, una página personal o un blog personal.',
@@ -88,7 +92,7 @@ const PLANS = [
   },
 ];
 
-const FAQS = [
+const FALLBACK_FAQS = [
   {
     q: '¿Por qué necesito un plan de hosting?',
     a: 'El hosting es lo que hace que tu sitio esté disponible en internet: es el espacio donde vive tu página, tu tienda o tu sistema, y permite que cualquier persona lo abra desde su navegador en cualquier momento. Sin hosting, tu dominio no tiene dónde apuntar. Puedes ver las diferencias entre nuestros planes más arriba, en esta misma página.',
@@ -125,6 +129,14 @@ const Services = () => {
     'Cuatro planes de hosting desde $250 MXN al mes con descuento permanente: almacenamiento, correos, ancho de banda y SSL incluido. Soporte técnico en español.'
   );
 
+  const { config } = useStoreConfig();
+  const commonChecks = useMemo(
+    () => (config?.commonPlanChecks?.length ? config.commonPlanChecks : FALLBACK_COMMON_CHECKS),
+    [config]
+  );
+  const plans = useMemo(() => pickList(config?.pricingPlans, FALLBACK_PLANS), [config]);
+  const faqs = useMemo(() => pickList(config?.faqs, FALLBACK_FAQS), [config]);
+
   return (
     <section className="pricing-view">
       <span className="eyebrow">/precios</span>
@@ -139,7 +151,7 @@ const Services = () => {
       </p>
 
       <div className="price-grid">
-        {PLANS.map((plan) => (
+        {plans.map((plan) => (
           <div className={`price-card ${plan.featured ? 'featured' : ''}`} key={plan.name}>
             <div className="price-badges">
               <span>{plan.discountPercent && <span className="badge discount-badge">-{plan.discountPercent}%</span>}</span>
@@ -153,11 +165,11 @@ const Services = () => {
                 <>
                   {plan.originalPrice && (
                     <div className="price-original">
-                      ${plan.originalPrice} <span>MXN/mes</span>
+                      ${formatPrice(plan.originalPrice)} <span>MXN/mes</span>
                     </div>
                   )}
                   <div className="price-amount">
-                    ${plan.price}
+                    ${formatPrice(plan.price)}
                     <span> MXN/mes</span>
                   </div>
                 </>
@@ -184,7 +196,7 @@ const Services = () => {
                 <li>
                   <i className="fas fa-lock" /> Certificado SSL: {plan.ssl}
                 </li>
-                {COMMON_CHECKS.map((check) => (
+                {commonChecks.map((check) => (
                   <li key={check}>
                     <i className="fas fa-check" /> {check}
                   </li>
@@ -210,7 +222,7 @@ const Services = () => {
 
       <h2 className="faq-title">Preguntas frecuentes</h2>
       <div className="faq">
-        {FAQS.map((f) => (
+        {faqs.map((f) => (
           <details key={f.q}>
             <summary>{f.q}</summary>
             <p>{f.a}</p>

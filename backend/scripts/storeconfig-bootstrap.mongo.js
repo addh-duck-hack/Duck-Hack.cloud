@@ -40,6 +40,53 @@ const storeConfigDoc = {
       },
     },
   ],
+  socialLinks: {
+    whatsapp: "",
+    instagram: "",
+    facebook: "",
+    threads: "",
+  },
+  legalIdentity: {
+    legalName: "",
+    rfc: "",
+    legalRepresentative: "",
+    legalAddress: "",
+    legalEmail: "",
+    legalPhone: "",
+  },
+  heroSlides: [
+    { title: "Bienvenido a tu tienda", description: "Personaliza este texto desde el panel de administración.", sortOrder: 1, isActive: true },
+  ],
+  metrics: [
+    { value: "0", label: "Clientes activos", sortOrder: 1 },
+  ],
+  services: [
+    { icon: "fas fa-cloud", route: "/servicios", title: "Servicio de ejemplo", description: "Describe aquí este servicio.", sortOrder: 1, isActive: true },
+  ],
+  pricingPlans: [
+    {
+      name: "Plan Básico",
+      description: "Describe aquí este plan.",
+      storage: "",
+      emailAccounts: "",
+      bandwidth: "",
+      ssl: "",
+      originalPrice: null,
+      price: null,
+      discountPercent: null,
+      featured: false,
+      extraFeaturesTitle: "",
+      extraFeatures: [],
+      sortOrder: 1,
+      isActive: true,
+    },
+  ],
+  commonPlanChecks: [],
+  faqs: [
+    { q: "¿Pregunta de ejemplo?", a: "Respuesta de ejemplo.", sortOrder: 1, isActive: true },
+  ],
+  teamMembers: [],
+  testimonials: [],
   isActive: true,
   updatedAt: now,
 };

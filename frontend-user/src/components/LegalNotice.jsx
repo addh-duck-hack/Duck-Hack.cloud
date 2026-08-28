@@ -2,26 +2,45 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import logo from '../assets/logo.png';
+import { useStoreConfig, resolveStoreImageUrl } from '../hooks/useStoreConfig';
 import './LegalNotice.css';
 
+// Fallback — datos de identidad reales, usados mientras carga el
+// store-config, si el fetch falla, o si el admin no llenó ese campo aún.
+// El texto narrativo de cada sección se mantiene fijo (decisión del negocio:
+// solo estos datos puntuales son editables desde el admin, no el redactado legal).
+const FALLBACK_LEGAL_IDENTITY = {
+  legalName: 'Duck Hack',
+  rfc: 'CAJA911127IH1',
+  legalRepresentative: 'Adrián Cabrera Jacobo',
+  legalAddress: 'Priv. Flor de Azucena No 112, Col. Paseos de Chavarría, Mineral de la Reforma, Hidalgo, C.P. 42186.',
+  legalEmail: 'redes.sociales@duck-hack.com',
+  legalPhone: '(+52) 566-165-3418',
+};
+
 const LegalNotice = () => {
+  const { config } = useStoreConfig();
+  const legal = { ...FALLBACK_LEGAL_IDENTITY, ...Object.fromEntries(Object.entries(config?.legalIdentity || {}).filter(([, v]) => v)) };
+  const logoSrc = resolveStoreImageUrl(config?.logoUrl) || logo;
+  const brandName = config?.storeName || 'Duck-Hack';
+
   return (
     <div className="legal-page">
       <Link to="/" className="auth-brand">
-        <img src={logo} alt="Duck-Hack" />
-        <span>Duck-Hack</span>
+        <img src={logoSrc} alt={brandName} />
+        <span>{brandName}</span>
       </Link>
       <div className="legal-notice-container">
       <h1>Aviso Legal</h1>
       <section>
         <h2>1. Identificación de la Empresa</h2>
-        <p>Este sitio web es operado por Duck Hack, empresa dedicada al desarrollo de software, creación de aplicaciones web, servicios de hosting y venta de dominios en México. Las facturas y representación legal de la empresa están a nombre de Adrián Cabrera Jacobo, persona física con actividad empresarial.</p>
-        <p><strong>Nombre comercial:</strong> Duck Hack</p>
-        <p><strong>Representante legal:</strong> Adrián Cabrera Jacobo</p>
-        <p><strong>RFC:</strong> CAJA911127IH1</p>
-        <p><strong>Domicilio legal:</strong> Priv. Flor de Azucena No 112, Col. Paseos de Chavarría, Mineral de la Reforma, Hidalgo, C.P. 42186.</p>
-        <p><strong>Email:</strong> redes.sociales@duck-hack.com</p>
-        <p><strong>Télefono:</strong> (+52) 566-165-3418</p>
+        <p>Este sitio web es operado por {legal.legalName}, empresa dedicada al desarrollo de software, creación de aplicaciones web, servicios de hosting y venta de dominios en México. Las facturas y representación legal de la empresa están a nombre de {legal.legalRepresentative}, persona física con actividad empresarial.</p>
+        <p><strong>Nombre comercial:</strong> {legal.legalName}</p>
+        <p><strong>Representante legal:</strong> {legal.legalRepresentative}</p>
+        <p><strong>RFC:</strong> {legal.rfc}</p>
+        <p><strong>Domicilio legal:</strong> {legal.legalAddress}</p>
+        <p><strong>Email:</strong> {legal.legalEmail}</p>
+        <p><strong>Télefono:</strong> {legal.legalPhone}</p>
       </section>
       <section>
         <h2>2. Objeto del Sitio Web</h2>

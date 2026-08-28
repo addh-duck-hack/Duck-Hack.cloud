@@ -18,6 +18,7 @@ tags:
   - name: AgencyClients
   - name: Accounting
   - name: Invoices
+  - name: StoreConfig
 paths:
   /api/users/register:
     post:
@@ -1111,6 +1112,130 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
+  /api/store-config/public:
+    get:
+      tags: [StoreConfig]
+      summary: Consultar configuración pública de la tienda
+      description: >
+        Sin autenticación. Devuelve la configuración de tienda activa
+        (`isActive: true`) para que el storefront la consuma en runtime.
+      responses:
+        "200":
+          description: Configuración de tienda activa
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoreConfig"
+        "404":
+          description: No hay configuración de tienda activa
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/store-config:
+    get:
+      tags: [StoreConfig]
+      summary: Consultar configuración de tienda (administración)
+      description: Requiere autenticación y rol `super_admin` o `store_admin`. Devuelve el documento completo, activo o no.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Configuración de tienda
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoreConfig"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: No hay configuración de tienda
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    put:
+      tags: [StoreConfig]
+      summary: Actualizar configuración de tienda (parcial por campo)
+      description: >
+        Requiere autenticación y rol `super_admin` o `store_admin`. Solo actualiza los
+        campos presentes en el body (allowlist) — se puede enviar una sola sección
+        (ej. solo `heroSlides`) sin afectar el resto del documento.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StoreConfigUpdateRequest"
+      responses:
+        "200":
+          description: Configuración de tienda actualizada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoreConfigUpdateResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Conflicto de unicidad en configuración de tienda
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/store-config/upload-image:
+    post:
+      tags: [StoreConfig]
+      summary: Subir imagen de store-config (logo, foto de equipo, foto de testimonio)
+      description: >
+        Requiere autenticación y rol `super_admin` o `store_admin`.
+        El archivo se valida por contenido real y se acepta únicamente JPG/PNG (máx. 5MB).
+        Endpoint genérico: el cliente decide a qué campo asigna el `imagePath` devuelto.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: Imagen en JPG o PNG
+              required: [image]
+      responses:
+        "201":
+          description: Imagen subida correctamente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoreImageUploadResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1859,3 +1984,288 @@ components:
           type: string
           format: date
       required: [client, concept, amount]
+
+    StoreTheme:
+      type: object
+      properties:
+        primaryColor:
+          type: string
+          example: "#0B1F3A"
+        secondaryColor:
+          type: string
+          example: "#F2F5F9"
+        accentColor:
+          type: string
+          example: "#FF6B00"
+        fontFamilyHeading:
+          type: string
+        fontFamilyBody:
+          type: string
+
+    SocialLinks:
+      type: object
+      properties:
+        whatsapp:
+          type: string
+        instagram:
+          type: string
+        facebook:
+          type: string
+        threads:
+          type: string
+
+    LegalIdentity:
+      type: object
+      properties:
+        legalName:
+          type: string
+        rfc:
+          type: string
+        legalRepresentative:
+          type: string
+        legalAddress:
+          type: string
+        legalEmail:
+          type: string
+        legalPhone:
+          type: string
+
+    HeroSlide:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 160
+        description:
+          type: string
+          maxLength: 300
+        sortOrder:
+          type: integer
+          minimum: 0
+        isActive:
+          type: boolean
+      required: [title]
+
+    Metric:
+      type: object
+      properties:
+        value:
+          type: string
+          maxLength: 20
+          example: "99.9%"
+        label:
+          type: string
+          maxLength: 80
+        sortOrder:
+          type: integer
+          minimum: 0
+      required: [value, label]
+
+    ServiceItem:
+      type: object
+      properties:
+        icon:
+          type: string
+          description: Clase de icono (ej. FontAwesome)
+        route:
+          type: string
+        title:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        sortOrder:
+          type: integer
+          minimum: 0
+        isActive:
+          type: boolean
+      required: [title]
+
+    PricingPlan:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 60
+        description:
+          type: string
+          maxLength: 300
+        storage:
+          type: string
+        emailAccounts:
+          type: string
+        bandwidth:
+          type: string
+        ssl:
+          type: string
+        originalPrice:
+          type: number
+          minimum: 0
+          nullable: true
+        price:
+          type: number
+          minimum: 0
+          nullable: true
+        discountPercent:
+          type: number
+          minimum: 0
+          maximum: 100
+          nullable: true
+        featured:
+          type: boolean
+        extraFeaturesTitle:
+          type: string
+        extraFeatures:
+          type: array
+          items:
+            type: string
+        sortOrder:
+          type: integer
+          minimum: 0
+        isActive:
+          type: boolean
+      required: [name]
+
+    Faq:
+      type: object
+      properties:
+        q:
+          type: string
+          maxLength: 200
+        a:
+          type: string
+          maxLength: 1000
+        sortOrder:
+          type: integer
+          minimum: 0
+        isActive:
+          type: boolean
+      required: [q, a]
+
+    TeamMember:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        role:
+          type: string
+        bio:
+          type: string
+          maxLength: 500
+        email:
+          type: string
+        phone:
+          type: string
+        photoUrl:
+          type: string
+          example: uploads/store-config-1718282784-uuid.jpg
+        sortOrder:
+          type: integer
+          minimum: 0
+        isActive:
+          type: boolean
+      required: [name]
+
+    Testimonial:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        rubro:
+          type: string
+        description:
+          type: string
+          maxLength: 500
+        url:
+          type: string
+        photoUrl:
+          type: string
+          example: uploads/store-config-1718282784-uuid.jpg
+        sortOrder:
+          type: integer
+          minimum: 0
+        isActive:
+          type: boolean
+      required: [name]
+
+    StoreConfig:
+      type: object
+      properties:
+        storeName:
+          type: string
+        storeSlug:
+          type: string
+        contactEmail:
+          type: string
+        contactPhone:
+          type: string
+        logoUrl:
+          type: string
+        theme:
+          $ref: "#/components/schemas/StoreTheme"
+        socialLinks:
+          $ref: "#/components/schemas/SocialLinks"
+        legalIdentity:
+          $ref: "#/components/schemas/LegalIdentity"
+        heroSlides:
+          type: array
+          items:
+            $ref: "#/components/schemas/HeroSlide"
+        metrics:
+          type: array
+          items:
+            $ref: "#/components/schemas/Metric"
+        services:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceItem"
+        pricingPlans:
+          type: array
+          items:
+            $ref: "#/components/schemas/PricingPlan"
+        commonPlanChecks:
+          type: array
+          items:
+            type: string
+        faqs:
+          type: array
+          items:
+            $ref: "#/components/schemas/Faq"
+        teamMembers:
+          type: array
+          items:
+            $ref: "#/components/schemas/TeamMember"
+        testimonials:
+          type: array
+          items:
+            $ref: "#/components/schemas/Testimonial"
+        isActive:
+          type: boolean
+      required: [storeName, storeSlug]
+
+    StoreConfigUpdateRequest:
+      description: Todos los campos son opcionales — solo se actualizan los presentes en el body.
+      allOf:
+        - $ref: "#/components/schemas/StoreConfig"
+
+    StoreConfigUpdateResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        storeConfig:
+          $ref: "#/components/schemas/StoreConfig"
+      required: [message, storeConfig]
+
+    StoreImageUploadResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        imagePath:
+          type: string
+          example: uploads/store-config-1718282784-uuid.jpg
+      required: [message, imagePath]

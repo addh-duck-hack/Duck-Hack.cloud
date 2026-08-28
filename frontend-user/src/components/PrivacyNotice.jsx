@@ -2,19 +2,33 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import logo from '../assets/logo.png';
+import { useStoreConfig, resolveStoreImageUrl } from '../hooks/useStoreConfig';
 import './LegalNotice.css';
 
+// Ver nota de fallback en LegalNotice.jsx — mismo criterio aquí.
+const FALLBACK_LEGAL_IDENTITY = {
+  legalName: 'Duck Hack',
+  rfc: 'CAJA911127IH1',
+  legalRepresentative: 'Adrián Cabrera Jacobo',
+  legalAddress: 'Priv. Flor de Azucena No 112, Col. Paseos de Chavarría, Mineral de la Reforma, Hidalgo',
+};
+
 const PrivacyNotice = () => {
+  const { config } = useStoreConfig();
+  const legal = { ...FALLBACK_LEGAL_IDENTITY, ...Object.fromEntries(Object.entries(config?.legalIdentity || {}).filter(([, v]) => v)) };
+  const logoSrc = resolveStoreImageUrl(config?.logoUrl) || logo;
+  const brandName = config?.storeName || 'Duck-Hack';
+
   return (
     <div className="legal-page">
       <Link to="/" className="auth-brand">
-        <img src={logo} alt="Duck-Hack" />
-        <span>Duck-Hack</span>
+        <img src={logoSrc} alt={brandName} />
+        <span>{brandName}</span>
       </Link>
       <div className="legal-notice-container">
       <h1>Aviso de Privacidad</h1>
       <section>
-        <p>Duck Hack (en adelante, "la Empresa"), representada legalmente por Adrián Cabrera Jacobo, con domicilio en Priv. Flor de Azucena No 112, Col. Paseos de Chavarría, Mineral de la Reforma, Hidalgo, y con el Registro Federal de Contribuyentes CAJA911127IH1, reconoce la importancia de proteger los datos personales proporcionados por sus clientes, proveedores, colaboradores y usuarios (en adelante, "Titulares").</p>
+        <p>{legal.legalName} (en adelante, "la Empresa"), representada legalmente por {legal.legalRepresentative}, con domicilio en {legal.legalAddress}, y con el Registro Federal de Contribuyentes {legal.rfc}, reconoce la importancia de proteger los datos personales proporcionados por sus clientes, proveedores, colaboradores y usuarios (en adelante, "Titulares").</p>
       </section>
       <section>
         <h2>1. Datos personales que se recaban</h2>

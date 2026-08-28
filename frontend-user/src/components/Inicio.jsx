@@ -1,9 +1,13 @@
 // src/components/Inicio.js
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usePageMeta } from '../hooks/usePageMeta';
+import { useStoreConfig } from '../hooks/useStoreConfig';
+import { pickList } from '../utils/storeConfigLists';
 import './Inicio.css';
 
+// Fallback local — se usa mientras carga el store-config, si el fetch falla,
+// o si el admin todavía no cargó contenido para esta sección.
 const SLIDES = [
   {
     id: 1,
@@ -23,11 +27,12 @@ const SLIDES = [
 ];
 
 const METRICS = [
-  { num: '8', label: 'Clientes activos' },
-  { num: '99.9%', label: 'Disponibilidad' },
-  { num: '30d', label: 'Garantía de devolución' },
-  { num: '24', label: 'Endpoints funcionales' },
+  { value: '8', label: 'Clientes activos' },
+  { value: '99.9%', label: 'Disponibilidad' },
+  { value: '30d', label: 'Garantía de devolución' },
+  { value: '24', label: 'Endpoints funcionales' },
 ];
+
 
 const COMMANDS = [
   { p: '$', cmd: 'desplegar hosting', note: 'planes adecuados a todo tipo de clientes' },
@@ -38,14 +43,28 @@ const COMMANDS = [
 
 const Inicio = () => {
   usePageMeta();
+  const { config } = useStoreConfig();
+
+  const slides = useMemo(
+    () => pickList(config?.heroSlides, SLIDES).map((s, i) => ({ id: s.id ?? i, title: s.title, description: s.description })),
+    [config]
+  );
+
+  const metrics = useMemo(() => pickList(config?.metrics, METRICS), [config]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [displayedText, setDisplayedText] = useState('');
   const [charIndex, setCharIndex] = useState(0);
 
+  // Si la lista de slides cambia (ej. terminó de cargar el store-config) y el
+  // índice actual quedó fuera de rango, se vuelve a 0 en vez de romper.
+  useEffect(() => {
+    if (currentIndex >= slides.length) setCurrentIndex(0);
+  }, [slides, currentIndex]);
+
   // Aparición progresiva (typewriter) de la descripción, como en la versión anterior.
   useEffect(() => {
-    const description = SLIDES[currentIndex].description;
+    const description = slides[currentIndex]?.description || '';
     if (charIndex < description.length) {
       const timeoutId = setTimeout(() => {
         setDisplayedText(description.slice(0, charIndex + 1));
@@ -65,12 +84,12 @@ const Inicio = () => {
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduceMotion) return undefined;
     const intervalId = setInterval(() => {
-      setCurrentIndex((i) => (i + 1) % SLIDES.length);
+      setCurrentIndex((i) => (i + 1) % slides.length);
     }, 5200);
     return () => clearInterval(intervalId);
-  }, []);
+  }, [slides]);
 
-  const slide = SLIDES[currentIndex];
+  const slide = slides[currentIndex] || slides[0];
 
   return (
     <div className="home-view">
@@ -100,7 +119,7 @@ const Inicio = () => {
             </Link>
           </div>
           <div className="hero-dots">
-            {SLIDES.map((s, i) => (
+            {slides.map((s, i) => (
               <button
                 key={s.id}
                 aria-current={i === currentIndex}
@@ -113,9 +132,9 @@ const Inicio = () => {
       </div>
 
       <div className="bento">
-        {METRICS.map((m) => (
+        {metrics.map((m) => (
           <div className="cell" key={m.label}>
-            <div className="num">{m.num}</div>
+            <div className="num">{m.value}</div>
             <div className="lbl">{m.label}</div>
             {m.label === 'Disponibilidad' && (
               <svg className="spark" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true">

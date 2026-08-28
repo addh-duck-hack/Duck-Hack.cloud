@@ -1,9 +1,13 @@
 // src/components/OurServices.js
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { usePageMeta } from '../hooks/usePageMeta';
+import { useStoreConfig } from '../hooks/useStoreConfig';
+import { pickList } from '../utils/storeConfigLists';
 import './OurServices.css';
 
-const services = [
+// Fallback local — también reexportado para que ContactUs.jsx derive su
+// dropdown de servicios de la misma fuente en vez de duplicar la lista.
+export const FALLBACK_SERVICES = [
   {
     icon: 'fas fa-paint-brush',
     route: '/servicios/diseno-web',
@@ -53,6 +57,9 @@ const OurServices = () => {
     'Servicios de Diseño, Desarrollo y Hosting',
     'Diseño web, desarrollo web, apps nativas, imagen corporativa, hosting y servicios en la nube. Seis servicios, un mismo equipo.'
   );
+
+  const { config } = useStoreConfig();
+  const services = useMemo(() => pickList(config?.services, FALLBACK_SERVICES), [config]);
 
   // En pantallas táctiles no hay :hover, así que un tap alterna la clase "flipped".
   // En desktop el hover ya voltea la tarjeta por CSS; el estado es una capa extra encima.

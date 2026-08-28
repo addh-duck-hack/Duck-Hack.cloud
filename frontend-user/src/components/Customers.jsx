@@ -1,5 +1,5 @@
 // src/components/Customers.js
-import React from 'react';
+import React, { useMemo } from 'react';
 import quintosolShot from '../assets/client-shots/quintosol-shot.jpg';
 import latitudShot from '../assets/client-shots/latitud-shot.jpg';
 import textualesShot from '../assets/client-shots/textuales-shot.jpg';
@@ -8,9 +8,11 @@ import dereporterosShot from '../assets/client-shots/dereporteros-shot.jpg';
 import romagaShot from '../assets/client-shots/romaga-shot.jpg';
 import peajesmxShot from '../assets/client-shots/peajesmx-shot.jpg';
 import { usePageMeta } from '../hooks/usePageMeta';
+import { useStoreConfig, resolveStoreImageUrl } from '../hooks/useStoreConfig';
+import { pickList } from '../utils/storeConfigLists';
 import './Customers.css';
 
-const CLIENTS = [
+const FALLBACK_CLIENTS = [
   {
     shot: latitudShot,
     name: 'Latitud Megalópolis',
@@ -69,6 +71,9 @@ const Customers = () => {
     'Negocios que ya confían su presencia en línea al hosting y desarrollo web de Duck-Hack.'
   );
 
+  const { config } = useStoreConfig();
+  const clients = useMemo(() => pickList(config?.testimonials, FALLBACK_CLIENTS), [config]);
+
   return (
     <section className="clients-view">
       <span className="eyebrow">/clientes</span>
@@ -76,32 +81,33 @@ const Customers = () => {
       <p className="section-sub">Un vistazo a quienes ya confían su presencia en línea a nuestro hosting.</p>
 
       <div className="client-grid">
-        {CLIENTS.map((c) => (
-          <a className="client-card" href={c.url} target="_blank" rel="noopener noreferrer" key={c.name}>
-            <div className="client-thumb">
-              {c.shot ? (
-                <img src={c.shot} alt={`Sitio web de ${c.name}`} />
-              ) : (
-                <div className="client-thumb-fallback">
-                  <img src={c.logo} alt={c.name} />
+        {clients.map((c) => {
+          const shotSrc = resolveStoreImageUrl(c.photoUrl) || c.shot;
+          return (
+            <a className="client-card" href={c.url} target="_blank" rel="noopener noreferrer" key={c.name}>
+              <div className="client-thumb">
+                {shotSrc ? (
+                  <img src={shotSrc} alt={`Sitio web de ${c.name}`} />
+                ) : (
+                  <div className="client-thumb-fallback" />
+                )}
+                <div className="client-thumb-overlay">
+                  <span className="client-thumb-icon">
+                    <i className="fas fa-arrow-up-right-from-square" />
+                  </span>
                 </div>
-              )}
-              <div className="client-thumb-overlay">
-                <span className="client-thumb-icon">
-                  <i className="fas fa-arrow-up-right-from-square" />
+              </div>
+              <div className="client-body">
+                <span className="rubro">{c.rubro}</span>
+                <h3 className="name">{c.name}</h3>
+                <p className="client-description">{c.description}</p>
+                <span className="client-cta">
+                  Visitar sitio <i className="fas fa-arrow-right" />
                 </span>
               </div>
-            </div>
-            <div className="client-body">
-              <span className="rubro">{c.rubro}</span>
-              <h3 className="name">{c.name}</h3>
-              <p className="client-description">{c.description}</p>
-              <span className="client-cta">
-                Visitar sitio <i className="fas fa-arrow-right" />
-              </span>
-            </div>
-          </a>
-        ))}
+            </a>
+          );
+        })}
       </div>
     </section>
   );

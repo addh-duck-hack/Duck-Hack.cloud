@@ -1,13 +1,15 @@
 // src/components/AboutUs.js
-import React from 'react';
+import React, { useMemo } from 'react';
 import teamPlaceholder from '../assets/team-placeholder.jpg';
 import adrianPhoto from '../assets/collaborators/adrian.webp';
 import gerardoPhoto from '../assets/collaborators/gerardo.webp';
 import cesarPhoto from '../assets/collaborators/cesar.webp';
 import { usePageMeta } from '../hooks/usePageMeta';
+import { useStoreConfig, resolveStoreImageUrl } from '../hooks/useStoreConfig';
+import { pickList } from '../utils/storeConfigLists';
 import './AboutUs.css';
 
-const TEAM = [
+const FALLBACK_TEAM = [
   {
     name: 'Adrián Jacobo',
     role: 'Arquitecto de Software — Backend, DevOps & Seguridad',
@@ -54,6 +56,9 @@ const AboutUs = () => {
     'Conoce al equipo de Duck-Hack: más de 5 años de experiencia en desarrollo web y hosting para negocios en México.'
   );
 
+  const { config } = useStoreConfig();
+  const team = useMemo(() => pickList(config?.teamMembers, FALLBACK_TEAM), [config]);
+
   return (
     <section className="about-view">
       <span className="eyebrow">/nosotros</span>
@@ -96,10 +101,10 @@ const AboutUs = () => {
       <p className="section-sub">Las personas que hacen posible cada proyecto, de principio a fin.</p>
 
       <div className="team-heroes">
-        {TEAM.map((member) => (
+        {team.map((member) => (
           <div className="team-hero" key={member.name}>
             <div className="team-hero-media">
-              <img src={member.photo || teamPlaceholder} alt={member.name} />
+              <img src={resolveStoreImageUrl(member.photoUrl) || member.photo || teamPlaceholder} alt={member.name} />
             </div>
             <div className="team-hero-content">
               <h3>{member.name}</h3>

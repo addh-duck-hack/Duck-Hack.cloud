@@ -244,7 +244,295 @@ const validateStoreConfigPayload = (req, res, next) => {
     }
   }
 
+  if (payload.socialLinks !== undefined) {
+    if (typeof payload.socialLinks !== "object" || payload.socialLinks === null || Array.isArray(payload.socialLinks)) {
+      return badRequest(res, "VALIDATION_ERROR", "socialLinks debe ser un objeto.");
+    }
+    for (const key of ["whatsapp", "instagram", "facebook", "threads"]) {
+      const value = payload.socialLinks[key];
+      if (value !== undefined && asTrimmedString(value).length > 300) {
+        return badRequest(res, "VALIDATION_ERROR", `socialLinks.${key} excede 300 caracteres.`);
+      }
+    }
+  }
+
+  if (payload.legalIdentity !== undefined) {
+    if (typeof payload.legalIdentity !== "object" || payload.legalIdentity === null || Array.isArray(payload.legalIdentity)) {
+      return badRequest(res, "VALIDATION_ERROR", "legalIdentity debe ser un objeto.");
+    }
+    const { legalName, rfc, legalRepresentative, legalAddress, legalEmail, legalPhone } = payload.legalIdentity;
+    if (legalName !== undefined && asTrimmedString(legalName).length > 160) {
+      return badRequest(res, "VALIDATION_ERROR", "legalIdentity.legalName excede 160 caracteres.");
+    }
+    if (rfc !== undefined && asTrimmedString(rfc).length > 20) {
+      return badRequest(res, "VALIDATION_ERROR", "legalIdentity.rfc excede 20 caracteres.");
+    }
+    if (legalRepresentative !== undefined && asTrimmedString(legalRepresentative).length > 160) {
+      return badRequest(res, "VALIDATION_ERROR", "legalIdentity.legalRepresentative excede 160 caracteres.");
+    }
+    if (legalAddress !== undefined && asTrimmedString(legalAddress).length > 400) {
+      return badRequest(res, "VALIDATION_ERROR", "legalIdentity.legalAddress excede 400 caracteres.");
+    }
+    if (legalEmail !== undefined && asTrimmedString(legalEmail) && !validateEmail(legalEmail)) {
+      return badRequest(res, "VALIDATION_ERROR", "legalIdentity.legalEmail no es válido.");
+    }
+    if (legalPhone !== undefined && asTrimmedString(legalPhone).length > 30) {
+      return badRequest(res, "VALIDATION_ERROR", "legalIdentity.legalPhone excede 30 caracteres.");
+    }
+  }
+
+  const arrayFieldError =
+    validateStoreConfigArrayField(payload, "heroSlides", validateHeroSlideItem) ||
+    validateStoreConfigArrayField(payload, "metrics", validateMetricItem) ||
+    validateStoreConfigArrayField(payload, "services", validateServiceItem) ||
+    validateStoreConfigArrayField(payload, "pricingPlans", validatePricingPlanItem) ||
+    validateStoreConfigArrayField(payload, "commonPlanChecks", validateStringListItem) ||
+    validateStoreConfigArrayField(payload, "faqs", validateFaqItem) ||
+    validateStoreConfigArrayField(payload, "teamMembers", validateTeamMemberItem) ||
+    validateStoreConfigArrayField(payload, "testimonials", validateTestimonialItem);
+  if (arrayFieldError) {
+    return badRequest(res, "VALIDATION_ERROR", arrayFieldError);
+  }
+
   return next();
+};
+
+// Helper genérico para las secciones de StoreConfig que son arreglos de objetos
+// (hero slides, métricas, servicios, planes, faqs, equipo, testimonios). Cada
+// `itemValidator` normaliza el item in-place (igual que el resto de este archivo)
+// y retorna un string de error o null si es válido.
+const validateStoreConfigArrayField = (payload, fieldName, itemValidator) => {
+  if (payload[fieldName] === undefined) return null;
+  if (!Array.isArray(payload[fieldName])) {
+    return `${fieldName} debe ser un arreglo.`;
+  }
+  for (const [index, item] of payload[fieldName].entries()) {
+    const error = itemValidator(item, index, fieldName);
+    if (error) return error;
+  }
+  return null;
+};
+
+const validateStringListItem = (item, index, fieldName) => {
+  if (typeof item !== "string") {
+    return `${fieldName}[${index}] debe ser texto.`;
+  }
+  if (item.trim().length > 300) {
+    return `${fieldName}[${index}] excede 300 caracteres.`;
+  }
+  return null;
+};
+
+const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+
+const validateHeroSlideItem = (item, index) => {
+  if (!isPlainObject(item)) return `heroSlides[${index}] debe ser un objeto.`;
+  const title = asTrimmedString(item.title);
+  if (!title || title.length > 160) {
+    return `heroSlides[${index}].title es requerido (máx. 160 caracteres).`;
+  }
+  item.title = title;
+  if (item.description !== undefined) {
+    const description = asTrimmedString(item.description);
+    if (description.length > 300) return `heroSlides[${index}].description excede 300 caracteres.`;
+    item.description = description;
+  }
+  if (item.sortOrder !== undefined && (!Number.isInteger(item.sortOrder) || item.sortOrder < 0)) {
+    return `heroSlides[${index}].sortOrder debe ser entero >= 0.`;
+  }
+  if (item.isActive !== undefined && typeof item.isActive !== "boolean") {
+    return `heroSlides[${index}].isActive debe ser boolean.`;
+  }
+  return null;
+};
+
+const validateMetricItem = (item, index) => {
+  if (!isPlainObject(item)) return `metrics[${index}] debe ser un objeto.`;
+  const value = asTrimmedString(item.value);
+  if (!value || value.length > 20) {
+    return `metrics[${index}].value es requerido (máx. 20 caracteres).`;
+  }
+  item.value = value;
+  const label = asTrimmedString(item.label);
+  if (!label || label.length > 80) {
+    return `metrics[${index}].label es requerido (máx. 80 caracteres).`;
+  }
+  item.label = label;
+  if (item.sortOrder !== undefined && (!Number.isInteger(item.sortOrder) || item.sortOrder < 0)) {
+    return `metrics[${index}].sortOrder debe ser entero >= 0.`;
+  }
+  return null;
+};
+
+const validateServiceItem = (item, index) => {
+  if (!isPlainObject(item)) return `services[${index}] debe ser un objeto.`;
+  const title = asTrimmedString(item.title);
+  if (!title || title.length > 100) {
+    return `services[${index}].title es requerido (máx. 100 caracteres).`;
+  }
+  item.title = title;
+  if (item.icon !== undefined) {
+    const icon = asTrimmedString(item.icon);
+    if (icon.length > 60) return `services[${index}].icon excede 60 caracteres.`;
+    item.icon = icon;
+  }
+  if (item.route !== undefined) {
+    const route = asTrimmedString(item.route);
+    if (route.length > 120) return `services[${index}].route excede 120 caracteres.`;
+    item.route = route;
+  }
+  if (item.description !== undefined) {
+    const description = asTrimmedString(item.description);
+    if (description.length > 500) return `services[${index}].description excede 500 caracteres.`;
+    item.description = description;
+  }
+  if (item.sortOrder !== undefined && (!Number.isInteger(item.sortOrder) || item.sortOrder < 0)) {
+    return `services[${index}].sortOrder debe ser entero >= 0.`;
+  }
+  if (item.isActive !== undefined && typeof item.isActive !== "boolean") {
+    return `services[${index}].isActive debe ser boolean.`;
+  }
+  return null;
+};
+
+const validatePricingPlanItem = (item, index) => {
+  if (!isPlainObject(item)) return `pricingPlans[${index}] debe ser un objeto.`;
+  const name = asTrimmedString(item.name);
+  if (!name || name.length > 60) {
+    return `pricingPlans[${index}].name es requerido (máx. 60 caracteres).`;
+  }
+  item.name = name;
+  for (const field of ["description", "storage", "emailAccounts", "bandwidth", "ssl", "extraFeaturesTitle"]) {
+    if (item[field] !== undefined) {
+      const value = asTrimmedString(item[field]);
+      const max = field === "description" ? 300 : field === "extraFeaturesTitle" ? 120 : 40;
+      if (value.length > max) return `pricingPlans[${index}].${field} excede ${max} caracteres.`;
+      item[field] = value;
+    }
+  }
+  for (const field of ["originalPrice", "price"]) {
+    if (item[field] !== undefined && item[field] !== null) {
+      const num = asFiniteNumber(item[field]);
+      if (num === null || num < 0) return `pricingPlans[${index}].${field} debe ser un número >= 0.`;
+      item[field] = num;
+    }
+  }
+  if (item.discountPercent !== undefined && item.discountPercent !== null) {
+    const num = asFiniteNumber(item.discountPercent);
+    if (num === null || num < 0 || num > 100) {
+      return `pricingPlans[${index}].discountPercent debe ser un número entre 0 y 100.`;
+    }
+    item.discountPercent = num;
+  }
+  if (item.featured !== undefined && typeof item.featured !== "boolean") {
+    return `pricingPlans[${index}].featured debe ser boolean.`;
+  }
+  if (item.isActive !== undefined && typeof item.isActive !== "boolean") {
+    return `pricingPlans[${index}].isActive debe ser boolean.`;
+  }
+  if (item.sortOrder !== undefined && (!Number.isInteger(item.sortOrder) || item.sortOrder < 0)) {
+    return `pricingPlans[${index}].sortOrder debe ser entero >= 0.`;
+  }
+  if (item.extraFeatures !== undefined) {
+    if (!Array.isArray(item.extraFeatures)) return `pricingPlans[${index}].extraFeatures debe ser un arreglo.`;
+    for (const [i, feature] of item.extraFeatures.entries()) {
+      if (typeof feature !== "string" || feature.trim().length > 200) {
+        return `pricingPlans[${index}].extraFeatures[${i}] debe ser texto (máx. 200 caracteres).`;
+      }
+      item.extraFeatures[i] = feature.trim();
+    }
+  }
+  return null;
+};
+
+const validateFaqItem = (item, index) => {
+  if (!isPlainObject(item)) return `faqs[${index}] debe ser un objeto.`;
+  const q = asTrimmedString(item.q);
+  if (!q || q.length > 200) return `faqs[${index}].q es requerido (máx. 200 caracteres).`;
+  item.q = q;
+  const a = asTrimmedString(item.a);
+  if (!a || a.length > 1000) return `faqs[${index}].a es requerido (máx. 1000 caracteres).`;
+  item.a = a;
+  if (item.sortOrder !== undefined && (!Number.isInteger(item.sortOrder) || item.sortOrder < 0)) {
+    return `faqs[${index}].sortOrder debe ser entero >= 0.`;
+  }
+  if (item.isActive !== undefined && typeof item.isActive !== "boolean") {
+    return `faqs[${index}].isActive debe ser boolean.`;
+  }
+  return null;
+};
+
+const validateTeamMemberItem = (item, index) => {
+  if (!isPlainObject(item)) return `teamMembers[${index}] debe ser un objeto.`;
+  const name = asTrimmedString(item.name);
+  if (!name || name.length > 100) return `teamMembers[${index}].name es requerido (máx. 100 caracteres).`;
+  item.name = name;
+  if (item.role !== undefined) {
+    const role = asTrimmedString(item.role);
+    if (role.length > 160) return `teamMembers[${index}].role excede 160 caracteres.`;
+    item.role = role;
+  }
+  if (item.bio !== undefined) {
+    const bio = asTrimmedString(item.bio);
+    if (bio.length > 500) return `teamMembers[${index}].bio excede 500 caracteres.`;
+    item.bio = bio;
+  }
+  if (item.email !== undefined) {
+    const email = asTrimmedString(item.email).toLowerCase();
+    if (email && !validateEmail(email)) return `teamMembers[${index}].email no es válido.`;
+    item.email = email;
+  }
+  if (item.phone !== undefined) {
+    const phone = asTrimmedString(item.phone);
+    if (phone.length > 30) return `teamMembers[${index}].phone excede 30 caracteres.`;
+    item.phone = phone;
+  }
+  if (item.photoUrl !== undefined) {
+    const photoUrl = asTrimmedString(item.photoUrl);
+    if (photoUrl.length > 300) return `teamMembers[${index}].photoUrl excede 300 caracteres.`;
+    item.photoUrl = photoUrl;
+  }
+  if (item.sortOrder !== undefined && (!Number.isInteger(item.sortOrder) || item.sortOrder < 0)) {
+    return `teamMembers[${index}].sortOrder debe ser entero >= 0.`;
+  }
+  if (item.isActive !== undefined && typeof item.isActive !== "boolean") {
+    return `teamMembers[${index}].isActive debe ser boolean.`;
+  }
+  return null;
+};
+
+const validateTestimonialItem = (item, index) => {
+  if (!isPlainObject(item)) return `testimonials[${index}] debe ser un objeto.`;
+  const name = asTrimmedString(item.name);
+  if (!name || name.length > 120) return `testimonials[${index}].name es requerido (máx. 120 caracteres).`;
+  item.name = name;
+  if (item.rubro !== undefined) {
+    const rubro = asTrimmedString(item.rubro);
+    if (rubro.length > 120) return `testimonials[${index}].rubro excede 120 caracteres.`;
+    item.rubro = rubro;
+  }
+  if (item.description !== undefined) {
+    const description = asTrimmedString(item.description);
+    if (description.length > 500) return `testimonials[${index}].description excede 500 caracteres.`;
+    item.description = description;
+  }
+  if (item.url !== undefined) {
+    const url = asTrimmedString(item.url);
+    if (url.length > 300) return `testimonials[${index}].url excede 300 caracteres.`;
+    item.url = url;
+  }
+  if (item.photoUrl !== undefined) {
+    const photoUrl = asTrimmedString(item.photoUrl);
+    if (photoUrl.length > 300) return `testimonials[${index}].photoUrl excede 300 caracteres.`;
+    item.photoUrl = photoUrl;
+  }
+  if (item.sortOrder !== undefined && (!Number.isInteger(item.sortOrder) || item.sortOrder < 0)) {
+    return `testimonials[${index}].sortOrder debe ser entero >= 0.`;
+  }
+  if (item.isActive !== undefined && typeof item.isActive !== "boolean") {
+    return `testimonials[${index}].isActive debe ser boolean.`;
+  }
+  return null;
 };
 
 const asFiniteNumber = (value) => {

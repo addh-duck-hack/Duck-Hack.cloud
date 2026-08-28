@@ -14,6 +14,7 @@ import PrivacyNotice from './components/PrivacyNotice';
 import VerifyUser from './components/VerifyUser';
 import LoginUser from './components/LoginUser';
 import RegisterUser from './components/RegisterUser';
+import { StoreConfigProvider } from './hooks/useStoreConfig';
 import './App.css';
 
 const App = () => {
@@ -29,29 +30,31 @@ const App = () => {
   }, []);
 
   return (
-    <Router>
-      <div className="App">
-        {loading ? (
-          <Loader />
-        ) : (
-          <Routes>
-            <Route element={<AppShell />}>
-              <Route path="/" element={<Inicio />} />
-              <Route path="/nosotros" element={<AboutUs />} />
-              <Route path="/servicios" element={<OurServices />} />
-              <Route path="/precios" element={<Services />} />
-              <Route path="/clientes" element={<Customers />} />
-              <Route path="/contacto" element={<ContactUs />} />
-            </Route>
-            <Route path="/legal-notice" element={<LegalNotice />} />
-            <Route path="/privacy-policy" element={<PrivacyNotice />} />
-            <Route path="/users/verify" element={<VerifyUser />} />
-            <Route path="/login" element={<LoginUser />} />
-            <Route path="/register" element={<RegisterUser />} />
-          </Routes>
-        )}
-      </div>
-    </Router>
+    <StoreConfigProvider>
+      <Router>
+        <div className="App">
+          {loading ? (
+            <Loader />
+          ) : (
+            <Routes>
+              <Route element={<AppShell />}>
+                <Route path="/" element={<Inicio />} />
+                <Route path="/nosotros" element={<AboutUs />} />
+                <Route path="/servicios" element={<OurServices />} />
+                <Route path="/precios" element={<Services />} />
+                <Route path="/clientes" element={<Customers />} />
+                <Route path="/contacto" element={<ContactUs />} />
+              </Route>
+              <Route path="/legal-notice" element={<LegalNotice />} />
+              <Route path="/privacy-policy" element={<PrivacyNotice />} />
+              <Route path="/users/verify" element={<VerifyUser />} />
+              <Route path="/login" element={<LoginUser />} />
+              <Route path="/register" element={<RegisterUser />} />
+            </Routes>
+          )}
+        </div>
+      </Router>
+    </StoreConfigProvider>
   );
 };
 
