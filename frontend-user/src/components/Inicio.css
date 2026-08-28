@@ -60,7 +60,7 @@
 
 .term-body p.lede {
   margin-top: 1rem;
-  max-width: 52ch;
+  text-align: justify;
   font-size: 1.02rem;
   min-height: 2.6em;
 }
