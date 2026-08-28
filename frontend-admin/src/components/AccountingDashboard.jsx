@@ -70,7 +70,7 @@ const AccountingDashboard = () => {
   };
 
   return (
-    <section style={{ maxWidth: 900 }}>
+    <section>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
         <h3 style={{ margin: 0 }}>Contabilidad</h3>
         <div style={{ display: "flex", gap: "0.75rem" }}>

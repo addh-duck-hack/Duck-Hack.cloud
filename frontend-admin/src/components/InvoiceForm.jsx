@@ -56,7 +56,7 @@ const InvoiceForm = () => {
   };
 
   return (
-    <section style={{ maxWidth: 900 }}>
+    <section>
       <h3>Nueva factura</h3>
       <p>Comprobante de pago en PDF sin validez fiscal. El folio se asigna automáticamente.</p>
 

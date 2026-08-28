@@ -140,7 +140,7 @@ const AccountingTransactions = () => {
   };
 
   return (
-    <section style={{ maxWidth: 1000 }}>
+    <section>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
         <h3 style={{ margin: 0 }}>Movimientos de contabilidad</h3>
         <div style={{ display: "flex", gap: "0.75rem" }}>
@@ -163,8 +163,11 @@ const AccountingTransactions = () => {
       {message ? <div className="auth-success">{message}</div> : null}
       {error ? <div className="auth-error">{error}</div> : null}
 
+      {/* El formulario sí lleva un tope propio (a diferencia de la sección,
+          que ya no lo tiene para que la tabla de abajo use todo el ancho)
+          para que sus campos no queden absurdamente anchos. */}
       {showForm ? (
-        <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: "1rem 0 0" }}>
+        <form onSubmit={handleSubmit} style={{ maxWidth: 1000, margin: "1rem 0 0" }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
             <label>
               Tipo

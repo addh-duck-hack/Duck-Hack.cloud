@@ -188,7 +188,7 @@ const AgencyClientDetail = () => {
     : null;
 
   return (
-    <section style={{ maxWidth: 1000 }}>
+    <section>
       <div style={{ marginBottom: "1rem", display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
         <button type="button" className="btn-secondary" onClick={() => navigate("/admin/agency-clients")} style={{ width: "auto" }}>
           ← Volver a la cuadrícula

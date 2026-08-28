@@ -152,7 +152,6 @@ a:hover {
 /* Estilos para tablas (en AdminMenu) */
 table {
   width: 100%;
-  max-width: 1000px;
   margin: 20px auto;
   border-collapse: collapse;
   background-color: var(--form-background-color);

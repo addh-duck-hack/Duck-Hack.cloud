@@ -80,7 +80,7 @@ const InvoiceList = () => {
   };
 
   return (
-    <section style={{ maxWidth: 1000 }}>
+    <section>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
         <h3 style={{ margin: 0 }}>Facturación</h3>
         <button type="button" onClick={() => navigate("/admin/invoices/new")} style={{ width: "auto" }}>

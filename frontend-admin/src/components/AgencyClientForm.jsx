@@ -142,8 +142,11 @@ const AgencyClientForm = () => {
     }
   };
 
+  // Esta vista es solo el formulario (2 columnas) — se le da un tope generoso
+  // en vez de dejarlo sin límite, para que los campos de texto no terminen
+  // absurdamente anchos en una pantalla grande.
   return (
-    <section style={{ maxWidth: 900 }}>
+    <section style={{ maxWidth: 1300 }}>
       <div style={{ marginBottom: "1rem" }}>
         <button
           type="button"
