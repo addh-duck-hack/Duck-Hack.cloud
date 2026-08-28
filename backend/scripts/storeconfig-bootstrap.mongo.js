@@ -58,7 +58,13 @@ const storeConfigDoc = {
     { title: "Bienvenido a tu tienda", description: "Personaliza este texto desde el panel de administración.", sortOrder: 1, isActive: true },
   ],
   metrics: [
-    { value: "0", label: "Clientes activos", sortOrder: 1 },
+    { source: "active_clients", value: "0", label: "Clientes activos", sortOrder: 1 },
+    { source: "manual", value: "99.9%", label: "Disponibilidad", sortOrder: 2 },
+    { source: "manual", value: "30d", label: "Garantía de devolución", sortOrder: 3 },
+    { source: "active_containers", value: "0", label: "Endpoints funcionales", sortOrder: 4 },
+  ],
+  commands: [
+    { cmd: "desplegar hosting", note: "planes adecuados a todo tipo de clientes", sortOrder: 1, isActive: true },
   ],
   services: [
     { icon: "fas fa-cloud", route: "/servicios", title: "Servicio de ejemplo", description: "Describe aquí este servicio.", sortOrder: 1, isActive: true },

@@ -68,9 +68,28 @@ const heroSlideSchema = new mongoose.Schema(
 
 const metricSchema = new mongoose.Schema(
   {
-    value: { type: String, required: true, trim: true, maxlength: 20 },
+    // "manual": value se edita a mano desde el admin (ej. Disponibilidad, Garantía).
+    // "active_clients"/"active_containers": value se recalcula en cada GET /public
+    // (ver storeConfig.routes.js) a partir de datos reales — el value guardado en
+    // Mongo para estos casos es solo un placeholder, no se le hace caso al leerlo.
+    source: {
+      type: String,
+      enum: ["manual", "active_clients", "active_containers"],
+      default: "manual",
+    },
+    value: { type: String, trim: true, maxlength: 20 },
     label: { type: String, required: true, trim: true, maxlength: 80 },
     sortOrder: { type: Number, default: 0, min: 0 },
+  },
+  { _id: false }
+);
+
+const commandSchema = new mongoose.Schema(
+  {
+    cmd: { type: String, required: true, trim: true, maxlength: 80 },
+    note: { type: String, trim: true, maxlength: 160 },
+    sortOrder: { type: Number, default: 0, min: 0 },
+    isActive: { type: Boolean, default: true },
   },
   { _id: false }
 );
@@ -248,6 +267,10 @@ const storeConfigSchema = new mongoose.Schema(
     },
     metrics: {
       type: [metricSchema],
+      default: [],
+    },
+    commands: {
+      type: [commandSchema],
       default: [],
     },
     services: {

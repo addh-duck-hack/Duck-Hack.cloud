@@ -284,6 +284,7 @@ const validateStoreConfigPayload = (req, res, next) => {
   const arrayFieldError =
     validateStoreConfigArrayField(payload, "heroSlides", validateHeroSlideItem) ||
     validateStoreConfigArrayField(payload, "metrics", validateMetricItem) ||
+    validateStoreConfigArrayField(payload, "commands", validateCommandItem) ||
     validateStoreConfigArrayField(payload, "services", validateServiceItem) ||
     validateStoreConfigArrayField(payload, "pricingPlans", validatePricingPlanItem) ||
     validateStoreConfigArrayField(payload, "commonPlanChecks", validateStringListItem) ||
@@ -346,13 +347,29 @@ const validateHeroSlideItem = (item, index) => {
   return null;
 };
 
+const METRIC_SOURCES = new Set(["manual", "active_clients", "active_containers"]);
+
 const validateMetricItem = (item, index) => {
   if (!isPlainObject(item)) return `metrics[${index}] debe ser un objeto.`;
+
+  const source = item.source !== undefined ? asTrimmedString(item.source) : "manual";
+  if (!METRIC_SOURCES.has(source)) {
+    return `metrics[${index}].source no es válido.`;
+  }
+  item.source = source;
+
+  // value solo es obligatorio si la métrica es manual — si es automática
+  // (active_clients/active_containers), GET /public la recalcula en cada
+  // request y lo guardado aquí es solo un placeholder.
   const value = asTrimmedString(item.value);
-  if (!value || value.length > 20) {
-    return `metrics[${index}].value es requerido (máx. 20 caracteres).`;
+  if (value.length > 20) {
+    return `metrics[${index}].value excede 20 caracteres.`;
+  }
+  if (source === "manual" && !value) {
+    return `metrics[${index}].value es requerido cuando source es "manual".`;
   }
   item.value = value;
+
   const label = asTrimmedString(item.label);
   if (!label || label.length > 80) {
     return `metrics[${index}].label es requerido (máx. 80 caracteres).`;
@@ -360,6 +377,27 @@ const validateMetricItem = (item, index) => {
   item.label = label;
   if (item.sortOrder !== undefined && (!Number.isInteger(item.sortOrder) || item.sortOrder < 0)) {
     return `metrics[${index}].sortOrder debe ser entero >= 0.`;
+  }
+  return null;
+};
+
+const validateCommandItem = (item, index) => {
+  if (!isPlainObject(item)) return `commands[${index}] debe ser un objeto.`;
+  const cmd = asTrimmedString(item.cmd);
+  if (!cmd || cmd.length > 80) {
+    return `commands[${index}].cmd es requerido (máx. 80 caracteres).`;
+  }
+  item.cmd = cmd;
+  if (item.note !== undefined) {
+    const note = asTrimmedString(item.note);
+    if (note.length > 160) return `commands[${index}].note excede 160 caracteres.`;
+    item.note = note;
+  }
+  if (item.sortOrder !== undefined && (!Number.isInteger(item.sortOrder) || item.sortOrder < 0)) {
+    return `commands[${index}].sortOrder debe ser entero >= 0.`;
+  }
+  if (item.isActive !== undefined && typeof item.isActive !== "boolean") {
+    return `commands[${index}].isActive debe ser boolean.`;
   }
   return null;
 };

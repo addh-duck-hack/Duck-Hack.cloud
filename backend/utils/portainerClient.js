@@ -213,4 +213,37 @@ const getContainersMetrics = async (names) => {
   );
 };
 
-module.exports = { getServerMetrics, getContainersMetrics, PortainerConfigError, PortainerRequestError };
+// Conteo liviano de contenedores corriendo en todo el host — a diferencia de
+// getServerMetrics() (info + df + stats por contenedor), esto hace UNA sola
+// llamada a Portainer. Pensado para alimentar la métrica pública "Endpoints
+// funcionales" del storefront (GET /api/store-config/public), que se pide en
+// cada carga del home — se cachea en memoria un rato corto para no pegarle a
+// Portainer en cada visita. Cache simple in-memory (no coordina entre
+// instancias del backend), igual criterio que el rate limiter existente.
+const CONTAINERS_COUNT_CACHE_MS = 45_000;
+let containersCountCache = { value: null, expiresAt: 0 };
+
+const getRunningContainersCount = async () => {
+  if (!isConfigured()) {
+    throw new PortainerConfigError("PORTAINER_URL y/o PORTAINER_API_TOKEN no están configurados en el backend.");
+  }
+
+  if (containersCountCache.value !== null && Date.now() < containersCountCache.expiresAt) {
+    return containersCountCache.value;
+  }
+
+  const endpointId = await resolveEndpointId();
+  const containers = await portainerFetch(`/api/endpoints/${endpointId}/docker/containers/json?all=false`);
+  const count = Array.isArray(containers) ? containers.length : 0;
+
+  containersCountCache = { value: count, expiresAt: Date.now() + CONTAINERS_COUNT_CACHE_MS };
+  return count;
+};
+
+module.exports = {
+  getServerMetrics,
+  getContainersMetrics,
+  getRunningContainersCount,
+  PortainerConfigError,
+  PortainerRequestError,
+};

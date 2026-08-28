@@ -35,11 +35,26 @@ const METRICS = [
 
 
 const COMMANDS = [
-  { p: '$', cmd: 'desplegar hosting', note: 'planes adecuados a todo tipo de clientes' },
-  { p: '$', cmd: 'construir sitio', note: 'diseño + desarrollo web a medida' },
-  { p: '$', cmd: 'publicar app', note: 'aplicaciones nativas (iOS y Android)' },
-  { p: '$', cmd: 'configurar marca', note: 'imagen corporativa e identidad visual' },
+  { cmd: 'desplegar hosting', note: 'planes adecuados a todo tipo de clientes' },
+  { cmd: 'construir sitio', note: 'diseño + desarrollo web a medida' },
+  { cmd: 'publicar app', note: 'aplicaciones nativas (iOS y Android)' },
+  { cmd: 'configurar marca', note: 'imagen corporativa e identidad visual' },
 ];
+
+// Duración de cada slide proporcional a su cantidad de palabras — un timer
+// fijo (como el anterior de 5200ms) corta o no alcanza a mostrar texto más
+// largo del que el admin pueda cargar ahora desde /admin/store-config/home.
+// A ritmo de lectura (~230 palabras/min) más margen, con piso y techo para
+// que ni un slide muy corto pase demasiado rápido ni uno muy largo se quede
+// pegado.
+const READ_MS_PER_WORD = 260;
+const MIN_SLIDE_MS = 4800;
+const MAX_SLIDE_MS = 12000;
+
+const getSlideDuration = (slide) => {
+  const words = `${slide?.title || ''} ${slide?.description || ''}`.trim().split(/\s+/).filter(Boolean).length;
+  return Math.min(MAX_SLIDE_MS, Math.max(MIN_SLIDE_MS, words * READ_MS_PER_WORD));
+};
 
 const Inicio = () => {
   usePageMeta();
@@ -51,10 +66,9 @@ const Inicio = () => {
   );
 
   const metrics = useMemo(() => pickList(config?.metrics, METRICS), [config]);
+  const commands = useMemo(() => pickList(config?.commands, COMMANDS), [config]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [displayedText, setDisplayedText] = useState('');
-  const [charIndex, setCharIndex] = useState(0);
 
   // Si la lista de slides cambia (ej. terminó de cargar el store-config) y el
   // índice actual quedó fuera de rango, se vuelve a 0 en vez de romper.
@@ -62,32 +76,19 @@ const Inicio = () => {
     if (currentIndex >= slides.length) setCurrentIndex(0);
   }, [slides, currentIndex]);
 
-  // Aparición progresiva (typewriter) de la descripción, como en la versión anterior.
-  useEffect(() => {
-    const description = slides[currentIndex]?.description || '';
-    if (charIndex < description.length) {
-      const timeoutId = setTimeout(() => {
-        setDisplayedText(description.slice(0, charIndex + 1));
-        setCharIndex(charIndex + 1);
-      }, 35);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [charIndex, currentIndex]);
-
-  useEffect(() => {
-    setDisplayedText('');
-    setCharIndex(0);
-  }, [currentIndex]);
-
-  // Rotación automática de slides, respetando prefers-reduced-motion.
+  // Rotación automática de slides: se reprograma en cada cambio con la
+  // duración calculada para el slide actual (en vez de un intervalo fijo),
+  // así el texto siempre tiene tiempo de mostrarse completo y leerse.
+  // Respeta prefers-reduced-motion y no corre si solo hay un slide.
   useEffect(() => {
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduceMotion) return undefined;
-    const intervalId = setInterval(() => {
+    if (reduceMotion || slides.length <= 1) return undefined;
+    const duration = getSlideDuration(slides[currentIndex] || slides[0]);
+    const timeoutId = setTimeout(() => {
       setCurrentIndex((i) => (i + 1) % slides.length);
-    }, 5200);
-    return () => clearInterval(intervalId);
-  }, [slides]);
+    }, duration);
+    return () => clearTimeout(timeoutId);
+  }, [slides, currentIndex]);
 
   const slide = slides[currentIndex] || slides[0];
 
@@ -108,8 +109,10 @@ const Inicio = () => {
         </div>
         <div className="term-body">
           <div className="prompt">$ duckhack status --client=tu-negocio</div>
-          <h1>{slide.title}</h1>
-          <p className="lede">{displayedText}</p>
+          <div className="term-copy" key={slide.id}>
+            <h1>{slide.title}</h1>
+            <p className="lede">{slide.description}</p>
+          </div>
           <div className="term-actions">
             <Link className="btn btn-solid" to="/precios">
               ./ver-planes
@@ -151,9 +154,9 @@ const Inicio = () => {
       </div>
 
       <div className="cmdlist">
-        {COMMANDS.map((c) => (
+        {commands.map((c) => (
           <div className="row" key={c.cmd}>
-            <span className="p">{c.p}</span> {c.cmd} <span className="c">{`// ${c.note}`}</span>
+            <span className="p">$</span> {c.cmd} <span className="c">{`// ${c.note}`}</span>
           </div>
         ))}
       </div>

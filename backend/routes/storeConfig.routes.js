@@ -1,10 +1,12 @@
 const express = require("express");
 const router = express.Router();
 const StoreConfig = require("../models/storeConfig.model");
+const AgencyClient = require("../models/agencyClient.model");
 const { verifyToken, authorizeRoles, ROLES } = require("../middleware/authMiddleware");
 const { validateStoreConfigPayload } = require("../middleware/validationMiddleware");
 const { sendError } = require("../utils/httpResponses");
 const { createSingleImageUploadMiddlewares } = require("../middleware/imageUploadMiddleware");
+const { getRunningContainersCount } = require("../utils/portainerClient");
 
 const sanitizeStoreConfig = (doc) => {
   if (!doc) return null;
@@ -13,12 +15,45 @@ const sanitizeStoreConfig = (doc) => {
   return config;
 };
 
+// Sustituye el `value` de las métricas cuyo `source` no es "manual" por un
+// dato real, calculado al vuelo. Nunca deja que un fallo acá tumbe /public
+// (mejor mostrar el placeholder guardado que romper el storefront) — cada
+// fuente se resuelve de forma independiente y solo si al menos una métrica la
+// necesita, para no pagar el costo en instancias que no configuraron ninguna.
+const resolveLiveMetrics = async (metrics) => {
+  if (!Array.isArray(metrics) || metrics.length === 0) return metrics;
+
+  const needsActiveClients = metrics.some((m) => m.source === "active_clients");
+  const needsActiveContainers = metrics.some((m) => m.source === "active_containers");
+  if (!needsActiveClients && !needsActiveContainers) return metrics;
+
+  const [activeClientsResult, activeContainersResult] = await Promise.allSettled([
+    needsActiveClients ? AgencyClient.countDocuments({ isActive: { $ne: false } }) : Promise.resolve(null),
+    needsActiveContainers ? getRunningContainersCount() : Promise.resolve(null),
+  ]);
+
+  const activeClientsCount = activeClientsResult.status === "fulfilled" ? activeClientsResult.value : null;
+  const activeContainersCount = activeContainersResult.status === "fulfilled" ? activeContainersResult.value : null;
+
+  return metrics.map((m) => {
+    if (m.source === "active_clients" && activeClientsCount !== null) {
+      return { ...m, value: String(activeClientsCount) };
+    }
+    if (m.source === "active_containers" && activeContainersCount !== null) {
+      return { ...m, value: String(activeContainersCount) };
+    }
+    return m; // fuente automática pero no se pudo calcular ahora mismo: se
+    // mantiene el placeholder guardado en vez de mostrar vacío.
+  });
+};
+
 router.get("/public", async (req, res) => {
   try {
     const config = await StoreConfig.findOne({ singletonKey: "default", isActive: true }).lean();
     if (!config) {
       return sendError(res, 404, "STORE_CONFIG_NOT_FOUND", "Configuración de tienda no encontrada.");
     }
+    config.metrics = await resolveLiveMetrics(config.metrics);
     return res.status(200).json(sanitizeStoreConfig(config));
   } catch (error) {
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al consultar configuración de tienda.");
@@ -62,6 +97,7 @@ router.put(
         "legalIdentity",
         "heroSlides",
         "metrics",
+        "commands",
         "services",
         "pricingPlans",
         "commonPlanChecks",

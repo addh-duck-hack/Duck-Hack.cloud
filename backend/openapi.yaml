@@ -2049,6 +2049,15 @@ components:
     Metric:
       type: object
       properties:
+        source:
+          type: string
+          enum: [manual, active_clients, active_containers]
+          default: manual
+          description: >
+            "manual": value se edita a mano. "active_clients"/"active_containers": value se
+            recalcula en cada GET /public a partir de datos reales (conteo de AgencyClient
+            activos / contenedores corriendo vía Portainer) — el value guardado es solo un
+            placeholder cuando source no es "manual".
         value:
           type: string
           maxLength: 20
@@ -2059,7 +2068,24 @@ components:
         sortOrder:
           type: integer
           minimum: 0
-      required: [value, label]
+      required: [label]
+
+    Command:
+      type: object
+      properties:
+        cmd:
+          type: string
+          maxLength: 80
+          example: "desplegar hosting"
+        note:
+          type: string
+          maxLength: 160
+        sortOrder:
+          type: integer
+          minimum: 0
+        isActive:
+          type: boolean
+      required: [cmd]
 
     ServiceItem:
       type: object
@@ -2218,6 +2244,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Metric"
+        commands:
+          type: array
+          items:
+            $ref: "#/components/schemas/Command"
         services:
           type: array
           items:

@@ -50,6 +50,29 @@
   font-size: 0.85rem;
 }
 
+/* Se remonta (key={slide.id}) en cada cambio de slide, así el fade se
+   reinicia solo sin necesitar JS extra para orquestar la animación. */
+.term-copy {
+  animation: term-copy-fade 0.5s ease both;
+}
+
+@keyframes term-copy-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .term-copy {
+    animation: none;
+  }
+}
+
 .term-body h1 {
   font-size: clamp(1.8rem, 4.4vw, 3.1rem);
   line-height: 1.08;

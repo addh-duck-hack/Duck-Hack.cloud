@@ -98,6 +98,21 @@ const renderField = (field, item, onItemChange) => {
     );
   }
 
+  if (field.type === "select") {
+    return (
+      <label key={field.name} style={{ gridColumn: field.fullWidth ? "1 / span 2" : undefined }}>
+        {field.label}
+        <select value={value ?? field.options?.[0]?.value ?? ""} onChange={(e) => onItemChange(field.name, e.target.value)}>
+          {(field.options || []).map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
+
   if (field.type === "image") {
     return (
       <div key={field.name} style={{ gridColumn: field.fullWidth ? "1 / span 2" : undefined }}>
