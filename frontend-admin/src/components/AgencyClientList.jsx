@@ -58,7 +58,7 @@ const AgencyClientList = () => {
       </div>
 
       <h3>Clientes de agencia</h3>
-      <p>Control interno de hosting y deudas de diseño. Uso confidencial (solo super_admin).</p>
+      <p>Control interno de hosting y deudas. Uso confidencial (solo super_admin).</p>
 
       {error ? <div className="auth-error">{error}</div> : null}
 
@@ -127,7 +127,7 @@ const AgencyClientList = () => {
               </div>
 
               <div className="client-card-row">
-                <span>Deuda de diseño</span>
+                <span>Deuda</span>
                 <span>
                   {client.pendingDebtTotal > 0 ? `${formatCurrency(client.pendingDebtTotal)} (${client.pendingDebtCount})` : "Sin deuda"}
                 </span>

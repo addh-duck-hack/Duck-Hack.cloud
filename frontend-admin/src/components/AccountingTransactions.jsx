@@ -12,7 +12,7 @@ const formatDate = (value) => formatCalendarDate(value) || "—";
 const SOURCE_LABELS = {
   manual: "Manual",
   hosting_payment: "Pago de hosting",
-  design_debt: "Deuda de diseño",
+  design_debt: "Deuda",
   opening_balance: "Saldo inicial",
 };
 

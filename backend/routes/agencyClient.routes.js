@@ -188,7 +188,7 @@ router.delete("/:id", validateObjectIdParam("id"), ensureAgencyClientExists, asy
         res,
         409,
         "AGENCY_CLIENT_HAS_RELATED_RECORDS",
-        "No se puede eliminar el cliente: tiene pagos de hosting o deudas de diseño registrados."
+        "No se puede eliminar el cliente: tiene pagos de hosting o deudas registrados."
       );
     }
 
@@ -357,7 +357,7 @@ router.get(
       const debts = await DesignDebt.find({ client: req.agencyClient._id }).sort({ invoicedAt: -1 });
       return res.status(200).json({ items: debts.map(sanitizeDoc) });
     } catch (error) {
-      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al listar deudas de diseño.");
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al listar deudas.");
     }
   }
 );
@@ -392,16 +392,16 @@ router.post(
           amount: amountPaid,
           date: debt.invoicedAt || new Date(),
           category: "Diseño",
-          description: `Abono a deuda de diseño - ${debt.description}`,
-          concept: `Abono a deuda de diseño: ${debt.description}`,
+          description: `Abono a deuda - ${debt.description}`,
+          concept: `Abono a deuda: ${debt.description}`,
           sourceCollection: "DesignDebt",
           sourceId: debt._id,
         });
       }
 
-      return res.status(201).json({ message: "Deuda de diseño registrada.", debt: sanitizeDoc(debt) });
+      return res.status(201).json({ message: "Deuda registrada.", debt: sanitizeDoc(debt) });
     } catch (error) {
-      return handleMongooseError(res, error, "Error al registrar la deuda de diseño.");
+      return handleMongooseError(res, error, "Error al registrar la deuda.");
     }
   }
 );
@@ -416,7 +416,7 @@ router.put(
     try {
       const debt = await DesignDebt.findOne({ _id: req.params.debtId, client: req.agencyClient._id });
       if (!debt) {
-        return sendError(res, 404, "DESIGN_DEBT_NOT_FOUND", "Deuda de diseño no encontrada.");
+        return sendError(res, 404, "DESIGN_DEBT_NOT_FOUND", "Deuda no encontrada.");
       }
 
       const nextAmount = req.body.amount !== undefined ? req.body.amount : debt.amount;
@@ -447,16 +447,16 @@ router.put(
           amount: paidIncrement,
           date: new Date(),
           category: "Diseño",
-          description: `Abono a deuda de diseño - ${debt.description}`,
-          concept: `Abono a deuda de diseño: ${debt.description}`,
+          description: `Abono a deuda - ${debt.description}`,
+          concept: `Abono a deuda: ${debt.description}`,
           sourceCollection: "DesignDebt",
           sourceId: debt._id,
         });
       }
 
-      return res.status(200).json({ message: "Deuda de diseño actualizada.", debt: sanitizeDoc(debt) });
+      return res.status(200).json({ message: "Deuda actualizada.", debt: sanitizeDoc(debt) });
     } catch (error) {
-      return handleMongooseError(res, error, "Error al actualizar la deuda de diseño.");
+      return handleMongooseError(res, error, "Error al actualizar la deuda.");
     }
   }
 );
@@ -470,16 +470,16 @@ router.delete(
     try {
       const deleted = await DesignDebt.findOneAndDelete({ _id: req.params.debtId, client: req.agencyClient._id });
       if (!deleted) {
-        return sendError(res, 404, "DESIGN_DEBT_NOT_FOUND", "Deuda de diseño no encontrada.");
+        return sendError(res, 404, "DESIGN_DEBT_NOT_FOUND", "Deuda no encontrada.");
       }
 
       // Borra también los ingresos y facturas generados por los abonos a esta
       // deuda (puede haber más de uno si se pagó en partes vía ediciones sucesivas).
       await deleteLinkedAccountingRecords({ sourceCollection: "DesignDebt", sourceId: deleted._id });
 
-      return res.status(200).json({ message: "Deuda de diseño eliminada." });
+      return res.status(200).json({ message: "Deuda eliminada." });
     } catch (error) {
-      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al eliminar la deuda de diseño.");
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al eliminar la deuda.");
     }
   }
 );

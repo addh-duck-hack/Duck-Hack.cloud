@@ -82,7 +82,7 @@ router.put(
           res,
           409,
           "TRANSACTION_NOT_EDITABLE",
-          "Esta transacción se generó automáticamente; corrígela desde su origen (pago de hosting o deuda de diseño)."
+          "Esta transacción se generó automáticamente; corrígela desde su origen (pago de hosting o deuda)."
         );
       }
 

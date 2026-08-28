@@ -160,7 +160,7 @@ const AgencyClientDetail = () => {
       const code = err.response?.data?.error?.code;
       setError(
         code === "AGENCY_CLIENT_HAS_RELATED_RECORDS"
-          ? "No se puede eliminar: el cliente tiene pagos de hosting o deudas de diseño registrados. Elimina primero ese historial, o márcalo como inactivo en su lugar."
+          ? "No se puede eliminar: el cliente tiene pagos de hosting o deudas registrados. Elimina primero ese historial, o márcalo como inactivo en su lugar."
           : err.response?.data?.error?.message || "No fue posible eliminar el cliente."
       );
     }
@@ -351,7 +351,7 @@ const AgencyClientDetail = () => {
 
           {/* --- Historial de deudas de diseño (solo lectura) --- */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "2rem" }}>
-            <h4 style={{ margin: 0 }}>Deudas de diseño</h4>
+            <h4 style={{ margin: 0 }}>Deudas</h4>
             <button type="button" onClick={() => navigate(`/admin/agency-clients/${id}/design-debts/new`)} style={{ width: "auto" }}>
               Agregar deuda
             </button>

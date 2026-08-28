@@ -334,7 +334,7 @@ paths:
       description: >
         Información confidencial de facturación interna de la agencia (no confundir con el rol `customer`).
         Acceso exclusivo a `super_admin`. Cada item incluye `hostingPaidUntil` (fecha del último pago vigente)
-        y `pendingDebtTotal`/`pendingDebtCount` (deuda de diseño pendiente), calculados vía agregación.
+        y `pendingDebtTotal`/`pendingDebtCount` (deuda pendiente), calculados vía agregación.
       security:
         - bearerAuth: []
       responses:
@@ -450,7 +450,7 @@ paths:
       tags: [AgencyClients]
       summary: Eliminar cliente de agencia
       description: >
-        Bloqueado con 409 si el cliente tiene pagos de hosting o deudas de diseño asociados
+        Bloqueado con 409 si el cliente tiene pagos de hosting o deudas asociados
         (sin borrado en cascada, para no destruir historial financiero por accidente).
       security:
         - bearerAuth: []
@@ -619,14 +619,14 @@ paths:
   /api/agency-clients/{id}/design-debts:
     get:
       tags: [AgencyClients]
-      summary: Listar deudas de diseño de un cliente
+      summary: Listar deudas de un cliente
       security:
         - bearerAuth: []
       parameters:
         - $ref: "#/components/parameters/AgencyClientIdParam"
       responses:
         "200":
-          description: Historial de deudas de diseño
+          description: Historial de deudas
           content:
             application/json:
               schema:
@@ -646,7 +646,7 @@ paths:
           $ref: "#/components/responses/InternalServerError"
     post:
       tags: [AgencyClients]
-      summary: Registrar deuda de diseño
+      summary: Registrar deuda
       security:
         - bearerAuth: []
       parameters:
@@ -659,7 +659,7 @@ paths:
               $ref: "#/components/schemas/DesignDebtCreateRequest"
       responses:
         "201":
-          description: Deuda de diseño registrada
+          description: Deuda registrada
           content:
             application/json:
               schema:
@@ -683,7 +683,7 @@ paths:
   /api/agency-clients/{id}/design-debts/{debtId}:
     put:
       tags: [AgencyClients]
-      summary: Editar deuda de diseño (incluye marcar pagada vía amountPaid)
+      summary: Editar deuda (incluye marcar pagada vía amountPaid)
       description: >
         `status` no se acepta del cliente: se recalcula server-side a partir de `amount`/`amountPaid`
         (`pending`/`partial`/`paid`).
@@ -700,7 +700,7 @@ paths:
               $ref: "#/components/schemas/DesignDebtCreateRequest"
       responses:
         "200":
-          description: Deuda de diseño actualizada
+          description: Deuda actualizada
           content:
             application/json:
               schema:
@@ -717,7 +717,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
-          description: Cliente o deuda de diseño no encontrada
+          description: Cliente o deuda no encontrada
           content:
             application/json:
               schema:
@@ -726,7 +726,7 @@ paths:
           $ref: "#/components/responses/InternalServerError"
     delete:
       tags: [AgencyClients]
-      summary: Eliminar deuda de diseño
+      summary: Eliminar deuda
       description: >
         También elimina las transacciones de ingreso y facturas generadas
         automáticamente por los abonos a esta deuda (puede haber varias si se
@@ -739,7 +739,7 @@ paths:
         - $ref: "#/components/parameters/DesignDebtIdParam"
       responses:
         "200":
-          description: Deuda de diseño eliminada (junto con sus ingresos y facturas ligados)
+          description: Deuda eliminada (junto con sus ingresos y facturas ligados)
           content:
             application/json:
               schema:
@@ -749,7 +749,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
-          description: Cliente o deuda de diseño no encontrada
+          description: Cliente o deuda no encontrada
           content:
             application/json:
               schema:
@@ -1152,7 +1152,7 @@ components:
       required: true
       schema:
         type: string
-      description: ObjectId de la deuda de diseño
+      description: ObjectId de la deuda
 
     TransactionIdParam:
       in: path
@@ -1246,7 +1246,7 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
     AgencyClientHasRelatedRecords:
-      description: No se puede eliminar el cliente porque tiene pagos de hosting o deudas de diseño asociados
+      description: No se puede eliminar el cliente porque tiene pagos de hosting o deudas asociados
       content:
         application/json:
           schema:
@@ -1580,7 +1580,7 @@ components:
               description: coversUntil del último pago de hosting registrado (null si nunca se registró uno).
             pendingDebtTotal:
               type: number
-              description: Suma de (amount - amountPaid) de las deudas de diseño con status != paid.
+              description: Suma de (amount - amountPaid) de las deudas con status != paid.
             pendingDebtCount:
               type: integer
           required: [pendingDebtTotal, pendingDebtCount]

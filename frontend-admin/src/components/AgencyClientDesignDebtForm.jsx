@@ -45,7 +45,7 @@ const AgencyClientDesignDebtForm = () => {
         </button>
       </div>
 
-      <h3>Registrar deuda de diseño</h3>
+      <h3>Registrar deuda</h3>
 
       {error ? <div className="auth-error">{error}</div> : null}
 
