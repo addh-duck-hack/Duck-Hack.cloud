@@ -1799,6 +1799,12 @@ components:
           type: number
         expense:
           type: number
+        closingBalance:
+          type: number
+          description: >
+            Saldo con el que cerró la cuenta al final de este mes (arrastrado desde antes del
+            año consultado + el neto acumulado del año hasta este mes inclusive) — no es solo
+            el neto del mes, sino el saldo real de la cuenta en ese punto en el tiempo.
 
     AccountingSummary:
       type: object

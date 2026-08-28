@@ -163,12 +163,20 @@ router.get("/summary", async (req, res) => {
     const startOfYear = new Date(Date.UTC(year, 0, 1));
     const startOfNextYear = new Date(Date.UTC(year + 1, 0, 1));
 
-    const [monthlyRaw, balanceRaw] = await Promise.all([
+    const [monthlyRaw, balanceRaw, balanceBeforeYearRaw] = await Promise.all([
       Transaction.aggregate([
         { $match: { date: { $gte: startOfYear, $lt: startOfNextYear } } },
         { $group: { _id: { month: { $month: "$date" }, type: "$type" }, total: { $sum: "$amount" } } },
       ]),
       Transaction.aggregate([
+        { $group: { _id: "$type", total: { $sum: "$amount" } } },
+      ]),
+      // Saldo arrastrado de años anteriores: para poder mostrar "cómo cerró
+      // la cuenta" mes a mes dentro del año consultado, no solo el neto de
+      // ese mes, hace falta el punto de partida (todo lo anterior al 1 de
+      // enero de `year`), sin importar si `year` es el año en curso o uno pasado.
+      Transaction.aggregate([
+        { $match: { date: { $lt: startOfYear } } },
         { $group: { _id: "$type", total: { $sum: "$amount" } } },
       ]),
     ]);
@@ -186,6 +194,20 @@ router.get("/summary", async (req, res) => {
       if (row._id === "income" || row._id === "expense") totalsByType[row._id] = row.total;
     }
     const currentBalance = totalsByType.income - totalsByType.expense;
+
+    const totalsBeforeYear = { income: 0, expense: 0 };
+    for (const row of balanceBeforeYearRaw) {
+      if (row._id === "income" || row._id === "expense") totalsBeforeYear[row._id] = row.total;
+    }
+
+    // Saldo con el que cerró la cuenta al final de cada mes (arrastrado desde
+    // antes del año, no solo el neto del mes) — para que "cómo cerró la cuenta"
+    // se vea junto al neto, en vez de tener que sumarlo a mano mes a mes.
+    let runningBalance = totalsBeforeYear.income - totalsBeforeYear.expense;
+    for (const monthEntry of months) {
+      runningBalance += monthEntry.income - monthEntry.expense;
+      monthEntry.closingBalance = runningBalance;
+    }
 
     return res.status(200).json({ year, currentBalance, months });
   } catch (error) {

@@ -150,6 +150,7 @@ const AccountingDashboard = () => {
                   <th>Ingresos</th>
                   <th>Egresos</th>
                   <th>Neto</th>
+                  <th>Saldo al cierre</th>
                 </tr>
               </thead>
               <tbody>
@@ -159,6 +160,7 @@ const AccountingDashboard = () => {
                     <td>{formatMxn(m.income)}</td>
                     <td>{formatMxn(m.expense)}</td>
                     <td>{formatMxn(m.income - m.expense)}</td>
+                    <td>{formatMxn(m.closingBalance)}</td>
                   </tr>
                 ))}
               </tbody>
