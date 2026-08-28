@@ -175,7 +175,14 @@ const AgencyClientDetail = () => {
   // del propio historial de pagos que ya se cargó, tomando el `coversUntil` más
   // lejano (los pagos vienen ordenados por el backend con `coversUntil: -1`).
   const hostingPaidUntil = payments[0]?.coversUntil;
-  const hostingBadge = client ? getDateStatusBadge(hostingPaidUntil, { emptyLabel: "Sin pagos" }) : null;
+  // Plan "free" = servicio propio de la agencia: no aplica cobro de hosting,
+  // así que no debe marcarse en rojo "Sin pagos" (ver AgencyClientList.jsx).
+  const isFreePlan = client?.hostingPlan === "free";
+  const hostingBadge = isFreePlan
+    ? { color: "green", label: "Uso interno" }
+    : client
+    ? getDateStatusBadge(hostingPaidUntil, { emptyLabel: "Sin pagos" })
+    : null;
   const domainBadge = client?.domain
     ? getDateStatusBadge(client.domainExpiresAt, { emptyLabel: "Sin fecha registrada" })
     : null;

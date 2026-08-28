@@ -1634,10 +1634,13 @@ components:
 
     HostingPlan:
       type: string
-      enum: [basic, medium, advanced, enterprise]
+      enum: [free, basic, medium, advanced, enterprise]
       description: >
         Plan de hosting contratado (ver backend/utils/hostingPlans.js, debe coincidir con los precios
         publicados en frontend-user). "enterprise" es "bajo cotización" — sin precio de lista fijo.
+        "free" no es un plan comercial: es para servicios/dominios propios de la agencia (precio
+        fijo en 0) que igual se mapean aquí porque generan gasto de dominio/hosting/licencias/docker,
+        registrado como egreso en /api/accounting en vez de como cobro de hosting.
 
     DesignDebt:
       type: object

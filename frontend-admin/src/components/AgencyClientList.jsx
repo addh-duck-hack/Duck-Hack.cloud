@@ -71,7 +71,13 @@ const AgencyClientList = () => {
         const inactiveClients = clients.filter((c) => c.isActive === false);
 
         const renderCard = (client) => {
-          const hostingBadge = getDateStatusBadge(client.hostingPaidUntil, { emptyLabel: "Sin pagos" });
+          // Plan "free" = servicio propio de la agencia, no de un cliente que
+          // paga hosting: no tiene sentido marcarlo en rojo "Sin pagos" porque
+          // nunca va a tener un pago de hosting que registrar.
+          const isFreePlan = client.hostingPlan === "free";
+          const hostingBadge = isFreePlan
+            ? { color: "green", label: "Uso interno" }
+            : getDateStatusBadge(client.hostingPaidUntil, { emptyLabel: "Sin pagos" });
           const domainBadge = client.domain
             ? getDateStatusBadge(client.domainExpiresAt, { emptyLabel: "Sin fecha registrada" })
             : null;
