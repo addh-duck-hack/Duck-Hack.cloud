@@ -88,6 +88,9 @@ const commandSchema = new mongoose.Schema(
   {
     cmd: { type: String, required: true, trim: true, maxlength: 80 },
     note: { type: String, trim: true, maxlength: 160 },
+    // Clase de ícono FontAwesome (mismo patrón que serviceItemSchema.icon) —
+    // opcional; el frontend cae a un ícono genérico si viene vacío.
+    icon: { type: String, trim: true, maxlength: 60 },
     sortOrder: { type: Number, default: 0, min: 0 },
     isActive: { type: Boolean, default: true },
   },

@@ -64,7 +64,7 @@ const storeConfigDoc = {
     { source: "active_containers", value: "0", label: "Endpoints funcionales", sortOrder: 4 },
   ],
   commands: [
-    { cmd: "desplegar hosting", note: "planes adecuados a todo tipo de clientes", sortOrder: 1, isActive: true },
+    { cmd: "desplegar hosting", note: "planes adecuados a todo tipo de clientes", icon: "fas fa-server", sortOrder: 1, isActive: true },
   ],
   services: [
     { icon: "fas fa-cloud", route: "/servicios", title: "Servicio de ejemplo", description: "Describe aquí este servicio.", sortOrder: 1, isActive: true },

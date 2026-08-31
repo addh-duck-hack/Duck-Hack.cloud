@@ -2080,6 +2080,10 @@ components:
         note:
           type: string
           maxLength: 160
+        icon:
+          type: string
+          maxLength: 60
+          description: Clase de ícono FontAwesome (ej. "fas fa-server"). Opcional.
         sortOrder:
           type: integer
           minimum: 0

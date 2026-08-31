@@ -393,6 +393,11 @@ const validateCommandItem = (item, index) => {
     if (note.length > 160) return `commands[${index}].note excede 160 caracteres.`;
     item.note = note;
   }
+  if (item.icon !== undefined) {
+    const icon = asTrimmedString(item.icon);
+    if (icon.length > 60) return `commands[${index}].icon excede 60 caracteres.`;
+    item.icon = icon;
+  }
   if (item.sortOrder !== undefined && (!Number.isInteger(item.sortOrder) || item.sortOrder < 0)) {
     return `commands[${index}].sortOrder debe ser entero >= 0.`;
   }

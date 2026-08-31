@@ -29,8 +29,9 @@ const METRIC_FIELDS = [
 ];
 
 const COMMAND_FIELDS = [
-  { name: "cmd", label: "Comando (ej. desplegar hosting)", type: "text", required: true, maxLength: 80 },
-  { name: "note", label: "Nota (ej. planes adecuados a todo tipo de clientes)", type: "text", maxLength: 160 },
+  { name: "cmd", label: "Título corto (ej. Hosting a tu medida)", type: "text", required: true, maxLength: 80 },
+  { name: "note", label: "Descripción (ej. Planes que se adaptan a cualquier tipo de negocio)", type: "text", maxLength: 160, fullWidth: true },
+  { name: "icon", label: "Ícono FontAwesome (ej. fas fa-server)", type: "text", maxLength: 60 },
   { name: "isActive", label: "Activo", type: "boolean" },
 ];
 
@@ -97,9 +98,9 @@ const StoreConfigHome = () => {
       <StoreConfigTabs />
       <h3>Home del sitio</h3>
       <p>
-        Slides del hero principal, las métricas destacadas y los pasos "$ ..." de la página de inicio.
-        Las métricas con origen automático (clientes activos / contenedores activos) recalculan su valor
-        real en cada visita — lo que escribas en "Valor" para esas se ignora.
+        Slides del hero principal, las métricas destacadas y los pasos ("Qué puedes hacer con nosotros")
+        de la página de inicio. Las métricas con origen automático (clientes activos / contenedores
+        activos) recalculan su valor real en cada visita — lo que escribas en "Valor" para esas se ignora.
       </p>
 
       {message ? <div className="auth-success">{message}</div> : null}
@@ -130,13 +131,13 @@ const StoreConfigHome = () => {
           addButtonLabel="+ Agregar métrica"
         />
 
-        <h4 style={{ marginTop: "2rem" }}>Pasos ($ ...)</h4>
+        <h4 style={{ marginTop: "2rem" }}>Qué puedes hacer con nosotros</h4>
         <StoreConfigListEditor
           items={commands}
           onChange={setCommands}
           itemLabel={(item) => item.cmd}
           fields={COMMAND_FIELDS}
-          createEmptyItem={() => ({ cmd: "", note: "", isActive: true })}
+          createEmptyItem={() => ({ cmd: "", note: "", icon: "", isActive: true })}
           addButtonLabel="+ Agregar paso"
         />
 

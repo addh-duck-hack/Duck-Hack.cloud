@@ -1,5 +1,5 @@
 // src/components/Inicio.js
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { useStoreConfig } from '../hooks/useStoreConfig';
@@ -33,20 +33,20 @@ const METRICS = [
   { value: '24', label: 'Endpoints funcionales' },
 ];
 
-
 const COMMANDS = [
-  { cmd: 'desplegar hosting', note: 'planes adecuados a todo tipo de clientes' },
-  { cmd: 'construir sitio', note: 'diseño + desarrollo web a medida' },
-  { cmd: 'publicar app', note: 'aplicaciones nativas (iOS y Android)' },
-  { cmd: 'configurar marca', note: 'imagen corporativa e identidad visual' },
+  { cmd: 'Hosting a tu medida', note: 'Planes que se adaptan a cualquier tipo de negocio, con soporte real en español.', icon: 'fas fa-server' },
+  { cmd: 'Tu sitio web', note: 'Diseño y desarrollo pensado para tu marca, de principio a fin.', icon: 'fas fa-laptop-code' },
+  { cmd: 'Tu aplicación', note: 'Apps nativas para iOS y Android, listas para publicarse.', icon: 'fas fa-mobile-alt' },
+  { cmd: 'Tu imagen de marca', note: 'Identidad visual e imagen corporativa que te representan.', icon: 'fas fa-palette' },
 ];
 
+const FALLBACK_ICON = 'fas fa-check-circle';
+
 // Duración de cada slide proporcional a su cantidad de palabras — un timer
-// fijo (como el anterior de 5200ms) corta o no alcanza a mostrar texto más
-// largo del que el admin pueda cargar ahora desde /admin/store-config/home.
-// A ritmo de lectura (~230 palabras/min) más margen, con piso y techo para
-// que ni un slide muy corto pase demasiado rápido ni uno muy largo se quede
-// pegado.
+// fijo corta o no alcanza a mostrar texto más largo del que el admin pueda
+// cargar desde /admin/store-config/home. A ritmo de lectura (~230
+// palabras/min) más margen, con piso y techo para que ni un slide muy corto
+// pase demasiado rápido ni uno muy largo se quede pegado.
 const READ_MS_PER_WORD = 260;
 const MIN_SLIDE_MS = 4800;
 const MAX_SLIDE_MS = 12000;
@@ -54,6 +54,32 @@ const MAX_SLIDE_MS = 12000;
 const getSlideDuration = (slide) => {
   const words = `${slide?.title || ''} ${slide?.description || ''}`.trim().split(/\s+/).filter(Boolean).length;
   return Math.min(MAX_SLIDE_MS, Math.max(MIN_SLIDE_MS, words * READ_MS_PER_WORD));
+};
+
+// Anima un contador de "0" al valor real cuando su tarjeta entra en el
+// viewport — trabaja directo sobre el DOM vía ref (no sobre estado de React)
+// para no disparar un re-render por frame; termina siempre fijando el texto
+// exacto que React ya renderizó, así que no hay desajuste si React vuelve a
+// pintar ese nodo después.
+const animateCount = (el, rawValue, reduceMotion) => {
+  if (!el || reduceMotion) return;
+  const match = String(rawValue).match(/^([\d.]+)(.*)$/);
+  if (!match) return;
+  const target = parseFloat(match[1]);
+  const suffix = match[2] || '';
+  const decimals = (match[1].split('.')[1] || '').length;
+  const duration = 900;
+  let start = null;
+
+  const tick = (ts) => {
+    if (!start) start = ts;
+    const progress = Math.min(1, (ts - start) / duration);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    el.textContent = (target * eased).toFixed(decimals) + suffix;
+    if (progress < 1) requestAnimationFrame(tick);
+    else el.textContent = rawValue;
+  };
+  requestAnimationFrame(tick);
 };
 
 const Inicio = () => {
@@ -64,9 +90,9 @@ const Inicio = () => {
     () => pickList(config?.heroSlides, SLIDES).map((s, i) => ({ id: s.id ?? i, title: s.title, description: s.description })),
     [config]
   );
-
   const metrics = useMemo(() => pickList(config?.metrics, METRICS), [config]);
   const commands = useMemo(() => pickList(config?.commands, COMMANDS), [config]);
+  const trustMetrics = metrics.slice(0, 2);
 
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -79,7 +105,6 @@ const Inicio = () => {
   // Rotación automática de slides: se reprograma en cada cambio con la
   // duración calculada para el slide actual (en vez de un intervalo fijo),
   // así el texto siempre tiene tiempo de mostrarse completo y leerse.
-  // Respeta prefers-reduced-motion y no corre si solo hay un slide.
   useEffect(() => {
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduceMotion || slides.length <= 1) return undefined;
@@ -92,36 +117,143 @@ const Inicio = () => {
 
   const slide = slides[currentIndex] || slides[0];
 
+  // ---- Riel de "arranque": el riel a la izquierda se enciende por etapas
+  // conforme el hero, el panel de métricas y los pasos entran en el
+  // viewport; las tarjetas de métricas/pasos entran en cascada con un
+  // barrido de brillo y un leve parallax al hacer scroll. ----
+  const pageRef = useRef(null);
+  const railFillRef = useRef(null);
+  const nodeRefs = useRef([]);
+  const sectionRefs = useRef([]);
+  const numRefs = useRef([]);
+
+  useEffect(() => {
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const pageEl = pageRef.current;
+    const sections = sectionRefs.current.filter(Boolean);
+    const nodes = nodeRefs.current.filter(Boolean);
+    if (!pageEl || sections.length === 0) return undefined;
+
+    // Los nodos del riel y el riel mismo comparten .home-view (position:
+    // relative) como bloque contenedor — se posicionan a la altura real de
+    // cada sección, no a una posición fija, para que sigan alineados sin
+    // importar cuánto contenido tenga cada una.
+    const layoutNodes = () => {
+      const pageTop = pageEl.getBoundingClientRect().top;
+      sections.forEach((sec, i) => {
+        if (!nodes[i]) return;
+        const top = sec.getBoundingClientRect().top - pageTop;
+        nodes[i].style.top = `${Math.max(0, top)}px`;
+      });
+    };
+    layoutNodes();
+    window.addEventListener('resize', layoutNodes);
+
+    const sweeper = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add('in-view');
+          const idx = sections.indexOf(entry.target);
+          if (nodes[idx]) nodes[idx].classList.add('lit');
+          entry.target.querySelectorAll('.cell, .step-card').forEach((card, i) => {
+            setTimeout(() => card.classList.add('sweep'), i * 90);
+          });
+        });
+      },
+      { threshold: 0.3 }
+    );
+    sections.forEach((sec) => sweeper.observe(sec));
+
+    const revealTargets = pageEl.querySelectorAll('.cell, .step-card');
+    const counted = new WeakSet();
+    const revealer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add('in-view');
+          const numEl = entry.target.querySelector('[data-count]');
+          if (numEl && !counted.has(numEl)) {
+            counted.add(numEl);
+            animateCount(numEl, numEl.getAttribute('data-count'), reduceMotion);
+          }
+        });
+      },
+      { threshold: 0.25, rootMargin: '0px 0px -8% 0px' }
+    );
+    revealTargets.forEach((t) => revealer.observe(t));
+
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const doc = document.documentElement;
+        const max = doc.scrollHeight - doc.clientHeight;
+        const pct = max > 0 ? Math.min(100, (window.scrollY / max) * 100) : 0;
+        if (railFillRef.current) railFillRef.current.style.height = `${pct}%`;
+        if (!reduceMotion) {
+          pageEl.querySelectorAll('.cell').forEach((card) => {
+            const r = card.getBoundingClientRect();
+            const center = (r.top + r.height / 2) / window.innerHeight - 0.5;
+            card.style.transform = `translateY(${center * 10}px)`;
+          });
+        }
+        ticking = false;
+      });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+
+    return () => {
+      window.removeEventListener('resize', layoutNodes);
+      window.removeEventListener('scroll', onScroll);
+      sweeper.disconnect();
+      revealer.disconnect();
+    };
+  }, [slides, metrics, commands]);
+
   return (
-    <div className="home-view">
-      <div className="term">
-        <div className="term-bar">
-          <span className="chrome-dots">
-            <span className="c1" />
-          </span>
-          <span className="chrome-dots">
-            <span className="c2" />
-          </span>
-          <span className="chrome-dots">
-            <span className="c3" />
-          </span>
-          <span>duck-hack — sesión activa</span>
-        </div>
-        <div className="term-body">
-          <div className="prompt">$ duckhack status --client=tu-negocio</div>
+    <div className="home-view boot-page" ref={pageRef}>
+      <div className="boot-rail">
+        <div className="boot-rail-fill" ref={railFillRef} />
+      </div>
+      <div className="boot-node" ref={(el) => (nodeRefs.current[0] = el)} />
+      <div className="boot-node" ref={(el) => (nodeRefs.current[1] = el)} />
+      <div className="boot-node" ref={(el) => (nodeRefs.current[2] = el)} />
+
+      <section className="hero2" ref={(el) => (sectionRefs.current[0] = el)}>
+        <div className="hero2-bg" aria-hidden="true" />
+        <div className="hero2-content">
+          <span className="hero2-badge">duck-hack · cloud-os</span>
           <div className="term-copy" key={slide.id}>
-            <h1>{slide.title}</h1>
-            <p className="lede">{slide.description}</p>
+            <h1 className="hero2-title">{slide.title}</h1>
+            <p className="hero2-sub">{slide.description}</p>
           </div>
-          <div className="term-actions">
+          <div className="hero2-actions">
             <Link className="btn btn-solid" to="/precios">
-              ./ver-planes
+              Ver planes
             </Link>
             <Link className="btn" to="/contacto">
-              ./contactar
+              Hablar con nosotros
             </Link>
           </div>
-          <div className="hero-dots">
+          {trustMetrics.length > 0 && (
+            <div className="hero2-trust">
+              {trustMetrics.map((m, i) => (
+                <React.Fragment key={m.label}>
+                  {i > 0 ? <span className="sep">·</span> : null}
+                  <span>
+                    <span className="dot" aria-hidden="true" />
+                    {m.value} {m.label.toLowerCase()}
+                  </span>
+                </React.Fragment>
+              ))}
+              <span className="sep">·</span>
+              <span>Soporte en español</span>
+            </div>
+          )}
+          <div className="hero2-dots">
             {slides.map((s, i) => (
               <button
                 key={s.id}
@@ -132,31 +264,49 @@ const Inicio = () => {
             ))}
           </div>
         </div>
+      </section>
+
+      <span className="section-label">Así trabajamos contigo</span>
+      <div className="panel-frame" ref={(el) => (sectionRefs.current[1] = el)}>
+        <div className="panel-chrome">
+          <span className="dot d1" />
+          <span className="dot d2" />
+          <span className="dot d3" />
+          <span className="label">duck-hack — resultados en vivo</span>
+        </div>
+        <div className="bento">
+          {metrics.map((m, i) => (
+            <div className="cell" key={m.label}>
+              <div className="num" data-count={m.value} ref={(el) => (numRefs.current[i] = el)}>
+                {m.value}
+              </div>
+              <div className="lbl">{m.label}</div>
+              {m.label === 'Disponibilidad' && (
+                <svg className="spark" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true">
+                  <polyline
+                    points="0,22 15,18 30,20 45,10 60,14 75,6 90,9 100,4"
+                    fill="none"
+                    stroke="var(--signal)"
+                    strokeWidth="2"
+                  />
+                </svg>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="bento">
-        {metrics.map((m) => (
-          <div className="cell" key={m.label}>
-            <div className="num">{m.value}</div>
-            <div className="lbl">{m.label}</div>
-            {m.label === 'Disponibilidad' && (
-              <svg className="spark" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true">
-                <polyline
-                  points="0,22 15,18 30,20 45,10 60,14 75,6 90,9 100,4"
-                  fill="none"
-                  stroke="var(--signal)"
-                  strokeWidth="2"
-                />
-              </svg>
-            )}
-          </div>
-        ))}
-      </div>
-
-      <div className="cmdlist">
+      <span className="section-label">Qué puedes hacer con nosotros</span>
+      <div className="steps" ref={(el) => (sectionRefs.current[2] = el)}>
         {commands.map((c) => (
-          <div className="row" key={c.cmd}>
-            <span className="p">$</span> {c.cmd} <span className="c">{`// ${c.note}`}</span>
+          <div className="step-card" key={c.cmd}>
+            <span className="step-icon" aria-hidden="true">
+              <i className={c.icon || FALLBACK_ICON} />
+            </span>
+            <div>
+              <strong>{c.cmd}</strong>
+              <p>{c.note}</p>
+            </div>
           </div>
         ))}
       </div>
