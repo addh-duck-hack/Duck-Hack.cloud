@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { apiFetch } from '../utils/apiClient';
 import logo from '../assets/logo.png';
-import { useStoreConfig, resolveStoreImageUrl } from '../hooks/useStoreConfig';
+import { useStoreConfig, resolveStoreImageUrl, handleImageFallback } from '../hooks/useStoreConfig';
 import './VerifyUser.css';
 
 const VerifyUser = () => {
@@ -45,7 +45,7 @@ const VerifyUser = () => {
   return (
     <div className="verify-page">
       <Link to="/" className="auth-brand">
-        <img src={logoSrc} alt={brandName} />
+        <img src={logoSrc} alt={brandName} onError={handleImageFallback(logo)} />
         <span>{brandName}</span>
       </Link>
       <div className="verify-container">

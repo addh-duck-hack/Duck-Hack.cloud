@@ -1,7 +1,7 @@
 // src/components/Loader.js
 import React from 'react';
 import logo from '../assets/logo.png';
-import { useStoreConfig, resolveStoreImageUrl } from '../hooks/useStoreConfig';
+import { useStoreConfig, resolveStoreImageUrl, handleImageFallback } from '../hooks/useStoreConfig';
 import './Loader.css';
 
 const Loader = () => {
@@ -15,7 +15,7 @@ const Loader = () => {
 
   return (
     <div className="loader-container">
-      <img src={logoSrc} alt={config?.storeName || 'Duck-Hack Logo'} className="loader-logo" />
+      <img src={logoSrc} alt={config?.storeName || 'Duck-Hack Logo'} className="loader-logo" onError={handleImageFallback(logo)} />
     </div>
   );
 };

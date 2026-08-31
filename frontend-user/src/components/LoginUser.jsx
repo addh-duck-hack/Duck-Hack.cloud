@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { apiFetch } from "../utils/apiClient";
 import logo from "../assets/logo.png";
-import { useStoreConfig, resolveStoreImageUrl } from "../hooks/useStoreConfig";
+import { useStoreConfig, resolveStoreImageUrl, handleImageFallback } from "../hooks/useStoreConfig";
 import "./Auth.css";
 
 const LoginUser = () => {
@@ -45,7 +45,7 @@ const LoginUser = () => {
   return (
     <section className="auth-page">
       <Link to="/" className="auth-brand">
-        <img src={logoSrc} alt={brandName} />
+        <img src={logoSrc} alt={brandName} onError={handleImageFallback(logo)} />
         <span>{brandName}</span>
       </Link>
       <div className="auth-card">

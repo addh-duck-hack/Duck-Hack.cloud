@@ -5,13 +5,17 @@
   width: 100%;
   position: relative;
   padding-left: 2.6rem;
+  /* Eje horizontal compartido por el riel y los círculos — un solo valor del
+     que ambos se centran, en vez de dos "left" fijos que había que cuadrar
+     a mano (y que se desalineaban, ver .boot-node). */
+  --rail-x: 0.6rem;
 }
 
 /* ---- riel de "arranque": se enciende por etapas conforme el hero, las
    métricas y los pasos entran en el viewport (ver Inicio.jsx) ---- */
 .boot-rail {
   position: absolute;
-  left: 0.6rem;
+  left: var(--rail-x);
   top: 2.2rem;
   bottom: 2.5rem;
   width: 2px;
@@ -30,7 +34,10 @@
 
 .boot-node {
   position: absolute;
-  left: 0.1rem;
+  /* Centra el círculo (12px) sobre el riel (2px) en --rail-x, en vez del
+     "left: 0.1rem" fijo anterior que no cuadraba con el centro real del
+     riel y dejaba el círculo corrido hacia la izquierda. */
+  left: calc(var(--rail-x) - 5px);
   width: 12px;
   height: 12px;
   border-radius: 50%;

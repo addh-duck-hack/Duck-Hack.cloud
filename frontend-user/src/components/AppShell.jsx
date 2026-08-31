@@ -4,7 +4,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import logo from '../assets/logo.png';
 import contactMapBg from '../assets/background_map_contact.webp';
 import Footer from './Footer';
-import { useStoreConfig, resolveStoreImageUrl } from '../hooks/useStoreConfig';
+import { useStoreConfig, resolveStoreImageUrl, handleImageFallback } from '../hooks/useStoreConfig';
 import './AppShell.css';
 
 const NAV_ITEMS = [
@@ -71,7 +71,7 @@ const AppShell = () => {
 
       <aside className={`rail ${drawerOpen ? 'open' : ''}`}>
         <NavLink to="/" className="rail-brand">
-          <img src={logoSrc} alt={brandName} />
+          <img src={logoSrc} alt={brandName} onError={handleImageFallback(logo)} />
           <span>
             {brandName}<span className="rail-brand-accent">/cloud-os</span>
           </span>

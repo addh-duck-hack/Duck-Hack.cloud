@@ -62,3 +62,15 @@ export const resolveStoreImageUrl = (relativePath) => {
   if (!relativePath) return '';
   return `${getApiBaseUrl()}/${relativePath}`;
 };
+
+// Handler compartido para el `onError` de un <img> que usa resolveStoreImageUrl
+// (logo, fotos de equipo/clientes): si la imagen personalizada ya no resuelve
+// (archivo borrado del servidor, subida perdida en un redeploy sin volumen
+// persistente para UPLOADS_DIR, URL editada a mano con un typo en StoreConfig),
+// cae automáticamente al asset local en vez de dejar el ícono de imagen rota
+// del navegador. Se limpia el propio onerror antes de reasignar el src para no
+// entrar en bucle si el fallback también fallara.
+export const handleImageFallback = (fallbackSrc) => (event) => {
+  event.currentTarget.onerror = null;
+  event.currentTarget.src = fallbackSrc;
+};

@@ -2,7 +2,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import logo from '../assets/logo.png';
-import { useStoreConfig, resolveStoreImageUrl } from '../hooks/useStoreConfig';
+import { useStoreConfig, resolveStoreImageUrl, handleImageFallback } from '../hooks/useStoreConfig';
 import './Footer.css';
 
 const DEFAULT_SOCIAL_LINKS = {
@@ -73,7 +73,7 @@ const Footer = () => {
         </div>
 
         <div className="footer-section footer-brand">
-          <img src={logoSrc} alt={brandName} className="footer-logo" />
+          <img src={logoSrc} alt={brandName} className="footer-logo" onError={handleImageFallback(logo)} />
         </div>
       </div>
 
