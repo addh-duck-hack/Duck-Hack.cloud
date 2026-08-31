@@ -364,6 +364,10 @@
   transform: translateY(22px);
   transition: opacity 0.6s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1),
     border-left-color 0.4s ease;
+  /* .App define text-align:center a nivel raíz — con una nota corta de una
+     sola línea no se notaba, pero al envolver a 2+ líneas (nota larga) el
+     texto se veía centrado en vez de alineado a la izquierda con el ícono. */
+  text-align: left;
 }
 
 .step-card.in-view {
