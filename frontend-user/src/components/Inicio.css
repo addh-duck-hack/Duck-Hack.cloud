@@ -229,6 +229,10 @@
   color: var(--text-dim);
   margin: 2.4rem 0 0.8rem;
   display: block;
+  /* .App define text-align:center a nivel raíz — se anula aquí para que el
+     título quede alineado con el contenido de la sección (tarjetas/pasos),
+     que sí es left-aligned por sus propios estilos. */
+  text-align: left;
 }
 
 .panel-frame {
