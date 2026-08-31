@@ -6,7 +6,7 @@ import StoreConfigTabs from "./StoreConfigTabs";
 
 const SERVICE_FIELDS = [
   { name: "title", label: "Título", type: "text", required: true, maxLength: 100 },
-  { name: "icon", label: "Icono (clase FontAwesome)", type: "text", maxLength: 60, placeholder: "fas fa-server" },
+  { name: "icon", label: "Icono", type: "icon", maxLength: 60 },
   { name: "route", label: "Ruta", type: "text", maxLength: 120 },
   { name: "description", label: "Descripción", type: "textarea", maxLength: 500, fullWidth: true },
   { name: "isActive", label: "Activo", type: "boolean" },

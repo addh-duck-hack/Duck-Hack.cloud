@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import ImageUploadField from "./ImageUploadField";
+import { FA_ICON_DATALIST_ID, FA_ICON_SUGGESTIONS } from "../utils/faIconSuggestions";
 
 // Chips add/remove para un campo de tipo "stringList" (ej. extraFeatures de
 // un plan de precios). Mismo patrón visual que dockerContainers en
@@ -113,6 +114,44 @@ const renderField = (field, item, onItemChange) => {
     );
   }
 
+  if (field.type === "icon") {
+    return (
+      <label key={field.name} style={{ gridColumn: field.fullWidth ? "1 / span 2" : undefined }}>
+        {field.label}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+          {/* Vista previa en vivo — sin esto, la única forma de saber si la
+              clase escrita existe/se ve bien era guardar y revisar el sitio
+              público. */}
+          <span
+            style={{
+              width: 38,
+              height: 38,
+              flexShrink: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: "8px",
+              border: "1px solid var(--input-border-color)",
+              background: "var(--input-background-color)",
+              fontSize: "1.1rem",
+            }}
+          >
+            <i className={value || "fas fa-question"} aria-hidden="true" />
+          </span>
+          <input
+            type="text"
+            value={value ?? ""}
+            maxLength={field.maxLength}
+            placeholder={field.placeholder || "fas fa-server"}
+            list={FA_ICON_DATALIST_ID}
+            style={{ marginBottom: 0 }}
+            onChange={(e) => onItemChange(field.name, e.target.value)}
+          />
+        </div>
+      </label>
+    );
+  }
+
   if (field.type === "image") {
     return (
       <div key={field.name} style={{ gridColumn: field.fullWidth ? "1 / span 2" : undefined }}>
@@ -178,8 +217,22 @@ const StoreConfigListEditor = ({ items, onChange, itemLabel, fields, createEmpty
     setExpandedIndex(next.length - 1);
   };
 
+  const hasIconField = fields.some((field) => field.type === "icon");
+
   return (
     <div>
+      {/* Un solo <datalist> compartido por todos los inputs de tipo "icon" de
+          esta lista (el atributo `list` de cada input lo referencia por id) —
+          sugerencias, no restringe a solo esas: el campo sigue siendo texto libre. */}
+      {hasIconField ? (
+        <datalist id={FA_ICON_DATALIST_ID}>
+          {FA_ICON_SUGGESTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </datalist>
+      ) : null}
       {items.map((item, index) => {
         const isExpanded = expandedIndex === index;
         return (

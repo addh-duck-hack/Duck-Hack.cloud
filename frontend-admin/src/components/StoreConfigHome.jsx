@@ -31,7 +31,7 @@ const METRIC_FIELDS = [
 const COMMAND_FIELDS = [
   { name: "cmd", label: "Título corto (ej. Hosting a tu medida)", type: "text", required: true, maxLength: 80 },
   { name: "note", label: "Descripción (ej. Planes que se adaptan a cualquier tipo de negocio)", type: "text", maxLength: 160, fullWidth: true },
-  { name: "icon", label: "Ícono FontAwesome (ej. fas fa-server)", type: "text", maxLength: 60 },
+  { name: "icon", label: "Ícono", type: "icon", maxLength: 60 },
   { name: "isActive", label: "Activo", type: "boolean" },
 ];
 
