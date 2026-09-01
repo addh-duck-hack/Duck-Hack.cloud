@@ -16,6 +16,14 @@ import { apiFetch, getApiBaseUrl } from '../utils/apiClient';
 
 const StoreConfigContext = createContext({ config: null, isLoading: true, error: null });
 
+// Helper compartido: arma la URL absoluta de una imagen guardada por el
+// backend (path relativo tipo "uploads/xxx.jpg"). Devuelve "" si no hay path,
+// para que el llamador decida su propio fallback local (import estático).
+export const resolveStoreImageUrl = (relativePath) => {
+  if (!relativePath) return '';
+  return `${getApiBaseUrl()}/${relativePath}`;
+};
+
 // Mapeo conservador theme -> tokens CSS: solo el color de acento y las
 // fuentes en esta primera iteración. primaryColor/secondaryColor tocan
 // fondos completos del sitio y requieren validar contraste antes de
@@ -27,6 +35,11 @@ const applyStoreTheme = (theme) => {
   if (theme.fontFamilyHeading) root.style.setProperty('--font-mono', theme.fontFamilyHeading);
   if (theme.fontFamilyBody) root.style.setProperty('--font-body', theme.fontFamilyBody);
 };
+
+// El favicon del navegador (pestaña) se deja estático (index.html,
+// /favicon.ico) a propósito — solo el logo dentro de la propia página (rail
+// lateral, footer, pantalla de carga) sigue el logoUrl del admin, ver
+// AppShell/Footer/Loader/etc. usando resolveStoreImageUrl.
 
 export const StoreConfigProvider = ({ children }) => {
   const [state, setState] = useState({ config: null, isLoading: true, error: null });
@@ -54,14 +67,6 @@ export const StoreConfigProvider = ({ children }) => {
 };
 
 export const useStoreConfig = () => useContext(StoreConfigContext);
-
-// Helper compartido: arma la URL absoluta de una imagen guardada por el
-// backend (path relativo tipo "uploads/xxx.jpg"). Devuelve "" si no hay path,
-// para que el llamador decida su propio fallback local (import estático).
-export const resolveStoreImageUrl = (relativePath) => {
-  if (!relativePath) return '';
-  return `${getApiBaseUrl()}/${relativePath}`;
-};
 
 // Handler compartido para el `onError` de un <img> que usa resolveStoreImageUrl
 // (logo, fotos de equipo/clientes): si la imagen personalizada ya no resuelve
