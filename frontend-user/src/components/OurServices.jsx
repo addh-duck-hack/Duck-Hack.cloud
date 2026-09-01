@@ -83,7 +83,7 @@ const OurServices = () => {
       <span className="eyebrow">/servicios</span>
       <h1 className="section-title">Todo lo que necesita tu negocio en línea</h1>
       <p className="section-sub">
-        Seis frentes, un mismo equipo: de la primera idea al mantenimiento continuo.
+        Múltiples soluciones, un mismo equipo: de la primera idea a la implementación, operación y mantenimiento continuo.
       </p>
 
       <div className="svc-grid">
