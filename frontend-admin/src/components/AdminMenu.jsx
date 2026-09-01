@@ -76,13 +76,6 @@ const AdminMenu = () => {
   return (
     <div>
       <h2>Panel administrativo</h2>
-      <p>Este panel está enfocado al roadmap de eCommerce.</p>
-      <ul>
-        <li>{canManageCatalog ? <Link to="/admin/products">Módulo de productos</Link> : "Módulo de productos"}</li>
-        <li>{canManageCatalog ? <Link to="/admin/inventory">Módulo de inventario</Link> : "Módulo de inventario"}</li>
-        <li>{canManageOrders ? <Link to="/admin/orders">Módulo de pedidos</Link> : "Módulo de pedidos"}</li>
-      </ul>
-
       {isSuperAdmin ? (
         <>
           <section style={{ marginTop: "2.5rem" }}>
