@@ -35,9 +35,13 @@ const invoiceSchema = new mongoose.Schema(
       required: true,
       default: Date.now,
     },
+    // "movements" = facturas creadas seleccionando uno o más Transaction ya
+    // existentes (ver backend/routes/invoices.routes.js) — el flujo normal
+    // desde este cambio en adelante. "manual"/"hosting_payment"/"design_debt"
+    // se conservan como valores históricos de facturas emitidas antes.
     source: {
       type: String,
-      enum: ["manual", "hosting_payment", "design_debt"],
+      enum: ["manual", "hosting_payment", "design_debt", "movements"],
       default: "manual",
     },
     sourceCollection: {
@@ -47,6 +51,14 @@ const invoiceSchema = new mongoose.Schema(
     sourceId: {
       type: mongoose.Schema.Types.ObjectId,
     },
+    // Movimientos (Transaction) que cubre esta factura. Vacío en facturas
+    // manuales antiguas o legacy automáticas (source distinto de "movements").
+    transactions: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Transaction",
+      },
+    ],
   },
   { timestamps: true }
 );

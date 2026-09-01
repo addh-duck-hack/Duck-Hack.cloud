@@ -40,6 +40,11 @@ router.get("/transactions", async (req, res) => {
     if (req.query.client) {
       filter.client = req.query.client;
     }
+    if (req.query.invoiced === "true") {
+      filter.invoice = { $ne: null };
+    } else if (req.query.invoiced === "false") {
+      filter.invoice = null;
+    }
     if (req.query.startDate || req.query.endDate) {
       filter.date = {};
       if (req.query.startDate) filter.date.$gte = new Date(req.query.startDate);

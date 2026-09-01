@@ -544,10 +544,11 @@ paths:
       tags: [AgencyClients]
       summary: Editar pago de hosting
       description: >
-        Además de actualizar el pago, sincroniza la transacción de ingreso y la
-        factura generadas automáticamente al registrarlo (mismo folio, monto y
-        fecha actualizados): las crea si el pago no tenía monto y ahora sí, las
-        actualiza si ya existían, o las elimina si el monto queda en 0/vacío.
+        Además de actualizar el pago, sincroniza la transacción de ingreso
+        generada automáticamente al registrarlo (monto y fecha actualizados):
+        la crea si el pago no tenía monto y ahora sí, la actualiza si ya
+        existía, o la elimina si el monto queda en 0/vacío. Si ese ingreso ya
+        fue facturado (ver /api/invoices), responde 409 en vez de editar.
       security:
         - bearerAuth: []
       parameters:
@@ -583,15 +584,23 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: El ingreso ligado a este pago ya fue facturado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "500":
           $ref: "#/components/responses/InternalServerError"
     delete:
       tags: [AgencyClients]
       summary: Eliminar pago de hosting
       description: >
-        También elimina la transacción de ingreso y la factura que se generaron
-        automáticamente al registrar este pago (identificadas por sourceCollection
-        + sourceId), para que el saldo de contabilidad no quede desfasado.
+        También elimina la transacción de ingreso que se generó
+        automáticamente al registrar este pago (identificada por
+        sourceCollection + sourceId), para que el saldo de contabilidad no
+        quede desfasado. Si ese ingreso ya fue facturado, responde 409 en vez
+        de eliminar.
       security:
         - bearerAuth: []
       parameters:
@@ -599,7 +608,7 @@ paths:
         - $ref: "#/components/parameters/HostingPaymentIdParam"
       responses:
         "200":
-          description: Pago de hosting eliminado (junto con su ingreso y factura ligados)
+          description: Pago de hosting eliminado (junto con su ingreso ligado)
           content:
             application/json:
               schema:
@@ -610,6 +619,12 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           description: Cliente o pago de hosting no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: El ingreso ligado a este pago ya fue facturado
           content:
             application/json:
               schema:
@@ -729,10 +744,11 @@ paths:
       tags: [AgencyClients]
       summary: Eliminar deuda
       description: >
-        También elimina las transacciones de ingreso y facturas generadas
+        También elimina las transacciones de ingreso generadas
         automáticamente por los abonos a esta deuda (puede haber varias si se
         pagó en partes vía ediciones sucesivas), identificadas por
-        sourceCollection + sourceId.
+        sourceCollection + sourceId. Si alguno de esos ingresos ya fue
+        facturado, responde 409 en vez de eliminar.
       security:
         - bearerAuth: []
       parameters:
@@ -740,7 +756,7 @@ paths:
         - $ref: "#/components/parameters/DesignDebtIdParam"
       responses:
         "200":
-          description: Deuda eliminada (junto con sus ingresos y facturas ligados)
+          description: Deuda eliminada (junto con sus ingresos ligados)
           content:
             application/json:
               schema:
@@ -751,6 +767,12 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           description: Cliente o deuda no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Alguno de los ingresos ligados a esta deuda ya fue facturado
           content:
             application/json:
               schema:
@@ -826,6 +848,12 @@ paths:
           schema:
             type: string
             format: date
+        - in: query
+          name: invoiced
+          description: "true = solo ya facturadas, false = solo pendientes de facturar"
+          schema:
+            type: string
+            enum: ["true", "false"]
       responses:
         "200":
           description: Listado de transacciones
@@ -1047,7 +1075,11 @@ paths:
           $ref: "#/components/responses/InternalServerError"
     post:
       tags: [Invoices]
-      summary: Crear factura manual
+      summary: Crear factura a partir de movimientos seleccionados
+      description: >
+        Los transactionIds deben ser ingresos (type "income") del mismo
+        cliente, ninguno ya facturado, y todos del mismo mes calendario (UTC)
+        — si no, responde 400.
       security:
         - bearerAuth: []
       requestBody:
@@ -1069,13 +1101,21 @@ paths:
                   invoice:
                     $ref: "#/components/schemas/Invoice"
         "400":
-          $ref: "#/components/responses/BadRequest"
+          description: transactionIds inválidos, mezclan clientes/tipos/meses, o alguno ya está facturado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
-          $ref: "#/components/responses/AgencyClientNotFound"
+          description: Cliente o algún movimiento no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "500":
           $ref: "#/components/responses/InternalServerError"
 
@@ -1886,6 +1926,10 @@ components:
         sourceId:
           type: string
           nullable: true
+        invoice:
+          type: string
+          nullable: true
+          description: Id de la factura que cubre este movimiento, o null si aún no se ha facturado.
         createdAt:
           type: string
           format: date-time
@@ -1947,7 +1991,11 @@ components:
     InvoiceSource:
       type: string
       readOnly: true
-      enum: [manual, hosting_payment, design_debt]
+      enum: [manual, hosting_payment, design_debt, movements]
+      description: >
+        "movements" = facturas creadas seleccionando uno o más Transaction
+        existentes (el flujo actual). Los demás valores son históricos, de
+        antes de que facturar dejara de ser automático por cada pago.
 
     Invoice:
       type: object
@@ -1967,23 +2015,32 @@ components:
           format: date-time
         source:
           $ref: "#/components/schemas/InvoiceSource"
+        transactions:
+          type: array
+          items:
+            type: string
+          description: Movimientos (Transaction) cubiertos por esta factura.
       required: [_id, client, folio, concept, amount, issuedAt]
 
     InvoiceCreateRequest:
       type: object
+      description: >
+        Crea una factura a partir de uno o más movimientos (Transaction) ya
+        existentes del mismo cliente y el mismo mes calendario — no acepta
+        monto/fecha arbitrarios.
       properties:
         client:
           type: string
+        transactionIds:
+          type: array
+          minItems: 1
+          items:
+            type: string
         concept:
           type: string
           maxLength: 300
-        amount:
-          type: number
-          exclusiveMinimum: 0
-        issuedAt:
-          type: string
-          format: date
-      required: [client, concept, amount]
+          description: Opcional — si se omite, se compone a partir de las categorías y el mes de los movimientos seleccionados.
+      required: [client, transactionIds]
 
     StoreTheme:
       type: object

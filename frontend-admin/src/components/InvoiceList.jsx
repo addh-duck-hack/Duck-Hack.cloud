@@ -3,15 +3,9 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatCalendarDate } from "../utils/formatCalendarDate";
+import { SOURCE_LABELS, formatMxn } from "../utils/accountingLabels";
 
-const formatMxn = (value) => Number(value || 0).toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 const formatDate = (value) => formatCalendarDate(value) || "—";
-
-const SOURCE_LABELS = {
-  manual: "Manual",
-  hosting_payment: "Pago de hosting",
-  design_debt: "Deuda",
-};
 
 const InvoiceList = () => {
   const navigate = useNavigate();
@@ -84,10 +78,10 @@ const InvoiceList = () => {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
         <h3 style={{ margin: 0 }}>Facturación</h3>
         <button type="button" onClick={() => navigate("/admin/invoices/new")} style={{ width: "auto" }}>
-          Nueva factura
+          Facturar movimientos
         </button>
       </div>
-      <p>Comprobantes de pago en PDF sin validez fiscal.</p>
+      <p>Comprobantes de pago en PDF sin validez fiscal. Selecciona movimientos del mismo cliente y mes para facturarlos juntos.</p>
 
       {error ? <div className="auth-error">{error}</div> : null}
 

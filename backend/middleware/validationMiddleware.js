@@ -909,36 +909,39 @@ const validateOpeningBalancePayload = (req, res, next) => {
   return next();
 };
 
-const validateInvoicePayload = (req, res, next) => {
+// Facturación por selección de movimientos: el cliente manda qué Transaction
+// quiere agrupar en una sola factura; monto/fecha/origen los calcula la ruta
+// a partir de esas transacciones, no se aceptan del payload (ver
+// backend/routes/invoices.routes.js).
+const validateInvoiceFromTransactionsPayload = (req, res, next) => {
   const payload = req.body || {};
 
   if (!mongoose.Types.ObjectId.isValid(payload.client)) {
     return badRequest(res, "VALIDATION_ERROR", "client es requerido y debe ser un id válido.");
   }
 
-  const concept = asTrimmedString(payload.concept);
-  if (!concept || concept.length > 300) {
-    return badRequest(res, "VALIDATION_ERROR", "concept es requerido (1-300 caracteres).");
+  const transactionIds = Array.isArray(payload.transactionIds) ? payload.transactionIds : null;
+  if (!transactionIds || transactionIds.length === 0) {
+    return badRequest(res, "VALIDATION_ERROR", "transactionIds es requerido y debe tener al menos un id.");
   }
-  req.body.concept = concept;
-
-  const amount = asFiniteNumber(payload.amount);
-  if (amount === null || amount <= 0) {
-    return badRequest(res, "VALIDATION_ERROR", "amount es requerido y debe ser un número > 0.");
+  if (transactionIds.some((id) => !mongoose.Types.ObjectId.isValid(id))) {
+    return badRequest(res, "VALIDATION_ERROR", "transactionIds contiene un id inválido.");
   }
-  req.body.amount = amount;
+  req.body.transactionIds = transactionIds;
 
-  if (payload.issuedAt !== undefined) {
-    const issuedAt = asValidDate(payload.issuedAt);
-    if (!issuedAt) return badRequest(res, "VALIDATION_ERROR", "issuedAt debe ser una fecha válida.");
-    req.body.issuedAt = issuedAt;
+  if (payload.concept !== undefined) {
+    const concept = asTrimmedString(payload.concept);
+    if (concept.length > 300) {
+      return badRequest(res, "VALIDATION_ERROR", "concept no puede superar 300 caracteres.");
+    }
+    req.body.concept = concept || undefined;
   }
 
-  // Una factura creada por esta validación siempre es "manual" — las
-  // automáticas las crean las rutas de pagos/deudas directamente.
   delete req.body.source;
   delete req.body.sourceCollection;
   delete req.body.sourceId;
+  delete req.body.amount;
+  delete req.body.issuedAt;
 
   return next();
 };
@@ -956,5 +959,5 @@ module.exports = {
   validateDesignDebtPayload,
   validateTransactionPayload,
   validateOpeningBalancePayload,
-  validateInvoicePayload,
+  validateInvoiceFromTransactionsPayload,
 };

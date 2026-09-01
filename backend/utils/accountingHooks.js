@@ -1,8 +1,15 @@
 // Gancho compartido: cuando un cliente paga (hosting o un abono a deuda de
-// diseño), esto genera automáticamente el ingreso en contabilidad y la
-// factura correspondiente. Se usa desde agencyClient.routes.js — nunca desde
-// una ruta propia, para no exponer una forma de "inyectar" ingresos falsos
-// que parezcan venir de un pago real.
+// diseño), esto genera automáticamente el ingreso en contabilidad. Se usa
+// desde agencyClient.routes.js — nunca desde una ruta propia, para no exponer
+// una forma de "inyectar" ingresos falsos que parezcan venir de un pago real.
+//
+// La factura ya NO se genera aquí ni automáticamente: facturar es siempre un
+// paso manual desde Facturación, donde se seleccionan uno o más movimientos
+// del mismo cliente/mes (ver backend/routes/invoices.routes.js). Una vez que
+// un movimiento queda ligado a una factura (`Transaction.invoice` seteado),
+// el pago/deuda que lo originó queda protegido: no se puede editar su monto
+// ni eliminarlo directamente (rompería el total ya facturado) — hay que
+// verificarlo con `isSourceInvoiced` antes de mutar el registro de origen.
 const Transaction = require("../models/transaction.model");
 const Invoice = require("../models/invoice.model");
 
@@ -12,18 +19,32 @@ const getNextInvoiceFolio = async () => {
 };
 
 /**
- * Crea la transacción de ingreso + la factura automática de un pago de
- * cliente. No lanza: si algo falla aquí, el pago en sí ya se guardó
- * correctamente y no debe perderse por un error secundario de contabilidad;
- * solo se deja constancia en el log del servidor.
+ * true si alguna Transaction ligada a este origen (pago de hosting o deuda de
+ * diseño) ya forma parte de una factura. Los call-sites en agencyClient.routes.js
+ * deben llamar esto ANTES de mutar/eliminar el pago/deuda de origen, para
+ * responder 409 sin dejar el registro de origen editado/borrado a medias.
  */
-const recordIncomeAndInvoice = async ({ client, amount, date, category, description, concept, sourceCollection, sourceId }) => {
+const isSourceInvoiced = async ({ sourceCollection, sourceId }) => {
+  const invoicedTransaction = await Transaction.exists({
+    sourceCollection,
+    sourceId,
+    invoice: { $ne: null },
+  });
+  return Boolean(invoicedTransaction);
+};
+
+/**
+ * Crea la transacción de ingreso de un pago de cliente. No lanza: si algo
+ * falla aquí, el pago en sí ya se guardó correctamente y no debe perderse por
+ * un error secundario de contabilidad; solo se deja constancia en el log.
+ */
+const recordIncome = async ({ client, amount, date, category, description, sourceCollection, sourceId }) => {
   if (!(amount > 0)) return null; // sin monto, no hay nada que registrar
 
   try {
     const source = sourceCollection === "HostingPayment" ? "hosting_payment" : "design_debt";
 
-    await Transaction.create({
+    return await Transaction.create({
       type: "income",
       amount,
       date,
@@ -34,36 +55,28 @@ const recordIncomeAndInvoice = async ({ client, amount, date, category, descript
       sourceCollection,
       sourceId,
     });
-
-    const folio = await getNextInvoiceFolio();
-    const invoice = await Invoice.create({
-      client: client._id,
-      folio,
-      concept,
-      amount,
-      issuedAt: date,
-      source,
-      sourceCollection,
-      sourceId,
-    });
-    return invoice;
   } catch (error) {
-    console.error("Error generando transacción/factura automática:", error);
+    console.error("Error generando transacción automática:", error);
     return null;
   }
 };
 
 /**
- * Contraparte de recordIncomeAndInvoice: cuando se elimina un pago de hosting
- * o una deuda de diseño desde la ficha del cliente, borra también la(s)
- * transacción(es) e factura(s) que se generaron automáticamente a partir de
- * ese registro (identificadas por sourceCollection+sourceId), para que el
- * saldo de contabilidad no quede con un ingreso "fantasma" de un pago que ya
- * no existe. Un DesignDebt puede tener varias transacciones ligadas (un abono
+ * Contraparte de recordIncome: cuando se elimina un pago de hosting o una
+ * deuda de diseño desde la ficha del cliente, borra también la(s)
+ * transacción(es) que se generaron automáticamente a partir de ese registro
+ * (identificadas por sourceCollection+sourceId), para que el saldo de
+ * contabilidad no quede con un ingreso "fantasma" de un pago que ya no
+ * existe. Un DesignDebt puede tener varias transacciones ligadas (un abono
  * parcial por edición genera una transacción nueva cada vez), por eso se
- * borran todas las que coincidan, no solo una. Tampoco lanza, por la misma
- * razón que recordIncomeAndInvoice: el borrado del pago/deuda ya se hizo y no
- * debe fallar por un problema secundario de contabilidad.
+ * borran todas las que coincidan, no solo una.
+ *
+ * Precondición: el caller ya verificó `isSourceInvoiced` en false — esta
+ * función no vuelve a chequearlo (borraría bajo los pies de una factura ya
+ * emitida). También limpia cualquier Invoice legacy con el mismo
+ * sourceCollection/sourceId como red de seguridad (facturas automáticas de
+ * antes de este cambio que aún no se hayan enlazado vía el script de backfill).
+ * Tampoco lanza, por la misma razón que recordIncome.
  */
 const deleteLinkedAccountingRecords = async ({ sourceCollection, sourceId }) => {
   try {
@@ -72,28 +85,27 @@ const deleteLinkedAccountingRecords = async ({ sourceCollection, sourceId }) => 
       Invoice.deleteMany({ sourceCollection, sourceId }),
     ]);
   } catch (error) {
-    console.error("Error eliminando transacción/factura ligadas:", error);
+    console.error("Error eliminando transacciones ligadas:", error);
   }
 };
 
 /**
- * Mantiene en sincronía el ingreso + factura de un registro que tiene, cuando
- * mucho, UNA transacción ligada (hosting payments: un pago = un ingreso).
- * NO usar con DesignDebt, donde varios abonos sucesivos generan varias
- * transacciones con el mismo sourceId a propósito (ver recordIncomeAndInvoice).
+ * Mantiene en sincronía el ingreso de un registro que tiene, cuando mucho,
+ * UNA transacción ligada (hosting payments: un pago = un ingreso). NO usar
+ * con DesignDebt, donde varios abonos sucesivos generan varias transacciones
+ * con el mismo sourceId a propósito (ver recordIncome).
  *
  * Se llama al editar el pago, no solo al crearlo, para que un cambio de monto
- * (o de fecha, que afecta el mes mostrado en la factura) quede reflejado en
- * contabilidad en vez de dejar la transacción vieja con el monto original:
- *   - Si ya existía una transacción ligada: se actualiza en el mismo lugar
- *     (mismo folio de factura), en vez de crear un ingreso duplicado.
+ * o fecha quede reflejado en contabilidad en vez de dejar la transacción
+ * vieja con el valor original. Precondición: el caller ya verificó
+ * `isSourceInvoiced` en false (mismo motivo que deleteLinkedAccountingRecords).
+ *   - Si ya existía una transacción ligada: se actualiza en el mismo lugar.
  *   - Si no existía y el nuevo monto es > 0 (el pago se creó sin monto y
  *     ahora se le puso uno): se crea, igual que en el alta.
- *   - Si el nuevo monto queda en 0/vacío: se borra la transacción y factura
- *     ligadas, si había.
+ *   - Si el nuevo monto queda en 0/vacío: se borra la transacción ligada, si había.
  * Tampoco lanza, por la misma razón que el resto de este módulo.
  */
-const syncSingleSourceIncome = async ({ client, amount, date, category, description, concept, sourceCollection, sourceId }) => {
+const syncSingleSourceIncome = async ({ client, amount, date, category, description, sourceCollection, sourceId }) => {
   try {
     const existingTransaction = await Transaction.findOne({ sourceCollection, sourceId });
 
@@ -105,7 +117,7 @@ const syncSingleSourceIncome = async ({ client, amount, date, category, descript
     }
 
     if (!existingTransaction) {
-      return recordIncomeAndInvoice({ client, amount, date, category, description, concept, sourceCollection, sourceId });
+      return recordIncome({ client, amount, date, category, description, sourceCollection, sourceId });
     }
 
     existingTransaction.amount = amount;
@@ -114,18 +126,17 @@ const syncSingleSourceIncome = async ({ client, amount, date, category, descript
     existingTransaction.description = description;
     await existingTransaction.save();
 
-    await Invoice.findOneAndUpdate({ sourceCollection, sourceId }, { amount, concept, issuedAt: date });
-
     return null;
   } catch (error) {
-    console.error("Error sincronizando ingreso/factura tras edición:", error);
+    console.error("Error sincronizando ingreso tras edición:", error);
     return null;
   }
 };
 
 module.exports = {
-  recordIncomeAndInvoice,
+  recordIncome,
   getNextInvoiceFolio,
+  isSourceInvoiced,
   deleteLinkedAccountingRecords,
   syncSingleSourceIncome,
 };
