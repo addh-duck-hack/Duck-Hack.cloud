@@ -59,6 +59,13 @@ Each store/client gets its own independently deployed `backend` + DB + frontends
 
 This **supersedes** the "Modelo B" shared-multi-tenant-backend proposal in `docs/notion-architecture-v1-hibrida.md` (that doc is kept for history, marked superseded at its top). See "Tenant/multi-store infrastructure" below — the partial Modelo B infra that used to live here has been removed from the codebase entirely, not just deprecated.
 
+**Branching model** (see README.md, "Publicar tiendas: flujo de ramas" for the full
+workflow): `main` is canonical — all shared development happens here. Each deployed
+store runs from its own `release-<store-domain>` branch, merged **only** `main →
+release-*`, never the other way and never `release-* → release-*`. Don't merge a
+`release-*` branch into `main`, and don't put shared-feature work directly on a
+`release-*` branch — it belongs on `main` first.
+
 ### Backend request pipeline (`backend/server.js`)
 Middleware order: `express.json()` → CORS (allow-list built from `CORS_ALLOWED_ORIGINS`; throws at boot if empty) → `helmet` (CSP disabled — this is an API-only backend, CSP is the frontends' concern) → routers mounted at `/api/agency-clients`, `/api/infra`, `/api/accounting`, `/api/invoices` (the pieces that stayed in `backend/`) → `@duck-hack/core-api` modules mounted via `coreApiModules.forEach(...)` (`/api/users`, `/api/mail`, `/api/uploads`, `/api/store-config`, `/api/products`, `/api/inventory`, `/api/orders`) → static `/uploads` → CORS-error handler → generic error handler → 404 handler.
 

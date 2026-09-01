@@ -194,6 +194,56 @@ sigue con su propio backend/DB/despliegue; la reutilización de código entre ti
 resuelve ahora con los paquetes de workspace en `packages/core-api` y `packages/ui-kit`
 (ver sus respectivos `README.md`).
 
+## Publicar tiendas: flujo de ramas (`main` → `release-<dominio>`)
+
+`main` es la rama canónica: ahí vive todo el desarrollo compartido (módulos nuevos en
+`packages/core-api`/`packages/ui-kit`, fixes, features de backend/admin) y es la base
+desde la que sale **toda** tienda nueva. Cada tienda desplegada corre desde su propia
+rama `release-<dominio-público-de-la-tienda>` (ej. `release-mx.duck-hack.cloud`) — el
+nombre debe coincidir con el dominio real del `frontend-user` de esa tienda, para que sea
+inequívoco qué rama corresponde a qué despliegue.
+
+**Regla de una sola dirección**: los merges van siempre `main → release-<dominio>`,
+nunca al revés.
+- Cualquier funcionalidad nueva compartida (un módulo, un fix, lo que sea que otras
+  tiendas también deban recibir) se desarrolla y se mergea primero en `main` — nunca
+  directo en una rama `release-*`.
+- Un cambio específico de una tienda (algo que **no** debe replicarse a las demás) se
+  commitea directo en su rama `release-<dominio>` y **nunca** se mergea de vuelta a
+  `main`.
+- Nunca se mergea una rama `release-*` a otra `release-*` — si dos tiendas necesitan el
+  mismo cambio, ese cambio pasa primero por `main`.
+
+### Publicar una tienda nueva
+
+```bash
+git checkout main
+git pull
+git checkout -b release-<dominio-de-la-tienda>
+git push -u origin release-<dominio-de-la-tienda>
+```
+
+A partir de ahí, sigue el proceso normal de una instancia nueva (ver "Modelo de
+despliegue" arriba): checkout de esa rama en el servidor de la tienda, `.env` de las 3
+apps configurados en ese servidor (no viven en git — ver `.gitignore`), `docker compose
+up --build`, Proxy Hosts en Nginx Proxy Manager, bootstrap de `StoreConfig` y del primer
+usuario admin.
+
+### Llevar una actualización de `main` a una tienda ya publicada
+
+Propagar un cambio de `main` a una tienda es una decisión explícita por tienda, no
+automática — así una tienda no se rompe porque otra recibió un cambio sin probar del
+todo:
+
+```bash
+git checkout release-<dominio-de-la-tienda>
+git pull
+git merge main   # resolver conflictos si esa tienda tiene parches propios encima de main
+git push
+```
+
+Y redesplegar esa tienda (`docker compose up --build` en su servidor).
+
 ## DOC-002 — Guía de uso: Tabla de errores conocidos
 
 Ubicación en Notion:
