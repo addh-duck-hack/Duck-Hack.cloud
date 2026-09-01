@@ -1,3 +1,5 @@
+const mail = require("./modules/mail");
+const uploads = require("./modules/uploads");
 const products = require("./modules/products");
 const inventory = require("./modules/inventory");
 const orders = require("./modules/orders");
@@ -10,6 +12,6 @@ const orders = require("./modules/orders");
 // lib/moduleHelpers.js#getOrCreateModel) — no es estrictamente necesario ya
 // que todos los módulos se montan de forma síncrona antes de que el server
 // empiece a aceptar requests, pero mantiene el orden legible.
-const modules = [products, inventory, orders];
+const modules = [mail, uploads, products, inventory, orders];
 
 module.exports = { modules };

@@ -51,8 +51,6 @@ mongoose.connect(mongoGlobalUrl)
 
 // Importar y usar rutas
 const userRoutes = require("./routes/user.routes");
-const mailRoutes = require("./routes/mail.routes");
-const uploadRoutes = require("./routes/upload.routes");
 const storeConfigRoutes = require("./routes/storeConfig.routes");
 const agencyClientRoutes = require("./routes/agencyClient.routes");
 const infraRoutes = require("./routes/infra.routes");
@@ -69,17 +67,18 @@ app.use(
   })
 );
 app.use("/api/users", userRoutes);
-app.use("/api/mail", mailRoutes);
-app.use("/api/uploads", uploadRoutes);
 app.use("/api/store-config", storeConfigRoutes);
 app.use("/api/agency-clients", agencyClientRoutes);
 app.use("/api/infra", infraRoutes);
 app.use("/api/accounting", accountingRoutes);
 app.use("/api/invoices", invoicesRoutes);
 
-// Módulos de @duck-hack/core-api (productos/inventario/pedidos, ver
-// packages/core-api/README.md) — código compartido entre tiendas, montado
-// acá con las piezas de esta instancia (conexión Mongo, auth, formato de error).
+// Módulos de @duck-hack/core-api (mail, uploads, productos, inventario,
+// pedidos — ver packages/core-api/README.md) — código compartido entre
+// tiendas, montado acá con las piezas de esta instancia (conexión Mongo,
+// auth, formato de error). /api/mail y /api/uploads/products-image vivían
+// antes en backend/routes/mail.routes.js y backend/routes/upload.routes.js
+// (ya eliminados) — mismas URLs, mismo comportamiento.
 coreApiModules.forEach((mod) =>
   mod.registerRoutes(app, {
     mongooseConnection: mongoose.connection,

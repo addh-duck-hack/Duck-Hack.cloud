@@ -7,10 +7,20 @@ why this exists: each store keeps its own backend/DB/deploy, but a module's
 
 ## Modules in this package
 
+- `modules/mail.js` — contact-form email (`POST /api/mail/send-email`).
+- `modules/uploads.js` — product image upload (`POST /api/uploads/products-image`).
 - `modules/products.js` — product catalog (`/api/products`).
 - `modules/inventory.js` — per-product stock (`/api/inventory`).
 - `modules/orders.js` — orders, created manually from the admin panel for now
   (`/api/orders`).
+
+Still in `backend/` (next iteration, not yet moved here — see
+`docs/adr-monorepo-shared-packages.md` and CLAUDE.md's "Multi-store strategy"
+for the reasoning): Auth/Users, StoreConfig, and everything specific to
+Duck-Hack's own agency-management tooling (AgencyClient, Accounting,
+Invoices, Infra/Portainer) — that last group is deliberately **not** a
+candidate to move here at all, it's Duck-Hack's own internal billing/
+monitoring, not a per-store eCommerce feature.
 
 ## Module convention
 
