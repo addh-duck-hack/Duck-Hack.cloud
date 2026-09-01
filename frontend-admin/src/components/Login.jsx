@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import Loader from "./Loader"; // Importar el componente Loader
 import RegisterUser from "./RegisterUser"; // Reutilizar componente de registro
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
+import { useStoreConfig } from "../hooks/useStoreConfig";
 import logo from "../assets/logo.png";
 
 const Login = () => {
@@ -17,6 +18,13 @@ const Login = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false); // Estado para verificar si el usuario ha iniciado sesión
   const [showRegister, setShowRegister] = useState(false); // Mostrar form de registro inline
   const navigate = useNavigate(); // React Router v6
+
+  // El panel es "Duck-Hack OS" (mismo software para todas las tiendas), pero el
+  // login debe dejar claro a qué tienda se está entrando. Nombre + tema visual
+  // salen de StoreConfig (StoreConfigProvider ya hizo el fetch y aplicó los
+  // colores/fuentes); acá solo se usa el nombre para el texto.
+  const { config: storeConfig } = useStoreConfig();
+  const storeName = storeConfig?.storeName || "";
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -77,8 +85,8 @@ const Login = () => {
   return (
     <section className="auth-page">
       <div className="auth-brand">
-        <img src={logo} alt="Duck-Hack" />
-        <span>Duck-Hack</span>
+        <img src={logo} alt="Duck-Hack OS" />
+        <span>Duck-Hack OS</span>
       </div>
 
       {isLoading ? (
@@ -88,7 +96,19 @@ const Login = () => {
           {!showRegister ? (
             <>
               <h2>Iniciar sesión</h2>
-              <p>Panel administrativo Duck-Hack Cloud.</p>
+              <p>
+                {storeName ? (
+                  <>
+                    Estás accediendo al panel de administración de{" "}
+                    <strong>{storeName}</strong>.
+                  </>
+                ) : (
+                  "Estás accediendo al panel de administración de tu tienda."
+                )}
+              </p>
+              <p className="auth-note">
+                Duck-Hack OS — plataforma actualizada por Duck-Hack.
+              </p>
               <form className="auth-form" onSubmit={handleSubmit}>
                 <input
                   type="email"
