@@ -1,0 +1,10 @@
+{
+  "name": "duck-hack-cloud",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend-admin",
+    "frontend-user",
+    "packages/*"
+  ]
+}

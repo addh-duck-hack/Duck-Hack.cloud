@@ -1,0 +1,11 @@
+{
+  "name": "@duck-hack/core-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Backend modules (routes + Mongoose models) shared across every store's independently-deployed backend.",
+  "main": "index.js",
+  "peerDependencies": {
+    "express": "^4.21.1",
+    "mongoose": "^8.7.1"
+  }
+}

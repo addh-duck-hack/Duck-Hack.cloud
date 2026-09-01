@@ -38,17 +38,14 @@ const corsOptions = {
     return callback(new Error("CORS_ORIGIN_NOT_ALLOWED"));
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  // X-Tenant-Slug: frontend-user/src/utils/apiClient.js lo manda en cada apiFetch
-  // (resolución de tenant, ver TENANT_HEADER_NAME) — sin listarlo aquí, el navegador
-  // bloquea el preflight de cualquier request que lo incluya (ej. /users/verify).
-  allowedHeaders: ["Content-Type", "Authorization", process.env.TENANT_HEADER_NAME || "X-Tenant-Slug"],
+  allowedHeaders: ["Content-Type", "Authorization"],
   optionsSuccessStatus: 204,
 };
 
-// Conectar a MongoDB global (Modelo B)
+// Conectar a MongoDB (una sola conexión por instancia/tienda)
 mongoose.connect(mongoGlobalUrl)
-  .then(() => console.log("Conectado a MongoDB global"))
-  .catch((err) => console.error("Error al conectar a MongoDB global", err));
+  .then(() => console.log("Conectado a MongoDB"))
+  .catch((err) => console.error("Error al conectar a MongoDB", err));
 
 // Importar y usar rutas
 const userRoutes = require("./routes/user.routes");

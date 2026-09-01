@@ -1,0 +1,11 @@
+{
+  "name": "@duck-hack/ui-kit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "React components shared between frontend-admin and frontend-user.",
+  "main": "index.js",
+  "peerDependencies": {
+    "react": "^18.3.1"
+  }
+}

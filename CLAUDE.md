@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-Duck-Hack Cloud is a CRM/eCommerce base: a Node/Express/MongoDB/JWT backend plus two separate React frontends (an admin panel and a public storefront). It's currently deployed **single-tenant per instance** (one backend + one Mongo DB per client), but the backend already contains infrastructure for a future shared **hybrid multi-tenant** model — see "Tenant/multi-store infrastructure" below before touching models or routes.
+Duck-Hack Cloud is a CRM/eCommerce base: a Node/Express/MongoDB/JWT backend plus two separate React frontends (an admin panel and a public storefront). It's deployed **single-tenant per instance** (one backend + one Mongo DB per client) — that's the committed direction, not a transitional state; see "Multi-store strategy" below for how modules get reused across stores without a shared multi-tenant backend.
 
 ## Commands
 
@@ -48,7 +48,16 @@ The backend **throws at startup** (won't boot) if `MONGO_URL_GLOBAL`, `CORS_ALLO
 - `frontend-admin/` — React admin panel (`HashRouter`), used by staff roles.
 - `frontend-user/` — React public storefront (`BrowserRouter`), used by customers.
 
-Each has its own `package.json`, `Dockerfile`, and `.env.example`; there's no monorepo tooling (no workspaces, no shared package). A change to an API shape typically means editing the backend and both frontends separately.
+Each has its own `package.json`, `Dockerfile`, and `.env.example`, and each is still deployed as a fully independent instance per client/store (own backend, own DB, own containers — see "Multi-store strategy" below). A change to an API shape typically means editing the backend and both frontends separately.
+
+The repo root also has a `package.json` declaring npm **workspaces** (`backend`, `frontend-admin`, `frontend-user`, `packages/*`) — this exists solely to let the three apps consume shared internal packages under `packages/`, not to change how they're deployed; each app keeps building/running from its own folder exactly as before.
+
+### Multi-store strategy: separated backends + shared packages (see `docs/adr-monorepo-shared-packages.md`)
+Each store/client gets its own independently deployed `backend` + DB + frontends (as today) — there is **no** shared multi-tenant backend process. To let a new module (e.g. billing) be reused by every store without rewriting it per client, reusable module code lives once in versioned internal packages and each app imports it:
+- `packages/core-api/` — reusable backend modules (routes + Mongoose models); see its `README.md` for the module convention (`{ name, registerRoutes(app, ctx), models }`) that `backend/server.js` mounts.
+- `packages/ui-kit/` — React components shared between `frontend-admin` and `frontend-user`.
+
+This **supersedes** the "Modelo B" shared-multi-tenant-backend proposal in `docs/notion-architecture-v1-hibrida.md` (that doc is kept for history, marked superseded at its top). See "Tenant/multi-store infrastructure" below — the partial Modelo B infra that used to live here has been removed from the codebase entirely, not just deprecated.
 
 ### Backend request pipeline (`backend/server.js`)
 Middleware order: `express.json()` → CORS (allow-list built from `CORS_ALLOWED_ORIGINS`; throws at boot if empty) → `helmet` (CSP disabled — this is an API-only backend, CSP is the frontends' concern) → routers mounted at `/api/users`, `/api/mail`, `/api/uploads`, `/api/store-config` → static `/uploads` → CORS-error handler → generic error handler → 404 handler.
@@ -72,15 +81,12 @@ Match this convention (`status` + machine-readable `code` + human `message`) for
 ### Image uploads (`middleware/imageUploadMiddleware.js`, `utils/uploads.js`)
 Multer buffers the upload in memory → `sharp` decodes and re-encodes it (strips unexpected metadata, and rejects anything that isn't actually a JPEG/PNG regardless of the client's declared `Content-Type`) → written to disk under `UPLOADS_DIR` (falls back to `/tmp/media-uploads` if that's not writable). `createSingleImageUploadMiddlewares({ fieldName, filePrefix, maxFileSizeMB })` is the shared factory used by both the user profile-image and product-image upload routes.
 
-### Tenant/multi-store infrastructure (in progress)
-The repo is mid-migration from single-tenant-per-deployment toward a shared model described in `docs/notion-architecture-v1-hibrida.md` ("Modelo B": one global admin DB + one DB per store). Read this before adding tenant-aware behavior:
-- `utils/dbConnectionManager.js` implements the target state: per-tenant Mongo connections cached by `dbName`, `getTenantConnection()`/`getTenantModel()` to fetch tenant-scoped models, `resolveDbName({ dbName, slug })` to go from a store slug → `store_<slug>` DB name (usage example in `README.md` under "BE-001").
-- However, `models/user.model.js` and `models/storeConfig.model.js` still call `mongoose.model(...)` directly against the single global connection opened once in `server.js` — they are **not yet** wired through `dbConnectionManager`. There is no `tenantResolver` middleware yet and no `req.tenant`.
-- `StoreConfig` is a deliberate singleton per deployment (`singletonKey: "default"`, unique + immutable) — the `/api/store-config` routes always read/write that one document.
-- `frontend-user/src/utils/apiClient.js` already derives a tenant slug (from `REACT_APP_STORE_SLUG` or the hostname's subdomain) and sends it as `X-Tenant-Slug`, anticipating tenant resolution the backend doesn't consume yet.
-- `backend/scripts/tenant-bootstrap.mongo.js` and `backend/scripts/storeconfig-bootstrap.mongo.js` are `mongosh` scripts for provisioning a new tenant/store document — see README.md for invocation examples.
+### Tenant/multi-store infrastructure (removed)
+`docs/notion-architecture-v1-hibrida.md` ("Modelo B": one global admin DB + one DB per store, shared multi-tenant backend) is superseded by `docs/adr-monorepo-shared-packages.md` — see "Multi-store strategy" above for the current direction. The partial Modelo B infra (`utils/dbConnectionManager.js`, `scripts/tenant-bootstrap.mongo.js`, the `TENANT_*` env vars, the `X-Tenant-Slug` header `frontend-user/src/utils/apiClient.js` used to send) was never consumed by any route/model and has been **deleted** from the codebase, not just deprecated — don't look for it. `backend/scripts/storeconfig-bootstrap.mongo.js` is unrelated (it predates Modelo B and seeds the single per-deployment `StoreConfig` doc) and is still the script to use.
 
-When adding tenant-aware behavior, decide explicitly whether it should use the `dbConnectionManager` pattern (target state) or the legacy direct-`mongoose.model` pattern (what `User`/`StoreConfig` still use) — don't silently mix both for the same collection.
+All models — `User`, `StoreConfig`, and everything new — use the direct-`mongoose.model(...)` pattern against the single per-instance connection opened once in `server.js`. There is no tenant resolver, no `req.tenant`, and none is planned; that's the point of the current direction (see "Multi-store strategy").
+
+`StoreConfig` is a deliberate singleton per deployment (`singletonKey: "default"`, unique + immutable) — the `/api/store-config` routes always read/write that one document.
 
 ### Frontend patterns
 - Both frontends read the backend base URL from `REACT_APP_HOST_SERVICES_URL` and call it directly — `frontend-admin` uses `axios` inline per-component, `frontend-user` goes through `utils/apiClient.js#apiFetch`, which unwraps the backend's `{ ok, error }` envelope into a thrown `Error(message)`.
