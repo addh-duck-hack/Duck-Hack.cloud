@@ -51,6 +51,15 @@ const transactionSchema = new mongoose.Schema(
     sourceId: {
       type: mongoose.Schema.Types.ObjectId,
     },
+    // Factura que cubre este movimiento, si ya se facturó (ver
+    // backend/routes/invoices.routes.js). null = pendiente de facturar. Una
+    // vez seteado, el pago/deuda de origen queda protegido contra edición o
+    // borrado directo (ver backend/utils/accountingHooks.js#isSourceInvoiced).
+    invoice: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Invoice",
+      default: null,
+    },
   },
   { timestamps: true }
 );
@@ -58,6 +67,7 @@ const transactionSchema = new mongoose.Schema(
 transactionSchema.index({ date: -1 });
 transactionSchema.index({ type: 1, date: -1 });
 transactionSchema.index({ client: 1 });
+transactionSchema.index({ invoice: 1 });
 
 const Transaction = mongoose.model("Transaction", transactionSchema);
 

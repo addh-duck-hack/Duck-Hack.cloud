@@ -3,18 +3,11 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatCalendarDate } from "../utils/formatCalendarDate";
+import { SOURCE_LABELS, formatMxn } from "../utils/accountingLabels";
 
 const initialForm = { type: "expense", amount: "", date: "", category: "", description: "", client: "" };
 
-const formatMxn = (value) => Number(value || 0).toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 const formatDate = (value) => formatCalendarDate(value) || "—";
-
-const SOURCE_LABELS = {
-  manual: "Manual",
-  hosting_payment: "Pago de hosting",
-  design_debt: "Deuda",
-  opening_balance: "Saldo inicial",
-};
 
 const AccountingTransactions = () => {
   const navigate = useNavigate();
@@ -23,6 +16,7 @@ const AccountingTransactions = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [downloadingId, setDownloadingId] = useState(null);
 
   const [filters, setFilters] = useState({ type: "", startDate: "", endDate: "" });
   const [form, setForm] = useState(initialForm);
@@ -139,6 +133,25 @@ const AccountingTransactions = () => {
     }
   };
 
+  // Mismo patrón blob-autenticado que InvoiceList.jsx: el endpoint de PDF
+  // exige Bearer token, así que no puede ser un <a href> normal.
+  const handleViewPdf = async (invoiceId) => {
+    setDownloadingId(invoiceId);
+    setError("");
+    try {
+      const response = await axios.get(`${baseUrl}/api/invoices/${invoiceId}/pdf`, {
+        headers: getAuthHeaders(),
+        responseType: "blob",
+      });
+      const blobUrl = window.URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
+      window.open(blobUrl, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      setError("No fue posible generar el PDF de la factura.");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   return (
     <section>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
@@ -241,13 +254,14 @@ const AccountingTransactions = () => {
             <th>Cliente</th>
             <th>Monto</th>
             <th>Origen</th>
+            <th>Facturado</th>
             <th>Acciones</th>
           </tr>
         </thead>
         <tbody>
           {!isLoading && transactions.length === 0 ? (
             <tr>
-              <td colSpan={8}>Sin movimientos registrados.</td>
+              <td colSpan={9}>Sin movimientos registrados.</td>
             </tr>
           ) : null}
           {transactions.map((t) => (
@@ -263,6 +277,15 @@ const AccountingTransactions = () => {
               <td>{t.client?.businessName || "—"}</td>
               <td>{formatMxn(t.amount)}</td>
               <td>{SOURCE_LABELS[t.source] || t.source}</td>
+              <td>
+                {t.invoice ? (
+                  <button type="button" onClick={() => handleViewPdf(t.invoice)} disabled={downloadingId === t.invoice}>
+                    {downloadingId === t.invoice ? "Generando..." : "Ver PDF"}
+                  </button>
+                ) : (
+                  <span className="badge">Pendiente</span>
+                )}
+              </td>
               <td style={{ display: "flex", gap: "0.5rem" }}>
                 {t.source === "manual" ? (
                   <>

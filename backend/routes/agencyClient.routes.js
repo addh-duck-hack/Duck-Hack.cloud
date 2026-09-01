@@ -3,7 +3,6 @@ const router = express.Router();
 const AgencyClient = require("../models/agencyClient.model");
 const HostingPayment = require("../models/hostingPayment.model");
 const DesignDebt = require("../models/designDebt.model");
-const { verifyToken, authorizeRoles, ROLES } = require("../middleware/authMiddleware");
 const {
   validateObjectIdParam,
   validateAgencyClientPayload,
@@ -11,14 +10,13 @@ const {
   validateDesignDebtPayload,
 } = require("../middleware/validationMiddleware");
 const { sendError } = require("../utils/httpResponses");
-const { recordIncomeAndInvoice, deleteLinkedAccountingRecords, syncSingleSourceIncome } = require("../utils/accountingHooks");
-const { HOSTING_PLANS } = require("../utils/hostingPlans");
+// Auth vive en @duck-hack/core-api (packages/core-api/modules/auth.js) —
+// verifyToken/authorizeRoles se arman con sendError, ROLES es estático.
+const { auth } = require("@duck-hack/core-api");
+const { verifyToken, authorizeRoles } = auth.createAuthMiddleware(sendError);
+const { ROLES } = auth;
+const { recordIncome, isSourceInvoiced, deleteLinkedAccountingRecords, syncSingleSourceIncome } = require("../utils/accountingHooks");
 const { getContainersMetrics, PortainerConfigError, PortainerRequestError } = require("../utils/portainerClient");
-
-// paidAt es una fecha "de calendario" (medianoche UTC, viene de un <input
-// type="date">) — se formatea en UTC para que el mes mostrado no dependa de
-// la zona horaria del servidor (mismo caso que invoicePdf.js#formatDate).
-const MONTH_YEAR_FORMAT = new Intl.DateTimeFormat("es-MX", { month: "long", year: "numeric", timeZone: "UTC" });
 
 // Módulo confidencial: información de facturación/hosting de clientes de agencia.
 // Acceso exclusivo a super_admin (a diferencia de storeConfig.routes.js, aquí NO
@@ -255,14 +253,12 @@ router.post(
       });
       await payment.save();
 
-      const planLabel = req.agencyClient.hostingPlan ? ` - Plan ${HOSTING_PLANS[req.agencyClient.hostingPlan].label}` : "";
-      await recordIncomeAndInvoice({
+      await recordIncome({
         client: req.agencyClient,
         amount: payment.amount,
         date: payment.paidAt,
         category: "Hosting",
         description: `Pago de hosting - ${req.agencyClient.businessName}`,
-        concept: `Pago de hosting${planLabel} - ${MONTH_YEAR_FORMAT.format(payment.paidAt)}`,
         sourceCollection: "HostingPayment",
         sourceId: payment._id,
       });
@@ -290,6 +286,15 @@ router.put(
         return sendError(res, 404, "HOSTING_PAYMENT_NOT_FOUND", "Pago de hosting no encontrado.");
       }
 
+      if (await isSourceInvoiced({ sourceCollection: "HostingPayment", sourceId: payment._id })) {
+        return sendError(
+          res,
+          409,
+          "TRANSACTION_ALREADY_INVOICED",
+          "Este pago ya fue facturado; no se puede editar directamente."
+        );
+      }
+
       payment.paidAt = req.body.paidAt;
       payment.coversUntil = req.body.coversUntil;
       if (req.body.amount !== undefined) payment.amount = req.body.amount;
@@ -297,16 +302,14 @@ router.put(
 
       await payment.save();
 
-      // Mantiene el ingreso/factura automáticos en sincronía con la edición
-      // (monto y/o fecha), en vez de dejar la transacción vieja desactualizada.
-      const planLabel = req.agencyClient.hostingPlan ? ` - Plan ${HOSTING_PLANS[req.agencyClient.hostingPlan].label}` : "";
+      // Mantiene el ingreso automático en sincronía con la edición (monto y/o
+      // fecha), en vez de dejar la transacción vieja desactualizada.
       await syncSingleSourceIncome({
         client: req.agencyClient,
         amount: payment.amount,
         date: payment.paidAt,
         category: "Hosting",
         description: `Pago de hosting - ${req.agencyClient.businessName}`,
-        concept: `Pago de hosting${planLabel} - ${MONTH_YEAR_FORMAT.format(payment.paidAt)}`,
         sourceCollection: "HostingPayment",
         sourceId: payment._id,
       });
@@ -325,17 +328,28 @@ router.delete(
   ensureAgencyClientExists,
   async (req, res) => {
     try {
-      const deleted = await HostingPayment.findOneAndDelete({
+      const payment = await HostingPayment.findOne({
         _id: req.params.paymentId,
         client: req.agencyClient._id,
       });
-      if (!deleted) {
+      if (!payment) {
         return sendError(res, 404, "HOSTING_PAYMENT_NOT_FOUND", "Pago de hosting no encontrado.");
       }
 
-      // Borra también el ingreso y la factura que se generaron automáticamente
-      // al registrar este pago, para que no quede un saldo fantasma en contabilidad.
-      await deleteLinkedAccountingRecords({ sourceCollection: "HostingPayment", sourceId: deleted._id });
+      if (await isSourceInvoiced({ sourceCollection: "HostingPayment", sourceId: payment._id })) {
+        return sendError(
+          res,
+          409,
+          "TRANSACTION_ALREADY_INVOICED",
+          "Este pago ya fue facturado; no se puede eliminar directamente."
+        );
+      }
+
+      await payment.deleteOne();
+
+      // Borra también el ingreso que se generó automáticamente al registrar
+      // este pago, para que no quede un saldo fantasma en contabilidad.
+      await deleteLinkedAccountingRecords({ sourceCollection: "HostingPayment", sourceId: payment._id });
 
       return res.status(200).json({ message: "Pago de hosting eliminado." });
     } catch (error) {
@@ -387,13 +401,12 @@ router.post(
       await debt.save();
 
       if (amountPaid > 0) {
-        await recordIncomeAndInvoice({
+        await recordIncome({
           client: req.agencyClient,
           amount: amountPaid,
           date: debt.invoicedAt || new Date(),
           category: "Diseño",
           description: `Abono a deuda - ${debt.description}`,
-          concept: `Abono a deuda: ${debt.description}`,
           sourceCollection: "DesignDebt",
           sourceId: debt._id,
         });
@@ -442,13 +455,12 @@ router.put(
       // o un abono parcial adicional sobre uno ya contabilizado antes.
       const paidIncrement = nextAmountPaid - previousAmountPaid;
       if (paidIncrement > 0) {
-        await recordIncomeAndInvoice({
+        await recordIncome({
           client: req.agencyClient,
           amount: paidIncrement,
           date: new Date(),
           category: "Diseño",
           description: `Abono a deuda - ${debt.description}`,
-          concept: `Abono a deuda: ${debt.description}`,
           sourceCollection: "DesignDebt",
           sourceId: debt._id,
         });
@@ -468,14 +480,25 @@ router.delete(
   ensureAgencyClientExists,
   async (req, res) => {
     try {
-      const deleted = await DesignDebt.findOneAndDelete({ _id: req.params.debtId, client: req.agencyClient._id });
-      if (!deleted) {
+      const debt = await DesignDebt.findOne({ _id: req.params.debtId, client: req.agencyClient._id });
+      if (!debt) {
         return sendError(res, 404, "DESIGN_DEBT_NOT_FOUND", "Deuda no encontrada.");
       }
 
-      // Borra también los ingresos y facturas generados por los abonos a esta
-      // deuda (puede haber más de uno si se pagó en partes vía ediciones sucesivas).
-      await deleteLinkedAccountingRecords({ sourceCollection: "DesignDebt", sourceId: deleted._id });
+      if (await isSourceInvoiced({ sourceCollection: "DesignDebt", sourceId: debt._id })) {
+        return sendError(
+          res,
+          409,
+          "TRANSACTION_ALREADY_INVOICED",
+          "Esta deuda tiene abonos ya facturados; no se puede eliminar directamente."
+        );
+      }
+
+      await debt.deleteOne();
+
+      // Borra también los ingresos generados por los abonos a esta deuda
+      // (puede haber más de uno si se pagó en partes vía ediciones sucesivas).
+      await deleteLinkedAccountingRecords({ sourceCollection: "DesignDebt", sourceId: debt._id });
 
       return res.status(200).json({ message: "Deuda eliminada." });
     } catch (error) {

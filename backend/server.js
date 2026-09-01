@@ -5,7 +5,16 @@ const cors = require("cors");
 const helmet = require("helmet");
 const { sendError } = require("./utils/httpResponses");
 const { resolveUploadsDir } = require("./utils/uploads");
-const { validateJwtEnvConfig } = require("./utils/jwt");
+const { modules: coreApiModules, auth } = require("@duck-hack/core-api");
+const AgencyClient = require("./models/agencyClient.model");
+const { getRunningContainersCount } = require("./utils/portainerClient");
+
+// Auth/Users vive ahora en @duck-hack/core-api (packages/core-api/modules/auth.js)
+// — verifyToken/authorizeRoles se arman acá con createAuthMiddleware(sendError)
+// (mismo criterio de inyección que el resto del paquete, ver su README.md),
+// ROLES/STAFF_ROLES/validateJwtEnvConfig son estáticos.
+const { verifyToken, authorizeRoles } = auth.createAuthMiddleware(sendError);
+const { ROLES, STAFF_ROLES, validateJwtEnvConfig } = auth;
 
 const app = express();
 app.set("trust proxy", 1);
@@ -38,23 +47,19 @@ const corsOptions = {
     return callback(new Error("CORS_ORIGIN_NOT_ALLOWED"));
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  // X-Tenant-Slug: frontend-user/src/utils/apiClient.js lo manda en cada apiFetch
-  // (resolución de tenant, ver TENANT_HEADER_NAME) — sin listarlo aquí, el navegador
-  // bloquea el preflight de cualquier request que lo incluya (ej. /users/verify).
-  allowedHeaders: ["Content-Type", "Authorization", process.env.TENANT_HEADER_NAME || "X-Tenant-Slug"],
+  allowedHeaders: ["Content-Type", "Authorization"],
   optionsSuccessStatus: 204,
 };
 
-// Conectar a MongoDB global (Modelo B)
+// Conectar a MongoDB (una sola conexión por instancia/tienda)
 mongoose.connect(mongoGlobalUrl)
-  .then(() => console.log("Conectado a MongoDB global"))
-  .catch((err) => console.error("Error al conectar a MongoDB global", err));
+  .then(() => console.log("Conectado a MongoDB"))
+  .catch((err) => console.error("Error al conectar a MongoDB", err));
 
-// Importar y usar rutas
-const userRoutes = require("./routes/user.routes");
-const mailRoutes = require("./routes/mail.routes");
-const uploadRoutes = require("./routes/upload.routes");
-const storeConfigRoutes = require("./routes/storeConfig.routes");
+// Importar y usar rutas — solo lo que NO se movió a @duck-hack/core-api:
+// AgencyClient/Accounting/Invoices/Infra son herramienta interna de
+// Duck-Hack (facturación/monitoreo de la propia agencia), deliberadamente
+// no candidatas a compartirse entre tiendas (ver packages/core-api/README.md).
 const agencyClientRoutes = require("./routes/agencyClient.routes");
 const infraRoutes = require("./routes/infra.routes");
 const accountingRoutes = require("./routes/accounting.routes");
@@ -69,14 +74,34 @@ app.use(
     hsts: process.env.NODE_ENV === "production",
   })
 );
-app.use("/api/users", userRoutes);
-app.use("/api/mail", mailRoutes);
-app.use("/api/uploads", uploadRoutes);
-app.use("/api/store-config", storeConfigRoutes);
 app.use("/api/agency-clients", agencyClientRoutes);
 app.use("/api/infra", infraRoutes);
 app.use("/api/accounting", accountingRoutes);
 app.use("/api/invoices", invoicesRoutes);
+
+// Módulos de @duck-hack/core-api (auth, mail, uploads, store-config,
+// productos, inventario, pedidos — ver packages/core-api/README.md) —
+// código compartido entre tiendas, montado acá con las piezas de esta
+// instancia (conexión Mongo, auth, formato de error).
+coreApiModules.forEach((mod) =>
+  mod.registerRoutes(app, {
+    mongooseConnection: mongoose.connection,
+    verifyToken,
+    authorizeRoles,
+    ROLES,
+    STAFF_ROLES,
+    sendError,
+    // Solo lo usa modules/storeConfig.js (GET /public) para recalcular
+    // métricas en vivo — AgencyClient/Portainer son herramienta interna de
+    // Duck-Hack, no viajan con el módulo. Si no se provee, esas métricas
+    // simplemente conservan su último valor guardado (ver el propio módulo).
+    resolveLiveMetricSources: {
+      active_clients: () => AgencyClient.countDocuments({ isActive: { $ne: false } }),
+      active_containers: () => getRunningContainersCount(),
+    },
+  })
+);
+
 // Servir la carpeta uploads como estática
 const uploadsDir = resolveUploadsDir();
 if (!uploadsDir) {

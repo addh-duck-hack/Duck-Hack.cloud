@@ -184,77 +184,65 @@ La API devuelve errores en formato uniforme:
 - Plantilla Notion para cambios de API: `docs/notion-bl015-api-change-template.md`
 - Smoke tests de flujo (BL-014): `docs/bl-014-test-flow.md`
 
-## INF-001 — Bootstrap de tenant (Modelo B)
+## Reutilización de módulos entre tiendas
 
-Script incluido:
-- `backend/scripts/tenant-bootstrap.mongo.js`
+La infraestructura de tenant compartido (Modelo B: `backend/utils/dbConnectionManager.js`,
+`backend/scripts/tenant-bootstrap.mongo.js`, variables `TENANT_*`) que documentaban antes
+las secciones INF-001/INF-002/BE-001 fue removida — ver
+[`docs/adr-monorepo-shared-packages.md`](docs/adr-monorepo-shared-packages.md). Cada tienda
+sigue con su propio backend/DB/despliegue; la reutilización de código entre tiendas se
+resuelve ahora con los paquetes de workspace en `packages/core-api` y `packages/ui-kit`
+(ver sus respectivos `README.md`).
 
-Qué hace:
-1. Registra/actualiza tenant en DB global `duckhub_admin.tenants`.
-2. Inicializa `storeconfigs` en la DB de tienda `store_<slug>`.
-3. Crea índices mínimos de unicidad (`slug`, `dbName`, `domains`, `singletonKey`).
+## Publicar tiendas: flujo de ramas (`main` → `release-<dominio>`)
 
-Ejemplo de uso:
+`main` es la rama canónica: ahí vive todo el desarrollo compartido (módulos nuevos en
+`packages/core-api`/`packages/ui-kit`, fixes, features de backend/admin) y es la base
+desde la que sale **toda** tienda nueva. Cada tienda desplegada corre desde su propia
+rama `release-<dominio-público-de-la-tienda>` (ej. `release-mx.duck-hack.cloud`) — el
+nombre debe coincidir con el dominio real del `frontend-user` de esa tienda, para que sea
+inequívoco qué rama corresponde a qué despliegue.
+
+**Regla de una sola dirección**: los merges van siempre `main → release-<dominio>`,
+nunca al revés.
+- Cualquier funcionalidad nueva compartida (un módulo, un fix, lo que sea que otras
+  tiendas también deban recibir) se desarrolla y se mergea primero en `main` — nunca
+  directo en una rama `release-*`.
+- Un cambio específico de una tienda (algo que **no** debe replicarse a las demás) se
+  commitea directo en su rama `release-<dominio>` y **nunca** se mergea de vuelta a
+  `main`.
+- Nunca se mergea una rama `release-*` a otra `release-*` — si dos tiendas necesitan el
+  mismo cambio, ese cambio pasa primero por `main`.
+
+### Publicar una tienda nueva
 
 ```bash
-TENANT_SLUG=duck-hack \
-TENANT_NAME="Duck-Hack Store" \
-TENANT_DOMAIN="mx.duck-hack.cloud" \
-TENANT_CONTACT_EMAIL="a.jacobo@duck-hack.com" \
-TENANT_CONTACT_PHONE="+52 566 165 3418" \
-mongosh "mongodb://localhost:27017/duckhub_admin" backend/scripts/tenant-bootstrap.mongo.js
+git checkout main
+git pull
+git checkout -b release-<dominio-de-la-tienda>
+git push -u origin release-<dominio-de-la-tienda>
 ```
 
-Variables opcionales:
-- `TENANT_DB_NAME` (default: `store_<slug>` con `_`)
-- `TENANT_STATUS` (default: `active`)
-- `TENANT_PLAN` (default: `starter`)
-- `TENANT_LOGO_URL` (default: `uploads/store-logo-default.png`)
+A partir de ahí, sigue el proceso normal de una instancia nueva (ver "Modelo de
+despliegue" arriba): checkout de esa rama en el servidor de la tienda, `.env` de las 3
+apps configurados en ese servidor (no viven en git — ver `.gitignore`), `docker compose
+up --build`, Proxy Hosts en Nginx Proxy Manager, bootstrap de `StoreConfig` y del primer
+usuario admin.
 
-## INF-002 — Variables de entorno tenant-aware (híbrido)
+### Llevar una actualización de `main` a una tienda ya publicada
 
-Se actualizaron los `.env.example` para preparar el paso a arquitectura híbrida:
+Propagar un cambio de `main` a una tienda es una decisión explícita por tienda, no
+automática — así una tienda no se rompe porque otra recibió un cambio sin probar del
+todo:
 
-- `backend/.env.example`
-  - `MONGO_URL_GLOBAL`
-  - `TENANT_DB_PREFIX`
-  - `TENANT_RESOLUTION_ORDER`
-  - `TENANT_HEADER_NAME`
-  - `TENANT_STRICT_MODE`
-  - `TENANT_FALLBACK_SLUG`
-  - `TENANT_DB_MAX_POOL`
-  - `TENANT_DB_MIN_POOL`
-  - `TENANT_DB_SERVER_SELECTION_TIMEOUT_MS`
-  - `CORS_ALLOW_CREDENTIALS`
-- `frontend-admin/.env.example`
-  - `REACT_APP_TENANT_SLUG`
-  - `REACT_APP_TENANT_HEADER_NAME`
-- `frontend-user/.env.example`
-  - `REACT_APP_STORE_SLUG`
-  - `REACT_APP_TENANT_HEADER_NAME`
-
-> Nota: algunas variables quedan preparadas para fases siguientes (tenantResolver + DB por tienda), aunque el código actual aún esté migrando desde single-db.
-
-## BE-001 — dbConnectionManager por tienda
-
-Archivo principal: `backend/utils/dbConnectionManager.js`
-
-Qué resuelve:
-- Construye URIs por tienda reutilizando `MONGO_URL_GLOBAL` + `TENANT_DB_PREFIX`.
-- Mantiene un caché de conexiones `mongoose.createConnection` por `dbName`, con limpieza automática al desconectarse.
-- Expone utilidades para normalizar `slug` → `dbName`, obtener conexiones (`getTenantConnection`) y registrar modelos (`getTenantModel`).
-- Permite cerrar todas las conexiones (útil en tests o scripts) con `closeAllTenantConnections`.
-
-Ejemplo de uso:
-
-```js
-const { getTenantModel, resolveDbName } = require("../utils/dbConnectionManager");
-const productSchema = new mongoose.Schema({ name: String });
-
-const dbName = resolveDbName({ slug: tenant.slug, dbName: tenant.dbName });
-const Product = await getTenantModel({ dbName }, "Product", productSchema);
-const list = await Product.find();
+```bash
+git checkout release-<dominio-de-la-tienda>
+git pull
+git merge main   # resolver conflictos si esa tienda tiene parches propios encima de main
+git push
 ```
+
+Y redesplegar esa tienda (`docker compose up --build` en su servidor).
 
 ## DOC-002 — Guía de uso: Tabla de errores conocidos
 

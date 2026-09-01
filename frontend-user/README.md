@@ -32,8 +32,6 @@ tiempo de compilación; `vite.config.js` reemplaza `process.env.REACT_APP_*` por
 su valor. Variables consumidas:
 
 - `REACT_APP_HOST_SERVICES_URL` — base del backend.
-- `REACT_APP_STORE_SLUG` — slug de tienda para el header `X-Tenant-Slug`.
-- `REACT_APP_TENANT_HEADER_NAME` — nombre de ese header (default `X-Tenant-Slug`).
 - `REACT_APP_ADMIN_URL` — link "Administrador" del sidebar.
 
 ## Docker

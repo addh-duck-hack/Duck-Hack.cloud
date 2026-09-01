@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import axios from "axios";
+import { Link } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { INFRA_ICONS } from "../utils/infraIcons";
 import { formatBytes } from "../utils/formatBytes";
@@ -7,6 +8,8 @@ import { formatBytes } from "../utils/formatBytes";
 const AdminMenu = () => {
   const role = localStorage.getItem("role");
   const isSuperAdmin = role === "super_admin";
+  const canManageCatalog = ["super_admin", "store_admin", "catalog_manager"].includes(role);
+  const canManageOrders = ["super_admin", "store_admin", "order_manager"].includes(role);
 
   const [items, setItems] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -73,13 +76,6 @@ const AdminMenu = () => {
   return (
     <div>
       <h2>Panel administrativo</h2>
-      <p>Este panel está enfocado al roadmap de eCommerce.</p>
-      <ul>
-        <li>Módulo de productos (pendiente)</li>
-        <li>Módulo de inventario (pendiente)</li>
-        <li>Módulo de pedidos (pendiente)</li>
-      </ul>
-
       {isSuperAdmin ? (
         <>
           <section style={{ marginTop: "2.5rem" }}>

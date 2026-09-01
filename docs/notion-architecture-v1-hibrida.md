@@ -1,5 +1,13 @@
 # Duck-Hack CRM Base — Arquitectura v1 (Híbrida)
 
+> ⚠️ **SUPERSEDED (2026-09-01):** los ADR-001 a ADR-004 de este documento (backend y
+> frontend-admin compartidos en un solo proceso multi-tenant) fueron reemplazados por
+> la decisión registrada en [`docs/adr-monorepo-shared-packages.md`](./adr-monorepo-shared-packages.md):
+> cada tienda mantiene su propio backend/DB/despliegue, y la reutilización de módulos
+> entre tiendas se resuelve con un monorepo de npm workspaces + paquetes compartidos.
+> Este documento se conserva como registro histórico de la decisión anterior; no
+> refleja el rumbo actual del proyecto.
+
 **Proyecto:** Duck-Hack CRM Base  
 **Versión:** v1 (alineada a MVP congelado)  
 **Fecha:** 2026-02-19  

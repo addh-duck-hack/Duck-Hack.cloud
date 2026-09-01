@@ -1,17 +1,61 @@
+// Ex-copia de backend/utils/uploads.js + backend/middleware/imageUploadMiddleware.js
+// — desde que Auth/StoreConfig se movieron a core-api, este es el ÚNICO
+// lugar donde vive `createSingleImageUploadMiddlewares` (perfil, store-config
+// y productos ya la consumen de acá). `backend/utils/uploads.js` sigue
+// existiendo, pero solo para que server.js sirva /uploads como estático
+// (`resolveUploadsDir()`) — ya no para el pipeline de subida en sí.
+// `sendError` se recibe por parámetro en vez de importarse (mismo criterio
+// que lib/moduleHelpers.js).
+const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const multer = require("multer");
 const sharp = require("sharp");
-const { sendError } = require("../utils/httpResponses");
-const { resolveUploadsDir } = require("../utils/uploads");
+
+const fallbackUploadsDir = path.join("/tmp", "media-uploads");
+let cachedUploadsDir = null;
+
+const isWritableDir = (dirPath) => {
+  try {
+    fs.accessSync(dirPath, fs.constants.W_OK);
+    return true;
+  } catch (error) {
+    return false;
+  }
+};
+
+const ensureWritableDir = (dirPath) => {
+  try {
+    fs.mkdirSync(dirPath, { recursive: true });
+    return isWritableDir(dirPath);
+  } catch (error) {
+    return false;
+  }
+};
+
+const resolveUploadsDir = () => {
+  if (cachedUploadsDir) return cachedUploadsDir;
+
+  const preferredDir = process.env.UPLOADS_DIR
+    ? path.resolve(process.env.UPLOADS_DIR)
+    : path.join(process.cwd(), "uploads");
+
+  if (ensureWritableDir(preferredDir)) {
+    cachedUploadsDir = preferredDir;
+    return cachedUploadsDir;
+  }
+
+  if (ensureWritableDir(fallbackUploadsDir)) {
+    cachedUploadsDir = fallbackUploadsDir;
+    return cachedUploadsDir;
+  }
+
+  return null;
+};
 
 const ALLOWED_IMAGE_FORMATS = new Set(["jpeg", "png"]);
 
-const createSingleImageUploadMiddlewares = ({
-  fieldName,
-  filePrefix,
-  maxFileSizeMB = 5,
-}) => {
+const createSingleImageUploadMiddlewares = ({ fieldName, filePrefix, maxFileSizeMB = 5, sendError }) => {
   const uploadMiddleware = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: maxFileSizeMB * 1024 * 1024 },
@@ -48,7 +92,6 @@ const createSingleImageUploadMiddlewares = ({
       const outputFileName = `${filePrefix}-${uniqueSuffix}.${extension}`;
       const outputPath = path.join(uploadsDir, outputFileName);
 
-      // Re-encodado para eliminar contenido no esperado y normalizar el archivo.
       const imagePipeline = sharp(req.file.buffer).rotate();
       if (extension === "png") {
         await imagePipeline.png({ compressionLevel: 9 }).toFile(outputPath);
@@ -72,5 +115,6 @@ const createSingleImageUploadMiddlewares = ({
 };
 
 module.exports = {
+  resolveUploadsDir,
   createSingleImageUploadMiddlewares,
 };

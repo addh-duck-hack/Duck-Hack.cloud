@@ -6,6 +6,7 @@ import { HOSTING_PLANS } from "../utils/hostingPlans";
 import { getDateStatusBadge } from "../utils/dateStatusBadge";
 import { formatBytes } from "../utils/formatBytes";
 import { formatCalendarDate } from "../utils/formatCalendarDate";
+import { SOURCE_LABELS } from "../utils/accountingLabels";
 
 const formatCurrency = (value) => `$${Number(value || 0).toLocaleString()}`;
 const formatDate = (value) => formatCalendarDate(value) || "—";
@@ -24,9 +25,11 @@ const AgencyClientDetail = () => {
   const [client, setClient] = useState(null);
   const [payments, setPayments] = useState([]);
   const [debts, setDebts] = useState([]);
+  const [movements, setMovements] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState(null);
 
   const [dockerStatus, setDockerStatus] = useState(null);
   const [dockerError, setDockerError] = useState("");
@@ -39,14 +42,16 @@ const AgencyClientDetail = () => {
     setIsLoading(true);
     setError("");
     try {
-      const [clientRes, paymentsRes, debtsRes] = await Promise.all([
+      const [clientRes, paymentsRes, debtsRes, movementsRes] = await Promise.all([
         axios.get(`${baseUrl}/api/agency-clients/${id}`, { headers: getAuthHeaders() }),
         axios.get(`${baseUrl}/api/agency-clients/${id}/hosting-payments`, { headers: getAuthHeaders() }),
         axios.get(`${baseUrl}/api/agency-clients/${id}/design-debts`, { headers: getAuthHeaders() }),
+        axios.get(`${baseUrl}/api/accounting/transactions`, { headers: getAuthHeaders(), params: { client: id } }),
       ]);
       setClient(clientRes.data);
       setPayments(paymentsRes.data?.items || []);
       setDebts(debtsRes.data?.items || []);
+      setMovements(movementsRes.data?.items || []);
     } catch (err) {
       setError(err.response?.data?.error?.message || "No fue posible cargar la ficha del cliente.");
     } finally {
@@ -85,7 +90,7 @@ const AgencyClientDetail = () => {
   }, [client, loadDockerStatus]);
 
   const handleDeletePayment = async (paymentId) => {
-    if (!window.confirm("¿Eliminar este pago? También se eliminará el ingreso y la factura que se generaron automáticamente en contabilidad.")) {
+    if (!window.confirm("¿Eliminar este pago? También se eliminará el ingreso que se generó automáticamente en contabilidad (si ya fue facturado, no se podrá eliminar).")) {
       return;
     }
     setError("");
@@ -116,7 +121,7 @@ const AgencyClientDetail = () => {
   };
 
   const handleDeleteDebt = async (debtId) => {
-    if (!window.confirm("¿Eliminar esta deuda? También se eliminarán los ingresos y facturas que se generaron automáticamente por sus abonos.")) {
+    if (!window.confirm("¿Eliminar esta deuda? También se eliminarán los ingresos que se generaron automáticamente por sus abonos (si alguno ya fue facturado, no se podrá eliminar).")) {
       return;
     }
     setError("");
@@ -128,6 +133,25 @@ const AgencyClientDetail = () => {
       await loadAll();
     } catch (err) {
       setError(err.response?.data?.error?.message || "No fue posible eliminar la deuda.");
+    }
+  };
+
+  // Mismo patrón blob-autenticado que InvoiceList.jsx/AccountingTransactions.jsx:
+  // el endpoint de PDF exige Bearer token, así que no puede ser un <a href> normal.
+  const handleViewInvoicePdf = async (invoiceId) => {
+    setDownloadingInvoiceId(invoiceId);
+    setError("");
+    try {
+      const response = await axios.get(`${baseUrl}/api/invoices/${invoiceId}/pdf`, {
+        headers: getAuthHeaders(),
+        responseType: "blob",
+      });
+      const blobUrl = window.URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
+      window.open(blobUrl, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      setError("No fue posible generar el PDF de la factura.");
+    } finally {
+      setDownloadingInvoiceId(null);
     }
   };
 
@@ -400,6 +424,59 @@ const AgencyClientDetail = () => {
                     <button type="button" className="btn-danger" onClick={() => handleDeleteDebt(debt._id)} style={{ width: "auto" }}>
                       Eliminar
                     </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* --- Todos los movimientos del cliente (contabilidad), solo lectura --- */}
+          <div style={{ marginTop: "2rem" }}>
+            <h4 style={{ margin: 0 }}>Movimientos del cliente</h4>
+            <p style={{ marginTop: "0.25rem" }}>
+              Todos los ingresos/egresos registrados para este cliente (hosting, deudas, manuales), estén ya facturados o no.
+            </p>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Categoría</th>
+                <th>Monto</th>
+                <th>Origen</th>
+                <th>Facturado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {movements.length === 0 ? (
+                <tr>
+                  <td colSpan={6}>Sin movimientos registrados.</td>
+                </tr>
+              ) : null}
+              {movements.map((m) => (
+                <tr key={m._id}>
+                  <td>{formatDate(m.date)}</td>
+                  <td>
+                    <span className={`badge badge-${m.type === "income" ? "green" : "red"}`}>
+                      {m.type === "income" ? "Ingreso" : "Egreso"}
+                    </span>
+                  </td>
+                  <td>{m.category || "—"}</td>
+                  <td>{formatCurrency(m.amount)}</td>
+                  <td>{SOURCE_LABELS[m.source] || m.source}</td>
+                  <td>
+                    {m.invoice ? (
+                      <button
+                        type="button"
+                        onClick={() => handleViewInvoicePdf(m.invoice)}
+                        disabled={downloadingInvoiceId === m.invoice}
+                      >
+                        {downloadingInvoiceId === m.invoice ? "Generando..." : "Ver PDF"}
+                      </button>
+                    ) : (
+                      <span className="badge">Pendiente</span>
+                    )}
                   </td>
                 </tr>
               ))}

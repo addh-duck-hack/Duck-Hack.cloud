@@ -1,13 +1,17 @@
 const express = require("express");
 const router = express.Router();
 const Transaction = require("../models/transaction.model");
-const { verifyToken, authorizeRoles, ROLES } = require("../middleware/authMiddleware");
 const {
   validateObjectIdParam,
   validateTransactionPayload,
   validateOpeningBalancePayload,
 } = require("../middleware/validationMiddleware");
 const { sendError } = require("../utils/httpResponses");
+// Auth vive en @duck-hack/core-api (packages/core-api/modules/auth.js) —
+// verifyToken/authorizeRoles se arman con sendError, ROLES es estático.
+const { auth } = require("@duck-hack/core-api");
+const { verifyToken, authorizeRoles } = auth.createAuthMiddleware(sendError);
+const { ROLES } = auth;
 
 // Confidencial: mismo criterio que /api/agency-clients, solo super_admin.
 router.use(verifyToken, authorizeRoles(ROLES.SUPER_ADMIN));
@@ -39,6 +43,11 @@ router.get("/transactions", async (req, res) => {
     }
     if (req.query.client) {
       filter.client = req.query.client;
+    }
+    if (req.query.invoiced === "true") {
+      filter.invoice = { $ne: null };
+    } else if (req.query.invoiced === "false") {
+      filter.invoice = null;
     }
     if (req.query.startDate || req.query.endDate) {
       filter.date = {};

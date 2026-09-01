@@ -1,7 +1,11 @@
 const express = require("express");
 const router = express.Router();
-const { verifyToken, authorizeRoles, ROLES } = require("../middleware/authMiddleware");
 const { sendError } = require("../utils/httpResponses");
+// Auth vive en @duck-hack/core-api (packages/core-api/modules/auth.js) —
+// verifyToken/authorizeRoles se arman con sendError, ROLES es estático.
+const { auth } = require("@duck-hack/core-api");
+const { verifyToken, authorizeRoles } = auth.createAuthMiddleware(sendError);
+const { ROLES } = auth;
 const { getServerMetrics, PortainerConfigError, PortainerRequestError } = require("../utils/portainerClient");
 
 // Herramientas de infraestructura del servidor — confidencial, solo super_admin

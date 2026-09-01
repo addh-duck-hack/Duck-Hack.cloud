@@ -14,8 +14,6 @@ export default defineConfig(({ mode }) => {
   // que realmente usa el storefront. Las no definidas quedan como "" (igual que CRA).
   const clientEnv = {
     "process.env.REACT_APP_HOST_SERVICES_URL": JSON.stringify(env.REACT_APP_HOST_SERVICES_URL || ""),
-    "process.env.REACT_APP_TENANT_HEADER_NAME": JSON.stringify(env.REACT_APP_TENANT_HEADER_NAME || ""),
-    "process.env.REACT_APP_STORE_SLUG": JSON.stringify(env.REACT_APP_STORE_SLUG || ""),
     "process.env.REACT_APP_ADMIN_URL": JSON.stringify(env.REACT_APP_ADMIN_URL || ""),
   };
 

@@ -19,6 +19,13 @@ import AccountingDashboard from "./components/AccountingDashboard";
 import AccountingTransactions from "./components/AccountingTransactions";
 import InvoiceList from "./components/InvoiceList";
 import InvoiceForm from "./components/InvoiceForm";
+import ProductList from "./components/ProductList";
+import ProductForm from "./components/ProductForm";
+import InventoryList from "./components/InventoryList";
+import InventoryForm from "./components/InventoryForm";
+import OrderList from "./components/OrderList";
+import OrderForm from "./components/OrderForm";
+import OrderDetail from "./components/OrderDetail";
 import './index.css';
 
 const App = () => {
@@ -27,9 +34,13 @@ const App = () => {
   const adminRoles = ["super_admin", "store_admin", "catalog_manager", "order_manager"];
   const storeConfigRoles = ["super_admin", "store_admin"];
   const agencyClientRoles = ["super_admin"];
+  const catalogRoles = ["super_admin", "store_admin", "catalog_manager"];
+  const orderRoles = ["super_admin", "store_admin", "order_manager"];
   const isLoggedIn = !!token && adminRoles.includes(role); // Verificar token y rol permitido
   const canManageStoreConfig = !!token && storeConfigRoles.includes(role);
   const canManageAgencyClients = !!token && agencyClientRoles.includes(role);
+  const canManageCatalog = !!token && catalogRoles.includes(role);
+  const canManageOrders = !!token && orderRoles.includes(role);
 
   return (
     <Router>
@@ -103,6 +114,42 @@ const App = () => {
             <Route
               path="invoices/new"
               element={canManageAgencyClients ? <InvoiceForm /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="products"
+              element={canManageCatalog ? <ProductList /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="products/new"
+              element={canManageCatalog ? <ProductForm /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="products/:id/edit"
+              element={canManageCatalog ? <ProductForm /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="inventory"
+              element={canManageCatalog ? <InventoryList /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="inventory/new"
+              element={canManageCatalog ? <InventoryForm /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="inventory/:id/edit"
+              element={canManageCatalog ? <InventoryForm /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="orders"
+              element={canManageOrders ? <OrderList /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="orders/new"
+              element={canManageOrders ? <OrderForm /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="orders/:id"
+              element={canManageOrders ? <OrderDetail /> : <Navigate to="/admin" />}
             />
           </Route>
         </Routes>
