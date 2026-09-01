@@ -81,6 +81,13 @@ router.post("/", validateInvoiceFromTransactionsPayload, async (req, res) => {
 
     const amount = transactions.reduce((sum, t) => sum + t.amount, 0);
     const concept = req.body.concept || buildDefaultConcept(transactions);
+    // Un renglón por movimiento en el PDF (ver invoicePdf.js), no un total
+    // aplastado — description es más específico que category ("Pago de
+    // hosting - Cliente X" vs. solo "Hosting").
+    const items = transactions.map((t) => ({
+      concept: t.description || t.category || "Movimiento",
+      amount: t.amount,
+    }));
 
     const folio = await getNextInvoiceFolio();
     const invoice = new Invoice({
@@ -88,6 +95,7 @@ router.post("/", validateInvoiceFromTransactionsPayload, async (req, res) => {
       folio,
       concept,
       amount,
+      items,
       issuedAt: new Date(),
       source: "movements",
       transactions: transactions.map((t) => t._id),

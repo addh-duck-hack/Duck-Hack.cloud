@@ -2020,6 +2020,16 @@ components:
           items:
             type: string
           description: Movimientos (Transaction) cubiertos por esta factura.
+        items:
+          type: array
+          description: Desglose por movimiento (snapshot al facturar) — un renglón por concepto/monto en el PDF. Vacío en facturas antiguas sin desglose.
+          items:
+            type: object
+            properties:
+              concept:
+                type: string
+              amount:
+                type: number
       required: [_id, client, folio, concept, amount, issuedAt]
 
     InvoiceCreateRequest:

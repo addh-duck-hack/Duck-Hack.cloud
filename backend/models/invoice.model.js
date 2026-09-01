@@ -59,6 +59,19 @@ const invoiceSchema = new mongoose.Schema(
         ref: "Transaction",
       },
     ],
+    // Desglose por movimiento (concepto + monto individual) tal como estaban
+    // al momento de facturar — es una copia (snapshot), no una referencia
+    // viva a Transaction, para que el PDF no cambie si el movimiento de
+    // origen se corrige después. `concept`/`amount` arriba siguen siendo el
+    // resumen (título compuesto + total) que ya usan el listado y el PDF de
+    // facturas antiguas sin `items` (manuales o legacy automáticas).
+    items: [
+      {
+        _id: false,
+        concept: { type: String, required: true, trim: true, maxlength: 300 },
+        amount: { type: Number, required: true, min: 0.01 },
+      },
+    ],
   },
   { timestamps: true }
 );

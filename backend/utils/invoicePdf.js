@@ -24,7 +24,7 @@ const formatDate = (date) =>
  * lo escribe al stream de salida dado (la respuesta HTTP en la ruta, o un
  * archivo al probarlo localmente). El PDF nunca se persiste en disco por el
  * backend — se recompone cada vez a partir del registro de Invoice.
- * @param {object} invoice - documento Invoice (folio, concept, amount, issuedAt)
+ * @param {object} invoice - documento Invoice (folio, concept, amount, issuedAt, items opcional)
  * @param {object} client - documento AgencyClient (para la sección "Facturar a")
  * @param {NodeJS.WritableStream} outputStream
  */
@@ -87,6 +87,14 @@ const generateInvoicePdf = (invoice, client, outputStream) => {
   }
 
   // --- Detalle ---
+  // Un renglón por movimiento facturado (invoice.items), no un solo concepto
+  // aplastado — facturas viejas sin items (manuales o legacy automáticas de
+  // antes de este cambio) caen en un único renglón con concept/amount.
+  const CONCEPT_WIDTH = 380;
+  const items = Array.isArray(invoice.items) && invoice.items.length > 0
+    ? invoice.items
+    : [{ concept: invoice.concept, amount: invoice.amount }];
+
   const tableTop = y + 30;
   doc.fillColor(BRAND_NAVY).font("Helvetica-Bold").fontSize(10);
   doc.text("Concepto", 50, tableTop);
@@ -94,17 +102,29 @@ const generateInvoicePdf = (invoice, client, outputStream) => {
   doc.moveTo(50, tableTop + 18).lineTo(562, tableTop + 18).strokeColor(BRAND_LINE).lineWidth(1).stroke();
 
   doc.fillColor(BRAND_TEXT_DIM).font("Helvetica").fontSize(10);
-  doc.text(invoice.concept, 50, tableTop + 28, { width: 380 });
-  doc.text(formatCurrency(invoice.amount), 450, tableTop + 28, { width: 112, align: "right" });
+  let rowY = tableTop + 28;
+  for (const item of items) {
+    // Si el detalle no cabe en la página, se abre una nueva antes de seguir
+    // (poco probable con pocos movimientos, pero una factura con muchos
+    // conceptos no debe overlapear el pie de página).
+    if (rowY > 680) {
+      doc.addPage();
+      rowY = 50;
+    }
+    const rowHeight = Math.max(doc.heightOfString(item.concept, { width: CONCEPT_WIDTH }), 14);
+    doc.text(item.concept, 50, rowY, { width: CONCEPT_WIDTH });
+    doc.text(formatCurrency(item.amount), 450, rowY, { width: 112, align: "right" });
+    rowY += rowHeight + 10;
+  }
 
-  doc.moveTo(50, tableTop + 60).lineTo(562, tableTop + 60).strokeColor(BRAND_LINE).lineWidth(1).stroke();
+  doc.moveTo(50, rowY).lineTo(562, rowY).strokeColor(BRAND_LINE).lineWidth(1).stroke();
 
   doc
     .fillColor(BRAND_NAVY)
     .font("Helvetica-Bold")
     .fontSize(13)
-    .text("Total", 350, tableTop + 75, { width: 100, align: "right" })
-    .text(formatCurrency(invoice.amount), 450, tableTop + 75, { width: 112, align: "right" });
+    .text("Total", 350, rowY + 15, { width: 100, align: "right" })
+    .text(formatCurrency(invoice.amount), 450, rowY + 15, { width: 112, align: "right" });
 
   // --- Pie ---
   doc
