@@ -1,7 +1,14 @@
+# Nombre del proyecto Compose. Se toma de STORE_SLUG (archivo .env en esta
+# carpeta) en vez de la carpeta, para poder clonar el repo varias veces y
+# correr una tienda por clon sin colisiones. Cada clon define su propio
+# STORE_SLUG en .env (ver .env.example). La tienda que ya estaba funcional
+# usa STORE_SLUG=duck-hack para conservar sus nombres/volumen actuales.
+name: ${STORE_SLUG:?Falta STORE_SLUG - copia .env.example a .env y ponle un slug unico por tienda}
+
 services:
   duck-hack.frontend-admin:
     build: ./frontend-admin
-    container_name: duck-hack.frontend-admin
+    container_name: ${STORE_SLUG}.frontend-admin
     # nginx sin privilegios -> escucha en 8080 (antes 80).
     # En Nginx Proxy Manager hay que cambiar el "Forward Port" de este host a 8080.
     expose:
@@ -11,11 +18,11 @@ services:
     restart: unless-stopped
     networks:
       - npm
-      - duck-hack.frontend-admin-net
+      - frontend-admin-net
 
   duck-hack.frontend-user:
     build: ./frontend-user
-    container_name: duck-hack.frontend-user
+    container_name: ${STORE_SLUG}.frontend-user
     # nginx sin privilegios -> escucha en 8080 (antes 80).
     # En Nginx Proxy Manager hay que cambiar el "Forward Port" de este host a 8080.
     expose:
@@ -25,7 +32,7 @@ services:
     restart: unless-stopped
     networks:
       - npm
-      - duck-hack.frontend-user-net
+      - frontend-user-net
 
   duck-hack.backend:
     # Contexto = raíz del repo (no ./backend): server.js importa
@@ -34,7 +41,7 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: duck-hack.backend
+    container_name: ${STORE_SLUG}.backend
     expose:
       - "5000"
     security_opt:
@@ -42,7 +49,7 @@ services:
     restart: unless-stopped
     networks:
       - npm
-      - duck-hack.backend-net
+      - backend-net
     # Volumen nombrado para que las imágenes subidas (logos, fotos de
     # clientes/equipo, productos) sobrevivan a "docker compose up --build":
     # sin esto viven en la capa escribible del contenedor, que se descarta
@@ -50,21 +57,25 @@ services:
     # UPLOADS_DIR en backend/.env debe apuntar a esta misma ruta (/app/uploads,
     # el valor por defecto en backend/.env.example) para que coincida.
     volumes:
-      - duck-hack.backend-uploads:/app/uploads
+      - backend-uploads:/app/uploads
 
 networks:
-  duck-hack.frontend-admin-net:
-    name: duck-hack.frontend-admin-net
+  # Redes internas namespaced por tienda (STORE_SLUG) para que cada clon del
+  # repo tenga las suyas y no choquen entre sí.
+  frontend-admin-net:
+    name: ${STORE_SLUG}.frontend-admin-net
     driver: bridge
-  duck-hack.frontend-user-net:
-    name: duck-hack.frontend-user-net
+  frontend-user-net:
+    name: ${STORE_SLUG}.frontend-user-net
     driver: bridge
-  duck-hack.backend-net:
-    name: duck-hack.backend-net
+  backend-net:
+    name: ${STORE_SLUG}.backend-net
     driver: bridge
   npm:
     external: true
 
 volumes:
-  duck-hack.backend-uploads:
-    name: duck-hack.backend-uploads
+  # Un volumen de uploads por tienda. STORE_SLUG=duck-hack mantiene el nombre
+  # histórico (duck-hack.backend-uploads) para no perder las imágenes ya subidas.
+  backend-uploads:
+    name: ${STORE_SLUG}.backend-uploads
