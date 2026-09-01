@@ -1,8 +1,7 @@
-// Copia mínima de backend/middleware/rateLimitMiddleware.js#createRateLimiter
-// — duplicada a propósito en vez de importada: ese archivo sigue sirviendo
-// registerRateLimiter/loginRateLimiter (Auth, todavía en backend/, ver
-// docs/adr-monorepo-shared-packages.md). `sendError` se recibe por parámetro
-// en vez de importarse (mismo criterio que lib/moduleHelpers.js).
+// Ex-copia de backend/middleware/rateLimitMiddleware.js#createRateLimiter —
+// desde que Auth se movió a core-api (que era su otro consumidor,
+// register/login), este es el único lugar donde vive. `sendError` se recibe
+// por parámetro en vez de importarse (mismo criterio que lib/moduleHelpers.js).
 const getClientIp = (req) => {
   const forwardedFor = req.headers["x-forwarded-for"];
   if (typeof forwardedFor === "string" && forwardedFor.length > 0) {

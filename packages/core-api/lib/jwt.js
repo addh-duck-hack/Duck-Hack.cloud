@@ -1,3 +1,6 @@
+// Copia fiel de backend/utils/jwt.js (ahora eliminado) — mismo comportamiento,
+// solo movida junto con el resto de Auth. Usada por lib/authMiddleware.js y
+// por modules/auth.js.
 const jwt = require("jsonwebtoken");
 
 const JWT_ALGORITHM = "HS256";

@@ -1,9 +1,11 @@
-// Copia de backend/utils/uploads.js + backend/middleware/imageUploadMiddleware.js
-// — duplicada a propósito, no importada: esos archivos siguen sirviendo las
-// subidas de imagen de perfil (Auth) y de store-config (logo/equipo/
-// testimonios), ambas todavía en backend/ (ver
-// docs/adr-monorepo-shared-packages.md). `sendError` se recibe por parámetro
-// en vez de importarse (mismo criterio que lib/moduleHelpers.js).
+// Ex-copia de backend/utils/uploads.js + backend/middleware/imageUploadMiddleware.js
+// — desde que Auth/StoreConfig se movieron a core-api, este es el ÚNICO
+// lugar donde vive `createSingleImageUploadMiddlewares` (perfil, store-config
+// y productos ya la consumen de acá). `backend/utils/uploads.js` sigue
+// existiendo, pero solo para que server.js sirva /uploads como estático
+// (`resolveUploadsDir()`) — ya no para el pipeline de subida en sí.
+// `sendError` se recibe por parámetro en vez de importarse (mismo criterio
+// que lib/moduleHelpers.js).
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");

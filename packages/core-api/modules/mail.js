@@ -2,9 +2,9 @@
 // (ahora eliminado) — mismo endpoint POST /api/mail/send-email, sin cambios
 // de contrato para el frontend.
 const express = require("express");
-const nodemailer = require("nodemailer");
 const { asTrimmedString } = require("../lib/moduleHelpers");
 const { createRateLimiter } = require("../lib/rateLimit");
+const { sendMail } = require("../lib/mailer");
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -54,29 +54,16 @@ function registerRoutes(app, ctx) {
   router.post("/send-email", contactEmailRateLimiter, validateContactPayload(sendError), async (req, res) => {
     const { fullName, email, phone, service, message } = req.body;
 
-    const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST,
-      port: parseInt(process.env.EMAIL_PORT, 10),
-      secure: false,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
-    // CONTACT_EMAIL_TO es nuevo (antes estaba hardcodeado a un correo de
-    // Duck-Hack) — cada tienda que use este módulo necesita poder recibir
-    // sus propios contactos en su propio correo. Cae en EMAIL_USER (la
-    // cuenta que envía) si no se configura, para no quedar sin destinatario.
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: process.env.CONTACT_EMAIL_TO || process.env.EMAIL_USER,
-      subject: `Contacto de ${fullName}`,
-      text: `Nombre: ${fullName}\nCorreo: ${email}\nTeléfono: ${phone}\nServicio: ${service}\nMensaje: ${message}`,
-    };
-
     try {
-      await transporter.sendMail(mailOptions);
+      // CONTACT_EMAIL_TO es nuevo (antes estaba hardcodeado a un correo de
+      // Duck-Hack) — cada tienda que use este módulo necesita poder recibir
+      // sus propios contactos en su propio correo. Cae en EMAIL_USER (la
+      // cuenta que envía) si no se configura, para no quedar sin destinatario.
+      await sendMail({
+        to: process.env.CONTACT_EMAIL_TO || process.env.EMAIL_USER,
+        subject: `Contacto de ${fullName}`,
+        text: `Nombre: ${fullName}\nCorreo: ${email}\nTeléfono: ${phone}\nServicio: ${service}\nMensaje: ${message}`,
+      });
       return res.status(200).json({ message: "Email enviado" });
     } catch (error) {
       console.error("Error enviando email", error);

@@ -1,6 +1,6 @@
 import axios from "axios";
 
-// backend/middleware/authMiddleware.js#verifyToken devuelve 401 con uno de
+// packages/core-api/lib/authMiddleware.js#verifyToken devuelve 401 con uno de
 // estos códigos cuando el JWT del panel ya no sirve: falta el header
 // (TOKEN_REQUIRED), el rol del token dejó de ser válido (TOKEN_INVALID_ROLE),
 // o expiró/está corrupto (TOKEN_INVALID_OR_EXPIRED). A propósito NO incluye

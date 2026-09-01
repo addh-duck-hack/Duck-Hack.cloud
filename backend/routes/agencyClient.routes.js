@@ -3,7 +3,6 @@ const router = express.Router();
 const AgencyClient = require("../models/agencyClient.model");
 const HostingPayment = require("../models/hostingPayment.model");
 const DesignDebt = require("../models/designDebt.model");
-const { verifyToken, authorizeRoles, ROLES } = require("../middleware/authMiddleware");
 const {
   validateObjectIdParam,
   validateAgencyClientPayload,
@@ -11,6 +10,11 @@ const {
   validateDesignDebtPayload,
 } = require("../middleware/validationMiddleware");
 const { sendError } = require("../utils/httpResponses");
+// Auth vive en @duck-hack/core-api (packages/core-api/modules/auth.js) —
+// verifyToken/authorizeRoles se arman con sendError, ROLES es estático.
+const { auth } = require("@duck-hack/core-api");
+const { verifyToken, authorizeRoles } = auth.createAuthMiddleware(sendError);
+const { ROLES } = auth;
 const { recordIncome, isSourceInvoiced, deleteLinkedAccountingRecords, syncSingleSourceIncome } = require("../utils/accountingHooks");
 const { getContainersMetrics, PortainerConfigError, PortainerRequestError } = require("../utils/portainerClient");
 

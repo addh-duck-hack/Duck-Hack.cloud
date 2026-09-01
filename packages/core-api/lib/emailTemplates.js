@@ -1,8 +1,9 @@
-// Plantillas de correo transaccional. HTML con estilos inline (tabla) para
-// máxima compatibilidad entre clientes de correo — reproduce la paleta de
-// marca de frontend-user (frontend-user/src/index.css: navy + azul señal +
-// ámbar) ya que las variables CSS/@import de Google Fonts no son fiables en
-// la mayoría de los webmail.
+// Copia fiel de backend/utils/emailTemplates.js (ahora eliminado) — mismo
+// HTML/texto, solo movida junto con Auth. Plantillas de correo transaccional.
+// HTML con estilos inline (tabla) para máxima compatibilidad entre clientes
+// de correo — reproduce la paleta de marca de frontend-user (frontend-user/
+// src/index.css: navy + azul señal + ámbar) ya que las variables CSS/@import
+// de Google Fonts no son fiables en la mayoría de los webmail.
 const BRAND = {
   ink: "#050f16",
   panel: "#0d2130",
