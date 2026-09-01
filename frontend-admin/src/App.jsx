@@ -26,6 +26,7 @@ import InventoryForm from "./components/InventoryForm";
 import OrderList from "./components/OrderList";
 import OrderForm from "./components/OrderForm";
 import OrderDetail from "./components/OrderDetail";
+import { StoreConfigProvider } from "./hooks/useStoreConfig";
 import './index.css';
 
 const App = () => {
@@ -43,6 +44,7 @@ const App = () => {
   const canManageOrders = !!token && orderRoles.includes(role);
 
   return (
+    <StoreConfigProvider>
     <Router>
       <div className="App">
         <Routes>
@@ -155,6 +157,7 @@ const App = () => {
         </Routes>
       </div>
     </Router>
+    </StoreConfigProvider>
   );
 };
 

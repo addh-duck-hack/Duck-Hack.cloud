@@ -304,6 +304,17 @@ code {
   color: var(--placeholder-color);
 }
 
+.auth-card > p strong {
+  color: var(--heading-color);
+}
+
+.auth-card > p.auth-note {
+  margin: -0.7rem 0 1.2rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.01em;
+  opacity: 0.75;
+}
+
 .auth-form {
   display: grid;
   gap: 0.8rem;

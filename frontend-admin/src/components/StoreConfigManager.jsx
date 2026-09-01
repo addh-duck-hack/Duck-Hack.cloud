@@ -180,9 +180,10 @@ const StoreConfigManager = () => {
       <StoreConfigTabs />
       <h3>Configuración de tienda</h3>
       <p>
-        Datos base y tema visual de esta instancia. El storefront (frontend-user) ya consume el logo, contacto,
-        redes sociales y las fuentes/color de acento del tema. <strong>Nota:</strong> los colores primario y
-        secundario todavía no se aplican al sitio público (requieren validar contraste antes de habilitarlos).
+        Datos base y tema visual de esta instancia. El storefront (frontend-user) y este panel ya consumen el
+        color de acento y las fuentes del tema (el panel además usa el nombre de tienda en su pantalla de login);
+        el storefront también usa el logo, contacto y redes sociales. <strong>Nota:</strong> los colores primario y
+        secundario todavía no se aplican (requieren validar contraste antes de habilitarlos).
       </p>
 
       {message ? <div className="auth-success">{message}</div> : null}
