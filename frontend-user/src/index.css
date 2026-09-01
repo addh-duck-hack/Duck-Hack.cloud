@@ -57,6 +57,19 @@ p {
   margin: 0;
 }
 
+/* Campos de "descripción" del store config que pueden traer HTML básico
+   (ver src/components/RichText.jsx) — se renderizan en un <div>, no un <p>,
+   así que necesitan la misma base tipográfica de arriba explícita en vez de
+   heredarla gratis del selector `p`. Un h1-h6/p/ul que el admin meta ADENTRO
+   sí hereda el resto de las reglas globales de esta hoja (h1,h2,h3 ya
+   definidas arriba, por ejemplo) sin nada extra. */
+.rich-text {
+  font-family: var(--font-body);
+  line-height: 1.65;
+  color: var(--text-dim);
+  margin: 0;
+}
+
 a {
   color: inherit;
 }

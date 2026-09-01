@@ -3,6 +3,7 @@ import React, { useMemo, useState } from 'react';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { useStoreConfig } from '../hooks/useStoreConfig';
 import { pickList } from '../utils/storeConfigLists';
+import RichText from './RichText';
 import './OurServices.css';
 
 // Fallback local — también reexportado para que ContactUs.jsx derive su
@@ -111,7 +112,7 @@ const OurServices = () => {
               </div>
               <div className="svc-card-back">
                 <h3>{service.title}</h3>
-                <p>{service.description}</p>
+                <RichText html={service.description} />
               </div>
             </div>
           </div>

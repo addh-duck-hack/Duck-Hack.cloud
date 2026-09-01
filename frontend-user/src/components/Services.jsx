@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { useStoreConfig } from '../hooks/useStoreConfig';
 import { pickList } from '../utils/storeConfigLists';
+import RichText from './RichText';
 import './Services.css';
 
 const formatPrice = (value) => (value === null || value === undefined ? null : Number(value).toFixed(2));
@@ -160,7 +161,7 @@ const Services = () => {
             <div className="price-head">
               <div className="route">/precios/{plan.name.toLowerCase()}</div>
               <h3>{plan.name}</h3>
-              <p>{plan.description}</p>
+              <RichText html={plan.description} />
               {plan.price ? (
                 <>
                   {plan.originalPrice && (
@@ -225,7 +226,7 @@ const Services = () => {
         {faqs.map((f) => (
           <details key={f.q}>
             <summary>{f.q}</summary>
-            <p>{f.a}</p>
+            <RichText html={f.a} />
           </details>
         ))}
       </div>

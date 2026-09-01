@@ -409,7 +409,11 @@
   display: block;
 }
 
-.step-card p {
+/* .rich-text: la nota puede venir de <RichText> (ver Inicio.jsx), que
+   siempre monta un <div class="rich-text">, no un <p> — se mantiene el
+   selector por <p> por si algún fallback local todavía usa uno a secas. */
+.step-card p,
+.step-card .rich-text {
   font-size: 0.88rem;
   margin-top: 0.25rem;
   color: var(--text-dim);

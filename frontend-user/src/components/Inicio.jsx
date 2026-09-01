@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { useStoreConfig } from '../hooks/useStoreConfig';
 import { pickList } from '../utils/storeConfigLists';
+import RichText from './RichText';
 import './Inicio.css';
 
 // Fallback local — se usa mientras carga el store-config, si el fetch falla,
@@ -227,7 +228,7 @@ const Inicio = () => {
           <span className="hero2-badge">duck-hack · cloud-os</span>
           <div className="term-copy" key={slide.id}>
             <h1 className="hero2-title">{slide.title}</h1>
-            <p className="hero2-sub">{slide.description}</p>
+            <RichText className="hero2-sub" html={slide.description} />
           </div>
           <div className="hero2-actions">
             <Link className="btn btn-solid" to="/precios">
@@ -299,7 +300,7 @@ const Inicio = () => {
             </span>
             <div>
               <strong>{c.cmd}</strong>
-              <p>{c.note}</p>
+              <RichText html={c.note} />
             </div>
           </div>
         ))}

@@ -71,7 +71,10 @@
   color: var(--white);
 }
 
-.price-head p {
+/* .rich-text: la descripción puede venir de <RichText> (ver Services.jsx),
+   que siempre monta un <div class="rich-text">, no un <p>. */
+.price-head p,
+.price-head .rich-text {
   font-size: 0.8rem;
   margin-top: 0.5rem;
   min-height: 3.4em;
@@ -195,7 +198,10 @@
   color: var(--white);
 }
 
-.faq p {
+/* .rich-text: la respuesta puede venir de <RichText> (ver Services.jsx),
+   que siempre monta un <div class="rich-text">, no un <p>. */
+.faq p,
+.faq .rich-text {
   margin-top: 0.7rem;
   font-size: 0.86rem;
 }

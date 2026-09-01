@@ -10,6 +10,7 @@ import peajesmxShot from '../assets/client-shots/peajesmx-shot.jpg';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { useStoreConfig, resolveStoreImageUrl } from '../hooks/useStoreConfig';
 import { pickList } from '../utils/storeConfigLists';
+import RichText from './RichText';
 import './Customers.css';
 
 const FALLBACK_CLIENTS = [
@@ -100,7 +101,7 @@ const Customers = () => {
               <div className="client-body">
                 <span className="rubro">{c.rubro}</span>
                 <h3 className="name">{c.name}</h3>
-                <p className="client-description">{c.description}</p>
+                <RichText className="client-description" html={c.description} />
                 <span className="client-cta">
                   Visitar sitio <i className="fas fa-arrow-right" />
                 </span>

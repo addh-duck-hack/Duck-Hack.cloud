@@ -7,6 +7,7 @@ import cesarPhoto from '../assets/collaborators/cesar.webp';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { useStoreConfig, resolveStoreImageUrl } from '../hooks/useStoreConfig';
 import { pickList } from '../utils/storeConfigLists';
+import RichText from './RichText';
 import './AboutUs.css';
 
 const FALLBACK_TEAM = [
@@ -109,7 +110,7 @@ const AboutUs = () => {
             <div className="team-hero-content">
               <h3>{member.name}</h3>
               <p className="team-role">{member.role}</p>
-              <p className="team-bio">{member.bio}</p>
+              <RichText className="team-bio" html={member.bio} />
               <div className="team-contact">
                 {member.email && (
                   <a href={`mailto:${member.email}`}>

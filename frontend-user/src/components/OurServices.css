@@ -101,7 +101,10 @@
   color: var(--white);
 }
 
-.svc-card-back p {
+/* .rich-text: la descripción puede venir de <RichText> (ver OurServices.jsx),
+   que siempre monta un <div class="rich-text">, no un <p>. */
+.svc-card-back p,
+.svc-card-back .rich-text {
   margin-top: 0.5rem;
   font-size: 0.88rem;
 }
