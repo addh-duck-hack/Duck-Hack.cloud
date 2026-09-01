@@ -92,7 +92,6 @@ const Inicio = () => {
   );
   const metrics = useMemo(() => pickList(config?.metrics, METRICS), [config]);
   const commands = useMemo(() => pickList(config?.commands, COMMANDS), [config]);
-  const trustMetrics = metrics.slice(0, 2);
 
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -238,21 +237,16 @@ const Inicio = () => {
               Hablar con nosotros
             </Link>
           </div>
-          {trustMetrics.length > 0 && (
-            <div className="hero2-trust">
-              {trustMetrics.map((m, i) => (
-                <React.Fragment key={m.label}>
-                  {i > 0 ? <span className="sep">·</span> : null}
-                  <span>
-                    <span className="dot" aria-hidden="true" />
-                    {m.value} {m.label.toLowerCase()}
-                  </span>
-                </React.Fragment>
-              ))}
-              <span className="sep">·</span>
-              <span>Soporte en español</span>
-            </div>
-          )}
+          {/* Las métricas (clientes activos, disponibilidad...) ya no se repiten
+              aquí: se muestran justo debajo en el panel "Así trabajamos
+              contigo" — repetirlas en el hero se veía como información
+              duplicada a centímetros de distancia. */}
+          <div className="hero2-trust">
+            <span>
+              <span className="dot" aria-hidden="true" />
+              Soporte en español
+            </span>
+          </div>
           <div className="hero2-dots">
             {slides.map((s, i) => (
               <button

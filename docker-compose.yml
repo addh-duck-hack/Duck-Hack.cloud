@@ -38,6 +38,14 @@ services:
     networks:
       - npm
       - duck-hack.backend-net
+    # Volumen nombrado para que las imágenes subidas (logos, fotos de
+    # clientes/equipo, productos) sobrevivan a "docker compose up --build":
+    # sin esto viven en la capa escribible del contenedor, que se descarta
+    # por completo cada vez que se recrea el contenedor con una imagen nueva.
+    # UPLOADS_DIR en backend/.env debe apuntar a esta misma ruta (/app/uploads,
+    # el valor por defecto en backend/.env.example) para que coincida.
+    volumes:
+      - duck-hack.backend-uploads:/app/uploads
 
 networks:
   duck-hack.frontend-admin-net:
@@ -51,3 +59,7 @@ networks:
     driver: bridge
   npm:
     external: true
+
+volumes:
+  duck-hack.backend-uploads:
+    name: duck-hack.backend-uploads

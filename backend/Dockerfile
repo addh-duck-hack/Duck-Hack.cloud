@@ -15,6 +15,15 @@ COPY . .
 
 # Crear un usuario no root para ejecutar la aplicación
 RUN useradd -m appuser
+
+# Directorio de subidas (logos, fotos de equipo/clientes, imágenes de
+# producto) — se crea y se deja con permisos de appuser aquí, en la imagen,
+# para que quede correcto desde el primer arranque del volumen que lo monta
+# en docker-compose.yml (sin ese volumen, este directorio vive solo en la
+# capa escribible del contenedor y se pierde en cada `docker compose up
+# --build`, que descarta el contenedor viejo y arranca uno nuevo desde cero).
+RUN mkdir -p /app/uploads && chown -R appuser:appuser /app/uploads
+
 USER appuser
 
 # Exponer el puerto 5000
