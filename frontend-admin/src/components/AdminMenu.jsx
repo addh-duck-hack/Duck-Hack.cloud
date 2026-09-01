@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import axios from "axios";
+import { Link } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { INFRA_ICONS } from "../utils/infraIcons";
 import { formatBytes } from "../utils/formatBytes";
@@ -7,6 +8,8 @@ import { formatBytes } from "../utils/formatBytes";
 const AdminMenu = () => {
   const role = localStorage.getItem("role");
   const isSuperAdmin = role === "super_admin";
+  const canManageCatalog = ["super_admin", "store_admin", "catalog_manager"].includes(role);
+  const canManageOrders = ["super_admin", "store_admin", "order_manager"].includes(role);
 
   const [items, setItems] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -75,9 +78,9 @@ const AdminMenu = () => {
       <h2>Panel administrativo</h2>
       <p>Este panel está enfocado al roadmap de eCommerce.</p>
       <ul>
-        <li>Módulo de productos (pendiente)</li>
-        <li>Módulo de inventario (pendiente)</li>
-        <li>Módulo de pedidos (pendiente)</li>
+        <li>{canManageCatalog ? <Link to="/admin/products">Módulo de productos</Link> : "Módulo de productos"}</li>
+        <li>{canManageCatalog ? <Link to="/admin/inventory">Módulo de inventario</Link> : "Módulo de inventario"}</li>
+        <li>{canManageOrders ? <Link to="/admin/orders">Módulo de pedidos</Link> : "Módulo de pedidos"}</li>
       </ul>
 
       {isSuperAdmin ? (

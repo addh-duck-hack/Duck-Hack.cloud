@@ -6,6 +6,8 @@ const helmet = require("helmet");
 const { sendError } = require("./utils/httpResponses");
 const { resolveUploadsDir } = require("./utils/uploads");
 const { validateJwtEnvConfig } = require("./utils/jwt");
+const { verifyToken, authorizeRoles, ROLES, STAFF_ROLES } = require("./middleware/authMiddleware");
+const { modules: coreApiModules } = require("@duck-hack/core-api");
 
 const app = express();
 app.set("trust proxy", 1);
@@ -74,6 +76,21 @@ app.use("/api/agency-clients", agencyClientRoutes);
 app.use("/api/infra", infraRoutes);
 app.use("/api/accounting", accountingRoutes);
 app.use("/api/invoices", invoicesRoutes);
+
+// Módulos de @duck-hack/core-api (productos/inventario/pedidos, ver
+// packages/core-api/README.md) — código compartido entre tiendas, montado
+// acá con las piezas de esta instancia (conexión Mongo, auth, formato de error).
+coreApiModules.forEach((mod) =>
+  mod.registerRoutes(app, {
+    mongooseConnection: mongoose.connection,
+    verifyToken,
+    authorizeRoles,
+    ROLES,
+    STAFF_ROLES,
+    sendError,
+  })
+);
+
 // Servir la carpeta uploads como estática
 const uploadsDir = resolveUploadsDir();
 if (!uploadsDir) {

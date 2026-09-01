@@ -18,6 +18,9 @@ tags:
   - name: AgencyClients
   - name: Accounting
   - name: Invoices
+  - name: Products
+  - name: Inventory
+  - name: Orders
   - name: StoreConfig
 paths:
   /api/users/register:
@@ -1152,6 +1155,516 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
+  /api/products:
+    get:
+      tags: [Products]
+      summary: Listar catálogo de productos
+      description: Lectura permitida a cualquier rol de staff (super_admin, store_admin, catalog_manager, order_manager).
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: isActive
+          schema:
+            type: string
+            enum: ["true", "false"]
+      responses:
+        "200":
+          description: Listado de productos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Product"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      tags: [Products]
+      summary: Crear producto
+      description: Solo super_admin, store_admin, catalog_manager.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductCreateRequest"
+      responses:
+        "201":
+          description: Producto creado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  product:
+                    $ref: "#/components/schemas/Product"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: sku duplicado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/products/{id}:
+    get:
+      tags: [Products]
+      summary: Obtener un producto
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProductIdParam"
+      responses:
+        "200":
+          description: Producto
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Producto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    put:
+      tags: [Products]
+      summary: Editar producto
+      description: Solo super_admin, store_admin, catalog_manager.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProductIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductCreateRequest"
+      responses:
+        "200":
+          description: Producto actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  product:
+                    $ref: "#/components/schemas/Product"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Producto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    delete:
+      tags: [Products]
+      summary: Eliminar producto
+      description: Solo super_admin, store_admin, catalog_manager. Bloqueado si el producto tiene inventario o pedidos ligados.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProductIdParam"
+      responses:
+        "200":
+          description: Producto eliminado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Producto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Producto con inventario o pedidos ligados
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/inventory:
+    get:
+      tags: [Inventory]
+      summary: Listar inventario
+      description: Lectura permitida a cualquier rol de staff.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [in_stock, low_stock, out_of_stock]
+      responses:
+        "200":
+          description: Listado de inventario (con `product` poblado)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Inventory"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      tags: [Inventory]
+      summary: Registrar inventario de un producto
+      description: Solo super_admin, store_admin, catalog_manager. Un producto solo puede tener un registro de inventario.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InventoryCreateRequest"
+      responses:
+        "201":
+          description: Inventario registrado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  inventory:
+                    $ref: "#/components/schemas/Inventory"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Producto referenciado no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Ya existe un registro de inventario para ese producto
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/inventory/{id}:
+    get:
+      tags: [Inventory]
+      summary: Obtener un registro de inventario
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/InventoryIdParam"
+      responses:
+        "200":
+          description: Inventario
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Inventory"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Registro no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    put:
+      tags: [Inventory]
+      summary: Ajustar cantidad/umbral de un registro de inventario
+      description: Solo super_admin, store_admin, catalog_manager. `product` es inmutable después de creado.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/InventoryIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InventoryCreateRequest"
+      responses:
+        "200":
+          description: Inventario actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  inventory:
+                    $ref: "#/components/schemas/Inventory"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Registro no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    delete:
+      tags: [Inventory]
+      summary: Eliminar un registro de inventario
+      description: Solo super_admin, store_admin, catalog_manager.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/InventoryIdParam"
+      responses:
+        "200":
+          description: Inventario eliminado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Registro no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/orders:
+    get:
+      tags: [Orders]
+      summary: Listar pedidos
+      description: Lectura permitida a cualquier rol de staff.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, confirmed, processing, shipped, delivered, cancelled]
+      responses:
+        "200":
+          description: Listado de pedidos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Order"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      tags: [Orders]
+      summary: Crear pedido
+      description: >
+        Solo super_admin, store_admin, order_manager. No hay carrito/checkout
+        en el storefront todavía — los pedidos se crean manualmente desde el
+        panel. unitPrice se toma del precio actual de cada producto, no del payload.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderCreateRequest"
+      responses:
+        "201":
+          description: Pedido creado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  order:
+                    $ref: "#/components/schemas/Order"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Alguno de los productos referenciados no existe
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/orders/{id}:
+    get:
+      tags: [Orders]
+      summary: Obtener un pedido
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderIdParam"
+      responses:
+        "200":
+          description: Pedido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Pedido no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    put:
+      tags: [Orders]
+      summary: Actualizar estado/notas/dirección de envío de un pedido
+      description: Solo super_admin, store_admin, order_manager. items/customer no se reabren después de creado.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderUpdateRequest"
+      responses:
+        "200":
+          description: Pedido actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  order:
+                    $ref: "#/components/schemas/Order"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Pedido no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    delete:
+      tags: [Orders]
+      summary: Eliminar pedido
+      description: Solo super_admin, store_admin, order_manager.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderIdParam"
+      responses:
+        "200":
+          description: Pedido eliminado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Pedido no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
   /api/store-config/public:
     get:
       tags: [StoreConfig]
@@ -1326,6 +1839,30 @@ components:
       schema:
         type: string
       description: ObjectId de la transacción de contabilidad
+
+    ProductIdParam:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+      description: ObjectId del producto
+
+    InventoryIdParam:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+      description: ObjectId del registro de inventario
+
+    OrderIdParam:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+      description: ObjectId del pedido
 
   responses:
     BadRequest:
@@ -2051,6 +2588,194 @@ components:
           maxLength: 300
           description: Opcional — si se omite, se compone a partir de las categorías y el mes de los movimientos seleccionados.
       required: [client, transactionIds]
+
+    Product:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+        sku:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        compareAtPrice:
+          type: number
+          nullable: true
+        category:
+          type: string
+        images:
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required: [_id, name, sku, price]
+
+    ProductCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        sku:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+          minimum: 0
+        compareAtPrice:
+          type: number
+          minimum: 0
+        category:
+          type: string
+        images:
+          type: array
+          items:
+            type: string
+          description: Paths devueltos por POST /api/uploads/products-image.
+        isActive:
+          type: boolean
+      required: [name, sku, price]
+
+    Inventory:
+      type: object
+      properties:
+        _id:
+          type: string
+        product:
+          type: string
+          description: ObjectId de Product, o el objeto poblado en GET /api/inventory[/{id}].
+        quantity:
+          type: number
+        lowStockThreshold:
+          type: number
+        status:
+          type: string
+          readOnly: true
+          enum: [in_stock, low_stock, out_of_stock]
+          description: Recalculado server-side a partir de quantity/lowStockThreshold — nunca se acepta del cliente.
+        notes:
+          type: string
+      required: [_id, product, quantity, status]
+
+    InventoryCreateRequest:
+      type: object
+      properties:
+        product:
+          type: string
+        quantity:
+          type: number
+          minimum: 0
+        lowStockThreshold:
+          type: number
+          minimum: 0
+        notes:
+          type: string
+      required: [product, quantity]
+
+    OrderItem:
+      type: object
+      properties:
+        product:
+          type: string
+        productName:
+          type: string
+          readOnly: true
+          description: Snapshot del nombre del producto al momento de crear el pedido.
+        quantity:
+          type: integer
+          minimum: 1
+        unitPrice:
+          type: number
+          readOnly: true
+          description: Snapshot del precio del producto al momento de crear el pedido.
+        subtotal:
+          type: number
+          readOnly: true
+      required: [product, quantity]
+
+    Order:
+      type: object
+      properties:
+        _id:
+          type: string
+        customerName:
+          type: string
+        customerEmail:
+          type: string
+        customerPhone:
+          type: string
+        customer:
+          type: string
+          nullable: true
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItem"
+        status:
+          type: string
+          enum: [pending, confirmed, processing, shipped, delivered, cancelled]
+        total:
+          type: number
+          readOnly: true
+        shippingAddress:
+          type: string
+        notes:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [_id, customerName, customerEmail, items, status, total]
+
+    OrderCreateRequest:
+      type: object
+      description: total/productName/unitPrice/subtotal se calculan en el servidor a partir del precio actual de cada producto — no se aceptan del cliente.
+      properties:
+        customerName:
+          type: string
+        customerEmail:
+          type: string
+        customerPhone:
+          type: string
+        customer:
+          type: string
+          description: Opcional — ObjectId de un User existente.
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            properties:
+              product:
+                type: string
+              quantity:
+                type: integer
+                minimum: 1
+            required: [product, quantity]
+        shippingAddress:
+          type: string
+        notes:
+          type: string
+      required: [customerName, customerEmail, items]
+
+    OrderUpdateRequest:
+      type: object
+      description: Solo status/shippingAddress/notes — items/customer no se reabren después de creado el pedido.
+      properties:
+        status:
+          type: string
+          enum: [pending, confirmed, processing, shipped, delivered, cancelled]
+        shippingAddress:
+          type: string
+        notes:
+          type: string
 
     StoreTheme:
       type: object

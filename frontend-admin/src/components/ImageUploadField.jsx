@@ -2,12 +2,21 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 
-// Campo reutilizable de subida de imagen para store-config (logo, foto de
-// equipo, foto de testimonio). No conoce a qué campo del formulario padre
-// pertenece: solo sube el archivo a POST /api/store-config/upload-image y
-// devuelve el `imagePath` relativo (ej. "uploads/store-config-....jpg") vía
-// onChange, igual que el resto de imágenes del sistema (profileImage, productImage).
-const ImageUploadField = ({ label, value, onChange, previewBaseUrl }) => {
+// Campo reutilizable de subida de imagen. Por default sube a
+// POST /api/store-config/upload-image (logo, foto de equipo, foto de
+// testimonio) — pasando `uploadUrl`/`fieldName` se reutiliza para otros
+// endpoints de imagen del sistema (ej. POST /api/uploads/products-image,
+// campo "productImage", usado por ProductForm.jsx). No conoce a qué campo
+// del formulario padre pertenece: solo sube el archivo y devuelve el
+// `imagePath` relativo (ej. "uploads/productImage-....jpg") vía onChange.
+const ImageUploadField = ({
+  label,
+  value,
+  onChange,
+  previewBaseUrl,
+  uploadUrl = "/api/store-config/upload-image",
+  fieldName = "image",
+}) => {
   const [file, setFile] = useState(null);
   const [localPreviewUrl, setLocalPreviewUrl] = useState("");
   const [isUploading, setIsUploading] = useState(false);
@@ -41,8 +50,8 @@ const ImageUploadField = ({ label, value, onChange, previewBaseUrl }) => {
     setError("");
     try {
       const formData = new FormData();
-      formData.append("image", file);
-      const response = await axios.post(`${baseUrl}/api/store-config/upload-image`, formData, {
+      formData.append(fieldName, file);
+      const response = await axios.post(`${baseUrl}${uploadUrl}`, formData, {
         headers: {
           ...getAuthHeaders(),
           "Content-Type": "multipart/form-data",

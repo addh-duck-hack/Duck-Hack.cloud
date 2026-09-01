@@ -9,6 +9,9 @@ const ROUTE_LABELS = {
   "/admin": "panel",
   "/admin/store-config": "store-config",
   "/admin/agency-clients": "agency-clients",
+  "/admin/products": "products",
+  "/admin/inventory": "inventory",
+  "/admin/orders": "orders",
 };
 
 const AdminShell = () => {
@@ -18,6 +21,8 @@ const AdminShell = () => {
 
   const role = localStorage.getItem("role");
   const canManageStoreConfig = ["super_admin", "store_admin"].includes(role);
+  const canManageCatalog = ["super_admin", "store_admin", "catalog_manager"].includes(role);
+  const canManageOrders = ["super_admin", "store_admin", "order_manager"].includes(role);
   const isSuperAdmin = role === "super_admin";
 
   useEffect(() => {
@@ -27,6 +32,13 @@ const AdminShell = () => {
   const navItems = [
     { path: "/admin", label: "Panel", end: true },
     ...(canManageStoreConfig ? [{ path: "/admin/store-config", label: "Configurar tienda" }] : []),
+    ...(canManageCatalog
+      ? [
+          { path: "/admin/products", label: "Productos" },
+          { path: "/admin/inventory", label: "Inventario" },
+        ]
+      : []),
+    ...(canManageOrders ? [{ path: "/admin/orders", label: "Pedidos" }] : []),
     ...(isSuperAdmin
       ? [
           { path: "/admin/agency-clients", label: "Clientes de agencia" },

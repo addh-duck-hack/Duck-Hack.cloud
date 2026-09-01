@@ -28,7 +28,12 @@ services:
       - duck-hack.frontend-user-net
 
   duck-hack.backend:
-    build: ./backend
+    # Contexto = raíz del repo (no ./backend): server.js importa
+    # @duck-hack/core-api desde packages/core-api, así que el build necesita
+    # ver el workspace completo. Ver backend/Dockerfile para el detalle.
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: duck-hack.backend
     expose:
       - "5000"

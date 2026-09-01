@@ -1,0 +1,16 @@
+node_modules
+build
+coverage
+.git
+.gitignore
+.DS_Store
+npm-debug.log*
+frontend-admin
+frontend-user
+# El build de backend (context: ., ver docker-compose.yml) solo necesita
+# package.json/package-lock.json de la raíz, backend/ y packages/ — los
+# frontends tienen su propio build+contexto por separado (./frontend-admin,
+# ./frontend-user), así que se excluyen acá para no mandarlos en el contexto
+# de este build.
+# OJO: backend/.env NO se ignora — server.js lo lee (vía dotenv) en runtime
+# desde lo que haya quedado copiado en la imagen al momento del build.
