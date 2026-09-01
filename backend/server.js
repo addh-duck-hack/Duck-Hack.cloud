@@ -20,7 +20,7 @@ if (!mongoGlobalUrl) {
 }
 const configuredCorsOrigins = (process.env.CORS_ALLOWED_ORIGINS || "")
   .split(",")
-  .map((origin) => origin.trim())
+  .map((origin) => origin.trim().replace(/\/+$/, "")) // tolera slash final por error de tipeo en el .env
   .filter(Boolean);
 
 if (configuredCorsOrigins.length === 0) {
@@ -34,10 +34,14 @@ const corsOptions = {
     // Permite herramientas sin origen (curl/postman/server-to-server)
     if (!origin) return callback(null, true);
     if (allowedCorsOrigins.has(origin)) return callback(null, true);
+    console.warn(`CORS rechazado para origin="${origin}". Permitidos: ${configuredCorsOrigins.join(", ")}`);
     return callback(new Error("CORS_ORIGIN_NOT_ALLOWED"));
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  // X-Tenant-Slug: frontend-user/src/utils/apiClient.js lo manda en cada apiFetch
+  // (resolución de tenant, ver TENANT_HEADER_NAME) — sin listarlo aquí, el navegador
+  // bloquea el preflight de cualquier request que lo incluya (ej. /users/verify).
+  allowedHeaders: ["Content-Type", "Authorization", process.env.TENANT_HEADER_NAME || "X-Tenant-Slug"],
   optionsSuccessStatus: 204,
 };
 
@@ -51,6 +55,10 @@ const userRoutes = require("./routes/user.routes");
 const mailRoutes = require("./routes/mail.routes");
 const uploadRoutes = require("./routes/upload.routes");
 const storeConfigRoutes = require("./routes/storeConfig.routes");
+const agencyClientRoutes = require("./routes/agencyClient.routes");
+const infraRoutes = require("./routes/infra.routes");
+const accountingRoutes = require("./routes/accounting.routes");
+const invoicesRoutes = require("./routes/invoices.routes");
 
 app.use(cors(corsOptions));
 app.use(
@@ -65,6 +73,10 @@ app.use("/api/users", userRoutes);
 app.use("/api/mail", mailRoutes);
 app.use("/api/uploads", uploadRoutes);
 app.use("/api/store-config", storeConfigRoutes);
+app.use("/api/agency-clients", agencyClientRoutes);
+app.use("/api/infra", infraRoutes);
+app.use("/api/accounting", accountingRoutes);
+app.use("/api/invoices", invoicesRoutes);
 // Servir la carpeta uploads como estática
 const uploadsDir = resolveUploadsDir();
 if (!uploadsDir) {

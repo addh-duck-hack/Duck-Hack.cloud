@@ -1,4 +1,9 @@
-const API_BASE_URL = process.env.REACT_APP_HOST_SERVICES_URL;
+// Se quita cualquier slash final para evitar URLs con doble slash al concatenar
+// con un path que empieza en "/" (ej. REACT_APP_HOST_SERVICES_URL="https://api.x.com/"
+// + "/api/mail/send-email" -> "...//api/mail/send-email"), que algunos proxies
+// no resuelven igual que la ruta real y termina viéndose como un bloqueo de CORS.
+export const getApiBaseUrl = () => (process.env.REACT_APP_HOST_SERVICES_URL || "").replace(/\/+$/, "");
+const API_BASE_URL = getApiBaseUrl();
 const TENANT_HEADER_NAME = process.env.REACT_APP_TENANT_HEADER_NAME || "X-Tenant-Slug";
 
 export const getTenantSlug = () => {

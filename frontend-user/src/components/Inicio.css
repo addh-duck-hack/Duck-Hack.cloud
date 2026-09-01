@@ -3,82 +3,183 @@
   max-width: 1120px;
   margin: 0 auto;
   width: 100%;
+  position: relative;
+  padding-left: 2.6rem;
+  /* Eje horizontal compartido por el riel y los círculos — un solo valor del
+     que ambos se centran, en vez de dos "left" fijos que había que cuadrar
+     a mano (y que se desalineaban, ver .boot-node). */
+  --rail-x: 0.6rem;
 }
 
-/* ---- terminal hero ---- */
-.term {
+/* ---- riel de "arranque": se enciende por etapas conforme el hero, las
+   métricas y los pasos entran en el viewport (ver Inicio.jsx) ---- */
+.boot-rail {
+  position: absolute;
+  left: var(--rail-x);
+  top: 2.2rem;
+  bottom: 2.5rem;
+  width: 2px;
+  background: var(--line);
+}
+
+.boot-rail-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 0%;
+  background: linear-gradient(var(--signal), var(--action));
+  transition: height 0.15s linear;
+}
+
+.boot-node {
+  position: absolute;
+  /* Centra el círculo (12px) sobre el riel (2px) en --rail-x, en vez del
+     "left: 0.1rem" fijo anterior que no cuadraba con el centro real del
+     riel y dejaba el círculo corrido hacia la izquierda. */
+  left: calc(var(--rail-x) - 5px);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--ink);
+  border: 2px solid var(--line);
+  transition: border-color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.boot-node.lit {
+  border-color: var(--action);
+  background: var(--action);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--action) 25%, transparent), 0 0 14px var(--action);
+}
+
+/* ---- hero: título grande y beneficio claro, sin depender de un prompt de
+   terminal para entenderse. El acento "cloud-os" se conserva en la
+   insignia y en el panel de métricas, no como protagonista. ---- */
+.hero2 {
+  position: relative;
+  padding: clamp(2.2rem, 6vw, 3.6rem) clamp(1.4rem, 4vw, 2.4rem);
+  border-radius: 16px;
   border: 1px solid var(--line);
-  border-radius: 14px;
   background: var(--panel);
   overflow: hidden;
 }
 
-.term-bar {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.7rem 1rem;
-  border-bottom: 1px solid var(--line);
-  background: var(--panel2);
+.hero2-bg {
+  position: absolute;
+  inset: -20%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(38% 45% at 18% 20%, color-mix(in srgb, var(--signal) 26%, transparent), transparent 70%),
+    radial-gradient(32% 40% at 88% 78%, color-mix(in srgb, var(--action) 20%, transparent), transparent 70%);
+  filter: blur(34px);
+  animation: hero2-drift 16s ease-in-out infinite alternate;
 }
 
-.term-bar span {
+@keyframes hero2-drift {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(2%, -3%) scale(1.06);
+  }
+}
+
+.hero2-content {
+  position: relative;
+  z-index: 1;
+  max-width: 640px;
+}
+
+.hero2-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   font-family: var(--font-mono);
   font-size: 0.72rem;
-  color: var(--text-dim);
-  margin-left: 0.4rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--action);
+  background: color-mix(in srgb, var(--action) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--action) 40%, transparent);
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
 }
 
-.term-bar .chrome-dots span {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  display: inline-block;
-  margin-left: 0;
-}
-.term-bar .c1 { background: #ff5f57; }
-.term-bar .c2 { background: #febc2e; }
-.term-bar .c3 { background: #28c840; }
-
-.term-body {
-  padding: 1.8rem 1.8rem 2.2rem;
+/* Se remonta (key={slide.id}) en cada cambio de slide, así el fade se
+   reinicia solo sin necesitar JS extra para orquestar la animación. */
+.term-copy {
+  animation: term-copy-fade 0.5s ease both;
 }
 
-.term-body .prompt {
-  font-family: var(--font-mono);
-  color: var(--signal);
-  font-size: 0.85rem;
+@keyframes term-copy-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.term-body h1 {
-  font-size: clamp(1.8rem, 4.4vw, 3.1rem);
+.hero2-title {
+  font-size: clamp(2rem, 5vw, 3rem);
   line-height: 1.08;
-  margin-top: 0.7rem;
+  margin-top: 1rem;
   text-transform: none;
   text-wrap: balance;
 }
 
-.term-body p.lede {
+.hero2-sub {
   margin-top: 1rem;
+  text-align: justify;
+  font-size: 1.05rem;
   max-width: 52ch;
-  font-size: 1.02rem;
   min-height: 2.6em;
 }
 
-.term-actions {
+.hero2-actions {
   display: flex;
   gap: 0.8rem;
   margin-top: 1.8rem;
   flex-wrap: wrap;
 }
 
-.hero-dots {
+.hero2-trust {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.9rem;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+.hero2-trust .sep {
+  color: var(--line);
+}
+
+.hero2-trust .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2ecf6b;
+  display: inline-block;
+  margin-right: 0.4rem;
+  box-shadow: 0 0 6px #2ecf6b;
+}
+
+.hero2-dots {
   display: flex;
   gap: 0.5rem;
   margin-top: 1.8rem;
+  position: relative;
+  z-index: 1;
 }
 
-.hero-dots button {
+.hero2-dots button {
   width: 26px;
   height: 4px;
   border-radius: 2px;
@@ -88,16 +189,90 @@
   padding: 0;
 }
 
-.hero-dots button[aria-current='true'] {
+.hero2-dots button[aria-current='true'] {
   background: var(--signal);
 }
 
-/* ---- bento metrics ---- */
+/* Entrada orquestada al montar — el hero ya está a la vista sin necesidad de
+   scroll, así que el impacto tiene que pasar en la carga, no después. */
+.hero2-badge,
+.hero2-title,
+.hero2-sub,
+.hero2-actions,
+.hero2-trust {
+  animation: rise-in 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.hero2-badge { animation-delay: 0s; }
+.hero2-title { animation-delay: 0.08s; }
+.hero2-sub { animation-delay: 0.18s; }
+.hero2-actions { animation-delay: 0.28s; }
+.hero2-trust { animation-delay: 0.36s; }
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---- panel de métricas: pequeño marco tipo terminal como único acento
+   "cloud-os" que queda fuera del hero. ---- */
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin: 2.4rem 0 0.8rem;
+  display: block;
+  /* .App define text-align:center a nivel raíz — se anula aquí para que el
+     título quede alineado con el contenido de la sección (tarjetas/pasos),
+     que sí es left-aligned por sus propios estilos. */
+  text-align: left;
+}
+
+.panel-frame {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--ink);
+  position: relative;
+}
+
+.panel-chrome {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  background: var(--panel2);
+  border-bottom: 1px solid var(--line);
+}
+
+.panel-chrome .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.panel-chrome .d1 { background: #ff5f57; }
+.panel-chrome .d2 { background: #febc2e; }
+.panel-chrome .d3 { background: #28c840; }
+.panel-chrome .label {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  margin-left: 0.4rem;
+}
+
 .bento {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 1rem;
-  margin-top: 2.2rem;
+  padding: 1.4rem;
 }
 
 .bento .cell {
@@ -105,6 +280,44 @@
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 1.2rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.6s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+  will-change: transform;
+}
+
+.bento .cell.in-view {
+  opacity: 1;
+}
+
+/* El transform de "in-view" solo resetea el translateY de entrada — el
+   parallax de scroll (Inicio.jsx) sigue escribiendo su propio translateY
+   sobre el mismo elemento una vez visible, por eso no se anula aquí con
+   `transform: none`. */
+.bento .cell.in-view {
+  transform: translateY(0);
+}
+
+.bento .cell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 20%, color-mix(in srgb, var(--signal) 22%, transparent) 42%, transparent 64%);
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+
+.bento .cell.sweep::before {
+  animation: sweep 1s ease forwards;
+}
+
+@keyframes sweep {
+  to {
+    transform: translateX(120%);
+  }
 }
 
 .bento .cell .num {
@@ -129,30 +342,104 @@
   margin-top: 0.6rem;
 }
 
-/* ---- command list ---- */
-.cmdlist {
-  margin-top: 2.4rem;
+/* ---- pasos: beneficios con ícono, no comandos de terminal ---- */
+.steps {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.7rem;
 }
 
-.cmdlist .row {
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
-  color: var(--text);
+.step-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 0.7rem 1rem;
+  border-left: 2px solid var(--line);
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  position: relative;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.6s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1),
+    border-left-color 0.4s ease;
+  /* .App define text-align:center a nivel raíz — con una nota corta de una
+     sola línea no se notaba, pero al envolver a 2+ líneas (nota larga) el
+     texto se veía centrado en vez de alineado a la izquierda con el ícono. */
+  text-align: left;
 }
 
-.cmdlist .row .p {
+.step-card.in-view {
+  opacity: 1;
+  transform: translateY(0);
+  border-left-color: var(--action);
+}
+
+.step-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 20%, color-mix(in srgb, var(--signal) 22%, transparent) 42%, transparent 64%);
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+
+.step-card.sweep::before {
+  animation: sweep 1s ease forwards;
+}
+
+.step-icon {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--signal-dim);
   color: var(--signal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
 }
 
-.cmdlist .row .c {
+.step-card strong {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  text-transform: none;
+  display: block;
+}
+
+/* .rich-text: la nota puede venir de <RichText> (ver Inicio.jsx), que
+   siempre monta un <div class="rich-text">, no un <p> — se mantiene el
+   selector por <p> por si algún fallback local todavía usa uno a secas. */
+.step-card p,
+.step-card .rich-text {
+  font-size: 0.88rem;
+  margin-top: 0.25rem;
   color: var(--text-dim);
+  line-height: 1.55;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .term-copy,
+  .hero2-bg,
+  .hero2-badge,
+  .hero2-title,
+  .hero2-sub,
+  .hero2-actions,
+  .hero2-trust {
+    animation: none;
+  }
+  .bento .cell,
+  .step-card {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .bento .cell::before,
+  .step-card::before {
+    display: none;
+  }
 }
 
 @media (max-width: 900px) {
@@ -162,7 +449,13 @@
 }
 
 @media (max-width: 600px) {
-  .term-body {
-    padding: 1.3rem 1.2rem 1.6rem;
+  .home-view {
+    padding-left: 1.8rem;
+  }
+  .hero2 {
+    padding: 1.6rem 1.2rem 2rem;
+  }
+  .bento {
+    padding: 1.1rem;
   }
 }

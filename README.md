@@ -55,8 +55,10 @@ EMAIL_USER=user@example.com
 EMAIL_PASS=xxxxx
 FRONTEND_URL=http://localhost:3000
 CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:82,http://localhost:89
-UPLOADS_DIR=/tmp/media-uploads
+UPLOADS_DIR=/app/uploads
 ```
+
+> **En Docker, `UPLOADS_DIR` debe ser `/app/uploads`** — es la ruta que `docker-compose.yml` monta como volumen nombrado (`duck-hack.backend-uploads`), para que las imágenes subidas (logos, fotos de equipo/clientes, productos) sobrevivan a `docker compose up -d --build`. Sin ese volumen (o con `UPLOADS_DIR` apuntando a otra ruta, como el viejo default `/tmp/media-uploads`), las subidas viven solo en la capa escribible del contenedor y se pierden por completo cada vez que se recrea con una imagen nueva.
 
 ### Frontend Admin (`frontend-admin/.env`)
 
@@ -301,7 +303,9 @@ Buenas prácticas:
 - Error SMTP al registrar/contacto:
   - Revisar `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASS`.
 - Error de permisos al subir imágenes (`EACCES`):
-  - Configurar `UPLOADS_DIR` a una ruta escribible (por ejemplo `/tmp/media-uploads`).
+  - Configurar `UPLOADS_DIR` a una ruta escribible (`/app/uploads` en Docker, cualquier ruta local fuera de Docker).
+- Las imágenes subidas (logo, fotos de clientes/equipo) desaparecen después de `docker compose up -d --build`:
+  - `UPLOADS_DIR` no está apuntando al volumen persistente. Confirmar que `backend/.env` tiene `UPLOADS_DIR=/app/uploads` (coincide con el volumen `duck-hack.backend-uploads` de `docker-compose.yml`) y no algo como `/tmp/media-uploads`, que vive en la capa descartable del contenedor.
 - Frontend no llega al backend:
   - Revisar `REACT_APP_HOST_SERVICES_URL` en ambos frontends.
 - Error CORS (origen no permitido):

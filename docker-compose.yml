@@ -2,8 +2,13 @@ services:
   duck-hack.frontend-admin:
     build: ./frontend-admin
     container_name: duck-hack.frontend-admin
-    volumes:
-      - ./frontend-admin:/app
+    # nginx sin privilegios -> escucha en 8080 (antes 80).
+    # En Nginx Proxy Manager hay que cambiar el "Forward Port" de este host a 8080.
+    expose:
+      - "8080"
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
     networks:
       - npm
       - duck-hack.frontend-admin-net
@@ -11,8 +16,13 @@ services:
   duck-hack.frontend-user:
     build: ./frontend-user
     container_name: duck-hack.frontend-user
-    volumes:
-      - ./frontend-user:/app
+    # nginx sin privilegios -> escucha en 8080 (antes 80).
+    # En Nginx Proxy Manager hay que cambiar el "Forward Port" de este host a 8080.
+    expose:
+      - "8080"
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
     networks:
       - npm
       - duck-hack.frontend-user-net
@@ -20,12 +30,22 @@ services:
   duck-hack.backend:
     build: ./backend
     container_name: duck-hack.backend
-    volumes:
-      - ./backend:/app
-      - /app/node_modules
+    expose:
+      - "5000"
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
     networks:
       - npm
       - duck-hack.backend-net
+    # Volumen nombrado para que las imágenes subidas (logos, fotos de
+    # clientes/equipo, productos) sobrevivan a "docker compose up --build":
+    # sin esto viven en la capa escribible del contenedor, que se descarta
+    # por completo cada vez que se recrea el contenedor con una imagen nueva.
+    # UPLOADS_DIR en backend/.env debe apuntar a esta misma ruta (/app/uploads,
+    # el valor por defecto en backend/.env.example) para que coincida.
+    volumes:
+      - duck-hack.backend-uploads:/app/uploads
 
 networks:
   duck-hack.frontend-admin-net:
@@ -39,3 +59,7 @@ networks:
     driver: bridge
   npm:
     external: true
+
+volumes:
+  duck-hack.backend-uploads:
+    name: duck-hack.backend-uploads

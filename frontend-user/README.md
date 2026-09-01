@@ -1,70 +1,44 @@
-# Getting Started with Create React App
+# frontend-user
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Storefront público de Duck-Hack (React + Vite). Migrado de Create React App a
+[Vite](https://vite.dev/) porque `react-scripts` ya no recibe mantenimiento ni
+parches de seguridad.
 
-## Available Scripts
+## Scripts
 
-In the project directory, you can run:
+En el directorio del proyecto:
 
-### `npm start`
+### `npm start` / `npm run dev`
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
-
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+Levanta el servidor de desarrollo de Vite en http://localhost:3000 (HMR).
 
 ### `npm test`
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Ejecuta la suite con [Vitest](https://vitest.dev/) una sola vez.
+Usa `npm run test:watch` para modo interactivo.
 
 ### `npm run build`
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+Compila la app de producción a la carpeta `build/` (assets con hash).
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### `npm run preview`
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+Sirve localmente el contenido de `build/` para verificar el bundle de producción.
 
-### `npm run eject`
+## Variables de entorno
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+Se mantiene el prefijo `REACT_APP_` (ver `.env.example`). Vite las inyecta en
+tiempo de compilación; `vite.config.js` reemplaza `process.env.REACT_APP_*` por
+su valor. Variables consumidas:
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+- `REACT_APP_HOST_SERVICES_URL` — base del backend.
+- `REACT_APP_STORE_SLUG` — slug de tienda para el header `X-Tenant-Slug`.
+- `REACT_APP_TENANT_HEADER_NAME` — nombre de ese header (default `X-Tenant-Slug`).
+- `REACT_APP_ADMIN_URL` — link "Administrador" del sidebar.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## Docker
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Build multi-stage: Node 22 compila con Vite y la imagen final es
+`nginxinc/nginx-unprivileged` (nginx corre como usuario sin privilegios,
+escucha en **8080**). Ver `nginx.conf` para el fallback de SPA (`BrowserRouter`)
+y cabeceras de seguridad.

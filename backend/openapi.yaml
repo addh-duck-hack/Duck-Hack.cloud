@@ -15,6 +15,10 @@ tags:
   - name: Users
   - name: Mail
   - name: Uploads
+  - name: AgencyClients
+  - name: Accounting
+  - name: Invoices
+  - name: StoreConfig
 paths:
   /api/users/register:
     post:
@@ -324,6 +328,914 @@ paths:
         "404":
           $ref: "#/components/responses/RouteNotFound"
 
+  /api/agency-clients:
+    get:
+      tags: [AgencyClients]
+      summary: Listar clientes de agencia con estado calculado
+      description: >
+        Información confidencial de facturación interna de la agencia (no confundir con el rol `customer`).
+        Acceso exclusivo a `super_admin`. Cada item incluye `hostingPaidUntil` (fecha del último pago vigente)
+        y `pendingDebtTotal`/`pendingDebtCount` (deuda pendiente), calculados vía agregación.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Listado de clientes de agencia
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AgencyClientListItem"
+                required: [items]
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      tags: [AgencyClients]
+      summary: Crear cliente de agencia
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgencyClientCreateRequest"
+      responses:
+        "201":
+          description: Cliente de agencia creado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  client:
+                    $ref: "#/components/schemas/AgencyClient"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/agency-clients/{id}:
+    get:
+      tags: [AgencyClients]
+      summary: Obtener ficha de un cliente de agencia
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AgencyClientIdParam"
+      responses:
+        "200":
+          description: Cliente de agencia
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgencyClient"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/AgencyClientNotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    put:
+      tags: [AgencyClients]
+      summary: Editar cliente de agencia
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AgencyClientIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgencyClientCreateRequest"
+      responses:
+        "200":
+          description: Cliente de agencia actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  client:
+                    $ref: "#/components/schemas/AgencyClient"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/AgencyClientNotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    delete:
+      tags: [AgencyClients]
+      summary: Eliminar cliente de agencia
+      description: >
+        Bloqueado con 409 si el cliente tiene pagos de hosting o deudas asociados
+        (sin borrado en cascada, para no destruir historial financiero por accidente).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AgencyClientIdParam"
+      responses:
+        "200":
+          description: Cliente de agencia eliminado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/AgencyClientNotFound"
+        "409":
+          $ref: "#/components/responses/AgencyClientHasRelatedRecords"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/agency-clients/{id}/hosting-payments:
+    get:
+      tags: [AgencyClients]
+      summary: Listar historial de pagos de hosting de un cliente
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AgencyClientIdParam"
+      responses:
+        "200":
+          description: Historial de pagos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/HostingPayment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/AgencyClientNotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      tags: [AgencyClients]
+      summary: Registrar pago de hosting
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AgencyClientIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HostingPaymentCreateRequest"
+      responses:
+        "201":
+          description: Pago de hosting registrado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  payment:
+                    $ref: "#/components/schemas/HostingPayment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/AgencyClientNotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/agency-clients/{id}/hosting-payments/{paymentId}:
+    put:
+      tags: [AgencyClients]
+      summary: Editar pago de hosting
+      description: >
+        Además de actualizar el pago, sincroniza la transacción de ingreso y la
+        factura generadas automáticamente al registrarlo (mismo folio, monto y
+        fecha actualizados): las crea si el pago no tenía monto y ahora sí, las
+        actualiza si ya existían, o las elimina si el monto queda en 0/vacío.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AgencyClientIdParam"
+        - $ref: "#/components/parameters/HostingPaymentIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HostingPaymentCreateRequest"
+      responses:
+        "200":
+          description: Pago de hosting actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  payment:
+                    $ref: "#/components/schemas/HostingPayment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Cliente o pago de hosting no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    delete:
+      tags: [AgencyClients]
+      summary: Eliminar pago de hosting
+      description: >
+        También elimina la transacción de ingreso y la factura que se generaron
+        automáticamente al registrar este pago (identificadas por sourceCollection
+        + sourceId), para que el saldo de contabilidad no quede desfasado.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AgencyClientIdParam"
+        - $ref: "#/components/parameters/HostingPaymentIdParam"
+      responses:
+        "200":
+          description: Pago de hosting eliminado (junto con su ingreso y factura ligados)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Cliente o pago de hosting no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/agency-clients/{id}/design-debts:
+    get:
+      tags: [AgencyClients]
+      summary: Listar deudas de un cliente
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AgencyClientIdParam"
+      responses:
+        "200":
+          description: Historial de deudas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DesignDebt"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/AgencyClientNotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      tags: [AgencyClients]
+      summary: Registrar deuda
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AgencyClientIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DesignDebtCreateRequest"
+      responses:
+        "201":
+          description: Deuda registrada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  debt:
+                    $ref: "#/components/schemas/DesignDebt"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/AgencyClientNotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/agency-clients/{id}/design-debts/{debtId}:
+    put:
+      tags: [AgencyClients]
+      summary: Editar deuda (incluye marcar pagada vía amountPaid)
+      description: >
+        `status` no se acepta del cliente: se recalcula server-side a partir de `amount`/`amountPaid`
+        (`pending`/`partial`/`paid`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AgencyClientIdParam"
+        - $ref: "#/components/parameters/DesignDebtIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DesignDebtCreateRequest"
+      responses:
+        "200":
+          description: Deuda actualizada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  debt:
+                    $ref: "#/components/schemas/DesignDebt"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Cliente o deuda no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    delete:
+      tags: [AgencyClients]
+      summary: Eliminar deuda
+      description: >
+        También elimina las transacciones de ingreso y facturas generadas
+        automáticamente por los abonos a esta deuda (puede haber varias si se
+        pagó en partes vía ediciones sucesivas), identificadas por
+        sourceCollection + sourceId.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AgencyClientIdParam"
+        - $ref: "#/components/parameters/DesignDebtIdParam"
+      responses:
+        "200":
+          description: Deuda eliminada (junto con sus ingresos y facturas ligados)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Cliente o deuda no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/agency-clients/{id}/docker-status:
+    get:
+      tags: [AgencyClients]
+      summary: Estado en vivo de los contenedores Docker del cliente (vía Portainer)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AgencyClientIdParam"
+      responses:
+        "200":
+          description: Estado por contenedor
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DockerContainerStatus"
+                  checkedAt:
+                    type: string
+                    format: date-time
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/AgencyClientNotFound"
+        "501":
+          description: Portainer no configurado en el backend
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: Portainer inalcanzable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/accounting/transactions:
+    get:
+      tags: [Accounting]
+      summary: Listar transacciones (filtrable por type/client/rango de fechas)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [income, expense]
+        - in: query
+          name: client
+          schema:
+            type: string
+        - in: query
+          name: startDate
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: endDate
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Listado de transacciones
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Transaction"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      tags: [Accounting]
+      summary: Registrar transacción manual (ingreso o egreso)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransactionCreateRequest"
+      responses:
+        "201":
+          description: Transacción registrada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  transaction:
+                    $ref: "#/components/schemas/Transaction"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/accounting/transactions/{id}:
+    put:
+      tags: [Accounting]
+      summary: Editar transacción manual
+      description: Solo transacciones con source "manual" — las automáticas se corrigen desde su origen.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TransactionIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransactionCreateRequest"
+      responses:
+        "200":
+          description: Transacción actualizada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  transaction:
+                    $ref: "#/components/schemas/Transaction"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Transacción no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Transacción no editable (no es manual)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    delete:
+      tags: [Accounting]
+      summary: Eliminar transacción manual
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TransactionIdParam"
+      responses:
+        "200":
+          description: Transacción eliminada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Transacción no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Transacción no editable (no es manual)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/accounting/opening-balance:
+    post:
+      tags: [Accounting]
+      summary: Configurar (o actualizar) el saldo inicial de la cuenta
+      description: Idempotente — si ya existe un saldo inicial, lo actualiza en vez de duplicarlo.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  type: number
+                  minimum: 0
+                date:
+                  type: string
+                  format: date
+              required: [amount]
+      responses:
+        "200":
+          description: Saldo inicial actualizado
+        "201":
+          description: Saldo inicial configurado por primera vez
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/accounting/summary:
+    get:
+      tags: [Accounting]
+      summary: Resumen mes a mes de ingresos/egresos (dashboard de contabilidad)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: year
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Resumen mensual + saldo actual
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountingSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/invoices:
+    get:
+      tags: [Invoices]
+      summary: Listar facturas (filtrable por client)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: client
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Listado de facturas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Invoice"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      tags: [Invoices]
+      summary: Crear factura manual
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceCreateRequest"
+      responses:
+        "201":
+          description: Factura creada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  invoice:
+                    $ref: "#/components/schemas/Invoice"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/AgencyClientNotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/invoices/{id}/pdf:
+    get:
+      tags: [Invoices]
+      summary: Generar y descargar el PDF de la factura (sin validez fiscal)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: PDF generado
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Factura no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/store-config/public:
+    get:
+      tags: [StoreConfig]
+      summary: Consultar configuración pública de la tienda
+      description: >
+        Sin autenticación. Devuelve la configuración de tienda activa
+        (`isActive: true`) para que el storefront la consuma en runtime.
+      responses:
+        "200":
+          description: Configuración de tienda activa
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoreConfig"
+        "404":
+          description: No hay configuración de tienda activa
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/store-config:
+    get:
+      tags: [StoreConfig]
+      summary: Consultar configuración de tienda (administración)
+      description: Requiere autenticación y rol `super_admin` o `store_admin`. Devuelve el documento completo, activo o no.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Configuración de tienda
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoreConfig"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: No hay configuración de tienda
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    put:
+      tags: [StoreConfig]
+      summary: Actualizar configuración de tienda (parcial por campo)
+      description: >
+        Requiere autenticación y rol `super_admin` o `store_admin`. Solo actualiza los
+        campos presentes en el body (allowlist) — se puede enviar una sola sección
+        (ej. solo `heroSlides`) sin afectar el resto del documento.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StoreConfigUpdateRequest"
+      responses:
+        "200":
+          description: Configuración de tienda actualizada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoreConfigUpdateResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Conflicto de unicidad en configuración de tienda
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/store-config/upload-image:
+    post:
+      tags: [StoreConfig]
+      summary: Subir imagen de store-config (logo, foto de equipo, foto de testimonio)
+      description: >
+        Requiere autenticación y rol `super_admin` o `store_admin`.
+        El archivo se valida por contenido real y se acepta únicamente JPG/PNG (máx. 5MB).
+        Endpoint genérico: el cliente decide a qué campo asigna el `imagePath` devuelto.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: Imagen en JPG o PNG
+              required: [image]
+      responses:
+        "201":
+          description: Imagen subida correctamente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoreImageUploadResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -342,6 +1254,38 @@ components:
       schema:
         type: string
       description: ObjectId de usuario
+
+    AgencyClientIdParam:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+      description: ObjectId del cliente de agencia
+
+    HostingPaymentIdParam:
+      in: path
+      name: paymentId
+      required: true
+      schema:
+        type: string
+      description: ObjectId del pago de hosting
+
+    DesignDebtIdParam:
+      in: path
+      name: debtId
+      required: true
+      schema:
+        type: string
+      description: ObjectId de la deuda
+
+    TransactionIdParam:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+      description: ObjectId de la transacción de contabilidad
 
   responses:
     BadRequest:
@@ -416,6 +1360,18 @@ components:
                     retryAfterSec: 120
     RouteNotFound:
       description: Ruta no encontrada
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    AgencyClientNotFound:
+      description: Cliente de agencia no encontrado
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    AgencyClientHasRelatedRecords:
+      description: No se puede eliminar el cliente porque tiene pagos de hosting o deudas asociados
       content:
         application/json:
           schema:
@@ -623,3 +1579,727 @@ components:
                   items: {}
           required: [status, code, message]
       required: [ok, error]
+
+    AgencyClient:
+      type: object
+      description: >
+        Registro interno de agencia (negocio-cliente de Duck-Hack). No confundir con el rol `customer`
+        (comprador final de una tienda). Información confidencial, solo accesible a `super_admin`.
+      properties:
+        _id:
+          type: string
+        businessName:
+          type: string
+        contactName:
+          type: string
+        contactEmail:
+          type: string
+          format: email
+        contactPhone:
+          type: string
+        siteUrl:
+          type: string
+        hostingPlan:
+          $ref: "#/components/schemas/HostingPlan"
+        hostingMonthlyCost:
+          type: number
+          description: >
+            Para basic/medium/advanced se deriva server-side del precio de lista
+            (no editable); solo se captura a mano cuando hostingPlan es "enterprise".
+        dockerContainers:
+          type: array
+          items:
+            type: string
+          description: Nombres exactos de contenedor en Portainer/Docker (un cliente puede tener varios).
+        domain:
+          type: string
+        domainExpiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        billingName:
+          type: string
+        billingRfc:
+          type: string
+        billingAddress:
+          type: string
+        billingEmail:
+          type: string
+          format: email
+        notes:
+          type: string
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [_id, businessName, isActive, createdAt, updatedAt]
+
+    AgencyClientCreateRequest:
+      type: object
+      properties:
+        businessName:
+          type: string
+          minLength: 2
+          maxLength: 150
+        contactName:
+          type: string
+          maxLength: 120
+        contactEmail:
+          type: string
+          format: email
+        contactPhone:
+          type: string
+          maxLength: 30
+        siteUrl:
+          type: string
+          maxLength: 300
+        hostingPlan:
+          $ref: "#/components/schemas/HostingPlan"
+        hostingMonthlyCost:
+          type: number
+          description: Requerido y > 0 solo cuando hostingPlan es "enterprise"; para los demás planes se ignora y se deriva del precio de lista.
+        dockerContainers:
+          type: array
+          items:
+            type: string
+            maxLength: 200
+        domain:
+          type: string
+          maxLength: 200
+        domainExpiresAt:
+          type: string
+          format: date
+          nullable: true
+        billingName:
+          type: string
+          maxLength: 200
+        billingRfc:
+          type: string
+          maxLength: 20
+        billingAddress:
+          type: string
+          maxLength: 300
+        billingEmail:
+          type: string
+          format: email
+        notes:
+          type: string
+          maxLength: 2000
+        isActive:
+          type: boolean
+      required: [businessName]
+
+    AgencyClientListItem:
+      allOf:
+        - $ref: "#/components/schemas/AgencyClient"
+        - type: object
+          properties:
+            hostingPaidUntil:
+              type: string
+              format: date-time
+              nullable: true
+              description: coversUntil del último pago de hosting registrado (null si nunca se registró uno).
+            pendingDebtTotal:
+              type: number
+              description: Suma de (amount - amountPaid) de las deudas con status != paid.
+            pendingDebtCount:
+              type: integer
+          required: [pendingDebtTotal, pendingDebtCount]
+
+    HostingPayment:
+      type: object
+      properties:
+        _id:
+          type: string
+        client:
+          type: string
+          description: ObjectId del AgencyClient
+        paidAt:
+          type: string
+          format: date-time
+        coversUntil:
+          type: string
+          format: date-time
+        amount:
+          type: number
+          nullable: true
+        notes:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [_id, client, paidAt, coversUntil]
+
+    HostingPaymentCreateRequest:
+      type: object
+      properties:
+        paidAt:
+          type: string
+          format: date
+        coversUntil:
+          type: string
+          format: date
+        amount:
+          type: number
+          minimum: 0
+        notes:
+          type: string
+          maxLength: 500
+      required: [paidAt, coversUntil]
+
+    DesignDebtStatus:
+      type: string
+      readOnly: true
+      enum: [pending, partial, paid]
+      description: Recalculado server-side a partir de amount/amountPaid; nunca se acepta del cliente.
+
+    HostingPlan:
+      type: string
+      enum: [free, basic, medium, advanced, enterprise]
+      description: >
+        Plan de hosting contratado (ver backend/utils/hostingPlans.js, debe coincidir con los precios
+        publicados en frontend-user). "enterprise" es "bajo cotización" — sin precio de lista fijo.
+        "free" no es un plan comercial: es para servicios/dominios propios de la agencia (precio
+        fijo en 0) que igual se mapean aquí porque generan gasto de dominio/hosting/licencias/docker,
+        registrado como egreso en /api/accounting en vez de como cobro de hosting.
+
+    DesignDebt:
+      type: object
+      properties:
+        _id:
+          type: string
+        client:
+          type: string
+          description: ObjectId del AgencyClient
+        description:
+          type: string
+        amount:
+          type: number
+        amountPaid:
+          type: number
+        status:
+          $ref: "#/components/schemas/DesignDebtStatus"
+        invoicedAt:
+          type: string
+          format: date-time
+        notes:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [_id, client, description, amount, amountPaid, status]
+
+    DesignDebtCreateRequest:
+      type: object
+      properties:
+        description:
+          type: string
+          minLength: 1
+          maxLength: 300
+        amount:
+          type: number
+          exclusiveMinimum: 0
+        amountPaid:
+          type: number
+          minimum: 0
+          description: No puede superar amount.
+        invoicedAt:
+          type: string
+          format: date
+        notes:
+          type: string
+          maxLength: 500
+      required: [description, amount]
+
+    DockerContainerStatus:
+      type: object
+      properties:
+        name:
+          type: string
+        found:
+          type: boolean
+        state:
+          type: string
+          description: Estado real de Docker (running/exited/paused/...) o "not_found" si el nombre no coincide con ningún contenedor.
+        status:
+          type: string
+          description: Texto legible de Docker (ej. "Up 3 days").
+        imageSizeBytes:
+          type: integer
+          nullable: true
+        writableLayerSizeBytes:
+          type: integer
+          nullable: true
+        cpuPercent:
+          type: number
+          nullable: true
+        memoryUsedBytes:
+          type: integer
+          nullable: true
+        network:
+          type: object
+          nullable: true
+          properties:
+            rxBytes:
+              type: integer
+            txBytes:
+              type: integer
+
+    TransactionType:
+      type: string
+      enum: [income, expense]
+
+    TransactionSource:
+      type: string
+      readOnly: true
+      enum: [manual, hosting_payment, design_debt, opening_balance]
+      description: Solo "manual" se puede editar/eliminar directamente; las demás se generan automáticamente.
+
+    Transaction:
+      type: object
+      properties:
+        _id:
+          type: string
+        type:
+          $ref: "#/components/schemas/TransactionType"
+        amount:
+          type: number
+        date:
+          type: string
+          format: date-time
+        category:
+          type: string
+        description:
+          type: string
+        client:
+          type: string
+          nullable: true
+        source:
+          $ref: "#/components/schemas/TransactionSource"
+        sourceCollection:
+          type: string
+          nullable: true
+        sourceId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required: [_id, type, amount, date, source]
+
+    TransactionCreateRequest:
+      type: object
+      properties:
+        type:
+          $ref: "#/components/schemas/TransactionType"
+        amount:
+          type: number
+          exclusiveMinimum: 0
+        date:
+          type: string
+          format: date
+        category:
+          type: string
+          maxLength: 80
+        description:
+          type: string
+          maxLength: 500
+        client:
+          type: string
+          nullable: true
+      required: [type, amount]
+
+    AccountingMonthSummary:
+      type: object
+      properties:
+        month:
+          type: integer
+          minimum: 1
+          maximum: 12
+        income:
+          type: number
+        expense:
+          type: number
+        closingBalance:
+          type: number
+          description: >
+            Saldo con el que cerró la cuenta al final de este mes (arrastrado desde antes del
+            año consultado + el neto acumulado del año hasta este mes inclusive) — no es solo
+            el neto del mes, sino el saldo real de la cuenta en ese punto en el tiempo.
+
+    AccountingSummary:
+      type: object
+      properties:
+        year:
+          type: integer
+        currentBalance:
+          type: number
+          description: Saldo total acumulado (todo el tiempo, no solo el año consultado).
+        months:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccountingMonthSummary"
+
+    InvoiceSource:
+      type: string
+      readOnly: true
+      enum: [manual, hosting_payment, design_debt]
+
+    Invoice:
+      type: object
+      properties:
+        _id:
+          type: string
+        client:
+          type: string
+        folio:
+          type: integer
+        concept:
+          type: string
+        amount:
+          type: number
+        issuedAt:
+          type: string
+          format: date-time
+        source:
+          $ref: "#/components/schemas/InvoiceSource"
+      required: [_id, client, folio, concept, amount, issuedAt]
+
+    InvoiceCreateRequest:
+      type: object
+      properties:
+        client:
+          type: string
+        concept:
+          type: string
+          maxLength: 300
+        amount:
+          type: number
+          exclusiveMinimum: 0
+        issuedAt:
+          type: string
+          format: date
+      required: [client, concept, amount]
+
+    StoreTheme:
+      type: object
+      properties:
+        primaryColor:
+          type: string
+          example: "#0B1F3A"
+        secondaryColor:
+          type: string
+          example: "#F2F5F9"
+        accentColor:
+          type: string
+          example: "#FF6B00"
+        fontFamilyHeading:
+          type: string
+        fontFamilyBody:
+          type: string
+
+    SocialLinks:
+      type: object
+      properties:
+        whatsapp:
+          type: string
+        instagram:
+          type: string
+        facebook:
+          type: string
+        threads:
+          type: string
+
+    LegalIdentity:
+      type: object
+      properties:
+        legalName:
+          type: string
+        rfc:
+          type: string
+        legalRepresentative:
+          type: string
+        legalAddress:
+          type: string
+        legalEmail:
+          type: string
+        legalPhone:
+          type: string
+
+    HeroSlide:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 160
+        description:
+          type: string
+          maxLength: 300
+        sortOrder:
+          type: integer
+          minimum: 0
+        isActive:
+          type: boolean
+      required: [title]
+
+    Metric:
+      type: object
+      properties:
+        source:
+          type: string
+          enum: [manual, active_clients, active_containers]
+          default: manual
+          description: >
+            "manual": value se edita a mano. "active_clients"/"active_containers": value se
+            recalcula en cada GET /public a partir de datos reales (conteo de AgencyClient
+            activos / contenedores corriendo vía Portainer) — el value guardado es solo un
+            placeholder cuando source no es "manual".
+        value:
+          type: string
+          maxLength: 20
+          example: "99.9%"
+        label:
+          type: string
+          maxLength: 80
+        sortOrder:
+          type: integer
+          minimum: 0
+      required: [label]
+
+    Command:
+      type: object
+      properties:
+        cmd:
+          type: string
+          maxLength: 80
+          example: "desplegar hosting"
+        note:
+          type: string
+          maxLength: 160
+        icon:
+          type: string
+          maxLength: 60
+          description: Clase de ícono FontAwesome (ej. "fas fa-server"). Opcional.
+        sortOrder:
+          type: integer
+          minimum: 0
+        isActive:
+          type: boolean
+      required: [cmd]
+
+    ServiceItem:
+      type: object
+      properties:
+        icon:
+          type: string
+          description: Clase de icono (ej. FontAwesome)
+        route:
+          type: string
+        title:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        sortOrder:
+          type: integer
+          minimum: 0
+        isActive:
+          type: boolean
+      required: [title]
+
+    PricingPlan:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 60
+        description:
+          type: string
+          maxLength: 300
+        storage:
+          type: string
+        emailAccounts:
+          type: string
+        bandwidth:
+          type: string
+        ssl:
+          type: string
+        originalPrice:
+          type: number
+          minimum: 0
+          nullable: true
+        price:
+          type: number
+          minimum: 0
+          nullable: true
+        discountPercent:
+          type: number
+          minimum: 0
+          maximum: 100
+          nullable: true
+        featured:
+          type: boolean
+        extraFeaturesTitle:
+          type: string
+        extraFeatures:
+          type: array
+          items:
+            type: string
+        sortOrder:
+          type: integer
+          minimum: 0
+        isActive:
+          type: boolean
+      required: [name]
+
+    Faq:
+      type: object
+      properties:
+        q:
+          type: string
+          maxLength: 200
+        a:
+          type: string
+          maxLength: 1000
+        sortOrder:
+          type: integer
+          minimum: 0
+        isActive:
+          type: boolean
+      required: [q, a]
+
+    TeamMember:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        role:
+          type: string
+        bio:
+          type: string
+          maxLength: 500
+        email:
+          type: string
+        phone:
+          type: string
+        photoUrl:
+          type: string
+          example: uploads/store-config-1718282784-uuid.jpg
+        sortOrder:
+          type: integer
+          minimum: 0
+        isActive:
+          type: boolean
+      required: [name]
+
+    Testimonial:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        rubro:
+          type: string
+        description:
+          type: string
+          maxLength: 500
+        url:
+          type: string
+        photoUrl:
+          type: string
+          example: uploads/store-config-1718282784-uuid.jpg
+        sortOrder:
+          type: integer
+          minimum: 0
+        isActive:
+          type: boolean
+      required: [name]
+
+    StoreConfig:
+      type: object
+      properties:
+        storeName:
+          type: string
+        storeSlug:
+          type: string
+        contactEmail:
+          type: string
+        contactPhone:
+          type: string
+        logoUrl:
+          type: string
+        theme:
+          $ref: "#/components/schemas/StoreTheme"
+        socialLinks:
+          $ref: "#/components/schemas/SocialLinks"
+        legalIdentity:
+          $ref: "#/components/schemas/LegalIdentity"
+        heroSlides:
+          type: array
+          items:
+            $ref: "#/components/schemas/HeroSlide"
+        metrics:
+          type: array
+          items:
+            $ref: "#/components/schemas/Metric"
+        commands:
+          type: array
+          items:
+            $ref: "#/components/schemas/Command"
+        services:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceItem"
+        pricingPlans:
+          type: array
+          items:
+            $ref: "#/components/schemas/PricingPlan"
+        commonPlanChecks:
+          type: array
+          items:
+            type: string
+        faqs:
+          type: array
+          items:
+            $ref: "#/components/schemas/Faq"
+        teamMembers:
+          type: array
+          items:
+            $ref: "#/components/schemas/TeamMember"
+        testimonials:
+          type: array
+          items:
+            $ref: "#/components/schemas/Testimonial"
+        isActive:
+          type: boolean
+      required: [storeName, storeSlug]
+
+    StoreConfigUpdateRequest:
+      description: Todos los campos son opcionales — solo se actualizan los presentes en el body.
+      allOf:
+        - $ref: "#/components/schemas/StoreConfig"
+
+    StoreConfigUpdateResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        storeConfig:
+          $ref: "#/components/schemas/StoreConfig"
+      required: [message, storeConfig]
+
+    StoreImageUploadResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        imagePath:
+          type: string
+          example: uploads/store-config-1718282784-uuid.jpg
+      required: [message, imagePath]
