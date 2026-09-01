@@ -24,8 +24,11 @@ cd frontend-admin && npm start          # Vite dev server on http://localhost:30
 
 ### Run with Docker Compose
 ```bash
+cp .env.example .env   # set STORE_SLUG (unique per store/clone) — required
 docker compose up --build
 ```
+`docker-compose.yml` derives the Compose project name, every `container_name` (`<STORE_SLUG>.backend` / `.frontend-admin` / `.frontend-user`), the internal networks and the uploads volume (`<STORE_SLUG>.backend-uploads`) from `STORE_SLUG` in the root `.env` (gitignored via `*.env`). This is what lets the repo be cloned once per store on the same host without name collisions; `compose up` fails fast if `STORE_SLUG` is unset. The pre-existing store must use `STORE_SLUG=duck-hack` to keep its historical volume/data. NPM proxy hosts target those container names on the `npm` network.
+
 Containers expose: frontend-admin `8080`, frontend-user `8080`, backend `5000` (no host port mappings — traffic reaches them through the external `npm` / nginx-proxy-manager network). The frontends run `nginxinc/nginx-unprivileged` (nginx as a non-root user, hence port `8080` not `80`) — if you change this, update the "Forward Port" of each proxy host in NPM. There is **no Mongo container** — point `MONGO_URL_GLOBAL` at a reachable Mongo (use `host.docker.internal` on macOS for a host-local instance). The compose file also joins an **external** `npm` network (nginx-proxy-manager); that network must already exist (`docker network create npm`) or `docker compose up` fails.
 
 ### Tests

@@ -58,7 +58,7 @@ CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhos
 UPLOADS_DIR=/app/uploads
 ```
 
-> **En Docker, `UPLOADS_DIR` debe ser `/app/uploads`** — es la ruta que `docker-compose.yml` monta como volumen nombrado (`duck-hack.backend-uploads`), para que las imágenes subidas (logos, fotos de equipo/clientes, productos) sobrevivan a `docker compose up -d --build`. Sin ese volumen (o con `UPLOADS_DIR` apuntando a otra ruta, como el viejo default `/tmp/media-uploads`), las subidas viven solo en la capa escribible del contenedor y se pierden por completo cada vez que se recrea con una imagen nueva.
+> **En Docker, `UPLOADS_DIR` debe ser `/app/uploads`** — es la ruta que `docker-compose.yml` monta como volumen nombrado (`<STORE_SLUG>.backend-uploads`, ver `.env`), para que las imágenes subidas (logos, fotos de equipo/clientes, productos) sobrevivan a `docker compose up -d --build`. Sin ese volumen (o con `UPLOADS_DIR` apuntando a otra ruta, como el viejo default `/tmp/media-uploads`), las subidas viven solo en la capa escribible del contenedor y se pierden por completo cada vez que se recrea con una imagen nueva.
 
 ### Frontend Admin (`frontend-admin/.env`)
 
@@ -228,6 +228,18 @@ despliegue" arriba): checkout de esa rama en el servidor de la tienda, `.env` de
 apps configurados en ese servidor (no viven en git — ver `.gitignore`), `docker compose
 up --build`, Proxy Hosts en Nginx Proxy Manager, bootstrap de `StoreConfig` y del primer
 usuario admin.
+
+**`.env` en la raíz (obligatorio):** además de los `.env` de las 3 apps, copia
+`.env.example` de la raíz a `.env` y ponle un `STORE_SLUG` **único por tienda**. De
+ahí salen el nombre del proyecto Compose, los `container_name`, las redes internas y
+el volumen de uploads — sin esto, dos clones del repo en el mismo servidor chocan
+(`container name … already in use`, `network/volume … created for project …`). El
+`STORE_SLUG` también es el hostname al que apuntan los Proxy Hosts de NPM
+(`<slug>.frontend-admin:8080`, `<slug>.frontend-user:8080`, `<slug>.backend:5000`).
+
+> La tienda que ya estaba desplegada antes de este cambio debe usar
+> `STORE_SLUG=duck-hack` para conservar su volumen `duck-hack.backend-uploads` (y las
+> imágenes ya subidas) sin migrar nada.
 
 ### Llevar una actualización de `main` a una tienda ya publicada
 
