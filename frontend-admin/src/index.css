@@ -253,6 +253,9 @@ code {
 
 /* Login / registro (mismo lenguaje visual que frontend-user/src/components/Auth.css) */
 .auth-page {
+  /* border-box: sin esto el padding se suma a min-height y siempre deja
+     ~80px de scroll vertical aunque el contenido quepa de sobra. */
+  box-sizing: border-box;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -308,11 +311,34 @@ code {
   color: var(--heading-color);
 }
 
-.auth-card > p.auth-note {
-  margin: -0.7rem 0 1.2rem;
-  font-size: 0.78rem;
+/* Pie "Duck-Hack OS — plataforma actualizada por Duck-Hack": fijo abajo a la
+   derecha, marca de plataforma tipo WordPress. */
+.auth-footnote {
+  position: fixed;
+  right: 18px;
+  bottom: 14px;
+  margin: 0;
+  font-size: 0.75rem;
   letter-spacing: 0.01em;
-  opacity: 0.75;
+  color: var(--placeholder-color);
+  opacity: 0.7;
+}
+
+.auth-footnote a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.auth-footnote a:hover {
+  color: var(--link-color);
+}
+
+@media (max-width: 560px) {
+  .auth-footnote {
+    position: static;
+    margin-top: 0.4rem;
+    text-align: center;
+  }
 }
 
 .auth-form {
