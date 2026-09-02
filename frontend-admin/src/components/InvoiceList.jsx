@@ -124,11 +124,12 @@ const InvoiceList = () => {
               <td>{formatDate(invoice.issuedAt)}</td>
               <td>{SOURCE_LABELS[invoice.source] || invoice.source}</td>
               <td>
-                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: "0.5rem" }}>
                   <button
                     type="button"
                     onClick={() => handleViewPdf(invoice)}
                     disabled={downloadingId === invoice._id}
+                    style={{ flex: 1, width: "auto", margin: 0, minWidth: 0 }}
                   >
                     {downloadingId === invoice._id ? "Generando..." : "Ver PDF"}
                   </button>
@@ -136,6 +137,7 @@ const InvoiceList = () => {
                     type="button"
                     className="btn-secondary"
                     onClick={() => navigate(`/admin/invoices/${invoice._id}/edit`)}
+                    style={{ flex: 1, minWidth: 0 }}
                   >
                     Editar
                   </button>

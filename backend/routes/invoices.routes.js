@@ -34,6 +34,16 @@ const monthKeyUTC = (date) => `${date.getUTCFullYear()}-${date.getUTCMonth()}`;
 
 const MONTH_YEAR_FORMAT = new Intl.DateTimeFormat("es-MX", { month: "long", year: "numeric", timeZone: "UTC" });
 
+// "Hoy" como fecha de calendario en la zona horaria del negocio (México),
+// guardada como medianoche UTC — misma convención que el resto de fechas
+// "solo día" de la app (ver frontend-admin/src/utils/formatCalendarDate.js).
+// Con `new Date()` (timestamp completo) una factura emitida el 1º por la noche
+// hora de México se guardaba con fecha UTC del día 2 y así se mostraba.
+const todayCalendarDate = () => {
+  const mxDate = new Date().toLocaleDateString("en-CA", { timeZone: "America/Mexico_City" }); // "YYYY-MM-DD"
+  return new Date(mxDate);
+};
+
 const buildDefaultConcept = (transactions) => {
   const categories = [...new Set(transactions.map((t) => t.category).filter(Boolean))];
   const monthLabel = MONTH_YEAR_FORMAT.format(transactions[0].date);
@@ -112,7 +122,7 @@ router.post("/", validateInvoiceFromTransactionsPayload, async (req, res) => {
       concept,
       amount,
       items,
-      issuedAt: new Date(),
+      issuedAt: todayCalendarDate(),
       source: "movements",
       transactions: transactions.map((t) => t._id),
     });
