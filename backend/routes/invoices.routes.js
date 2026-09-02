@@ -3,7 +3,11 @@ const router = express.Router();
 const Invoice = require("../models/invoice.model");
 const Transaction = require("../models/transaction.model");
 const AgencyClient = require("../models/agencyClient.model");
-const { validateObjectIdParam, validateInvoiceFromTransactionsPayload } = require("../middleware/validationMiddleware");
+const {
+  validateObjectIdParam,
+  validateInvoiceFromTransactionsPayload,
+  validateInvoiceUpdatePayload,
+} = require("../middleware/validationMiddleware");
 const { sendError } = require("../utils/httpResponses");
 // Auth vive en @duck-hack/core-api (packages/core-api/modules/auth.js) —
 // verifyToken/authorizeRoles se arman con sendError, ROLES es estático.
@@ -84,12 +88,20 @@ router.post("/", validateInvoiceFromTransactionsPayload, async (req, res) => {
     }
 
     const amount = transactions.reduce((sum, t) => sum + t.amount, 0);
-    const concept = req.body.concept || buildDefaultConcept(transactions);
+    const concept = buildDefaultConcept(transactions);
     // Un renglón por movimiento en el PDF (ver invoicePdf.js), no un total
-    // aplastado — description es más específico que category ("Pago de
-    // hosting - Cliente X" vs. solo "Hosting").
+    // aplastado. El concepto de cada renglón es el que mandó el usuario en
+    // itemConcepts[i] (paralelo a transactionIds), y si lo dejó vacío se cae
+    // al description/category del movimiento.
+    const conceptByTransactionId = new Map(
+      (req.body.itemConcepts || []).map((concept, index) => [String(req.body.transactionIds[index]), concept])
+    );
     const items = transactions.map((t) => ({
-      concept: t.description || t.category || "Movimiento",
+      concept:
+        conceptByTransactionId.get(String(t._id)) ||
+        t.description ||
+        t.category ||
+        "Movimiento",
       amount: t.amount,
     }));
 
@@ -118,6 +130,60 @@ router.post("/", validateInvoiceFromTransactionsPayload, async (req, res) => {
       return sendError(res, 400, "VALIDATION_ERROR", "Error de validación", messages);
     }
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al crear la factura.");
+  }
+});
+
+router.get("/:id", validateObjectIdParam("id"), async (req, res) => {
+  try {
+    const invoice = await Invoice.findById(req.params.id).populate("client", "businessName");
+    if (!invoice) {
+      return sendError(res, 404, "INVOICE_NOT_FOUND", "Factura no encontrada.");
+    }
+    return res.status(200).json({ invoice: sanitizeDoc(invoice) });
+  } catch (error) {
+    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al consultar la factura.");
+  }
+});
+
+// Edición acotada: conceptos por movimiento y/o fecha de emisión. El monto, el
+// cliente, el folio y los movimientos cubiertos no se tocan acá — para eso se
+// cancela y se re-emite. `items` es posicional: items[i].concept reemplaza el
+// concepto del renglón i (mismo orden que invoice.items / invoice.transactions).
+router.put("/:id", validateObjectIdParam("id"), validateInvoiceUpdatePayload, async (req, res) => {
+  try {
+    const invoice = await Invoice.findById(req.params.id);
+    if (!invoice) {
+      return sendError(res, 404, "INVOICE_NOT_FOUND", "Factura no encontrada.");
+    }
+
+    if (req.body.itemConcepts) {
+      if (req.body.itemConcepts.length !== invoice.items.length) {
+        return sendError(
+          res,
+          400,
+          "VALIDATION_ERROR",
+          `items debe tener exactamente ${invoice.items.length} elemento(s), uno por renglón de la factura.`
+        );
+      }
+      req.body.itemConcepts.forEach((concept, index) => {
+        invoice.items[index].concept = concept;
+      });
+      invoice.markModified("items");
+    }
+
+    if (req.body.issuedAt) {
+      invoice.issuedAt = req.body.issuedAt;
+    }
+
+    await invoice.save();
+    await invoice.populate("client", "businessName");
+    return res.status(200).json({ message: "Factura actualizada.", invoice: sanitizeDoc(invoice) });
+  } catch (error) {
+    if (error?.name === "ValidationError") {
+      const messages = Object.values(error.errors || {}).map((e) => e.message);
+      return sendError(res, 400, "VALIDATION_ERROR", "Error de validación", messages);
+    }
+    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al actualizar la factura.");
   }
 });
 

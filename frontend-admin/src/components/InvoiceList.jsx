@@ -124,9 +124,22 @@ const InvoiceList = () => {
               <td>{formatDate(invoice.issuedAt)}</td>
               <td>{SOURCE_LABELS[invoice.source] || invoice.source}</td>
               <td>
-                <button type="button" onClick={() => handleViewPdf(invoice)} disabled={downloadingId === invoice._id}>
-                  {downloadingId === invoice._id ? "Generando..." : "Ver PDF"}
-                </button>
+                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    onClick={() => handleViewPdf(invoice)}
+                    disabled={downloadingId === invoice._id}
+                  >
+                    {downloadingId === invoice._id ? "Generando..." : "Ver PDF"}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => navigate(`/admin/invoices/${invoice._id}/edit`)}
+                  >
+                    Editar
+                  </button>
+                </div>
               </td>
             </tr>
           ))}
