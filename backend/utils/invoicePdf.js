@@ -78,16 +78,16 @@ const generateInvoicePdf = (invoice, client, outputStream) => {
     doc.text(textValue, 50, y, { width: BILLING_WIDTH });
     y += doc.heightOfString(textValue, { width: BILLING_WIDTH }) + 3;
   };
-  billingLine(billingName);
+  billingLine(`Cliente: ${billingName}`);
   if (client?.billingRfc) {
     billingLine(`RFC: ${client.billingRfc}`);
   }
   if (client?.billingAddress) {
-    billingLine(client.billingAddress);
+    billingLine(`Dirección: ${client.billingAddress}`);
   }
   const billingContact = client?.billingEmail || client?.contactEmail;
   if (billingContact) {
-    billingLine(billingContact);
+    billingLine(`Correo: ${billingContact}`);
   }
 
   // --- Detalle ---
