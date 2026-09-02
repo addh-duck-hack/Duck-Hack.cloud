@@ -319,10 +319,21 @@ Buenas prácticas:
     `docker compose restart` **no** relee el archivo — usa `up -d`.
   - Verifica qué config tiene el contenedor que está corriendo (descarta "edité el `.env` equivocado / otra copia del
     repo"): `docker exec <STORE_SLUG>.backend env | grep -iE 'cors|frontend'`.
-  - Confirma el rechazo en logs: `docker compose logs <STORE_SLUG>.backend | grep CORS` — imprime
+  - Confirma el rechazo en logs: `docker compose logs backend | grep CORS` — imprime
     `CORS rechazado para origin="..."` con la lista de permitidos que realmente cargó.
   - Si el `docker compose ... up` lo dispara un runner externo (Portainer stack, webhook de CI), ese runner clona el
     repo en **su propia carpeta** (p. ej. `/data/compose/<id>/` en Portainer) — el `backend/.env` que hay que editar
     es el de esa carpeta, no el de tu checkout local. `git pull` nunca trae `backend/.env` (está en `.gitignore`).
+- El admin de una tienda carga el bundle / pega a la API de **otra** tienda, o `/assets/index-*.js` da **404**
+  intermitente y la página queda en blanco (varias tiendas en el mismo host):
+  - Causa: el Proxy Host de NPM (`admin.<dominio>`, `api.<dominio>`, etc.) reenvía al **nombre de servicio genérico**
+    (`frontend-admin` / `backend`). Compose registra ese nombre como alias DNS en la red `npm` para **todas** las
+    tiendas, así que resuelve a los contenedores de varias y NPM hace round-robin entre ellas.
+  - Fix: en cada Proxy Host, "Forward Hostname" = `<STORE_SLUG>.frontend-admin` / `<STORE_SLUG>.frontend-user` /
+    `<STORE_SLUG>.backend` (único por tienda), puerto 8080 / 8080 / 5000.
+  - Verifica qué resuelve el nombre: `docker run --rm --network npm alpine sh -c 'nslookup frontend-admin; nslookup <STORE_SLUG>.frontend-admin'`
+    — el genérico devuelve varias IPs, el por-tienda una sola.
+  - Comprueba qué bundle sirve un contenedor concreto:
+    `docker exec <STORE_SLUG>.frontend-admin sh -c "grep -ohrE 'https://api[a-z.-]+' /usr/share/nginx/html/assets/*.js | sort -u"`.
 - Login rechaza cuenta no verificada:
   - Completar flujo de verificación por correo (`/api/users/verify`).
