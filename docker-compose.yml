@@ -42,6 +42,14 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     container_name: ${STORE_SLUG}.backend
+    # Config del backend en RUNTIME (no horneada en la imagen). Así un cambio en
+    # backend/.env se aplica con `docker compose up -d` (recrea el contenedor),
+    # sin `--build` y sin que el caché de capas de Docker esconda el cambio. El
+    # archivo tiene que existir en esta carpeta al hacer `up` (mismo requisito
+    # que antes). server.js sigue usando dotenv para desarrollo local fuera de
+    # Docker; dotenv no pisa lo que ya viene de env_file.
+    env_file:
+      - ./backend/.env
     expose:
       - "5000"
     security_opt:

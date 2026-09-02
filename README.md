@@ -308,7 +308,21 @@ Buenas prácticas:
   - `UPLOADS_DIR` no está apuntando al volumen persistente. Confirmar que `backend/.env` tiene `UPLOADS_DIR=/app/uploads` (coincide con el volumen `duck-hack.backend-uploads` de `docker-compose.yml`) y no algo como `/tmp/media-uploads`, que vive en la capa descartable del contenedor.
 - Frontend no llega al backend:
   - Revisar `REACT_APP_HOST_SERVICES_URL` en ambos frontends.
-- Error CORS (origen no permitido):
-  - Revisar `CORS_ALLOWED_ORIGINS` en `backend/.env`.
+- Error CORS (origen no permitido) — el navegador muestra `OPTIONS /api/users/login` en **403** con
+  `{ "error": { "code": "CORS_ORIGIN_NOT_ALLOWED" } }` y el login nunca llega a enviarse:
+  - `CORS_ALLOWED_ORIGINS` en `backend/.env` debe listar el **origen exacto** de cada frontend
+    (esquema + host + puerto, sin path ni slash final), separados por coma. Para un despliegue típico:
+    `CORS_ALLOWED_ORIGINS=https://admin.<dominio-tienda>,https://<dominio-tienda>` (agrega `https://www.<dominio-tienda>`
+    si el storefront responde también en `www`). No basta con un dominio "parecido": la comparación es igualdad exacta.
+  - Tras editar `backend/.env`, aplica con `docker compose up -d` (recrea el contenedor; **no** hace falta `--build`).
+    El backend toma su config vía `env_file: ./backend/.env` en `docker-compose.yml`, se lee al arrancar el contenedor.
+    `docker compose restart` **no** relee el archivo — usa `up -d`.
+  - Verifica qué config tiene el contenedor que está corriendo (descarta "edité el `.env` equivocado / otra copia del
+    repo"): `docker exec <STORE_SLUG>.backend env | grep -iE 'cors|frontend'`.
+  - Confirma el rechazo en logs: `docker compose logs <STORE_SLUG>.backend | grep CORS` — imprime
+    `CORS rechazado para origin="..."` con la lista de permitidos que realmente cargó.
+  - Si el `docker compose ... up` lo dispara un runner externo (Portainer stack, webhook de CI), ese runner clona el
+    repo en **su propia carpeta** (p. ej. `/data/compose/<id>/` en Portainer) — el `backend/.env` que hay que editar
+    es el de esa carpeta, no el de tu checkout local. `git pull` nunca trae `backend/.env` (está en `.gitignore`).
 - Login rechaza cuenta no verificada:
   - Completar flujo de verificación por correo (`/api/users/verify`).

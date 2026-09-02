@@ -12,5 +12,12 @@ frontend-user
 # frontends tienen su propio build+contexto por separado (./frontend-admin,
 # ./frontend-user), así que se excluyen acá para no mandarlos en el contexto
 # de este build.
-# OJO: backend/.env NO se ignora — server.js lo lee (vía dotenv) en runtime
-# desde lo que haya quedado copiado en la imagen al momento del build.
+
+# El .env del backend NO va en la imagen: la config se inyecta en runtime vía
+# `env_file: ./backend/.env` en docker-compose.yml. Hornearlo en la imagen
+# metía secretos en las capas y, peor, el caché de `COPY backend ./backend`
+# escondía los cambios de .env (la imagen quedaba con la config vieja aunque
+# editaras el archivo). server.js sigue leyéndolo con dotenv para desarrollo
+# local fuera de Docker.
+backend/.env
+.env

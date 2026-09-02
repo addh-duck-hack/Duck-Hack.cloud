@@ -253,6 +253,9 @@ code {
 
 /* Login / registro (mismo lenguaje visual que frontend-user/src/components/Auth.css) */
 .auth-page {
+  /* border-box: sin esto el padding se suma a min-height y siempre deja
+     ~80px de scroll vertical aunque el contenido quepa de sobra. */
+  box-sizing: border-box;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
