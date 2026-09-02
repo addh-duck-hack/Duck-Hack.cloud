@@ -99,15 +99,12 @@ const Login = () => {
               <p>
                 {storeName ? (
                   <>
-                    Estás accediendo al panel de administración de{" "}
+                    Panel administrativo de {" "}
                     <strong>{storeName}</strong>.
                   </>
                 ) : (
-                  "Estás accediendo al panel de administración de tu tienda."
+                  "Acceder al panel administrativo"
                 )}
-              </p>
-              <p className="auth-note">
-                Duck-Hack OS — plataforma actualizada por Duck-Hack.
               </p>
               <form className="auth-form" onSubmit={handleSubmit}>
                 <input
@@ -149,6 +146,14 @@ const Login = () => {
           )}
         </div>
       )}
+
+      <p className="auth-footnote">
+        Duck-Hack OS — plataforma actualizada por{" "}
+        <a href="https://mx.duck-hack.cloud" target="_blank" rel="noopener noreferrer">
+          Duck-Hack
+        </a>
+        .
+      </p>
     </section>
   );
 };

@@ -308,7 +308,32 @@ Buenas prácticas:
   - `UPLOADS_DIR` no está apuntando al volumen persistente. Confirmar que `backend/.env` tiene `UPLOADS_DIR=/app/uploads` (coincide con el volumen `duck-hack.backend-uploads` de `docker-compose.yml`) y no algo como `/tmp/media-uploads`, que vive en la capa descartable del contenedor.
 - Frontend no llega al backend:
   - Revisar `REACT_APP_HOST_SERVICES_URL` en ambos frontends.
-- Error CORS (origen no permitido):
-  - Revisar `CORS_ALLOWED_ORIGINS` en `backend/.env`.
+- Error CORS (origen no permitido) — el navegador muestra `OPTIONS /api/users/login` en **403** con
+  `{ "error": { "code": "CORS_ORIGIN_NOT_ALLOWED" } }` y el login nunca llega a enviarse:
+  - `CORS_ALLOWED_ORIGINS` en `backend/.env` debe listar el **origen exacto** de cada frontend
+    (esquema + host + puerto, sin path ni slash final), separados por coma. Para un despliegue típico:
+    `CORS_ALLOWED_ORIGINS=https://admin.<dominio-tienda>,https://<dominio-tienda>` (agrega `https://www.<dominio-tienda>`
+    si el storefront responde también en `www`). No basta con un dominio "parecido": la comparación es igualdad exacta.
+  - Tras editar `backend/.env`, aplica con `docker compose up -d` (recrea el contenedor; **no** hace falta `--build`).
+    El backend toma su config vía `env_file: ./backend/.env` en `docker-compose.yml`, se lee al arrancar el contenedor.
+    `docker compose restart` **no** relee el archivo — usa `up -d`.
+  - Verifica qué config tiene el contenedor que está corriendo (descarta "edité el `.env` equivocado / otra copia del
+    repo"): `docker exec <STORE_SLUG>.backend env | grep -iE 'cors|frontend'`.
+  - Confirma el rechazo en logs: `docker compose logs backend | grep CORS` — imprime
+    `CORS rechazado para origin="..."` con la lista de permitidos que realmente cargó.
+  - Si el `docker compose ... up` lo dispara un runner externo (Portainer stack, webhook de CI), ese runner clona el
+    repo en **su propia carpeta** (p. ej. `/data/compose/<id>/` en Portainer) — el `backend/.env` que hay que editar
+    es el de esa carpeta, no el de tu checkout local. `git pull` nunca trae `backend/.env` (está en `.gitignore`).
+- El admin de una tienda carga el bundle / pega a la API de **otra** tienda, o `/assets/index-*.js` da **404**
+  intermitente y la página queda en blanco (varias tiendas en el mismo host):
+  - Causa: el Proxy Host de NPM (`admin.<dominio>`, `api.<dominio>`, etc.) reenvía al **nombre de servicio genérico**
+    (`frontend-admin` / `backend`). Compose registra ese nombre como alias DNS en la red `npm` para **todas** las
+    tiendas, así que resuelve a los contenedores de varias y NPM hace round-robin entre ellas.
+  - Fix: en cada Proxy Host, "Forward Hostname" = `<STORE_SLUG>.frontend-admin` / `<STORE_SLUG>.frontend-user` /
+    `<STORE_SLUG>.backend` (único por tienda), puerto 8080 / 8080 / 5000.
+  - Verifica qué resuelve el nombre: `docker run --rm --network npm alpine sh -c 'nslookup frontend-admin; nslookup <STORE_SLUG>.frontend-admin'`
+    — el genérico devuelve varias IPs, el por-tienda una sola.
+  - Comprueba qué bundle sirve un contenedor concreto:
+    `docker exec <STORE_SLUG>.frontend-admin sh -c "grep -ohrE 'https://api[a-z.-]+' /usr/share/nginx/html/assets/*.js | sort -u"`.
 - Login rechaza cuenta no verificada:
   - Completar flujo de verificación por correo (`/api/users/verify`).
