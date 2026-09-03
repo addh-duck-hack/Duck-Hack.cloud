@@ -1,60 +1,88 @@
 /* src/styles/shared.css
    Utilidades compartidas entre páginas (evita repetir las mismas reglas en cada
-   CSS de componente — mismo espíritu que el dedup de tokens en index.css). */
+   CSS de componente — mismo espíritu que el dedup de tokens en index.css).
+
+   PROPUESTA B · "De Sutu Cha'Nu": antetítulos en script, botones tipo píldora. */
 
 .eyebrow {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  letter-spacing: 0.14em;
+  font-family: var(--font-script);
+  font-size: 1.5rem;
+  line-height: 1;
   color: var(--signal);
+  text-transform: none;
+  letter-spacing: 0;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.kicker {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.78rem;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
+  color: var(--gold);
 }
 
 .section-title {
-  font-size: clamp(1.6rem, 3.4vw, 2.2rem);
-  margin-top: 0.5rem;
+  font-size: clamp(1.9rem, 4.4vw, 3rem);
+  margin-top: 0.4rem;
   text-wrap: balance;
 }
 
 .section-sub {
-  max-width: 56ch;
-  margin-top: 0.6rem;
+  max-width: var(--measure);
+  margin-top: 0.7rem;
   margin-bottom: 2rem;
+  color: var(--text-dim);
+  font-size: 1.05rem;
 }
 
 .btn {
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
-  letter-spacing: 0.02em;
-  border-radius: 8px;
-  padding: 0.68rem 1.15rem;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: 0;
+  border-radius: 999px;
+  padding: 0.72rem 1.4rem;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--text);
   cursor: pointer;
-  background: none;
+  background: transparent;
   color: var(--text);
-  text-transform: uppercase;
+  text-transform: none;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
 }
 
 .btn:hover {
-  border-color: var(--signal);
-  color: var(--signal);
+  background: var(--panel2);
+  color: var(--text);
 }
 
 .btn-solid {
   background: var(--action);
   border-color: var(--action);
   color: var(--on-accent);
-  font-weight: 600;
 }
 
 .btn-solid:hover {
   background: var(--action-hover);
-  color: var(--on-accent);
   border-color: var(--action-hover);
+  color: var(--on-accent);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
+
+hr.rule {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 48px 0;
 }
 
 .auth-brand {
@@ -65,9 +93,9 @@
 }
 
 .auth-brand img {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
 }
 
 .auth-brand span {
@@ -75,15 +103,18 @@
   font-size: 1rem;
   color: var(--white);
   letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .badge {
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   background: var(--signal);
   color: var(--on-accent);
-  padding: 0.25rem 0.5rem;
-  border-radius: 5px;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
   display: inline-block;
 }

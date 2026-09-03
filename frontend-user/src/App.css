@@ -1,7 +1,7 @@
 /* Layout raíz de la app. Los tokens de color/tipografía viven en index.css —
    este archivo solo consume var(...), no los redeclara (ver CLAUDE.md). */
 .App {
-  text-align: center;
+  text-align: left;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -12,4 +12,5 @@
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
+  width: 100%;
 }

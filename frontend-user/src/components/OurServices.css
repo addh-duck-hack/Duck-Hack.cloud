@@ -1,122 +1,52 @@
-/* src/components/OurServices.css */
+/* src/components/OurServices.css — PROPUESTA B: "El proceso" */
+
 .services-view {
-  max-width: 1120px;
+  max-width: var(--shell-max);
   margin: 0 auto;
   width: 100%;
-  text-align: left;
 }
 
-.svc-grid {
+.proc-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
 }
 
-.svc-card {
+.proc-card {
   position: relative;
-  min-height: 260px;
-  perspective: 1200px;
-  cursor: pointer;
-  outline: none;
-}
-
-.svc-card-inner {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  min-height: inherit;
-  transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
-  transform-style: preserve-3d;
-}
-
-/* Desktop: el hover voltea la tarjeta. Táctil: la clase "flipped" (tap) hace lo mismo. */
-.svc-card:hover .svc-card-inner,
-.svc-card.flipped .svc-card-inner,
-.svc-card:focus-visible .svc-card-inner {
-  transform: rotateY(180deg);
-}
-
-.svc-card-front,
-.svc-card-back {
-  position: absolute;
-  inset: 0;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  border-radius: 12px;
   border: 1px solid var(--line);
   background: var(--panel);
-  padding: 1.5rem;
-  transition: border-color 0.2s ease;
+  border-radius: 3px;
+  padding: 26px 22px;
 }
-
-.svc-card:hover .svc-card-front,
-.svc-card:hover .svc-card-back,
-.svc-card.flipped .svc-card-front,
-.svc-card.flipped .svc-card-back {
-  border-color: var(--signal);
+.proc-n {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  color: var(--gold);
 }
-
-.svc-card-front {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  text-align: center;
-}
-
-.svc-card-back {
-  transform: rotateY(180deg);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  text-align: left;
-  overflow-y: auto;
-}
-
-.svc-icon {
-  background-color: var(--panel2);
-  border-radius: 16px;
-  width: 72px;
-  height: 72px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.svc-icon i {
-  font-size: 1.9rem;
+.proc-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--signal-dim);
   color: var(--signal);
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
 }
-
-.svc-card .route {
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
-  color: var(--text-dim);
-}
-
-.svc-card-back h3 {
-  font-size: 0.98rem;
+.proc-card h3 {
+  font-size: 1.15rem;
+  margin: 14px 0 8px;
   text-transform: none;
-  color: var(--white);
+  letter-spacing: -0.01em;
 }
-
-/* .rich-text: la descripción puede venir de <RichText> (ver OurServices.jsx),
-   que siempre monta un <div class="rich-text">, no un <p>. */
-.svc-card-back p,
-.svc-card-back .rich-text {
-  margin-top: 0.5rem;
-  font-size: 0.88rem;
-}
-
-@media (max-width: 900px) {
-  .svc-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-@media (max-width: 600px) {
-  .svc-grid {
-    grid-template-columns: 1fr;
-  }
+.proc-card p,
+.proc-card .rich-text {
+  font-size: 0.92rem;
+  color: var(--text-dim);
 }

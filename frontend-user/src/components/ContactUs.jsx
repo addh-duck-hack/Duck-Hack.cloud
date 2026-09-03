@@ -1,42 +1,36 @@
-// src/components/ContactUs.js
-import React, { useMemo, useState } from 'react';
+// src/components/ContactUs.jsx — PROPUESTA B
+import React, { useState } from 'react';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { getApiBaseUrl } from '../utils/apiClient';
 import { useStoreConfig } from '../hooks/useStoreConfig';
-import { pickList } from '../utils/storeConfigLists';
-import { FALLBACK_SERVICES } from './OurServices';
 import './ContactUs.css';
 
-const DEFAULT_WHATSAPP =
-  'https://wa.me/5215661653418?text=Hola,%20estoy%20visitando%20su%20sitio%20web%20y%20me%20gustaría%20obtener%20más%20información%20sobre%20sus%20servicios.';
-const DEFAULT_CONTACT_EMAIL = 'redes.sociales@duck-hack.com';
-const DEFAULT_CONTACT_PHONE_LABEL = '+52 566 165 3418';
+const DEFAULT_CONTACT_EMAIL = 'hola@cafetacita.mx';
+const DEFAULT_CONTACT_PHONE = '55 1234 5678';
+
+const REASONS = [
+  'Pedido / tienda en línea',
+  'Mayoreo y cafeterías',
+  'Suscripción mensual',
+  'Visita a la finca',
+  'Prensa o colaboración',
+  'Otro',
+];
 
 const ContactUs = () => {
   usePageMeta(
     'Contacto',
-    'Contáctanos por WhatsApp o correo electrónico. Respondemos en español, directo desde nuestro equipo.'
+    'Escríbenos por WhatsApp o correo. Pedidos, mayoreo para cafeterías, suscripción o una visita a la finca en Xicotepec.'
   );
 
   const { config } = useStoreConfig();
-  const whatsapp = config?.socialLinks?.whatsapp || DEFAULT_WHATSAPP;
+  const whatsapp = config?.socialLinks?.whatsapp || '';
   const contactEmail = config?.contactEmail || DEFAULT_CONTACT_EMAIL;
-  const contactPhoneLabel = config?.contactPhone || DEFAULT_CONTACT_PHONE_LABEL;
-  // El dropdown de servicios se deriva de la misma fuente que /servicios en
-  // vez de mantener su propia lista duplicada.
-  const services = useMemo(
-    () => pickList(config?.services, FALLBACK_SERVICES).map((s) => s.title),
-    [config]
-  );
+  const contactPhoneLabel = config?.contactPhone || DEFAULT_CONTACT_PHONE;
 
-  const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    phone: '',
-    service: '',
-    message: '',
-  });
+  const [formData, setFormData] = useState({ fullName: '', email: '', phone: '', service: '', message: '' });
   const [formSubmitted, setFormSubmitted] = useState(false);
+  const [error, setError] = useState('');
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -45,82 +39,69 @@ const ContactUs = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
     try {
       const response = await fetch(`${getApiBaseUrl()}/api/mail/send-email`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
       if (response.ok) {
         setFormSubmitted(true);
       } else {
         const payload = await response.json().catch(() => null);
-        alert(payload?.error?.message || 'Error enviando el mensaje');
+        setError(payload?.error?.message || 'No pudimos enviar el mensaje. Intenta de nuevo.');
       }
-    } catch (error) {
-      console.error('Error:', error);
-      alert('Error enviando el mensaje. Intenta nuevamente más tarde.');
+    } catch {
+      setError('No pudimos enviar el mensaje. Intenta más tarde.');
     }
   };
 
   return (
     <section className="contact-view">
-      <span className="eyebrow">/contacto</span>
+      <span className="eyebrow">Escríbenos</span>
       <h1 className="section-title">Cuéntanos qué necesitas</h1>
 
       <div className="contact-grid">
         <div className="contact-info">
-          <p>Respondemos en español, directo desde nuestro equipo — sin buzones automáticos.</p>
+          <p>Respondemos en español, directo desde la finca — sin buzones automáticos.</p>
+          {whatsapp && (
+            <div className="contact-item">
+              <i className="fab fa-whatsapp" aria-hidden="true" />
+              <a href={whatsapp} target="_blank" rel="noopener noreferrer">WhatsApp {contactPhoneLabel}</a>
+            </div>
+          )}
           <div className="contact-item">
-            <i className="fab fa-whatsapp" />
-            <a href={whatsapp} target="_blank" rel="noopener noreferrer">
-              WhatsApp {contactPhoneLabel}
-            </a>
+            <i className="fas fa-envelope" aria-hidden="true" />
+            <a href={`mailto:${contactEmail}`}>{contactEmail}</a>
           </div>
           <div className="contact-item">
-            <i className="fas fa-envelope" />
-            <a href={`mailto:${contactEmail}`}>{contactEmail}</a>
+            <i className="fas fa-map-marker-alt" aria-hidden="true" />
+            <span>Xicotepec de Juárez, Sierra Norte de Puebla</span>
           </div>
         </div>
 
         {!formSubmitted ? (
-          <form className="card" onSubmit={handleSubmit}>
+          <form className="contact-card" onSubmit={handleSubmit}>
+            {error && <div className="contact-error">{error}</div>}
             <div className="field">
               <label htmlFor="fullName">Nombre completo</label>
-              <input
-                type="text"
-                id="fullName"
-                name="fullName"
-                value={formData.fullName}
-                onChange={handleChange}
-                required
-              />
+              <input type="text" id="fullName" name="fullName" value={formData.fullName} onChange={handleChange} required />
             </div>
             <div className="field">
               <label htmlFor="email">Correo electrónico</label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-              />
+              <input type="email" id="email" name="email" value={formData.email} onChange={handleChange} required />
             </div>
             <div className="field">
               <label htmlFor="phone">Teléfono (opcional)</label>
               <input type="tel" id="phone" name="phone" value={formData.phone} onChange={handleChange} />
             </div>
             <div className="field">
-              <label htmlFor="service">Servicio</label>
+              <label htmlFor="service">Motivo</label>
               <select id="service" name="service" value={formData.service} onChange={handleChange} required>
-                <option value="">Selecciona un servicio</option>
-                {services.map((service) => (
-                  <option key={service} value={service}>
-                    {service}
-                  </option>
+                <option value="">Selecciona un motivo</option>
+                {REASONS.map((r) => (
+                  <option key={r} value={r}>{r}</option>
                 ))}
               </select>
             </div>
@@ -128,14 +109,12 @@ const ContactUs = () => {
               <label htmlFor="message">Mensaje</label>
               <textarea id="message" name="message" value={formData.message} onChange={handleChange} required />
             </div>
-            <button type="submit" className="btn btn-solid">
-              ./enviar-mensaje
-            </button>
+            <button type="submit" className="btn btn-solid">Enviar mensaje</button>
           </form>
         ) : (
-          <div className="card thank-you">
-            <h3>¡Gracias por contactarnos!</h3>
-            <p>Hemos recibido tu mensaje y te responderemos lo antes posible.</p>
+          <div className="contact-card thank-you">
+            <h3>¡Gracias por escribirnos!</h3>
+            <p>Recibimos tu mensaje y te respondemos lo antes posible.</p>
           </div>
         )}
       </div>

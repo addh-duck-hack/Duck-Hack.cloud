@@ -1,133 +1,120 @@
-// src/components/Services.js
+// src/components/Services.jsx — PROPUESTA B: "Presentaciones" + preguntas frecuentes
+//
+// Reusa la colección `pricingPlans` de StoreConfig con etiquetas de café:
+//   storage      -> Peso
+//   emailAccounts-> Molienda
+//   bandwidth    -> Tueste
+//   ssl          -> Origen / Lote
+//   extraFeatures-> notas de cata
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { useStoreConfig } from '../hooks/useStoreConfig';
 import { pickList } from '../utils/storeConfigLists';
+import { formatMxn } from '../hooks/useCart';
 import RichText from './RichText';
 import './Services.css';
 
-const formatPrice = (value) => (value === null || value === undefined ? null : Number(value).toFixed(2));
+const PLAN_ROWS = [
+  { key: 'storage', label: 'Peso', icon: 'fas fa-weight-hanging' },
+  { key: 'emailAccounts', label: 'Molienda', icon: 'fas fa-mortar-pestle' },
+  { key: 'bandwidth', label: 'Tueste', icon: 'fas fa-fire' },
+  { key: 'ssl', label: 'Origen / Lote', icon: 'fas fa-map-marker-alt' },
+];
 
 const FALLBACK_COMMON_CHECKS = [
-  'Soporte técnico y en español',
-  'Disponibilidad del 99.9%',
-  'Se puede escalar o disminuir el plan sin penalización',
-  'Política de devolución de 30 días',
+  'Tostado bajo pedido, nunca semanas antes',
+  'Empaque con válvula desgasificadora',
+  'Molienda a tu método sin costo',
+  'Envíos a todo México en 2 a 4 días',
 ];
 
 const FALLBACK_PLANS = [
   {
-    name: 'Basic',
-    description: 'Excelente para un negocio pequeño, una página personal o un blog personal.',
-    storage: '10 GB',
-    emailAccounts: '15',
-    bandwidth: '100 GB',
-    ssl: 'Costo preferencial',
-    originalPrice: '312.50',
-    price: '250.00',
-    discountPercent: 20,
-    featured: false,
-    extraFeaturesTitle: 'Incluye también:',
-    extraFeatures: [
-      'Backups semanales automáticos',
-      'Panel de control en español',
-      'Migración de sitio incluida',
-    ],
-  },
-  {
-    name: 'Medium',
-    description:
-      'Quieres un poco más, aquí podrás alojar un sitio más especializado como un blog con múltiples colaboradores.',
-    storage: '15 GB',
-    emailAccounts: '30',
-    bandwidth: '150 GB',
-    ssl: 'Incluido',
-    originalPrice: '666.67',
-    price: '500.00',
-    discountPercent: 25,
-    featured: true,
-    extraFeaturesTitle: 'Todo lo del plan Basic, y además:',
-    extraFeatures: [
-      'Dominio con precio preferente el primer año',
-      'Backups diarios automáticos',
-      'Múltiples cuentas de administrador en WordPress',
-    ],
-  },
-  {
-    name: 'Advanced',
-    description: 'Para usuarios avanzados que necesitan el máximo desempeño, velocidad y seguridad para sus proyectos.',
-    storage: '30 GB',
-    emailAccounts: '100',
-    bandwidth: 'Ilimitado',
-    ssl: 'Incluido',
-    originalPrice: '882.35',
-    price: '750.00',
-    discountPercent: 15,
-    featured: false,
-    extraFeaturesTitle: 'Todo lo del plan Medium, y además:',
-    extraFeatures: [
-      'Certificado SSL Wildcard para subdominios',
-      'Restauración de backups en un clic',
-      'Soporte prioritario (respuesta en menos de 2 horas)',
-    ],
-  },
-  {
-    name: 'Enterprise',
-    description:
-      'Para operaciones grandes con requerimientos particulares: infraestructura, integraciones y soporte diseñados a la medida de tu negocio.',
-    storage: 'A la medida',
-    emailAccounts: 'Ilimitadas',
-    bandwidth: 'Ilimitado',
-    ssl: 'Incluido',
+    name: 'Tacita 250 g',
+    description: 'Para probar un lote sin comprometer la despensa.',
+    storage: '250 g',
+    emailAccounts: 'A tu método o en grano',
+    bandwidth: 'Medio',
+    ssl: 'Lote El Chalahuite',
     originalPrice: null,
-    price: null,
+    price: '180',
     discountPercent: null,
     featured: false,
-    extraFeaturesTitle: 'Todo lo del plan Advanced y mucho mas de lo que puedas imaginar:',
-    extraFeatures: [
-      'Infraestructura y recursos a la medida',
-      'Integraciones personalizadas (APIs, CRM, ERP)',
-      'Soporte técnico dedicado y en español',
-    ],
+    extraFeaturesTitle: 'En taza:',
+    extraFeatures: ['Panela, cacao y naranja', 'Cuerpo redondo, acidez media'],
+  },
+  {
+    name: 'Tacita 500 g',
+    description: 'La bolsa de la casa. Rinde unas 35 tazas.',
+    storage: '500 g',
+    emailAccounts: 'A elegir al pedir',
+    bandwidth: 'Medio a medio-alto',
+    ssl: 'Blend de la casa',
+    originalPrice: '340',
+    price: '320',
+    discountPercent: 6,
+    featured: true,
+    extraFeaturesTitle: 'En taza:',
+    extraFeatures: ['Chocolate amargo y dátil', 'Dulzor largo, buen cuerpo'],
+  },
+  {
+    name: 'Tacita 1 kg',
+    description: 'Para quien ya sabe lo que quiere cada mañana.',
+    storage: '1 kg',
+    emailAccounts: 'En grano (recomendado)',
+    bandwidth: 'Medio-alto',
+    ssl: 'Blend de la casa',
+    originalPrice: null,
+    price: '580',
+    discountPercent: null,
+    featured: false,
+    extraFeaturesTitle: 'En taza:',
+    extraFeatures: ['Mejor precio por gramo', 'Chocolate y fruta seca'],
+  },
+  {
+    name: 'Suscripción mensual',
+    description: 'Recibe café recién tostado cada mes, sin pensarlo.',
+    storage: '500 g al mes',
+    emailAccounts: 'A elegir',
+    bandwidth: 'Rotación de perfiles',
+    ssl: 'Cambia de lote cada envío',
+    originalPrice: null,
+    price: '300',
+    discountPercent: null,
+    featured: false,
+    extraFeaturesTitle: 'Incluye:',
+    extraFeatures: ['Prioridad en microlotes', 'Cancela cuando quieras'],
   },
 ];
 
 const FALLBACK_FAQS = [
   {
-    q: '¿Por qué necesito un plan de hosting?',
-    a: 'El hosting es lo que hace que tu sitio esté disponible en internet: es el espacio donde vive tu página, tu tienda o tu sistema, y permite que cualquier persona lo abra desde su navegador en cualquier momento. Sin hosting, tu dominio no tiene dónde apuntar. Puedes ver las diferencias entre nuestros planes más arriba, en esta misma página.',
+    q: '¿Hacen envíos?',
+    a: 'Sí, a todo México por paquetería. Los pedidos antes de las 12:00 se tuestan y se envían el mismo día. El envío es gratis a partir de $600.',
   },
   {
-    q: 'Ya tengo un sitio web. ¿Puedo migrarlo a Duck-Hack?',
-    a: 'Sí, la migración es gratuita. Si tu sitio está hecho en un CMS como WordPress, nuestro equipo se encarga de migrarlo por ti sin costo adicional y sin que pierdas contenido ni configuración.',
+    q: '¿Cómo conservo el café?',
+    a: 'En su bolsa cerrada, lejos de la luz y el calor. No lo guardes en el refrigerador. Sabe mejor entre el día 4 y el día 30 después del tueste.',
   },
   {
-    q: '¿El dominio está incluido en el precio del hosting?',
-    a: 'No, el costo del dominio no está incluido en el hosting: varía según la extensión (.com, .mx, .cloud, etc.) y su disponibilidad, así que se cotiza aparte con nuestro equipo de desarrollo. Contáctanos y te ayudamos a elegir y cotizar el dominio que necesitas.',
+    q: '¿Qué molienda elijo?',
+    a: 'Dinos tu método —prensa francesa, V60, espresso, cafetera italiana o americana— y lo molemos a esa medida. Si no estás seguro, pídelo en grano.',
   },
   {
-    q: '¿Puedo cambiar de plan después?',
-    a: 'Sí, es fácil, rápido y automático. Escalar o disminuir tu plan no genera tiempo de inactividad, así que tu sitio sigue funcionando durante todo el proceso, sin afectar la experiencia de tus visitantes ni tus ventas.',
+    q: '¿Venden a cafeterías o mayoreo?',
+    a: 'Sí. Escríbenos para precios de mayoreo, muestras y perfiles de tueste a tu gusto.',
   },
   {
-    q: '¿Qué pasa si no me convence el servicio?',
-    a: 'Aplicamos una política de devolución de 30 días en todos los planes de hosting.',
-  },
-  {
-    q: '¿El soporte es en español?',
-    a: 'Sí, todo nuestro soporte técnico se ofrece en español, directo con nuestro equipo.',
-  },
-  {
-    q: '¿Qué disponibilidad garantizan?',
-    a: '99.9% de disponibilidad en todos los planes, monitoreada de forma continua.',
+    q: '¿Qué significa "de Sutu Cha\'Nu"?',
+    a: 'Es tutunakú (totonaco) y nombra a la tierra que nos da de comer. Es de dónde venimos y a quién le debemos el café.',
   },
 ];
 
 const Services = () => {
   usePageMeta(
-    'Planes y Precios de Hosting',
-    'Cuatro planes de hosting desde $250 MXN al mes con descuento permanente: almacenamiento, correos, ancho de banda y SSL incluido. Soporte técnico en español.'
+    'Presentaciones',
+    'Café Tacita en 250 g, 500 g, 1 kg y suscripción mensual. Tostado bajo pedido, molienda a tu método y envíos a todo México.'
   );
 
   const { config } = useStoreConfig();
@@ -140,86 +127,65 @@ const Services = () => {
 
   return (
     <section className="pricing-view">
-      <span className="eyebrow">/precios</span>
-      <h1 className="section-title">Planes de hosting</h1>
+      <span className="eyebrow">Presentaciones</span>
+      <h1 className="section-title">Elige tu Tacita</h1>
       <p className="section-sub">
-        Cuatro niveles según el tamaño de tu proyecto — todos con soporte en español y sin
-        permanencia forzosa.
-      </p>
-      <p className="pricing-discount-note">
-        <i className="fas fa-tag" aria-hidden="true" /> Descuento permanente en Basic, Medium y
-        Advanced — el precio que ves ya lo incluye.
+        El mismo café, en el tamaño que te acomode. Todo se tuesta bajo pedido y se muele a tu método el día del
+        envío.
       </p>
 
-      <div className="price-grid">
+      <div className="pres-grid">
         {plans.map((plan) => (
-          <div className={`price-card ${plan.featured ? 'featured' : ''}`} key={plan.name}>
-            <div className="price-badges">
-              <span>{plan.discountPercent && <span className="badge discount-badge">-{plan.discountPercent}%</span>}</span>
-              <span>{plan.featured && <span className="badge price-badge">recomendado</span>}</span>
-            </div>
-            <div className="price-head">
-              <div className="route">/precios/{plan.name.toLowerCase()}</div>
-              <h3>{plan.name}</h3>
-              <RichText html={plan.description} />
-              {plan.price ? (
-                <>
-                  {plan.originalPrice && (
-                    <div className="price-original">
-                      ${formatPrice(plan.originalPrice)} <span>MXN/mes</span>
-                    </div>
-                  )}
-                  <div className="price-amount">
-                    ${formatPrice(plan.price)}
-                    <span> MXN/mes</span>
-                  </div>
-                </>
-              ) : (
-                <div className="price-amount price-amount-quote">
-                  Bajo cotización
-                  <span>
-                    <Link to="/contacto">Solicitar cotización →</Link>
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="price-body">
-              <ul>
-                <li>
-                  <i className="fas fa-hdd" /> Almacenamiento: {plan.storage}
-                </li>
-                <li>
-                  <i className="fas fa-envelope" /> Cuentas de correo: {plan.emailAccounts}
-                </li>
-                <li>
-                  <i className="fas fa-wifi" /> Ancho de banda: {plan.bandwidth}
-                </li>
-                <li>
-                  <i className="fas fa-lock" /> Certificado SSL: {plan.ssl}
-                </li>
-                {commonChecks.map((check) => (
-                  <li key={check}>
-                    <i className="fas fa-check" /> {check}
-                  </li>
-                ))}
-              </ul>
+          <article className={`pres-plan ${plan.featured ? 'feat' : ''}`} key={plan.name}>
+            {plan.featured && <span className="badge">La favorita</span>}
+            {plan.discountPercent ? <span className="badge disc">-{plan.discountPercent}%</span> : null}
+            <h3>{plan.name}</h3>
+            <RichText className="pres-desc" html={plan.description} />
 
-              {plan.extraFeatures?.length > 0 && (
-                <div className="extra-features">
-                  <p className="extra-features-title">{plan.extraFeaturesTitle}</p>
-                  <ul>
-                    {plan.extraFeatures.map((feature) => (
-                      <li key={feature}>
-                        <i className="fas fa-check" /> {feature}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+            {plan.price ? (
+              <div className="pres-amount">
+                {plan.originalPrice && <span className="was">{formatMxn(plan.originalPrice)}</span>}
+                <span className="now">{formatMxn(plan.price)}</span>
+                <span className="unit"> MXN</span>
+              </div>
+            ) : (
+              <div className="pres-amount">
+                <Link to="/contacto">Escríbenos →</Link>
+              </div>
+            )}
+
+            <ul className="pres-rows">
+              {PLAN_ROWS.map((row) =>
+                plan[row.key] ? (
+                  <li key={row.key}>
+                    <i className={row.icon} aria-hidden="true" /> {row.label}: {plan[row.key]}
+                  </li>
+                ) : null
               )}
-            </div>
-          </div>
+              {commonChecks.map((check) => (
+                <li key={check}>
+                  <i className="fas fa-check" aria-hidden="true" /> {check}
+                </li>
+              ))}
+            </ul>
+
+            {plan.extraFeatures?.length > 0 && (
+              <div className="pres-extra">
+                <p className="pres-extra-title">{plan.extraFeaturesTitle}</p>
+                <ul>
+                  {plan.extraFeatures.map((feature) => (
+                    <li key={feature}>{feature}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <Link className="btn btn-solid pres-cta" to="/tienda">Ver en la tienda</Link>
+          </article>
         ))}
       </div>
+
+      <hr className="rule" />
 
       <h2 className="faq-title">Preguntas frecuentes</h2>
       <div className="faq">

@@ -8,7 +8,7 @@ import "./Auth.css";
 const LoginUser = () => {
   const { config } = useStoreConfig();
   const logoSrc = resolveStoreImageUrl(config?.logoUrl) || logo;
-  const brandName = config?.storeName || "Duck-Hack";
+  const brandName = config?.storeName || "Café Tacita";
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");

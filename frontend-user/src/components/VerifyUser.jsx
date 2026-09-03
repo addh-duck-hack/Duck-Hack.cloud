@@ -8,7 +8,7 @@ import './VerifyUser.css';
 const VerifyUser = () => {
   const { config } = useStoreConfig();
   const logoSrc = resolveStoreImageUrl(config?.logoUrl) || logo;
-  const brandName = config?.storeName || 'Duck-Hack';
+  const brandName = config?.storeName || 'Café Tacita';
   const location = useLocation();
   const [token, setToken] = useState('');
   const [status, setStatus] = useState('idle'); // idle | loading | success | error

@@ -1,10 +1,10 @@
 // src/hooks/usePageMeta.js
 import { useEffect } from 'react';
 
-const SITE_NAME = 'Duck-Hack';
-const DEFAULT_TITLE = `${SITE_NAME} — Hosting, Desarrollo Web y Apps a la Medida`;
+const SITE_NAME = 'Café Tacita';
+const DEFAULT_TITLE = `${SITE_NAME} — Café de altura, de Sutu Cha'Nu`;
 const DEFAULT_DESCRIPTION =
-  'Hosting, desarrollo web, apps nativas y servicios en la nube a la medida de tu negocio. Planes de hosting desde $250 MXN/mes, con soporte técnico en español.';
+  'Café de altura sembrado por manos totonacas en Xicotepec de Juárez, Puebla. De la planta a tu taza, sin intermediarios: tostado bajo pedido y enviado a todo México.';
 
 const getMetaDescriptionTag = () => {
   let tag = document.querySelector('meta[name="description"]');

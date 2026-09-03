@@ -1,86 +1,83 @@
-// src/components/Footer.js
+// src/components/Footer.jsx — PROPUESTA B
 import React from 'react';
 import { Link } from 'react-router-dom';
-import logo from '../assets/logo.png';
-import { useStoreConfig, resolveStoreImageUrl, handleImageFallback } from '../hooks/useStoreConfig';
+import { useStoreConfig } from '../hooks/useStoreConfig';
 import './Footer.css';
 
-const DEFAULT_SOCIAL_LINKS = {
-  whatsapp:
-    'https://wa.me/5215661653418?text=Hola,%20estoy%20visitando%20su%20sitio%20web%20y%20me%20gustaría%20obtener%20más%20información%20sobre%20sus%20servicios.',
-  instagram: 'https://www.instagram.com/duckhack.cloud/',
-  facebook: 'https://www.facebook.com/profile.php?id=61593021786500',
-  threads: 'https://www.threads.com/@duckhack.cloud',
+const DEFAULT_CONTACT_EMAIL = 'hola@cafetacita.mx';
+const DEFAULT_CONTACT_PHONE = '55 1234 5678';
+const DEFAULT_LOCATION = 'Xicotepec de Juárez, Puebla';
+
+const SOCIAL_ICONS = {
+  whatsapp: 'fab fa-whatsapp',
+  instagram: 'fab fa-instagram',
+  facebook: 'fab fa-facebook-f',
+  threads: 'fab fa-threads',
+  tiktok: 'fab fa-tiktok',
 };
-const DEFAULT_CONTACT_EMAIL = 'redes.sociales@duck-hack.com';
-const DEFAULT_CONTACT_PHONE = '+52 566-165-3418';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
   const { config } = useStoreConfig();
 
-  const social = {
-    whatsapp: config?.socialLinks?.whatsapp || DEFAULT_SOCIAL_LINKS.whatsapp,
-    instagram: config?.socialLinks?.instagram || DEFAULT_SOCIAL_LINKS.instagram,
-    facebook: config?.socialLinks?.facebook || DEFAULT_SOCIAL_LINKS.facebook,
-    threads: config?.socialLinks?.threads || DEFAULT_SOCIAL_LINKS.threads,
-  };
+  const brandName = config?.storeName || 'Café Tacita';
   const contactEmail = config?.contactEmail || DEFAULT_CONTACT_EMAIL;
   const contactPhone = config?.contactPhone || DEFAULT_CONTACT_PHONE;
   const contactPhoneHref = contactPhone.replace(/[^\d+]/g, '');
-  const logoSrc = resolveStoreImageUrl(config?.logoUrl) || logo;
-  const brandName = config?.storeName || 'Duck-Hack';
+  const location = config?.legalIdentity?.legalAddress || DEFAULT_LOCATION;
+
+  // Solo se muestran las redes que el admin realmente cargó — sin defaults
+  // hardcodeados (Café Tacita todavía no define sus redes).
+  const socialEntries = Object.entries(config?.socialLinks || {}).filter(
+    ([key, url]) => url && SOCIAL_ICONS[key]
+  );
 
   return (
-    <footer className="footer">
-      <div className="footer-content">
-        <div className="footer-section">
-          <h4>Redes Sociales</h4>
-          <div className="social-links">
-            <a href={social.whatsapp} target="_blank" rel="noopener noreferrer" className="social-link" aria-label="WhatsApp">
-              <i className="fab fa-whatsapp"></i>
-            </a>
-            <a href={social.instagram} target="_blank" rel="noopener noreferrer" className="social-link" aria-label="Instagram">
-              <i className="fab fa-instagram"></i>
-            </a>
-            <a href={social.facebook} target="_blank" rel="noopener noreferrer" className="social-link" aria-label="Facebook">
-              <i className="fab fa-facebook-f"></i>
-            </a>
-            <a href={social.threads} target="_blank" rel="noopener noreferrer" className="social-link" aria-label="Threads">
-              <i className="fab fa-threads"></i>
-            </a>
+    <footer className="foot">
+      <div className="foot-inner">
+        <div className="foot-brand">
+          <span className="script">{brandName} · de Sutu Cha'Nu</span>
+          <p className="foot-lines">
+            {location}
+            <br />
+            <a href={`mailto:${contactEmail}`}>{contactEmail}</a> · <a href={`tel:${contactPhoneHref}`}>{contactPhone}</a>
+          </p>
+        </div>
+
+        <div className="foot-cols">
+          <div className="foot-col">
+            <h4>Tienda</h4>
+            <Link to="/tienda">Catálogo</Link>
+            <Link to="/precios">Presentaciones</Link>
+            <Link to="/carrito">Canasta</Link>
           </div>
-        </div>
-
-        <div className="footer-section">
-          <h4>Contacto</h4>
-          <p>
-            <a href={`mailto:${contactEmail}`}>{contactEmail}</a>
-          </p>
-          <p>
-            <a href={`tel:${contactPhoneHref}`}>{contactPhone}</a>
-          </p>
-        </div>
-
-        <div className="footer-section">
-          <h4>Legales</h4>
-          <p>
+          <div className="foot-col">
+            <h4>La finca</h4>
+            <Link to="/servicios">El proceso</Link>
+            <Link to="/nosotros">Nuestra raíz</Link>
+            <Link to="/clientes">Cafeterías</Link>
+          </div>
+          <div className="foot-col">
+            <h4>Legales</h4>
             <Link to="/legal-notice">Aviso Legal</Link>
-          </p>
-          <p>
             <Link to="/privacy-policy">Aviso de Privacidad</Link>
-          </p>
-        </div>
-
-        <div className="footer-section footer-brand">
-          <img src={logoSrc} alt={brandName} className="footer-logo" onError={handleImageFallback(logo)} />
+            <Link to="/contacto">Contacto</Link>
+          </div>
         </div>
       </div>
 
-      <hr className="footer-separator" />
+      {socialEntries.length > 0 && (
+        <div className="foot-social">
+          {socialEntries.map(([key, url]) => (
+            <a key={key} href={url} target="_blank" rel="noopener noreferrer" aria-label={key}>
+              <i className={SOCIAL_ICONS[key]} aria-hidden="true" />
+            </a>
+          ))}
+        </div>
+      )}
 
-      <div className="footer-bottom">
-        <p>© {currentYear} — Designed by {brandName}</p>
+      <div className="foot-bottom">
+        <span>© {currentYear} {brandName} — Xicotepec de Juárez, Puebla</span>
       </div>
     </footer>
   );

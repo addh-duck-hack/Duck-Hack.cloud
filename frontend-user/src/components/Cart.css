@@ -1,0 +1,256 @@
+/* src/components/Cart.css — PROPUESTA B: canasta + checkout */
+
+.cart-view {
+  max-width: var(--shell-max);
+  margin: 0 auto;
+  width: 100%;
+}
+.cart-title {
+  font-size: clamp(1.8rem, 4.5vw, 2.8rem);
+  text-transform: none;
+  letter-spacing: -0.01em;
+}
+
+.cart-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 0.9fr;
+  gap: 40px;
+  align-items: start;
+  margin-top: 24px;
+}
+
+.cline {
+  display: grid;
+  grid-template-columns: 60px 1fr auto;
+  gap: 16px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line-soft);
+  align-items: center;
+}
+.cf {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--panel2);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 2px var(--ink), inset 0 0 0 3px var(--line);
+}
+.cf svg {
+  width: 54%;
+  height: 54%;
+  color: var(--signal);
+}
+.cf img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.cn {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+}
+.cm {
+  font-size: 0.84rem;
+  color: var(--text-mute);
+  margin: 2px 0 6px;
+}
+.cqty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cqty button {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+  color: var(--text);
+  line-height: 1;
+}
+.cqty span {
+  font-variant-numeric: tabular-nums;
+  min-width: 18px;
+  text-align: center;
+}
+.cqty .rm {
+  border: 0;
+  width: auto;
+  height: auto;
+  font-size: 0.8rem;
+  color: var(--gold);
+  text-decoration: underline;
+  margin-left: 6px;
+}
+.cp {
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.summary {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 4px;
+  padding: 24px;
+  position: sticky;
+  top: 84px;
+}
+.summary h3 {
+  font-size: 1.1rem;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.srow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 0.95rem;
+  color: var(--text-dim);
+}
+.srow.total {
+  border-top: 1px solid var(--line);
+  margin-top: 8px;
+  padding-top: 12px;
+  font-family: var(--font-mono);
+  color: var(--text);
+  font-size: 1.1rem;
+}
+.ship-hint {
+  font-size: 0.82rem;
+  color: var(--gold);
+  padding: 2px 0 6px;
+}
+.btn.block {
+  margin-top: 14px;
+  width: 100%;
+  justify-content: center;
+}
+.cart-cont {
+  display: block;
+  margin-top: 12px;
+  color: var(--signal);
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+.cart-cont.as-btn {
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font-family: var(--font-body);
+  padding: 0;
+  text-align: left;
+}
+
+.field {
+  margin-bottom: 14px;
+}
+.field label {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold);
+  display: block;
+  margin-bottom: 5px;
+}
+.field input {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  background: var(--ink);
+  border: 1px solid var(--text);
+  border-radius: 3px;
+  padding: 10px 12px;
+  color: var(--text);
+  width: 100%;
+}
+.pay {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 6px 0 16px;
+}
+.pay label {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 12px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  background: var(--ink);
+  color: var(--text);
+}
+.pay label small {
+  display: block;
+  color: var(--text-mute);
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
+
+.confirm {
+  text-align: center;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 4px;
+  padding: 52px 30px;
+  margin-top: 24px;
+}
+.confirm-seal {
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  background: var(--signal);
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+  font-size: 1.8rem;
+  margin: 0 auto 18px;
+  box-shadow: inset 0 0 0 3px var(--panel), inset 0 0 0 5px var(--gold);
+}
+.confirm h2 {
+  font-size: 1.7rem;
+  text-transform: none;
+  letter-spacing: -0.01em;
+}
+.oref {
+  font-family: var(--font-body);
+  font-weight: 600;
+  color: var(--signal);
+  margin-top: 6px;
+  letter-spacing: 0.04em;
+}
+.confirm-note {
+  max-width: 46ch;
+  margin: 14px auto 0;
+  color: var(--text-dim);
+}
+.confirm-total {
+  margin-top: 14px;
+  color: var(--text-mute);
+  font-weight: 600;
+}
+.demo-note {
+  margin: 20px auto 22px;
+  max-width: 44ch;
+  font-size: 0.8rem;
+  color: var(--text-mute);
+  font-style: italic;
+}
+
+@media (max-width: 860px) {
+  .cart-grid {
+    grid-template-columns: 1fr;
+  }
+  .summary {
+    position: static;
+  }
+}

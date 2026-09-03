@@ -1,42 +1,47 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://mx.duck-hack.cloud/</loc>
+    <loc>https://tacita.duck-hack.cloud/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://mx.duck-hack.cloud/servicios</loc>
-    <changefreq>monthly</changefreq>
+    <loc>https://tacita.duck-hack.cloud/tienda</loc>
+    <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://mx.duck-hack.cloud/precios</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://mx.duck-hack.cloud/nosotros</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://mx.duck-hack.cloud/clientes</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
-  </url>
-  <url>
-    <loc>https://mx.duck-hack.cloud/contacto</loc>
+    <loc>https://tacita.duck-hack.cloud/precios</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://mx.duck-hack.cloud/legal-notice</loc>
+    <loc>https://tacita.duck-hack.cloud/servicios</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://tacita.duck-hack.cloud/nosotros</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://tacita.duck-hack.cloud/clientes</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://tacita.duck-hack.cloud/contacto</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://tacita.duck-hack.cloud/legal-notice</loc>
     <changefreq>yearly</changefreq>
     <priority>0.2</priority>
   </url>
   <url>
-    <loc>https://mx.duck-hack.cloud/privacy-policy</loc>
+    <loc>https://tacita.duck-hack.cloud/privacy-policy</loc>
     <changefreq>yearly</changefreq>
     <priority>0.2</priority>
   </url>

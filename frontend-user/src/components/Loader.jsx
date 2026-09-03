@@ -1,21 +1,32 @@
-// src/components/Loader.js
+// src/components/Loader.jsx
 import React from 'react';
-import logo from '../assets/logo.png';
-import { useStoreConfig, resolveStoreImageUrl, handleImageFallback } from '../hooks/useStoreConfig';
+import { useStoreConfig, resolveStoreImageUrl } from '../hooks/useStoreConfig';
+import BrandMarks, { BrandSeal } from './BrandMarks';
 import './Loader.css';
 
 const Loader = () => {
-  // Nota: el Loader se muestra durante el arranque de la app, justo cuando
-  // el StoreConfigProvider recién empezó a pedir /api/store-config/public
-  // — casi siempre no habrá alcanzado a responder todavía, así que en la
-  // práctica esto casi siempre muestra el logo local. Se deja igual la
-  // lectura del config por si el fetch ya resolvió (navegación repetida).
+  // El Loader se muestra durante el arranque, casi siempre antes de que
+  // /api/store-config/public alcance a responder — así que en la práctica
+  // casi siempre se ve el sello local. Si el config ya resolvió (navegación
+  // repetida) y trae logoUrl, se usa esa imagen.
   const { config } = useStoreConfig();
-  const logoSrc = resolveStoreImageUrl(config?.logoUrl) || logo;
+  const logoSrc = resolveStoreImageUrl(config?.logoUrl);
 
   return (
     <div className="loader-container">
-      <img src={logoSrc} alt={config?.storeName || 'Duck-Hack Logo'} className="loader-logo" onError={handleImageFallback(logo)} />
+      <BrandMarks />
+      {logoSrc ? (
+        <img
+          src={logoSrc}
+          alt={config?.storeName || 'Café Tacita'}
+          className="loader-logo"
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+          }}
+        />
+      ) : (
+        <BrandSeal className="loader-seal" />
+      )}
     </div>
   );
 };

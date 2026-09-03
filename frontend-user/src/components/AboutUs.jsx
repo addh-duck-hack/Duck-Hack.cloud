@@ -1,9 +1,9 @@
-// src/components/AboutUs.js
+// src/components/AboutUs.jsx — PROPUESTA B: "Nuestra raíz"
+//
+// Historia editorial (origen, herencia totonaca, cadena completa) + la familia
+// productora (teamMembers). El proceso paso a paso vive en /servicios; aquí solo
+// la narrativa y las personas.
 import React, { useMemo } from 'react';
-import teamPlaceholder from '../assets/team-placeholder.jpg';
-import adrianPhoto from '../assets/collaborators/adrian.webp';
-import gerardoPhoto from '../assets/collaborators/gerardo.webp';
-import cesarPhoto from '../assets/collaborators/cesar.webp';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { useStoreConfig, resolveStoreImageUrl } from '../hooks/useStoreConfig';
 import { pickList } from '../utils/storeConfigLists';
@@ -12,49 +12,39 @@ import './AboutUs.css';
 
 const FALLBACK_TEAM = [
   {
-    name: 'Adrián Jacobo',
-    role: 'Arquitecto de Software — Backend, DevOps & Seguridad',
-    bio: 'Diseña la arquitectura de cada proyecto y está a cargo de todo el ciclo: del código a producción, pasando por DevOps, infraestructura y seguridad, para que todo funcione y escale sin sorpresas.',
-    email: 'adrian.jacobo@duck-hack.com',
-    phone: '+52 771 774 2823',
-    photo: adrianPhoto,
+    name: 'Don Aurelio Xochit',
+    role: 'Fundador y cafetalero',
+    bio: 'Sembró su primer cafetal en 1979. Todavía sube a cortar cada mañana.',
   },
   {
-    name: 'Gerardo Jacobo',
-    role: 'Desarrollador Web — Angular, React & CSS',
-    bio: 'Se especializa en interfaces rápidas y bien cuidadas, combinando Angular, React y CSS para que cada sitio se sienta tan bien como se ve.',
-    email: 'gerardo.jacobo@duck-hack.com',
-    phone: '',
-    photo: gerardoPhoto,
+    name: 'María Xochit',
+    role: 'Beneficio y calidad',
+    bio: 'Decide qué lote entra a tueste y cuál se reprocesa.',
   },
   {
-    name: 'César Jacobo',
-    role: 'Desarrollador Móvil — Android & iOS',
-    bio: 'Lleva tu negocio al bolsillo de tus clientes con aplicaciones nativas fluidas para Android y iOS.',
-    email: 'cesar.jacobo@duck-hack.com',
-    phone: '+52 771 762 1512',
-    photo: cesarPhoto,
+    name: 'Tonalli Xochit',
+    role: 'Maestro tostador',
+    bio: 'Perfila cada cosecha en el tostador de tambor de la familia.',
   },
   {
-    name: 'Denisse Maldonado',
-    role: 'Project Manager',
-    bio: 'Coordina cada proyecto de principio a fin, asegurando que tiempos, entregables y comunicación con el cliente avancen sin fricciones.',
-    email: 'denisse.maldonado@duck-hack.com',
-    phone: '+52 56 3102 5569',
+    name: 'Citlali Xochit',
+    role: 'Ventas y comunidad',
+    bio: 'Lleva el café a cafeterías y ferias por todo el país.',
   },
-  /*{
-    name: 'Paola Martínez',
-    role: 'Contabilidad y Administración',
-    bio: 'Mantiene la operación de Duck-Hack funcionando sin fricciones, para que cada proyecto avance a tiempo.',
-    email: 'paola.martinez@duck-hack.com',
-    phone: '+52 55 0000 0005',
-  },*/
 ];
+
+const initialsOf = (name) =>
+  name
+    .split(' ')
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase();
 
 const AboutUs = () => {
   usePageMeta(
-    'Quiénes Somos',
-    'Conoce al equipo de Duck-Hack: más de 5 años de experiencia en desarrollo web y hosting para negocios en México.'
+    'Nuestra raíz',
+    'La finca de la familia Xochit en Xicotepec de Juárez, Puebla. Cinco generaciones cafetaleras de herencia totonaca — de Sutu Cha\'Nu.'
   );
 
   const { config } = useStoreConfig();
@@ -62,70 +52,48 @@ const AboutUs = () => {
 
   return (
     <section className="about-view">
-      <span className="eyebrow">/nosotros</span>
-      <h1 className="section-title">El equipo detrás del software</h1>
-      <p className="section-sub">
-        Nuestros colaboradores, quienes cuentan con más de 8 años de experiencia en el campo de
-        la tecnología, te ofrecerán las mejores soluciones digitales a medida.
-      </p>
+      <span className="eyebrow">Nuestra raíz</span>
+      <h1 className="section-title">La finca de la familia Xochit</h1>
 
-      <div className="mission-vision">
-        <div className="mv-cell">
-          <div className="mv-icon">
-            <i className="fas fa-bullseye" />
-          </div>
-          <h3>Misión</h3>
-          <p>
-            Ayudar a las empresas a crecer digitalmente con soluciones web personalizadas y un
-            servicio de hosting robusto, garantizando la seguridad y el rendimiento de sus
-            proyectos online. Trabajamos codo a codo con cada cliente para entender su negocio
-            antes de escribir una sola línea de código, y nos mantenemos a su lado después del
-            lanzamiento, con soporte real, en español y sin letra chica.
-          </p>
-        </div>
-        <div className="mv-cell">
-          <div className="mv-icon">
-            <i className="fas fa-eye" />
-          </div>
-          <h3>Visión</h3>
-          <p>
-            Ser una empresa líder en desarrollo web y hosting, reconocida por nuestro compromiso
-            con la innovación, la calidad y la satisfacción de nuestros clientes. Aspiramos a que
-            cada negocio que confía en nosotros, sin importar su tamaño, tenga acceso a la misma
-            calidad de tecnología, diseño y soporte que normalmente solo las grandes empresas
-            pueden pagar.
-          </p>
-        </div>
+      <div className="prose">
+        <p className="dropcap">
+          Café Tacita nace en Xicotepec de Juárez, entre neblina y cafetales de sombra a 1,300 metros sobre el nivel
+          del mar. Don Aurelio sembró el primer lote en 1979; hoy la finca la trabaja toda la familia.
+        </p>
+        <p>
+          <em className="script">Sutu Cha'Nu</em> es tutunakú —la lengua totonaca de la región— y nombra a la tierra
+          que nos da de comer. Ponerlo en la etiqueta es decir de dónde venimos y a quién le debemos cada taza.
+        </p>
+        <p>
+          Controlamos toda la cadena: el vivero, la cosecha grano por grano, el beneficio húmedo con agua de manantial,
+          el secado al sol, el tueste por lote y el empaque bajo pedido. Nada sale de nuestras manos hasta que va a las
+          tuyas.
+        </p>
       </div>
 
-      <h2 className="team-title">Nuestro equipo</h2>
-      <p className="section-sub">Las personas que hacen posible cada proyecto, de principio a fin.</p>
+      <hr className="rule" />
 
-      <div className="team-heroes">
-        {team.map((member) => (
-          <div className="team-hero" key={member.name}>
-            <div className="team-hero-media">
-              <img src={resolveStoreImageUrl(member.photoUrl) || member.photo || teamPlaceholder} alt={member.name} />
-            </div>
-            <div className="team-hero-content">
+      <div className="section-head" style={{ textAlign: 'left' }}>
+        <span className="kicker">Quiénes somos</span>
+        <h2>La familia productora</h2>
+      </div>
+
+      <div className="team-grid">
+        {team.map((member) => {
+          const photo = resolveStoreImageUrl(member.photoUrl);
+          return (
+            <div className="tm" key={member.name}>
+              {photo ? (
+                <img className="tm-av tm-av-img" src={photo} alt={member.name} />
+              ) : (
+                <div className="tm-av">{initialsOf(member.name)}</div>
+              )}
               <h3>{member.name}</h3>
-              <p className="team-role">{member.role}</p>
-              <RichText className="team-bio" html={member.bio} />
-              <div className="team-contact">
-                {member.email && (
-                  <a href={`mailto:${member.email}`}>
-                    <i className="fas fa-envelope" /> {member.email}
-                  </a>
-                )}
-                {member.phone && (
-                  <a href={`tel:${member.phone.replace(/\s+/g, '')}`}>
-                    <i className="fas fa-phone" /> {member.phone}
-                  </a>
-                )}
-              </div>
+              <div className="tm-role">{member.role}</div>
+              <RichText className="tm-bio" html={member.bio} />
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

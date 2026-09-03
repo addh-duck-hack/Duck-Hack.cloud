@@ -1,32 +1,56 @@
 /* Tokens de diseño globales — única fuente de verdad (ver CLAUDE.md: antes duplicados
-   entre index.css y App.css). App.css solo debe consumir estas variables, no redeclararlas. */
+   entre index.css y App.css). App.css solo debe consumir estas variables, no redeclararlas.
+
+   PROPUESTA B · "De Sutu Cha'Nu" — sitio editorial claro para Café Tacita, sobre
+   papel crema. Se conservan los MISMOS nombres de token que traía el storefront
+   (--ink, --panel, --signal, --action, --font-mono, ...) para no reescribir el CSS
+   de cada componente; solo cambian los valores. Los nombres siguen la semántica
+   original: --ink = superficie base, --white = color de títulos, --font-mono = la
+   fuente "display". */
 @import './styles/shared.css';
 
 :root {
-  /* Superficies (derivadas del navy del ícono de marca) */
-  --ink: #050f16;
-  --panel: #0d2130;
-  --panel2: #112838;
-  --line: #1c3547;
+  color-scheme: light;
 
-  /* Acentos (colores reales del ícono, verificados a nivel de píxel) */
-  --signal: #4abdfc;
-  --signal-dim: #4abdfc33;
-  --action: #f8af11;
-  --action-hover: #ffc94d;
-  --on-accent: #03141c;
+  /* Superficies (papel crema de la marca) */
+  --ink: #fff7ec;      /* fondo base */
+  --panel: #fbe9d0;    /* tarjetas / paneles */
+  --panel2: #f6ddbb;   /* paneles más marcados */
+  --line: #e3c9a2;     /* filetes */
+  --line-soft: #ecd8b8;
 
-  /* Texto */
-  --text: #c7dbe8;
-  --text-dim: #7f9aab;
-  --white: #f3f9ff;
+  /* Acentos (teal + café de la paleta) */
+  --signal: #006e6e;        /* teal — links, detalles, estado activo */
+  --signal-dim: #006e6e1f;
+  --teal-soft: #2bc7c7;
+  --teal-dk: #054f4f;
+  --gold: #b06a1c;
+
+  /* CTA sólido: café oscuro, hover teal */
+  --action: #3a2410;
+  --action-hover: #006e6e;
+  --on-accent: #fff7ec;
+
+  /* Texto (café tostado sobre crema) */
+  --text: #3a2410;
+  --text-dim: #6e4e2e;
+  --text-mute: #8a6b48;
+  --white: #3a2410;   /* títulos */
 
   /* Sombras */
-  --shadow: rgba(0, 0, 0, 0.35);
+  --shadow: rgba(58, 36, 16, 0.16);
 
-  /* Tipografía */
-  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-  --font-body: 'Rubik', sans-serif;
+  /* Tipografía
+     --font-mono  : la fuente "display" (antes JetBrains Mono) → Actor, sustituto
+                    de LEMON/MILK. El nombre se conserva por compatibilidad de CSS.
+     --font-body  : cuerpo editorial → Fraunces (serif óptico).
+     --font-script: firma de marca → Meow Script, sustituto de Intrigue Script. */
+  --font-mono: 'Actor', 'Trebuchet MS', 'Arial', sans-serif;
+  --font-body: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-script: 'Meow Script', 'Snell Roundhand', cursive;
+
+  --shell-max: 1120px;
+  --measure: 62ch;
 }
 
 html {
@@ -40,38 +64,39 @@ body {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
 }
 
 h1, h2, h3 {
   font-family: var(--font-mono);
   color: var(--white);
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
+  line-height: 1.08;
   margin: 0;
+  text-wrap: balance;
 }
 
 p {
   font-family: var(--font-body);
-  line-height: 1.65;
+  line-height: 1.7;
   color: var(--text-dim);
   margin: 0;
 }
 
 /* Campos de "descripción" del store config que pueden traer HTML básico
    (ver src/components/RichText.jsx) — se renderizan en un <div>, no un <p>,
-   así que necesitan la misma base tipográfica de arriba explícita en vez de
-   heredarla gratis del selector `p`. Un h1-h6/p/ul que el admin meta ADENTRO
-   sí hereda el resto de las reglas globales de esta hoja (h1,h2,h3 ya
-   definidas arriba, por ejemplo) sin nada extra. */
+   así que necesitan la misma base tipográfica explícita. */
 .rich-text {
   font-family: var(--font-body);
-  line-height: 1.65;
+  line-height: 1.7;
   color: var(--text-dim);
   margin: 0;
 }
 
 a {
-  color: inherit;
+  color: var(--signal);
 }
 
 *, *::before, *::after {
@@ -79,8 +104,18 @@ a {
 }
 
 ::selection {
-  background: var(--signal);
-  color: var(--on-accent);
+  background: var(--teal-soft);
+  color: var(--text);
+}
+
+/* Firma de marca reutilizable — "Café" en script sobre "TACITA" en display. */
+.script {
+  font-family: var(--font-script);
+  font-style: normal;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--signal);
 }
 
 @media (prefers-reduced-motion: reduce) {

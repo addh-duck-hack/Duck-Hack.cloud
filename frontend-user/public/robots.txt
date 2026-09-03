@@ -4,5 +4,6 @@ Allow: /
 Disallow: /login
 Disallow: /register
 Disallow: /users/verify
+Disallow: /carrito
 
-Sitemap: https://mx.duck-hack.cloud/sitemap.xml
+Sitemap: https://tacita.duck-hack.cloud/sitemap.xml

@@ -1,6 +1,6 @@
 {
-  "short_name": "Duck-Hack",
-  "name": "Duck-Hack — Hosting, Desarrollo Web y Apps a la Medida",
+  "short_name": "Café Tacita",
+  "name": "Café Tacita — Café de altura, de Sutu Cha'Nu",
   "icons": [
     {
       "src": "favicon.ico",
@@ -20,6 +20,6 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#050f16",
-  "background_color": "#050f16"
+  "theme_color": "#006e6e",
+  "background_color": "#fff7ec"
 }

@@ -18,6 +18,16 @@
   animation: fadeInOut 1.5s infinite ease-in-out;
 }
 
+.loader-seal {
+  width: 96px;
+  height: 96px;
+  animation: fadeInOut 1.5s infinite ease-in-out;
+}
+
+body.loaded .loader-seal {
+  animation: none;
+}
+
 @keyframes fadeInOut {
   0% {
     opacity: 0;

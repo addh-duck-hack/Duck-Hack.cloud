@@ -1,0 +1,168 @@
+/* src/components/ProductDetail.css — PROPUESTA B */
+
+.pd-view {
+  max-width: var(--shell-max);
+  margin: 0 auto;
+  width: 100%;
+}
+.pd-loading {
+  color: var(--text-mute);
+}
+
+.back-link {
+  background: none;
+  border: 0;
+  cursor: pointer;
+  color: var(--signal);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0;
+}
+.back-link:hover {
+  text-decoration: underline;
+}
+
+.pd {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 46px;
+  align-items: start;
+  margin-top: 18px;
+}
+.pd-fig {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--panel);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 5px var(--ink), inset 0 0 0 9px var(--gold);
+}
+.pd-fig svg {
+  width: 56%;
+  height: 56%;
+  color: var(--signal);
+}
+.pd-fig img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pd-name {
+  font-size: clamp(1.8rem, 4.5vw, 3rem);
+  text-transform: none;
+  letter-spacing: -0.01em;
+  margin-top: 4px;
+}
+.pd-lede {
+  font-size: 1.1rem;
+  color: var(--text-dim);
+  margin-top: 14px;
+  max-width: 44ch;
+}
+.pd-cata {
+  margin-top: 20px;
+  padding: 16px 18px;
+  background: var(--panel);
+  border-left: 3px solid var(--signal);
+  font-family: var(--font-script);
+  font-size: 1.35rem;
+  color: var(--teal-dk);
+}
+.pd-specs {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 20px;
+  margin: 22px 0;
+  font-size: 0.95rem;
+}
+.pd-specs dt {
+  font-family: var(--font-body);
+  font-weight: 600;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.8rem;
+  align-self: center;
+}
+.pd-specs dd {
+  margin: 0;
+  color: var(--text);
+}
+
+.pd-field {
+  margin: 18px 0;
+}
+.pd-field label {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold);
+  display: block;
+  margin-bottom: 6px;
+}
+.pd-field select {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  background: var(--ink);
+  border: 1px solid var(--text);
+  border-radius: 3px;
+  padding: 10px 12px;
+  color: var(--text);
+  width: 100%;
+  max-width: 320px;
+}
+
+.pd-buy {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+.pd-price {
+  font-family: var(--font-mono);
+  font-size: 2rem;
+}
+.qty {
+  display: inline-flex;
+  border: 1px solid var(--text);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.qty button {
+  background: none;
+  border: 0;
+  cursor: pointer;
+  width: 38px;
+  line-height: 40px;
+  color: var(--text);
+  font-size: 1rem;
+}
+.qty span {
+  width: 40px;
+  text-align: center;
+  line-height: 40px;
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+.pd-save {
+  margin-top: 10px;
+  color: var(--gold);
+  font-weight: 600;
+}
+
+@media (max-width: 860px) {
+  .pd {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .pd-fig {
+    max-width: 320px;
+  }
+}
