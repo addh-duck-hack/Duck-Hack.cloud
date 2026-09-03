@@ -69,21 +69,25 @@ const generateInvoicePdf = (invoice, client, outputStream) => {
   doc.fillColor(BRAND_NAVY).font("Helvetica-Bold").fontSize(11).text("Facturar a", 50, 230);
 
   doc.fillColor(BRAND_TEXT_DIM).font("Helvetica").fontSize(10);
+  const BILLING_WIDTH = 320;
   let y = 248;
-  doc.text(billingName, 50, y);
-  y += 15;
+  // Cada renglón avanza y según su altura real (heightOfString) en vez de un
+  // paso fijo — una billingAddress larga envuelve a 2+ líneas y con el paso
+  // fijo de 15px el correo se encimaba encima de la dirección.
+  const billingLine = (textValue) => {
+    doc.text(textValue, 50, y, { width: BILLING_WIDTH });
+    y += doc.heightOfString(textValue, { width: BILLING_WIDTH }) + 3;
+  };
+  billingLine(`Cliente: ${billingName}`);
   if (client?.billingRfc) {
-    doc.text(`RFC: ${client.billingRfc}`, 50, y);
-    y += 15;
+    billingLine(`RFC: ${client.billingRfc}`);
   }
   if (client?.billingAddress) {
-    doc.text(client.billingAddress, 50, y, { width: 320 });
-    y += 15;
+    billingLine(`Dirección: ${client.billingAddress}`);
   }
   const billingContact = client?.billingEmail || client?.contactEmail;
   if (billingContact) {
-    doc.text(billingContact, 50, y);
-    y += 15;
+    billingLine(`Correo: ${billingContact}`);
   }
 
   // --- Detalle ---

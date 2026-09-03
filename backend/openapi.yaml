@@ -1122,6 +1122,94 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
+  /api/invoices/{id}:
+    get:
+      tags: [Invoices]
+      summary: Obtener una factura por id
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Factura
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invoice:
+                    $ref: "#/components/schemas/Invoice"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Factura no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    put:
+      tags: [Invoices]
+      summary: Editar una factura ya emitida (edición acotada)
+      description: >
+        Solo se pueden cambiar el concepto de cada renglón (items, posicional —
+        items[i].concept reemplaza el renglón i) y la fecha de emisión. El
+        monto, el cliente, el folio y los movimientos cubiertos no se editan
+        acá; para eso se cancela y se re-emite. Si se envía `items`, su longitud
+        debe ser exactamente la de invoice.items.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceUpdateRequest"
+      responses:
+        "200":
+          description: Factura actualizada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  invoice:
+                    $ref: "#/components/schemas/Invoice"
+        "400":
+          description: Payload inválido o largo de items distinto al de la factura
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Factura no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
   /api/invoices/{id}/pdf:
     get:
       tags: [Invoices]
@@ -2583,11 +2671,44 @@ components:
           minItems: 1
           items:
             type: string
-        concept:
-          type: string
-          maxLength: 300
-          description: Opcional — si se omite, se compone a partir de las categorías y el mes de los movimientos seleccionados.
+        itemConcepts:
+          type: array
+          description: >
+            Opcional. Concepto que se imprime para cada movimiento, paralelo a
+            transactionIds (itemConcepts[i] es el concepto de transactionIds[i]).
+            Si se envía, debe tener exactamente la misma longitud que
+            transactionIds. Un elemento vacío cae al description/categoría del
+            movimiento. El concepto "resumen" de la factura (Invoice.concept, el
+            del listado) siempre lo compone el servidor a partir de categorías +
+            mes; ya no se acepta del payload.
+          items:
+            type: string
+            maxLength: 300
       required: [client, transactionIds]
+
+    InvoiceUpdateRequest:
+      type: object
+      description: >
+        Edición acotada de una factura ya emitida. Todos los campos son
+        opcionales pero debe ir al menos uno.
+      properties:
+        items:
+          type: array
+          description: >
+            Posicional — items[i].concept reemplaza el concepto del renglón i de
+            la factura. La longitud debe ser exactamente la de Invoice.items.
+          items:
+            type: object
+            properties:
+              concept:
+                type: string
+                minLength: 1
+                maxLength: 300
+            required: [concept]
+        issuedAt:
+          type: string
+          format: date
+          description: Fecha de emisión (fecha de calendario, se guarda como medianoche UTC).
 
     Product:
       type: object

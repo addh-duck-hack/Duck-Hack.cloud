@@ -369,20 +369,67 @@ const validateInvoiceFromTransactionsPayload = (req, res, next) => {
   }
   req.body.transactionIds = transactionIds;
 
-  if (payload.concept !== undefined) {
-    const concept = asTrimmedString(payload.concept);
-    if (concept.length > 300) {
-      return badRequest(res, "VALIDATION_ERROR", "concept no puede superar 300 caracteres.");
+  // Concepto por movimiento (opcional). itemConcepts[i] es el concepto que se
+  // imprime para transactionIds[i]; vacío/omitido -> la ruta usa el default
+  // (description || category del movimiento). El concepto "resumen" de la
+  // factura (invoice.concept, el del listado) lo compone siempre la ruta a
+  // partir de categorías + mes; ya no se acepta del payload.
+  if (payload.itemConcepts !== undefined) {
+    if (!Array.isArray(payload.itemConcepts) || payload.itemConcepts.length !== transactionIds.length) {
+      return badRequest(
+        res,
+        "VALIDATION_ERROR",
+        "itemConcepts debe ser un arreglo con un elemento por cada transactionId."
+      );
     }
-    req.body.concept = concept || undefined;
+    const itemConcepts = payload.itemConcepts.map((value) => asTrimmedString(value));
+    if (itemConcepts.some((concept) => concept.length > 300)) {
+      return badRequest(res, "VALIDATION_ERROR", "Cada concepto no puede superar 300 caracteres.");
+    }
+    req.body.itemConcepts = itemConcepts;
   }
 
+  delete req.body.concept;
   delete req.body.source;
   delete req.body.sourceCollection;
   delete req.body.sourceId;
   delete req.body.amount;
   delete req.body.issuedAt;
 
+  return next();
+};
+
+// Edición de una factura ya emitida: solo se tocan el concepto de cada
+// movimiento y la fecha de emisión. Montos, cliente, folio y qué movimientos
+// cubre quedan fijos (ver backend/routes/invoices.routes.js).
+const validateInvoiceUpdatePayload = (req, res, next) => {
+  const payload = req.body || {};
+  const update = {};
+
+  if (payload.items !== undefined) {
+    if (!Array.isArray(payload.items) || payload.items.length === 0) {
+      return badRequest(res, "VALIDATION_ERROR", "items debe ser un arreglo con al menos un elemento.");
+    }
+    const concepts = payload.items.map((item) => asTrimmedString(item && item.concept));
+    if (concepts.some((concept) => concept.length < 1 || concept.length > 300)) {
+      return badRequest(res, "VALIDATION_ERROR", "Cada concepto debe tener entre 1 y 300 caracteres.");
+    }
+    update.itemConcepts = concepts;
+  }
+
+  if (payload.issuedAt !== undefined) {
+    const issuedAt = asValidDate(payload.issuedAt);
+    if (!issuedAt) {
+      return badRequest(res, "VALIDATION_ERROR", "issuedAt debe ser una fecha válida.");
+    }
+    update.issuedAt = issuedAt;
+  }
+
+  if (Object.keys(update).length === 0) {
+    return badRequest(res, "VALIDATION_ERROR", "No se envió ningún campo editable (items, issuedAt).");
+  }
+
+  req.body = update;
   return next();
 };
 
@@ -394,4 +441,5 @@ module.exports = {
   validateTransactionPayload,
   validateOpeningBalancePayload,
   validateInvoiceFromTransactionsPayload,
+  validateInvoiceUpdatePayload,
 };

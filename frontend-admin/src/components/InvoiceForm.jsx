@@ -26,7 +26,9 @@ const InvoiceForm = () => {
   const [isLoadingMovements, setIsLoadingMovements] = useState(false);
   const [selectedMonthKey, setSelectedMonthKey] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
-  const [concept, setConcept] = useState("");
+  // Concepto que se imprime para cada movimiento, por id. Se precarga con
+  // description/categoría al marcar el movimiento y el usuario lo puede editar.
+  const [itemConcepts, setItemConcepts] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -51,7 +53,7 @@ const InvoiceForm = () => {
     setError("");
     setSelectedMonthKey("");
     setSelectedIds([]);
-    setConcept("");
+    setItemConcepts({});
     try {
       const response = await axios.get(`${baseUrl}/api/accounting/transactions`, {
         headers: getAuthHeaders(),
@@ -95,11 +97,21 @@ const InvoiceForm = () => {
   const handleMonthChange = (event) => {
     setSelectedMonthKey(event.target.value);
     setSelectedIds([]);
-    setConcept("");
   };
 
-  const toggleMovement = (id) => {
+  const defaultItemConcept = (movement) =>
+    movement.description || movement.category || "Movimiento";
+
+  const toggleMovement = (movement) => {
+    const id = movement._id;
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    setItemConcepts((prev) =>
+      prev[id] !== undefined ? prev : { ...prev, [id]: defaultItemConcept(movement) }
+    );
+  };
+
+  const handleItemConceptChange = (id, value) => {
+    setItemConcepts((prev) => ({ ...prev, [id]: value }));
   };
 
   const selectedMovements = useMemo(
@@ -108,17 +120,14 @@ const InvoiceForm = () => {
   );
   const total = selectedMovements.reduce((sum, m) => sum + m.amount, 0);
 
-  const defaultConcept = useMemo(() => {
-    if (selectedMovements.length === 0) return "";
-    const categories = [...new Set(selectedMovements.map((m) => m.category).filter(Boolean))];
-    const label = categories.length > 0 ? categories.join(", ") : "Movimientos";
-    return `${label} - ${activeGroup?.label || ""}`;
-  }, [selectedMovements, activeGroup]);
-
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (selectedIds.length === 0) {
       setError("Selecciona al menos un movimiento.");
+      return;
+    }
+    if (selectedIds.some((id) => !(itemConcepts[id] || "").trim())) {
+      setError("Cada movimiento seleccionado necesita un concepto.");
       return;
     }
     setIsSubmitting(true);
@@ -126,7 +135,11 @@ const InvoiceForm = () => {
     try {
       await axios.post(
         `${baseUrl}/api/invoices`,
-        { client: clientId, transactionIds: selectedIds, concept: concept.trim() || undefined },
+        {
+          client: clientId,
+          transactionIds: selectedIds,
+          itemConcepts: selectedIds.map((id) => (itemConcepts[id] || "").trim()),
+        },
         { headers: { ...getAuthHeaders(), "Content-Type": "application/json" } }
       );
       navigate("/admin/invoices");
@@ -140,7 +153,11 @@ const InvoiceForm = () => {
   return (
     <section>
       <h3>Facturar movimientos</h3>
-      <p>Selecciona uno o más movimientos del mismo cliente y mismo mes para facturarlos juntos. El folio se asigna automáticamente.</p>
+      <p>
+        Selecciona uno o más movimientos del mismo cliente y mismo mes para facturarlos juntos. El folio se asigna
+        automáticamente. Cada movimiento lleva un concepto editable (se precarga con su descripción) que es el texto
+        que sale impreso en la factura.
+      </p>
 
       {error ? <div className="auth-error">{error}</div> : null}
 
@@ -187,36 +204,41 @@ const InvoiceForm = () => {
                   <th>Categoría</th>
                   <th>Origen</th>
                   <th>Monto</th>
+                  <th>Concepto (se imprime en la factura)</th>
                 </tr>
               </thead>
               <tbody>
-                {activeGroup.items.map((m) => (
-                  <tr key={m._id}>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.includes(m._id)}
-                        onChange={() => toggleMovement(m._id)}
-                      />
-                    </td>
-                    <td>{formatDate(m.date)}</td>
-                    <td>{m.category || "—"}</td>
-                    <td>{SOURCE_LABELS[m.source] || m.source}</td>
-                    <td>{formatMxn(m.amount)}</td>
-                  </tr>
-                ))}
+                {activeGroup.items.map((m) => {
+                  const isSelected = selectedIds.includes(m._id);
+                  return (
+                    <tr key={m._id}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleMovement(m)}
+                        />
+                      </td>
+                      <td>{formatDate(m.date)}</td>
+                      <td>{m.category || "—"}</td>
+                      <td>{SOURCE_LABELS[m.source] || m.source}</td>
+                      <td>{formatMxn(m.amount)}</td>
+                      <td>
+                        <input
+                          type="text"
+                          value={itemConcepts[m._id] ?? ""}
+                          onChange={(e) => handleItemConceptChange(m._id, e.target.value)}
+                          disabled={!isSelected}
+                          placeholder={defaultItemConcept(m)}
+                          maxLength={300}
+                          style={{ margin: 0, minWidth: 220 }}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
-
-            <label>
-              Concepto (opcional — se compone automáticamente si se deja vacío)
-              <input
-                type="text"
-                value={concept}
-                onChange={(e) => setConcept(e.target.value)}
-                placeholder={defaultConcept}
-              />
-            </label>
 
             <p>
               <strong>Total seleccionado: {formatMxn(total)}</strong> ({selectedIds.length} movimiento
