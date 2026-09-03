@@ -19,6 +19,7 @@ import AccountingDashboard from "./components/AccountingDashboard";
 import AccountingTransactions from "./components/AccountingTransactions";
 import InvoiceList from "./components/InvoiceList";
 import InvoiceForm from "./components/InvoiceForm";
+import InvoiceEditForm from "./components/InvoiceEditForm";
 import ProductList from "./components/ProductList";
 import ProductForm from "./components/ProductForm";
 import InventoryList from "./components/InventoryList";
@@ -116,6 +117,10 @@ const App = () => {
             <Route
               path="invoices/new"
               element={canManageAgencyClients ? <InvoiceForm /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="invoices/:id/edit"
+              element={canManageAgencyClients ? <InvoiceEditForm /> : <Navigate to="/admin" />}
             />
             <Route
               path="products"
