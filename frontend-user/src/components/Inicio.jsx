@@ -7,7 +7,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usePageMeta } from '../hooks/usePageMeta';
-import { useStoreConfig } from '../hooks/useStoreConfig';
+import { useStoreConfig, resolveStoreImageUrl } from '../hooks/useStoreConfig';
 import { pickList } from '../utils/storeConfigLists';
 import { formatMxn } from '../hooks/useCart';
 import RichText from './RichText';
@@ -90,6 +90,12 @@ const Inicio = () => {
   const plans = useMemo(() => pickList(config?.pricingPlans, PLANS).slice(0, 4), [config]);
   const allies = useMemo(() => pickList(config?.testimonials, ALLIES).slice(0, 6), [config]);
 
+  // Logo del admin (StoreConfig.logoUrl) dentro del disco del hero; si no hay
+  // logo configurado o la imagen no resuelve, se cae al sello de marca.
+  const brandName = config?.storeName || 'Café Tacita';
+  const heroLogo = resolveStoreImageUrl(config?.logoUrl);
+  const [logoBroke, setLogoBroke] = useState(false);
+
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
@@ -134,7 +140,18 @@ const Inicio = () => {
           )}
         </div>
         <div className="hero-figure">
-          <div className="hero-disc"><BrandSeal className="seal-lg" /></div>
+          <div className="hero-disc">
+            {heroLogo && !logoBroke ? (
+              <img
+                className="hero-disc-logo"
+                src={heroLogo}
+                alt={brandName}
+                onError={() => setLogoBroke(true)}
+              />
+            ) : (
+              <BrandSeal className="seal-lg" />
+            )}
+          </div>
           <span className="hero-cap">Xicotepec · Sierra Norte de Puebla</span>
         </div>
       </section>

@@ -7,6 +7,7 @@ import './ContactUs.css';
 
 const DEFAULT_CONTACT_EMAIL = 'hola@cafetacita.mx';
 const DEFAULT_CONTACT_PHONE = '55 1234 5678';
+const DEFAULT_ADDRESS = 'Xicotepec de Juárez, Sierra Norte de Puebla';
 
 const REASONS = [
   'Pedido / tienda en línea',
@@ -27,6 +28,8 @@ const ContactUs = () => {
   const whatsapp = config?.socialLinks?.whatsapp || '';
   const contactEmail = config?.contactEmail || DEFAULT_CONTACT_EMAIL;
   const contactPhoneLabel = config?.contactPhone || DEFAULT_CONTACT_PHONE;
+  // "Domicilio legal" configurado en el admin (StoreConfig.legalIdentity.legalAddress).
+  const address = config?.legalIdentity?.legalAddress || DEFAULT_ADDRESS;
 
   const [formData, setFormData] = useState({ fullName: '', email: '', phone: '', service: '', message: '' });
   const [formSubmitted, setFormSubmitted] = useState(false);
@@ -77,7 +80,7 @@ const ContactUs = () => {
           </div>
           <div className="contact-item">
             <i className="fas fa-map-marker-alt" aria-hidden="true" />
-            <span>Xicotepec de Juárez, Sierra Norte de Puebla</span>
+            <span>{address}</span>
           </div>
         </div>
 
