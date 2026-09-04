@@ -8,7 +8,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { usePageMeta } from '../hooks/usePageMeta';
-import { useCart, formatMxn, formatMxnLong } from '../hooks/useCart';
+import { useCart, formatMxn, formatMxnLong, formatOptions } from '../hooks/useCart';
 import { iconForCategory } from './BrandMarks';
 import './Cart.css';
 
@@ -104,7 +104,7 @@ const Cart = () => {
                 <div className="cinfo">
                   <div className="cn">{l.name}</div>
                   <div className="cm">
-                    {l.grind !== '—' ? `${l.grind} · ` : ''}
+                    {formatOptions(l.options) ? `${formatOptions(l.options)} · ` : ''}
                     {formatMxn(l.price)} c/u
                   </div>
                   <div className="cqty">

@@ -2,12 +2,23 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { usePageMeta } from '../hooks/usePageMeta';
-import { useProduct, GRIND_OPTIONS } from '../hooks/useProducts';
+import { useProduct } from '../hooks/useProducts';
 import { useCart, formatMxn, formatMxnLong } from '../hooks/useCart';
 import { iconForCategory } from './BrandMarks';
 import './ProductDetail.css';
 
 const firstSentence = (text) => (text ? text.split(/(?<=\.)\s/)[0] : '');
+
+// Selecciones por default: el primer valor de cada grupo de opciones del
+// producto (ver useProducts.js — options: [{name, values}]). Sin opciones,
+// devuelve {} y no se pinta ningún selector.
+const defaultOptionValues = (product) => {
+  const defaults = {};
+  (product?.options || []).forEach((group) => {
+    if (group?.name && group.values?.length) defaults[group.name] = group.values[0];
+  });
+  return defaults;
+};
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -18,14 +29,16 @@ const ProductDetail = () => {
   usePageMeta(product ? product.name : 'Producto', product?.description || undefined);
 
   const [qty, setQty] = useState(1);
-  const [grind, setGrind] = useState(GRIND_OPTIONS[0]);
+  const [selectedOptions, setSelectedOptions] = useState({});
+  const [activeImage, setActiveImage] = useState(0);
   const [added, setAdded] = useState(false);
 
   useEffect(() => {
     setQty(1);
-    setGrind(GRIND_OPTIONS[0]);
+    setActiveImage(0);
     setAdded(false);
-  }, [id]);
+    setSelectedOptions(defaultOptionValues(product));
+  }, [id, product]);
 
   if (isLoading && !product) {
     return (
@@ -46,10 +59,17 @@ const ProductDetail = () => {
     );
   }
 
-  const needsGrind = product.category !== 'Accesorios';
+  const optionGroups = product.options || [];
+  // Todas las imágenes del producto; si el backend todavía no trae varias
+  // (o el producto de muestra no tiene ninguna) cae a la miniatura única.
+  const images = product.images?.length ? product.images : product.image ? [product.image] : [];
+
+  const handleOptionChange = (groupName, value) => {
+    setSelectedOptions((prev) => ({ ...prev, [groupName]: value }));
+  };
 
   const handleAdd = () => {
-    addItem(product, qty, needsGrind ? grind : '—');
+    addItem(product, qty, selectedOptions);
     setAdded(true);
     setTimeout(() => setAdded(false), 1600);
   };
@@ -66,13 +86,31 @@ const ProductDetail = () => {
       <button className="back-link" onClick={() => navigate('/tienda')}>← Volver a la carta</button>
 
       <div className="pd">
-        <div className="pd-fig">
-          {product.image ? (
-            <img src={product.image} alt={product.name} />
-          ) : (
-            <svg viewBox="0 0 100 100" aria-hidden="true">
-              <use href={`#${iconForCategory(product.category)}`} />
-            </svg>
+        <div className="pd-gallery">
+          <div className="pd-fig">
+            {images.length > 0 ? (
+              <img src={images[activeImage] || images[0]} alt={product.name} />
+            ) : (
+              <svg viewBox="0 0 100 100" aria-hidden="true">
+                <use href={`#${iconForCategory(product.category)}`} />
+              </svg>
+            )}
+          </div>
+          {images.length > 1 && (
+            <div className="pd-thumbs">
+              {images.map((src, index) => (
+                <button
+                  key={src}
+                  type="button"
+                  className={`pd-thumb ${index === activeImage ? 'active' : ''}`}
+                  onClick={() => setActiveImage(index)}
+                  aria-label={`Ver imagen ${index + 1} de ${product.name}`}
+                  aria-current={index === activeImage}
+                >
+                  <img src={src} alt="" />
+                </button>
+              ))}
+            </div>
           )}
         </div>
 
@@ -93,16 +131,23 @@ const ProductDetail = () => {
             </dl>
           )}
 
-          {needsGrind && (
-            <div className="pd-field">
-              <label htmlFor="grind">Molienda</label>
-              <select id="grind" value={grind} onChange={(e) => setGrind(e.target.value)}>
-                {GRIND_OPTIONS.map((g) => (
-                  <option key={g} value={g}>{g}</option>
+          {/* Diferenciadores del producto (presentación, color, lo que sea) —
+              uno por grupo que traiga `product.options`. Sin ese campo (todo
+              producto real hoy) no se pinta nada. */}
+          {optionGroups.map((group) => (
+            <div className="pd-field" key={group.name}>
+              <label htmlFor={`pd-opt-${group.name}`}>{group.name}</label>
+              <select
+                id={`pd-opt-${group.name}`}
+                value={selectedOptions[group.name] || group.values[0]}
+                onChange={(e) => handleOptionChange(group.name, e.target.value)}
+              >
+                {group.values.map((v) => (
+                  <option key={v} value={v}>{v}</option>
                 ))}
               </select>
             </div>
-          )}
+          ))}
 
           <div className="pd-buy">
             <span className="pd-price">{formatMxnLong(product.price)}</span>

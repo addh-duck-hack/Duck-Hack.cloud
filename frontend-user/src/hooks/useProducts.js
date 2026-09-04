@@ -9,10 +9,22 @@
 //
 // Forma normalizada de cada producto:
 //   { id, name, sku, description, price, compareAtPrice, category, image,
-//     meta, origin, roast }
-// `meta` / `origin` / `roast` son datos de ficha que hoy solo trae el catálogo
-// de muestra; cuando la tienda lea del backend real quedarán undefined y la
-// ficha de producto simplemente omite esas filas.
+//     images, meta, origin, roast, options }
+// `meta` / `origin` / `roast` / `options` son datos de ficha que hoy solo trae
+// el catálogo de muestra; cuando la tienda lea del backend real quedarán
+// undefined y la ficha de producto simplemente omite esas filas/selectores.
+//
+// `options`: diferenciadores del producto (presentación, color, lo que sea) —
+// NO es un campo de Product todavía (ver packages/core-api/modules/products.js:
+// name/sku/description/price/compareAtPrice/category/images/isActive nada más).
+// Antes había un selector de "Molienda" fijo con una lista global
+// (GRIND_OPTIONS) que aplicaba igual a cualquier tienda/producto — se quitó
+// porque no era configurable desde el admin y no tenía sentido fuera de café.
+// `options` es el reemplazo genérico: cada producto trae su propia lista de
+// grupos `{ name, values }` (ej. Presentación: 250 g/500 g/1 kg, o en otra
+// tienda Color: Azul/Verde) — ProductDetail.jsx pinta un <select> por grupo,
+// sea cual sea. Vive aquí como dato de muestra hasta que se agregue a
+// Product en el backend y a ProductForm.jsx en el admin (otra rama).
 import { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../utils/apiClient';
 import { resolveStoreImageUrl } from './useStoreConfig';
@@ -21,45 +33,47 @@ import { resolveStoreImageUrl } from './useStoreConfig';
 // esté aquí se muestra al final, en su propio capítulo.
 export const CATEGORY_ORDER = ['Café en grano', 'Café molido', 'Ediciones especiales', 'Accesorios'];
 
-export const GRIND_OPTIONS = [
-  'En grano (sin moler)',
-  'Prensa francesa',
-  'V60 / goteo',
-  'Cafetera italiana',
-  'Espresso',
-  'Cafetera americana',
-];
+// Ejemplo de `options` compartido por los granos/molidos "de catálogo" — 1
+// grupo, 3 presentaciones. Cada producto podría traer su propio grupo
+// distinto (o ninguno); este helper solo evita repetir el mismo array 6 veces.
+const PRESENTACION_250_500_1KG = [{ name: 'Presentación', values: ['250 g', '500 g', '1 kg'] }];
 
 export const FALLBACK_PRODUCTS = [
   {
     id: 'CHAL340', sku: 'CHAL340', category: 'Café en grano', name: 'El Chalahuite',
     meta: 'Lavado · 340 g · grano', origin: 'Lote El Chalahuite', roast: 'Medio',
     description: 'Panela, cacao y naranja. Cuerpo redondo, acidez media.', price: 185,
+    options: PRESENTACION_250_500_1KG,
   },
   {
     id: 'CAZUL340', sku: 'CAZUL340', category: 'Café en grano', name: 'Cerro Azul',
     meta: 'Lavado · 340 g · grano', origin: 'Lote Cerro Azul', roast: 'Medio',
     description: 'Caramelo, manzana y nuez. Dulzor largo.', price: 210,
+    options: PRESENTACION_250_500_1KG,
   },
   {
     id: 'BLEND500', sku: 'BLEND500', category: 'Café en grano', name: 'Blend Casa',
     meta: '500 g · grano', origin: 'Blend de la casa', roast: 'Medio-alto',
     description: 'Chocolate amargo y dátil. Nuestro café de todos los días.', price: 300,
+    options: PRESENTACION_250_500_1KG,
   },
   {
     id: 'DECAF250', sku: 'DECAF250', category: 'Café en grano', name: 'Descafeinado al Agua',
     meta: '250 g · grano', origin: 'Lote El Chalahuite', roast: 'Medio',
     description: 'Cacao y fruta seca. Proceso al agua, sin químicos.', price: 220,
+    options: PRESENTACION_250_500_1KG,
   },
   {
     id: 'CHALG340', sku: 'CHALG340', category: 'Café molido', name: 'El Chalahuite · molido',
-    meta: '340 g · molido a elegir', origin: 'Lote El Chalahuite', roast: 'Medio',
-    description: 'El mismo lote lavado, molido a tu método el día del envío.', price: 185,
+    meta: '340 g · molido', origin: 'Lote El Chalahuite', roast: 'Medio',
+    description: 'El mismo lote lavado, molido bajo pedido antes de enviarlo.', price: 185,
+    options: [{ name: 'Presentación', values: ['250 g', '500 g', '1 kg'] }, { name: 'Molienda', values: ['Prensa francesa', 'V60 / goteo', 'Espresso', 'Cafetera italiana', 'Cafetera americana'] }],
   },
   {
     id: 'BLENDG500', sku: 'BLENDG500', category: 'Café molido', name: 'Blend Casa · molido',
-    meta: '500 g · molido a elegir', origin: 'Blend de la casa', roast: 'Medio-alto',
+    meta: '500 g · molido', origin: 'Blend de la casa', roast: 'Medio-alto',
     description: 'Chocolate y dátil, listo para tu cafetera.', price: 300,
+    options: [{ name: 'Presentación', values: ['250 g', '500 g', '1 kg'] }, { name: 'Molienda', values: ['Prensa francesa', 'V60 / goteo', 'Espresso', 'Cafetera italiana', 'Cafetera americana'] }],
   },
   {
     id: 'HONEY250', sku: 'HONEY250', category: 'Ediciones especiales', name: 'Honey Garnica',
@@ -93,19 +107,29 @@ export const FALLBACK_PRODUCTS = [
   },
 ];
 
-const normalizeApiProduct = (p) => ({
-  id: p._id || p.id,
-  sku: p.sku,
-  name: p.name,
-  description: p.description || '',
-  price: Number(p.price),
-  compareAtPrice: p.compareAtPrice != null ? Number(p.compareAtPrice) : undefined,
-  category: p.category || 'Café en grano',
-  image: Array.isArray(p.images) && p.images[0] ? resolveStoreImageUrl(p.images[0]) : '',
-  meta: p.meta,
-  origin: p.origin,
-  roast: p.roast,
-});
+const normalizeApiProduct = (p) => {
+  // images[] completo para la galería de ProductDetail.jsx; `image` (la
+  // primera) se conserva para todo lo que solo necesita una miniatura
+  // (Shop.jsx, líneas del carrito).
+  const images = Array.isArray(p.images) ? p.images.map(resolveStoreImageUrl).filter(Boolean) : [];
+  return {
+    id: p._id || p.id,
+    sku: p.sku,
+    name: p.name,
+    description: p.description || '',
+    price: Number(p.price),
+    compareAtPrice: p.compareAtPrice != null ? Number(p.compareAtPrice) : undefined,
+    category: p.category || 'Café en grano',
+    image: images[0] || '',
+    images,
+    meta: p.meta,
+    origin: p.origin,
+    roast: p.roast,
+    // Product todavía no tiene este campo en el backend (ver comentario
+    // arriba) — queda undefined para cualquier producto real, a propósito.
+    options: p.options,
+  };
+};
 
 export const groupByCategory = (products) => {
   const seen = new Set(products.map((p) => p.category));

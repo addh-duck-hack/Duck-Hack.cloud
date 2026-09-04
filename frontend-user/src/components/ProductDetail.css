@@ -30,6 +30,11 @@
   align-items: start;
   margin-top: 18px;
 }
+.pd-gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
 .pd-fig {
   aspect-ratio: 1;
   border-radius: 50%;
@@ -48,6 +53,37 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.pd-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+.pd-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  padding: 0;
+  border: 2px solid var(--line);
+  background: var(--panel);
+  overflow: hidden;
+  cursor: pointer;
+  flex: none;
+}
+.pd-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.pd-thumb:hover {
+  border-color: var(--gold);
+}
+.pd-thumb.active {
+  border-color: var(--signal);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--signal) 30%, transparent);
 }
 
 .pd-name {
@@ -162,7 +198,9 @@
     grid-template-columns: 1fr;
     gap: 28px;
   }
-  .pd-fig {
+  .pd-gallery {
     max-width: 320px;
+    margin: 0 auto;
+    width: 100%;
   }
 }

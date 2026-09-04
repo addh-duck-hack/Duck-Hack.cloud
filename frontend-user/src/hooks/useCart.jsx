@@ -14,7 +14,24 @@ const FLAT_SHIPPING = 99;
 
 const CartContext = createContext(null);
 
-const lineKey = (id, grind) => `${id}|${grind || '—'}`;
+// `options` es un mapa { nombreDeGrupo: valorElegido } (ver useProducts.js —
+// "Presentación", "Molienda", lo que sea que traiga el producto). Se ordena
+// por nombre de grupo para que la misma combinación siempre arme la misma key
+// sin importar en qué orden vinieron las entradas del objeto.
+const optionsKey = (options) =>
+  Object.entries(options || {})
+    .filter(([, value]) => value)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, value]) => `${name}:${value}`)
+    .join(',');
+
+const lineKey = (id, options) => `${id}|${optionsKey(options) || '—'}`;
+
+export const formatOptions = (options) =>
+  Object.entries(options || {})
+    .filter(([, value]) => value)
+    .map(([name, value]) => `${name}: ${value}`)
+    .join(' · ');
 
 const readStored = () => {
   try {
@@ -37,8 +54,8 @@ export const CartProvider = ({ children }) => {
     }
   }, [lines]);
 
-  const addItem = useCallback((product, qty = 1, grind = '—') => {
-    const key = lineKey(product.id, grind);
+  const addItem = useCallback((product, qty = 1, options = {}) => {
+    const key = lineKey(product.id, options);
     setLines((prev) => {
       const existing = prev.find((l) => l.key === key);
       if (existing) {
@@ -54,7 +71,7 @@ export const CartProvider = ({ children }) => {
           category: product.category,
           image: product.image || '',
           price: Number(product.price),
-          grind,
+          options,
           qty,
         },
       ];
@@ -77,15 +94,19 @@ export const CartProvider = ({ children }) => {
 
   // Envía el pedido real al storefront público. `items` es uno por renglón
   // del carrito (no se agrupan por producto): dos líneas del mismo café con
-  // distinta molienda llegan como dos entradas con el mismo `product` — el
-  // backend las factura por separado, que es justo lo que son. La molienda
-  // en sí no tiene campo propio en Order.items (ver orders.js), así que va
-  // resumida en `notes` para que la tienda sepa cómo moler cada línea.
+  // distinta presentación/opción llegan como dos entradas con el mismo
+  // `product` — el backend las factura por separado, que es justo lo que son.
+  // Las opciones elegidas (presentación, molienda, color...) no tienen campo
+  // propio en Order.items (ver orders.js) porque Product tampoco lo tiene
+  // todavía (ver useProducts.js), así que van resumidas en `notes` para que
+  // la tienda sepa qué preparar de cada línea.
   const submitOrder = useCallback(
     async ({ customerName, customerEmail, customerPhone, shippingAddress, paymentMethod }) => {
-      const groundLines = lines.filter((l) => l.grind && l.grind !== '—');
-      const grindNote = groundLines.length
-        ? `Molienda — ${groundLines.map((l) => `${l.name} ×${l.qty}: ${l.grind}`).join('; ')}.`
+      const linesWithOptions = lines.filter((l) => optionsKey(l.options));
+      const optionsNote = linesWithOptions.length
+        ? `Detalle por producto — ${linesWithOptions
+            .map((l) => `${l.name} ×${l.qty}: ${formatOptions(l.options)}`)
+            .join('; ')}.`
         : '';
 
       const payload = {
@@ -96,7 +117,7 @@ export const CartProvider = ({ children }) => {
       };
       if (customerPhone) payload.customerPhone = customerPhone;
       if (shippingAddress) payload.shippingAddress = shippingAddress;
-      if (grindNote) payload.notes = grindNote;
+      if (optionsNote) payload.notes = optionsNote;
 
       const data = await apiFetch('/api/orders/public', {
         method: 'POST',
