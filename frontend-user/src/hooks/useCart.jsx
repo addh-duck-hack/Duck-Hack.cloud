@@ -1,10 +1,12 @@
 // src/hooks/useCart.jsx
 //
 // Carrito de la tienda. Estado en memoria + espejo en localStorage para que
-// sobreviva a recargas y navegación. NO se envía a ningún backend todavía: el
-// checkout de esta entrega es solo visual (ver Cart.jsx y el plan de Café
-// Tacita — el endpoint público de pedidos es trabajo de otra rama).
+// sobreviva a recargas y navegación. El checkout (submitOrder) sí llega al
+// backend real — POST /api/orders/public (packages/core-api/modules/orders.js,
+// mergeado desde feature-store-mods) — precios y disponibilidad se recalculan
+// server-side, este hook nunca los manda.
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { apiFetch } from '../utils/apiClient';
 
 const STORAGE_KEY = 'tacita.cart.v1';
 const FREE_SHIPPING_FROM = 600;
@@ -73,6 +75,39 @@ export const CartProvider = ({ children }) => {
 
   const clear = useCallback(() => setLines([]), []);
 
+  // Envía el pedido real al storefront público. `items` es uno por renglón
+  // del carrito (no se agrupan por producto): dos líneas del mismo café con
+  // distinta molienda llegan como dos entradas con el mismo `product` — el
+  // backend las factura por separado, que es justo lo que son. La molienda
+  // en sí no tiene campo propio en Order.items (ver orders.js), así que va
+  // resumida en `notes` para que la tienda sepa cómo moler cada línea.
+  const submitOrder = useCallback(
+    async ({ customerName, customerEmail, customerPhone, shippingAddress, paymentMethod }) => {
+      const groundLines = lines.filter((l) => l.grind && l.grind !== '—');
+      const grindNote = groundLines.length
+        ? `Molienda — ${groundLines.map((l) => `${l.name} ×${l.qty}: ${l.grind}`).join('; ')}.`
+        : '';
+
+      const payload = {
+        customerName,
+        customerEmail,
+        paymentMethod,
+        items: lines.map((l) => ({ product: l.id, quantity: l.qty })),
+      };
+      if (customerPhone) payload.customerPhone = customerPhone;
+      if (shippingAddress) payload.shippingAddress = shippingAddress;
+      if (grindNote) payload.notes = grindNote;
+
+      const data = await apiFetch('/api/orders/public', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      return data.order;
+    },
+    [lines]
+  );
+
   const value = useMemo(() => {
     const count = lines.reduce((sum, l) => sum + l.qty, 0);
     const subtotal = lines.reduce((sum, l) => sum + l.price * l.qty, 0);
@@ -88,8 +123,9 @@ export const CartProvider = ({ children }) => {
       setQty,
       removeItem,
       clear,
+      submitOrder,
     };
-  }, [lines, addItem, setQty, removeItem, clear]);
+  }, [lines, addItem, setQty, removeItem, clear, submitOrder]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };

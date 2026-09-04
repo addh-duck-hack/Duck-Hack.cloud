@@ -148,6 +148,16 @@
   text-align: left;
 }
 
+.checkout-error {
+  background: color-mix(in srgb, var(--gold) 14%, transparent);
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  border-radius: 3px;
+  padding: 10px 12px;
+  font-size: 0.88rem;
+  margin-bottom: 16px;
+}
+
 .field {
   margin-bottom: 14px;
 }
