@@ -42,12 +42,12 @@ const ensureAgencyClientExists = async (req, res, next) => {
     const clientId = req.params.id || req.params.clientId;
     const client = await AgencyClient.findById(clientId);
     if (!client) {
-      return sendError(res, 404, "AGENCY_CLIENT_NOT_FOUND", "Cliente de agencia no encontrado.");
+      return sendError(res, 404, "AGENCY_CLIENT_NOT_FOUND", "Cliente no encontrado.");
     }
     req.agencyClient = client;
     return next();
   } catch (error) {
-    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al consultar el cliente de agencia.");
+    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al consultar el cliente.");
   }
 };
 
@@ -115,7 +115,7 @@ router.get("/", async (req, res) => {
 
     return res.status(200).json({ items: clients });
   } catch (error) {
-    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al listar clientes de agencia.");
+    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al listar los clientes.");
   }
 });
 
@@ -123,9 +123,9 @@ router.post("/", validateAgencyClientPayload, async (req, res) => {
   try {
     const client = new AgencyClient(req.body);
     await client.save();
-    return res.status(201).json({ message: "Cliente de agencia creado.", client: sanitizeDoc(client) });
+    return res.status(201).json({ message: "Cliente creado.", client: sanitizeDoc(client) });
   } catch (error) {
-    return handleMongooseError(res, error, "Error al crear el cliente de agencia.");
+    return handleMongooseError(res, error, "Error al crear el cliente.");
   }
 });
 
@@ -166,9 +166,9 @@ router.put(
       }
 
       await req.agencyClient.save();
-      return res.status(200).json({ message: "Cliente de agencia actualizado.", client: sanitizeDoc(req.agencyClient) });
+      return res.status(200).json({ message: "Cliente actualizado.", client: sanitizeDoc(req.agencyClient) });
     } catch (error) {
-      return handleMongooseError(res, error, "Error al actualizar el cliente de agencia.");
+      return handleMongooseError(res, error, "Error al actualizar el cliente.");
     }
   }
 );
@@ -191,9 +191,9 @@ router.delete("/:id", validateObjectIdParam("id"), ensureAgencyClientExists, asy
     }
 
     await req.agencyClient.deleteOne();
-    return res.status(200).json({ message: "Cliente de agencia eliminado." });
+    return res.status(200).json({ message: "Cliente eliminado." });
   } catch (error) {
-    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al eliminar el cliente de agencia.");
+    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al eliminar el cliente.");
   }
 });
 

@@ -17,7 +17,7 @@ export const STAFF_ROLES = [ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN, ROLES.COLLABOR
 // Grupos de permisos por sección del panel — un solo lugar que consumen tanto
 // App.jsx (qué ruta renderiza qué) como AdminShell.jsx (qué aparece en el riel).
 export const STORE_CONFIG_ROLES = [ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN];
-// Clientes de agencia / Contabilidad / Movimientos / Facturación — información
+// Clientes / Contabilidad / Movimientos / Facturación — información
 // interna de Duck-Hack, confidencial; collaborator no entra.
 export const AGENCY_ROLES = [ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN];
 export const CATALOG_ROLES = [ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN, ROLES.COLLABORATOR];

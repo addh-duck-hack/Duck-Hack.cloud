@@ -157,7 +157,7 @@ Rutas activas:
 
 - `super_admin` — acceso a todo, incluido el Panel (infraestructura/uso del servidor).
 - `store_admin` — todo excepto el Panel: Configurar tienda, Productos, Inventario,
-  Pedidos, y también Clientes de agencia / Contabilidad / Movimientos / Facturación
+  Pedidos, y también Cliente / Contabilidad / Movimientos / Facturación
   (herramienta interna de Duck-Hack).
 - `collaborator` — solo Productos, Inventario y Pedidos.
 - `customer`

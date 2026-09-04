@@ -9,7 +9,7 @@ import "./AdminShell.css";
 const ROUTE_LABELS = {
   "/admin": "panel",
   "/admin/store-config": "store-config",
-  "/admin/agency-clients": "agency-clients",
+  "/admin/agency-clients": "clientes",
   "/admin/products": "products",
   "/admin/inventory": "inventory",
   "/admin/orders": "orders",
@@ -45,7 +45,7 @@ const AdminShell = () => {
     ...(canManageOrders ? [{ path: "/admin/orders", label: "Pedidos" }] : []),
     ...(canManageAgency
       ? [
-          { path: "/admin/agency-clients", label: "Clientes de agencia" },
+          { path: "/admin/agency-clients", label: "Clientes" },
           { path: "/admin/accounting", label: "Contabilidad" },
           { path: "/admin/accounting/transactions", label: "Movimientos" },
           { path: "/admin/invoices", label: "Facturación" },
@@ -62,7 +62,7 @@ const AdminShell = () => {
 
   const breadcrumb =
     ROUTE_LABELS[location.pathname] ||
-    (location.pathname.startsWith("/admin/agency-clients") ? "agency-clients" : location.pathname.replace(/^\/admin\/?/, ""));
+    (location.pathname.startsWith("/admin/agency-clients") ? "clientes" : location.pathname.replace(/^\/admin\/?/, ""));
 
   return (
     <div className="admin-shell">

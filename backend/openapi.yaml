@@ -334,7 +334,7 @@ paths:
   /api/agency-clients:
     get:
       tags: [AgencyClients]
-      summary: Listar clientes de agencia con estado calculado
+      summary: Listar clientes con estado calculado
       description: >
         Información confidencial de facturación interna de la agencia (no confundir con el rol `customer`).
         Acceso exclusivo a `super_admin`. Cada item incluye `hostingPaidUntil` (fecha del último pago vigente)
@@ -343,7 +343,7 @@ paths:
         - bearerAuth: []
       responses:
         "200":
-          description: Listado de clientes de agencia
+          description: Listado de clientes
           content:
             application/json:
               schema:
@@ -362,7 +362,7 @@ paths:
           $ref: "#/components/responses/InternalServerError"
     post:
       tags: [AgencyClients]
-      summary: Crear cliente de agencia
+      summary: Crear cliente
       security:
         - bearerAuth: []
       requestBody:
@@ -373,7 +373,7 @@ paths:
               $ref: "#/components/schemas/AgencyClientCreateRequest"
       responses:
         "201":
-          description: Cliente de agencia creado
+          description: Cliente creado
           content:
             application/json:
               schema:
@@ -395,14 +395,14 @@ paths:
   /api/agency-clients/{id}:
     get:
       tags: [AgencyClients]
-      summary: Obtener ficha de un cliente de agencia
+      summary: Obtener ficha de un cliente
       security:
         - bearerAuth: []
       parameters:
         - $ref: "#/components/parameters/AgencyClientIdParam"
       responses:
         "200":
-          description: Cliente de agencia
+          description: Cliente
           content:
             application/json:
               schema:
@@ -417,7 +417,7 @@ paths:
           $ref: "#/components/responses/InternalServerError"
     put:
       tags: [AgencyClients]
-      summary: Editar cliente de agencia
+      summary: Editar cliente
       security:
         - bearerAuth: []
       parameters:
@@ -430,7 +430,7 @@ paths:
               $ref: "#/components/schemas/AgencyClientCreateRequest"
       responses:
         "200":
-          description: Cliente de agencia actualizado
+          description: Cliente actualizado
           content:
             application/json:
               schema:
@@ -452,7 +452,7 @@ paths:
           $ref: "#/components/responses/InternalServerError"
     delete:
       tags: [AgencyClients]
-      summary: Eliminar cliente de agencia
+      summary: Eliminar cliente
       description: >
         Bloqueado con 409 si el cliente tiene pagos de hosting o deudas asociados
         (sin borrado en cascada, para no destruir historial financiero por accidente).
@@ -462,7 +462,7 @@ paths:
         - $ref: "#/components/parameters/AgencyClientIdParam"
       responses:
         "200":
-          description: Cliente de agencia eliminado
+          description: Cliente eliminado
           content:
             application/json:
               schema:
@@ -2008,7 +2008,7 @@ components:
       required: true
       schema:
         type: string
-      description: ObjectId del cliente de agencia
+      description: ObjectId del cliente
 
     HostingPaymentIdParam:
       in: path
@@ -2136,7 +2136,7 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
     AgencyClientNotFound:
-      description: Cliente de agencia no encontrado
+      description: Cliente no encontrado
       content:
         application/json:
           schema:

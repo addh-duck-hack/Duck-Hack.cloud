@@ -67,7 +67,7 @@ router.post("/", validateInvoiceFromTransactionsPayload, async (req, res) => {
   try {
     const client = await AgencyClient.findById(req.body.client);
     if (!client) {
-      return sendError(res, 404, "AGENCY_CLIENT_NOT_FOUND", "Cliente de agencia no encontrado.");
+      return sendError(res, 404, "AGENCY_CLIENT_NOT_FOUND", "Cliente no encontrado.");
     }
 
     const transactions = await Transaction.find({ _id: { $in: req.body.transactionIds } });
