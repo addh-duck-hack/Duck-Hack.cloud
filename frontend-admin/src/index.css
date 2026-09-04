@@ -217,7 +217,7 @@ code {
     monospace;
 }
 
-/* Badges de estado (módulo Clientes de agencia) */
+/* Badges de estado (módulo Clientes) */
 .badge {
   display: inline-block;
   padding: 4px 10px;

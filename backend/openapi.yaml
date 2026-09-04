@@ -283,7 +283,7 @@ paths:
       tags: [Uploads]
       summary: Subir imagen de producto
       description: >
-        Requiere autenticación y rol administrativo (`super_admin`, `store_admin`, `catalog_manager`).
+        Requiere autenticación y rol administrativo (`super_admin`, `store_admin`, `collaborator`).
         El archivo se valida por contenido real y se acepta únicamente JPG/PNG (máx. 5MB).
       security:
         - bearerAuth: []
@@ -334,7 +334,7 @@ paths:
   /api/agency-clients:
     get:
       tags: [AgencyClients]
-      summary: Listar clientes de agencia con estado calculado
+      summary: Listar clientes con estado calculado
       description: >
         Información confidencial de facturación interna de la agencia (no confundir con el rol `customer`).
         Acceso exclusivo a `super_admin`. Cada item incluye `hostingPaidUntil` (fecha del último pago vigente)
@@ -343,7 +343,7 @@ paths:
         - bearerAuth: []
       responses:
         "200":
-          description: Listado de clientes de agencia
+          description: Listado de clientes
           content:
             application/json:
               schema:
@@ -362,7 +362,7 @@ paths:
           $ref: "#/components/responses/InternalServerError"
     post:
       tags: [AgencyClients]
-      summary: Crear cliente de agencia
+      summary: Crear cliente
       security:
         - bearerAuth: []
       requestBody:
@@ -373,7 +373,7 @@ paths:
               $ref: "#/components/schemas/AgencyClientCreateRequest"
       responses:
         "201":
-          description: Cliente de agencia creado
+          description: Cliente creado
           content:
             application/json:
               schema:
@@ -395,14 +395,14 @@ paths:
   /api/agency-clients/{id}:
     get:
       tags: [AgencyClients]
-      summary: Obtener ficha de un cliente de agencia
+      summary: Obtener ficha de un cliente
       security:
         - bearerAuth: []
       parameters:
         - $ref: "#/components/parameters/AgencyClientIdParam"
       responses:
         "200":
-          description: Cliente de agencia
+          description: Cliente
           content:
             application/json:
               schema:
@@ -417,7 +417,7 @@ paths:
           $ref: "#/components/responses/InternalServerError"
     put:
       tags: [AgencyClients]
-      summary: Editar cliente de agencia
+      summary: Editar cliente
       security:
         - bearerAuth: []
       parameters:
@@ -430,7 +430,7 @@ paths:
               $ref: "#/components/schemas/AgencyClientCreateRequest"
       responses:
         "200":
-          description: Cliente de agencia actualizado
+          description: Cliente actualizado
           content:
             application/json:
               schema:
@@ -452,7 +452,7 @@ paths:
           $ref: "#/components/responses/InternalServerError"
     delete:
       tags: [AgencyClients]
-      summary: Eliminar cliente de agencia
+      summary: Eliminar cliente
       description: >
         Bloqueado con 409 si el cliente tiene pagos de hosting o deudas asociados
         (sin borrado en cascada, para no destruir historial financiero por accidente).
@@ -462,7 +462,7 @@ paths:
         - $ref: "#/components/parameters/AgencyClientIdParam"
       responses:
         "200":
-          description: Cliente de agencia eliminado
+          description: Cliente eliminado
           content:
             application/json:
               schema:
@@ -1243,11 +1243,63 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
+  /api/products/public:
+    get:
+      tags: [Products]
+      summary: Catálogo público (storefront)
+      description: >
+        Sin autenticación. Solo productos con `isActive: true`. Filtro opcional
+        `?category=`. Consumido por frontend-user para la tienda pública.
+      parameters:
+        - in: query
+          name: category
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Listado de productos activos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Product"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/products/public/{id}:
+    get:
+      tags: [Products]
+      summary: Obtener un producto público (storefront)
+      description: Sin autenticación. 404 tanto si el producto no existe como si está inactivo (no distingue, para no filtrar información).
+      parameters:
+        - $ref: "#/components/parameters/ProductIdParam"
+      responses:
+        "200":
+          description: Producto activo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: Producto no encontrado o inactivo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
   /api/products:
     get:
       tags: [Products]
       summary: Listar catálogo de productos
-      description: Lectura permitida a cualquier rol de staff (super_admin, store_admin, catalog_manager, order_manager).
+      description: Lectura permitida a cualquier rol de staff (super_admin, store_admin, collaborator).
       security:
         - bearerAuth: []
       parameters:
@@ -1277,7 +1329,7 @@ paths:
     post:
       tags: [Products]
       summary: Crear producto
-      description: Solo super_admin, store_admin, catalog_manager.
+      description: Solo super_admin, store_admin, collaborator.
       security:
         - bearerAuth: []
       requestBody:
@@ -1343,7 +1395,7 @@ paths:
     put:
       tags: [Products]
       summary: Editar producto
-      description: Solo super_admin, store_admin, catalog_manager.
+      description: Solo super_admin, store_admin, collaborator.
       security:
         - bearerAuth: []
       parameters:
@@ -1383,7 +1435,7 @@ paths:
     delete:
       tags: [Products]
       summary: Eliminar producto
-      description: Solo super_admin, store_admin, catalog_manager. Bloqueado si el producto tiene inventario o pedidos ligados.
+      description: Solo super_admin, store_admin, collaborator. Bloqueado si el producto tiene inventario o pedidos ligados.
       security:
         - bearerAuth: []
       parameters:
@@ -1448,7 +1500,7 @@ paths:
     post:
       tags: [Inventory]
       summary: Registrar inventario de un producto
-      description: Solo super_admin, store_admin, catalog_manager. Un producto solo puede tener un registro de inventario.
+      description: Solo super_admin, store_admin, collaborator. Un producto solo puede tener un registro de inventario.
       security:
         - bearerAuth: []
       requestBody:
@@ -1520,7 +1572,7 @@ paths:
     put:
       tags: [Inventory]
       summary: Ajustar cantidad/umbral de un registro de inventario
-      description: Solo super_admin, store_admin, catalog_manager. `product` es inmutable después de creado.
+      description: Solo super_admin, store_admin, collaborator. `product` es inmutable después de creado.
       security:
         - bearerAuth: []
       parameters:
@@ -1560,7 +1612,7 @@ paths:
     delete:
       tags: [Inventory]
       summary: Eliminar un registro de inventario
-      description: Solo super_admin, store_admin, catalog_manager.
+      description: Solo super_admin, store_admin, collaborator.
       security:
         - bearerAuth: []
       parameters:
@@ -1578,6 +1630,58 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           description: Registro no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/orders/public:
+    post:
+      tags: [Orders]
+      summary: Checkout público (storefront)
+      description: >
+        Sin autenticación, rate-limited (10 min / 6 intentos por IP —
+        `429 RATE_LIMIT_CHECKOUT_EXCEEDED`). Sin pasarela de pago: el pedido
+        siempre entra `pending` y la tienda confirma el pago/entrega a mano
+        según `paymentMethod`. Los precios se recalculan server-side desde el
+        catálogo (nunca del payload) y solo se aceptan productos con
+        `isActive: true` — `400 PRODUCT_UNAVAILABLE` si alguno no lo está.
+        Envía correo de confirmación al cliente y aviso a la tienda
+        (best-effort; un fallo de correo no impide crear el pedido).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PublicCheckoutRequest"
+      responses:
+        "201":
+          description: Pedido creado (estado `pending`)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  order:
+                    $ref: "#/components/schemas/Order"
+        "400":
+          description: Validación fallida, o producto inexistente/no disponible
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Alguno de los productos referenciados no existe
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Demasiados intentos de pedido desde la misma IP
           content:
             application/json:
               schema:
@@ -1618,11 +1722,13 @@ paths:
           $ref: "#/components/responses/InternalServerError"
     post:
       tags: [Orders]
-      summary: Crear pedido
+      summary: Crear pedido (manual, panel)
       description: >
-        Solo super_admin, store_admin, order_manager. No hay carrito/checkout
-        en el storefront todavía — los pedidos se crean manualmente desde el
-        panel. unitPrice se toma del precio actual de cada producto, no del payload.
+        Solo super_admin, store_admin, collaborator. Venta manual desde el
+        panel (telefónica, mostrador, etc.) — el checkout real del storefront
+        usa POST /api/orders/public. unitPrice se toma del precio actual de
+        cada producto, no del payload; a diferencia del checkout público,
+        acepta productos inactivos.
       security:
         - bearerAuth: []
       requestBody:
@@ -1688,7 +1794,7 @@ paths:
     put:
       tags: [Orders]
       summary: Actualizar estado/notas/dirección de envío de un pedido
-      description: Solo super_admin, store_admin, order_manager. items/customer no se reabren después de creado.
+      description: Solo super_admin, store_admin, collaborator. items/customer no se reabren después de creado.
       security:
         - bearerAuth: []
       parameters:
@@ -1728,7 +1834,7 @@ paths:
     delete:
       tags: [Orders]
       summary: Eliminar pedido
-      description: Solo super_admin, store_admin, order_manager.
+      description: Solo super_admin, store_admin, collaborator.
       security:
         - bearerAuth: []
       parameters:
@@ -1902,7 +2008,7 @@ components:
       required: true
       schema:
         type: string
-      description: ObjectId del cliente de agencia
+      description: ObjectId del cliente
 
     HostingPaymentIdParam:
       in: path
@@ -2030,7 +2136,7 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
     AgencyClientNotFound:
-      description: Cliente de agencia no encontrado
+      description: Cliente no encontrado
       content:
         application/json:
           schema:
@@ -2048,8 +2154,7 @@ components:
       enum:
         - super_admin
         - store_admin
-        - catalog_manager
-        - order_manager
+        - collaborator
         - customer
 
     UserPublic:
@@ -2850,6 +2955,14 @@ components:
           type: string
         notes:
           type: string
+        paymentMethod:
+          type: string
+          enum: [transfer, pickup]
+          description: Sin pasarela — el pedido siempre entra "pending" y la tienda confirma el pago/entrega a mano.
+        orderNumber:
+          type: integer
+          readOnly: true
+          description: Folio legible secuencial, distinto de _id.
         createdAt:
           type: string
           format: date-time
@@ -2857,7 +2970,7 @@ components:
 
     OrderCreateRequest:
       type: object
-      description: total/productName/unitPrice/subtotal se calculan en el servidor a partir del precio actual de cada producto — no se aceptan del cliente.
+      description: total/productName/unitPrice/subtotal/orderNumber se calculan en el servidor a partir del precio actual de cada producto — no se aceptan del cliente.
       properties:
         customerName:
           type: string
@@ -2882,6 +2995,42 @@ components:
             required: [product, quantity]
         shippingAddress:
           type: string
+        notes:
+          type: string
+      required: [customerName, customerEmail, items]
+
+    PublicCheckoutRequest:
+      type: object
+      description: >
+        Igual que OrderCreateRequest más `paymentMethod`. `customer` se ignora
+        siempre (checkout anónimo, sin cuenta). `shippingAddress` es
+        obligatorio cuando `paymentMethod` es "transfer".
+      properties:
+        customerName:
+          type: string
+        customerEmail:
+          type: string
+        customerPhone:
+          type: string
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            properties:
+              product:
+                type: string
+              quantity:
+                type: integer
+                minimum: 1
+            required: [product, quantity]
+        paymentMethod:
+          type: string
+          enum: [transfer, pickup]
+          default: transfer
+        shippingAddress:
+          type: string
+          description: Requerido si paymentMethod es "transfer".
         notes:
           type: string
       required: [customerName, customerEmail, items]

@@ -3,12 +3,13 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png";
+import { ROLES, STORE_CONFIG_ROLES, AGENCY_ROLES, CATALOG_ROLES, ORDER_ROLES } from "../utils/roles";
 import "./AdminShell.css";
 
 const ROUTE_LABELS = {
   "/admin": "panel",
   "/admin/store-config": "store-config",
-  "/admin/agency-clients": "agency-clients",
+  "/admin/agency-clients": "clientes",
   "/admin/products": "products",
   "/admin/inventory": "inventory",
   "/admin/orders": "orders",
@@ -20,17 +21,20 @@ const AdminShell = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const role = localStorage.getItem("role");
-  const canManageStoreConfig = ["super_admin", "store_admin"].includes(role);
-  const canManageCatalog = ["super_admin", "store_admin", "catalog_manager"].includes(role);
-  const canManageOrders = ["super_admin", "store_admin", "order_manager"].includes(role);
-  const isSuperAdmin = role === "super_admin";
+  const canManageStoreConfig = STORE_CONFIG_ROLES.includes(role);
+  const canManageCatalog = CATALOG_ROLES.includes(role);
+  const canManageOrders = ORDER_ROLES.includes(role);
+  const canManageAgency = AGENCY_ROLES.includes(role);
+  const isSuperAdmin = role === ROLES.SUPER_ADMIN;
 
   useEffect(() => {
     setDrawerOpen(false);
   }, [location.pathname]);
 
   const navItems = [
-    { path: "/admin", label: "Panel", end: true },
+    // "Panel" es contenido 100% super_admin (uso de servidor/infraestructura)
+    // — para cualquier otro rol quedaría vacío, así que no se le muestra el link.
+    ...(isSuperAdmin ? [{ path: "/admin", label: "Panel", end: true }] : []),
     ...(canManageStoreConfig ? [{ path: "/admin/store-config", label: "Configurar tienda" }] : []),
     ...(canManageCatalog
       ? [
@@ -39,9 +43,9 @@ const AdminShell = () => {
         ]
       : []),
     ...(canManageOrders ? [{ path: "/admin/orders", label: "Pedidos" }] : []),
-    ...(isSuperAdmin
+    ...(canManageAgency
       ? [
-          { path: "/admin/agency-clients", label: "Clientes de agencia" },
+          { path: "/admin/agency-clients", label: "Clientes" },
           { path: "/admin/accounting", label: "Contabilidad" },
           { path: "/admin/accounting/transactions", label: "Movimientos" },
           { path: "/admin/invoices", label: "Facturación" },
@@ -58,7 +62,7 @@ const AdminShell = () => {
 
   const breadcrumb =
     ROUTE_LABELS[location.pathname] ||
-    (location.pathname.startsWith("/admin/agency-clients") ? "agency-clients" : location.pathname.replace(/^\/admin\/?/, ""));
+    (location.pathname.startsWith("/admin/agency-clients") ? "clientes" : location.pathname.replace(/^\/admin\/?/, ""));
 
   return (
     <div className="admin-shell">

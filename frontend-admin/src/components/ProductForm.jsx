@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
-import ImageUploadField from "./ImageUploadField";
+import ProductImageGallery from "./ProductImageGallery";
 
 const initialState = {
   name: "",
@@ -61,9 +61,8 @@ const ProductForm = () => {
     setForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   };
 
-  const handleImageChange = (imagePath) => {
-    if (!imagePath) return;
-    setForm((prev) => ({ ...prev, images: [imagePath] }));
+  const handleImagesChange = (images) => {
+    setForm((prev) => ({ ...prev, images }));
   };
 
   const handleSubmit = async (event) => {
@@ -139,13 +138,7 @@ const ProductForm = () => {
           <input type="text" name="category" value={form.category} onChange={handleChange} />
         </label>
 
-        <ImageUploadField
-          label="Imagen del producto"
-          value={form.images?.[0] || ""}
-          onChange={handleImageChange}
-          uploadUrl="/api/uploads/products-image"
-          fieldName="productImage"
-        />
+        <ProductImageGallery value={form.images} onChange={handleImagesChange} />
 
         <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.75rem" }}>
           <input type="checkbox" name="isActive" checked={form.isActive} onChange={handleChange} style={{ width: "auto" }} />

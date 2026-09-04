@@ -51,7 +51,7 @@ const ProductList = () => {
           Nuevo producto
         </button>
       </div>
-      <p>Catálogo de productos del roadmap eCommerce. Todavía no se muestra en el storefront público.</p>
+      <p>Catálogo de la tienda pública — solo los productos activos se muestran en el storefront.</p>
 
       {error ? <div className="auth-error">{error}</div> : null}
 
@@ -75,9 +75,23 @@ const ProductList = () => {
           ) : null}
           {products.map((p) => (
             <tr key={p._id}>
-              <td>
+              <td style={{ position: "relative" }}>
                 {p.images?.[0] ? (
-                  <img src={`${baseUrl}/${p.images[0]}`} alt={p.name} style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 4 }} />
+                  <>
+                    <img src={`${baseUrl}/${p.images[0]}`} alt={p.name} style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 4 }} />
+                    {p.images.length > 1 ? (
+                      <span
+                        style={{
+                          fontSize: "0.65rem",
+                          color: "var(--placeholder-color)",
+                          display: "block",
+                          textAlign: "center",
+                        }}
+                      >
+                        +{p.images.length - 1}
+                      </span>
+                    ) : null}
+                  </>
                 ) : (
                   "—"
                 )}

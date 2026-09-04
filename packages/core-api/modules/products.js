@@ -1,7 +1,12 @@
 // Catálogo de productos. Roadmap eCommerce (backend/frontend-admin/src/components/AdminMenu.jsx).
 // Las imágenes se suben aparte, vía el endpoint ya existente
-// POST /api/uploads/products-image (backend/routes/upload.routes.js) — este
+// POST /api/uploads/products-image (packages/core-api/modules/uploads.js) — este
 // módulo solo guarda los `imagePath` resultantes en `images`.
+//
+// GET /public y GET /public/:id son las únicas rutas sin auth: las consume el
+// storefront (frontend-user) para la tienda pública. Van montadas ANTES de
+// `router.use(verifyToken)` (mismo criterio que storeConfig.js#GET /public) y
+// siempre filtran isActive:true — nunca exponen un producto dado de baja.
 const express = require("express");
 const mongoose = require("mongoose");
 const {
@@ -80,10 +85,6 @@ function registerRoutes(app, ctx) {
   const Product = getOrCreateModel(mongooseConnection, "Product", productSchema);
 
   const router = express.Router();
-  router.use(verifyToken);
-
-  const canRead = authorizeRoles(...STAFF_ROLES);
-  const canWrite = authorizeRoles(ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN, ROLES.CATALOG_MANAGER);
 
   const validateObjectIdParam = (paramName) => (req, res, next) => {
     if (!isValidObjectId(req.params?.[paramName])) {
@@ -102,6 +103,34 @@ function registerRoutes(app, ctx) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al consultar el producto.");
     }
   };
+
+  // ---- rutas públicas (storefront) — sin verifyToken, siempre isActive:true ----
+  router.get("/public", async (req, res) => {
+    try {
+      const filter = { isActive: true };
+      if (req.query.category) filter.category = asTrimmedString(req.query.category);
+      const products = await Product.find(filter).sort({ name: 1 }).lean();
+      return res.status(200).json({ items: products.map(sanitizeDoc) });
+    } catch (error) {
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al listar productos.");
+    }
+  });
+
+  router.get("/public/:id", validateObjectIdParam("id"), async (req, res) => {
+    try {
+      const product = await Product.findOne({ _id: req.params.id, isActive: true }).lean();
+      if (!product) return sendError(res, 404, "PRODUCT_NOT_FOUND", "Producto no encontrado.");
+      return res.status(200).json(sanitizeDoc(product));
+    } catch (error) {
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al consultar el producto.");
+    }
+  });
+
+  // ---- de aquí en adelante, todo el router exige JWT de staff ----
+  router.use(verifyToken);
+
+  const canRead = authorizeRoles(...STAFF_ROLES);
+  const canWrite = authorizeRoles(ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN, ROLES.COLLABORATOR);
 
   router.get("/", canRead, async (req, res) => {
     try {

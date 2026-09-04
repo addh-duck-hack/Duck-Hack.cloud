@@ -3,7 +3,7 @@ import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatCalendarDate } from "../utils/formatCalendarDate";
-import { ORDER_STATUSES, ORDER_STATUS_LABELS } from "../utils/orderStatusLabels";
+import { ORDER_STATUSES, ORDER_STATUS_LABELS, PAYMENT_METHOD_LABELS } from "../utils/orderStatusLabels";
 
 const formatMxn = (value) => Number(value || 0).toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 const formatDate = (value) => formatCalendarDate(value) || "—";
@@ -73,7 +73,9 @@ const OrderDetail = () => {
       </button>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem", marginTop: "1rem" }}>
-        <h3 style={{ margin: 0 }}>Pedido de {order.customerName}</h3>
+        <h3 style={{ margin: 0 }}>
+          Pedido {order.orderNumber ? `#${order.orderNumber} ` : ""}de {order.customerName}
+        </h3>
         <span className={`badge badge-${statusInfo.color}`}>{statusInfo.label}</span>
       </div>
 
@@ -84,6 +86,7 @@ const OrderDetail = () => {
         <p>Fecha: {formatDate(order.createdAt)}</p>
         <p>Correo: {order.customerEmail}</p>
         {order.customerPhone ? <p>Teléfono: {order.customerPhone}</p> : null}
+        <p>Pago: {PAYMENT_METHOD_LABELS[order.paymentMethod] || order.paymentMethod || "—"}</p>
         {order.shippingAddress ? <p>Dirección de envío: {order.shippingAddress}</p> : null}
         {order.notes ? <p>Notas: {order.notes}</p> : null}
       </div>

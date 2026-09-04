@@ -3,7 +3,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatCalendarDate } from "../utils/formatCalendarDate";
-import { ORDER_STATUS_LABELS } from "../utils/orderStatusLabels";
+import { ORDER_STATUSES, ORDER_STATUS_LABELS, PAYMENT_METHOD_LABELS } from "../utils/orderStatusLabels";
 
 const formatMxn = (value) => Number(value || 0).toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 const formatDate = (value) => formatCalendarDate(value) || "—";
@@ -11,6 +11,7 @@ const formatDate = (value) => formatCalendarDate(value) || "—";
 const OrderList = () => {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
+  const [statusFilter, setStatusFilter] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -21,7 +22,9 @@ const OrderList = () => {
     setIsLoading(true);
     setError("");
     try {
-      const response = await axios.get(`${baseUrl}/api/orders`, { headers: getAuthHeaders() });
+      const params = {};
+      if (statusFilter) params.status = statusFilter;
+      const response = await axios.get(`${baseUrl}/api/orders`, { headers: getAuthHeaders(), params });
       setOrders(response.data?.items || []);
     } catch (err) {
       setError(err.response?.data?.error?.message || "No fue posible cargar los pedidos.");
@@ -29,7 +32,7 @@ const OrderList = () => {
       setIsLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [statusFilter]);
 
   useEffect(() => {
     loadOrders();
@@ -43,16 +46,30 @@ const OrderList = () => {
           Nuevo pedido
         </button>
       </div>
-      <p>Sin carrito/checkout todavía en el sitio público — los pedidos se crean manualmente desde aquí.</p>
+      <p>Incluye tanto los pedidos creados aquí como los del checkout público de la tienda.</p>
 
       {error ? <div className="auth-error">{error}</div> : null}
+
+      <label style={{ maxWidth: 260 }}>
+        Filtrar por estado
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <option value="">Todos los estados</option>
+          {ORDER_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {ORDER_STATUS_LABELS[s].label}
+            </option>
+          ))}
+        </select>
+      </label>
 
       <table>
         <thead>
           <tr>
+            <th>Folio</th>
             <th>Fecha</th>
             <th>Cliente</th>
             <th>Artículos</th>
+            <th>Pago</th>
             <th>Total</th>
             <th>Estado</th>
             <th>Acciones</th>
@@ -61,16 +78,18 @@ const OrderList = () => {
         <tbody>
           {!isLoading && orders.length === 0 ? (
             <tr>
-              <td colSpan={6}>Sin pedidos registrados.</td>
+              <td colSpan={8}>Sin pedidos registrados.</td>
             </tr>
           ) : null}
           {orders.map((order) => {
             const statusInfo = ORDER_STATUS_LABELS[order.status] || { label: order.status, color: "" };
             return (
               <tr key={order._id}>
+                <td>{order.orderNumber ? `#${order.orderNumber}` : "—"}</td>
                 <td>{formatDate(order.createdAt)}</td>
                 <td>{order.customerName}</td>
                 <td>{order.items?.length || 0}</td>
+                <td>{PAYMENT_METHOD_LABELS[order.paymentMethod] || "—"}</td>
                 <td>{formatMxn(order.total)}</td>
                 <td>
                   <span className={`badge badge-${statusInfo.color}`}>{statusInfo.label}</span>

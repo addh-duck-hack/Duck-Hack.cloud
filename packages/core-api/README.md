@@ -63,7 +63,7 @@ ctx = {
   verifyToken,                // built from this package's own auth module (see below),
   authorizeRoles,              // not from the consuming app — the app just calls
                                 // auth.createAuthMiddleware(sendError) once and forwards these
-  ROLES,                        // { SUPER_ADMIN, STORE_ADMIN, CATALOG_MANAGER, ORDER_MANAGER, CUSTOMER }
+  ROLES,                        // { SUPER_ADMIN, STORE_ADMIN, COLLABORATOR, CUSTOMER }
   STAFF_ROLES,                   // ROLES minus CUSTOMER, for "any staff member can read" routes
   sendError,                      // (res, status, code, message, details?) — the app's error envelope
   resolveLiveMetricSources,        // optional, only modules/storeConfig.js uses it — see its own header comment

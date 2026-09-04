@@ -158,7 +158,7 @@ const AgencyClientForm = () => {
         </button>
       </div>
 
-      <h3>{isEditing ? "Editar cliente de agencia" : "Nuevo cliente de agencia"}</h3>
+      <h3>{isEditing ? "Editar cliente" : "Nuevo cliente"}</h3>
 
       {message ? <div className="auth-success">{message}</div> : null}
       {error ? <div className="auth-error">{error}</div> : null}
