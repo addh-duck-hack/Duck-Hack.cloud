@@ -28,21 +28,17 @@ import OrderList from "./components/OrderList";
 import OrderForm from "./components/OrderForm";
 import OrderDetail from "./components/OrderDetail";
 import { StoreConfigProvider } from "./hooks/useStoreConfig";
+import { ROLES, STAFF_ROLES, STORE_CONFIG_ROLES, AGENCY_ROLES, CATALOG_ROLES, ORDER_ROLES } from "./utils/roles";
 import './index.css';
 
 const App = () => {
   const token = localStorage.getItem("token");
   const role = localStorage.getItem("role");
-  const adminRoles = ["super_admin", "store_admin", "catalog_manager", "order_manager"];
-  const storeConfigRoles = ["super_admin", "store_admin"];
-  const agencyClientRoles = ["super_admin"];
-  const catalogRoles = ["super_admin", "store_admin", "catalog_manager"];
-  const orderRoles = ["super_admin", "store_admin", "order_manager"];
-  const isLoggedIn = !!token && adminRoles.includes(role); // Verificar token y rol permitido
-  const canManageStoreConfig = !!token && storeConfigRoles.includes(role);
-  const canManageAgencyClients = !!token && agencyClientRoles.includes(role);
-  const canManageCatalog = !!token && catalogRoles.includes(role);
-  const canManageOrders = !!token && orderRoles.includes(role);
+  const isLoggedIn = !!token && STAFF_ROLES.includes(role); // Verificar token y rol permitido
+  const canManageStoreConfig = !!token && STORE_CONFIG_ROLES.includes(role);
+  const canManageAgencyClients = !!token && AGENCY_ROLES.includes(role);
+  const canManageCatalog = !!token && CATALOG_ROLES.includes(role);
+  const canManageOrders = !!token && ORDER_ROLES.includes(role);
 
   return (
     <StoreConfigProvider>
@@ -53,10 +49,10 @@ const App = () => {
           <Route path="/register" element={<RegisterUser />} />
 
           <Route path="/admin" element={isLoggedIn ? <AdminShell /> : <Navigate to="/" />}>
-            {/* store_admin no tiene nada que ver en el panel general (uso de
-                servidor/infraestructura es solo super_admin, ver AdminMenu.jsx)
-                — al entrar cae directo a Pedidos en vez de una pantalla vacía. */}
-            <Route index element={role === "store_admin" ? <Navigate to="/admin/orders" replace /> : <AdminMenu />} />
+            {/* AdminMenu es contenido 100% super_admin (uso de servidor/
+                infraestructura, ver AdminMenu.jsx) — cualquier otro rol lo ve
+                vacío, así que cae directo a Pedidos en vez de una pantalla sin nada. */}
+            <Route index element={role !== ROLES.SUPER_ADMIN ? <Navigate to="/admin/orders" replace /> : <AdminMenu />} />
             <Route
               path="store-config"
               element={canManageStoreConfig ? <StoreConfigManager /> : <Navigate to="/admin" />}

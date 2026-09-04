@@ -21,7 +21,7 @@ function registerRoutes(app, ctx) {
   router.post(
     "/products-image",
     verifyToken,
-    authorizeRoles(ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN, ROLES.CATALOG_MANAGER),
+    authorizeRoles(ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN, ROLES.COLLABORATOR),
     uploadProductImage,
     sanitizeProductImage,
     (req, res) => {

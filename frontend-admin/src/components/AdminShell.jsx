@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png";
+import { ROLES, STORE_CONFIG_ROLES, AGENCY_ROLES, CATALOG_ROLES, ORDER_ROLES } from "../utils/roles";
 import "./AdminShell.css";
 
 const ROUTE_LABELS = {
@@ -20,21 +21,20 @@ const AdminShell = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const role = localStorage.getItem("role");
-  const canManageStoreConfig = ["super_admin", "store_admin"].includes(role);
-  const canManageCatalog = ["super_admin", "store_admin", "catalog_manager"].includes(role);
-  const canManageOrders = ["super_admin", "store_admin", "order_manager"].includes(role);
-  const isSuperAdmin = role === "super_admin";
-  // El panel general (App.jsx) no tiene nada para store_admin y ya lo manda
-  // directo a Pedidos — no tiene sentido dejarle un link "Panel" en el riel
-  // que lo regrese a esa misma redirección.
-  const isStoreAdmin = role === "store_admin";
+  const canManageStoreConfig = STORE_CONFIG_ROLES.includes(role);
+  const canManageCatalog = CATALOG_ROLES.includes(role);
+  const canManageOrders = ORDER_ROLES.includes(role);
+  const canManageAgency = AGENCY_ROLES.includes(role);
+  const isSuperAdmin = role === ROLES.SUPER_ADMIN;
 
   useEffect(() => {
     setDrawerOpen(false);
   }, [location.pathname]);
 
   const navItems = [
-    ...(isStoreAdmin ? [] : [{ path: "/admin", label: "Panel", end: true }]),
+    // "Panel" es contenido 100% super_admin (uso de servidor/infraestructura)
+    // — para cualquier otro rol quedaría vacío, así que no se le muestra el link.
+    ...(isSuperAdmin ? [{ path: "/admin", label: "Panel", end: true }] : []),
     ...(canManageStoreConfig ? [{ path: "/admin/store-config", label: "Configurar tienda" }] : []),
     ...(canManageCatalog
       ? [
@@ -43,7 +43,7 @@ const AdminShell = () => {
         ]
       : []),
     ...(canManageOrders ? [{ path: "/admin/orders", label: "Pedidos" }] : []),
-    ...(isSuperAdmin
+    ...(canManageAgency
       ? [
           { path: "/admin/agency-clients", label: "Clientes de agencia" },
           { path: "/admin/accounting", label: "Contabilidad" },

@@ -130,7 +130,7 @@ function registerRoutes(app, ctx) {
   router.use(verifyToken);
 
   const canRead = authorizeRoles(...STAFF_ROLES);
-  const canWrite = authorizeRoles(ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN, ROLES.CATALOG_MANAGER);
+  const canWrite = authorizeRoles(ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN, ROLES.COLLABORATOR);
 
   router.get("/", canRead, async (req, res) => {
     try {

@@ -19,10 +19,10 @@ const { recordIncome, isSourceInvoiced, deleteLinkedAccountingRecords, syncSingl
 const { getContainersMetrics, PortainerConfigError, PortainerRequestError } = require("../utils/portainerClient");
 
 // Módulo confidencial: información de facturación/hosting de clientes de agencia.
-// Acceso exclusivo a super_admin (a diferencia de storeConfig.routes.js, aquí NO
-// se incluye store_admin). Ver nota operativa en el plan: solo usar/poblar desde
-// la instancia interna de Duck-Hack.
-router.use(verifyToken, authorizeRoles(ROLES.SUPER_ADMIN));
+// Acceso super_admin + store_admin (collaborator NO — ver ROLES en
+// packages/core-api/lib/authMiddleware.js). Ver nota operativa en el plan:
+// solo usar/poblar desde la instancia interna de Duck-Hack.
+router.use(verifyToken, authorizeRoles(ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN));
 
 const sanitizeDoc = (doc) => {
   if (!doc) return null;

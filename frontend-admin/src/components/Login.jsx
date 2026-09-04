@@ -5,10 +5,10 @@ import Loader from "./Loader"; // Importar el componente Loader
 import RegisterUser from "./RegisterUser"; // Reutilizar componente de registro
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { useStoreConfig } from "../hooks/useStoreConfig";
+import { STAFF_ROLES } from "../utils/roles";
 import logo from "../assets/logo.png";
 
 const Login = () => {
-  const adminRoles = ["super_admin", "store_admin", "catalog_manager", "order_manager"];
   const [userData, setUserData] = useState({
     email: "",
     password: "",
@@ -41,7 +41,7 @@ const Login = () => {
       const response = await axios.post(`${getApiBaseUrl()}/api/users/login`, userData);
       const role = response.data?.user?.role;
 
-      if (!adminRoles.includes(role)) {
+      if (!STAFF_ROLES.includes(role)) {
         localStorage.removeItem("token");
         localStorage.removeItem("role");
         setMessage("Tu cuenta no tiene permisos para ingresar al panel administrativo.");

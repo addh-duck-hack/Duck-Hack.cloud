@@ -283,7 +283,7 @@ paths:
       tags: [Uploads]
       summary: Subir imagen de producto
       description: >
-        Requiere autenticación y rol administrativo (`super_admin`, `store_admin`, `catalog_manager`).
+        Requiere autenticación y rol administrativo (`super_admin`, `store_admin`, `collaborator`).
         El archivo se valida por contenido real y se acepta únicamente JPG/PNG (máx. 5MB).
       security:
         - bearerAuth: []
@@ -1299,7 +1299,7 @@ paths:
     get:
       tags: [Products]
       summary: Listar catálogo de productos
-      description: Lectura permitida a cualquier rol de staff (super_admin, store_admin, catalog_manager, order_manager).
+      description: Lectura permitida a cualquier rol de staff (super_admin, store_admin, collaborator).
       security:
         - bearerAuth: []
       parameters:
@@ -1329,7 +1329,7 @@ paths:
     post:
       tags: [Products]
       summary: Crear producto
-      description: Solo super_admin, store_admin, catalog_manager.
+      description: Solo super_admin, store_admin, collaborator.
       security:
         - bearerAuth: []
       requestBody:
@@ -1395,7 +1395,7 @@ paths:
     put:
       tags: [Products]
       summary: Editar producto
-      description: Solo super_admin, store_admin, catalog_manager.
+      description: Solo super_admin, store_admin, collaborator.
       security:
         - bearerAuth: []
       parameters:
@@ -1435,7 +1435,7 @@ paths:
     delete:
       tags: [Products]
       summary: Eliminar producto
-      description: Solo super_admin, store_admin, catalog_manager. Bloqueado si el producto tiene inventario o pedidos ligados.
+      description: Solo super_admin, store_admin, collaborator. Bloqueado si el producto tiene inventario o pedidos ligados.
       security:
         - bearerAuth: []
       parameters:
@@ -1500,7 +1500,7 @@ paths:
     post:
       tags: [Inventory]
       summary: Registrar inventario de un producto
-      description: Solo super_admin, store_admin, catalog_manager. Un producto solo puede tener un registro de inventario.
+      description: Solo super_admin, store_admin, collaborator. Un producto solo puede tener un registro de inventario.
       security:
         - bearerAuth: []
       requestBody:
@@ -1572,7 +1572,7 @@ paths:
     put:
       tags: [Inventory]
       summary: Ajustar cantidad/umbral de un registro de inventario
-      description: Solo super_admin, store_admin, catalog_manager. `product` es inmutable después de creado.
+      description: Solo super_admin, store_admin, collaborator. `product` es inmutable después de creado.
       security:
         - bearerAuth: []
       parameters:
@@ -1612,7 +1612,7 @@ paths:
     delete:
       tags: [Inventory]
       summary: Eliminar un registro de inventario
-      description: Solo super_admin, store_admin, catalog_manager.
+      description: Solo super_admin, store_admin, collaborator.
       security:
         - bearerAuth: []
       parameters:
@@ -1724,7 +1724,7 @@ paths:
       tags: [Orders]
       summary: Crear pedido (manual, panel)
       description: >
-        Solo super_admin, store_admin, order_manager. Venta manual desde el
+        Solo super_admin, store_admin, collaborator. Venta manual desde el
         panel (telefónica, mostrador, etc.) — el checkout real del storefront
         usa POST /api/orders/public. unitPrice se toma del precio actual de
         cada producto, no del payload; a diferencia del checkout público,
@@ -1794,7 +1794,7 @@ paths:
     put:
       tags: [Orders]
       summary: Actualizar estado/notas/dirección de envío de un pedido
-      description: Solo super_admin, store_admin, order_manager. items/customer no se reabren después de creado.
+      description: Solo super_admin, store_admin, collaborator. items/customer no se reabren después de creado.
       security:
         - bearerAuth: []
       parameters:
@@ -1834,7 +1834,7 @@ paths:
     delete:
       tags: [Orders]
       summary: Eliminar pedido
-      description: Solo super_admin, store_admin, order_manager.
+      description: Solo super_admin, store_admin, collaborator.
       security:
         - bearerAuth: []
       parameters:
@@ -2154,8 +2154,7 @@ components:
       enum:
         - super_admin
         - store_admin
-        - catalog_manager
-        - order_manager
+        - collaborator
         - customer
 
     UserPublic:
