@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
+import { uploadImage } from "../utils/uploadImage";
 
 // Campo reutilizable de subida de imagen. Por default sube a
 // POST /api/store-config/upload-image (logo, foto de equipo, foto de
 // testimonio) — pasando `uploadUrl`/`fieldName` se reutiliza para otros
-// endpoints de imagen del sistema (ej. POST /api/uploads/products-image,
-// campo "productImage", usado por ProductForm.jsx). No conoce a qué campo
-// del formulario padre pertenece: solo sube el archivo y devuelve el
-// `imagePath` relativo (ej. "uploads/productImage-....jpg") vía onChange.
+// endpoints de imagen del sistema. No conoce a qué campo del formulario
+// padre pertenece: solo sube el archivo y devuelve el `imagePath` relativo
+// (ej. "uploads/productImage-....jpg") vía onChange. Para varias imágenes
+// por producto ver ProductImageGallery.jsx, que reusa uploadImage() pero
+// maneja su propio arreglo en vez de este componente de valor único.
 const ImageUploadField = ({
   label,
   value,
@@ -34,10 +35,6 @@ const ImageUploadField = ({
     return () => URL.revokeObjectURL(objectUrl);
   }, [file]);
 
-  const getAuthHeaders = () => ({
-    Authorization: `Bearer ${localStorage.getItem("token")}`,
-  });
-
   const handleFileChange = (event) => {
     const selected = event.target.files?.[0] || null;
     setError("");
@@ -49,15 +46,8 @@ const ImageUploadField = ({
     setIsUploading(true);
     setError("");
     try {
-      const formData = new FormData();
-      formData.append(fieldName, file);
-      const response = await axios.post(`${baseUrl}${uploadUrl}`, formData, {
-        headers: {
-          ...getAuthHeaders(),
-          "Content-Type": "multipart/form-data",
-        },
-      });
-      onChange(response.data?.imagePath || "");
+      const imagePath = await uploadImage(file, { uploadUrl, fieldName, baseUrl });
+      onChange(imagePath);
       setFile(null);
     } catch (err) {
       const msg = err.response?.data?.error?.message || "No fue posible subir la imagen.";
@@ -65,6 +55,14 @@ const ImageUploadField = ({
     } finally {
       setIsUploading(false);
     }
+  };
+
+  // Deja el campo sin imagen — antes no había forma de "vaciar" un valor ya
+  // subido (el logo, una foto de equipo/testimonio) una vez elegido.
+  const handleRemove = () => {
+    setFile(null);
+    setError("");
+    onChange("");
   };
 
   const previewSrc = localPreviewUrl || (value ? `${baseUrl}/${value}` : "");
@@ -92,15 +90,22 @@ const ImageUploadField = ({
         )}
         <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
           <input type="file" accept="image/png,image/jpeg" onChange={handleFileChange} />
-          <button
-            type="button"
-            className="btn-secondary"
-            style={{ width: "auto" }}
-            disabled={!file || isUploading}
-            onClick={handleUpload}
-          >
-            {isUploading ? "Subiendo..." : "Subir imagen"}
-          </button>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <button
+              type="button"
+              className="btn-secondary"
+              style={{ width: "auto" }}
+              disabled={!file || isUploading}
+              onClick={handleUpload}
+            >
+              {isUploading ? "Subiendo..." : "Subir imagen"}
+            </button>
+            {value ? (
+              <button type="button" className="btn-secondary" style={{ width: "auto" }} onClick={handleRemove}>
+                Quitar
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
       {error ? <div className="auth-error">{error}</div> : null}

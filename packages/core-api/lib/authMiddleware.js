@@ -9,11 +9,15 @@
 // Invoices, Infra), no solo el propio módulo `auth`.
 const { verifyAccessToken } = require("./jwt");
 
+// 3 perfiles de staff: super_admin (todo), store_admin (todo menos "Panel" /
+// infra-status, ver infra.routes.js) y collaborator (Productos/Inventario/
+// Pedidos únicamente — reemplaza a los antiguos catalog_manager/order_manager,
+// que hacían básicamente lo mismo repartido en dos roles). Las cuentas viejas
+// con esos roles se migran con backend/scripts/migrate-collaborator-role.mongo.js.
 const ROLES = Object.freeze({
   SUPER_ADMIN: "super_admin",
   STORE_ADMIN: "store_admin",
-  CATALOG_MANAGER: "catalog_manager",
-  ORDER_MANAGER: "order_manager",
+  COLLABORATOR: "collaborator",
   CUSTOMER: "customer",
 });
 
@@ -21,8 +25,7 @@ const ALLOWED_ROLES = Object.values(ROLES);
 const STAFF_ROLES = Object.freeze([
   ROLES.SUPER_ADMIN,
   ROLES.STORE_ADMIN,
-  ROLES.CATALOG_MANAGER,
-  ROLES.ORDER_MANAGER,
+  ROLES.COLLABORATOR,
 ]);
 
 const isValidRole = (role) => ALLOWED_ROLES.includes(role);
