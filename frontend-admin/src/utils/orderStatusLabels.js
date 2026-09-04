@@ -9,3 +9,11 @@ export const ORDER_STATUS_LABELS = {
   delivered: { label: "Entregado", color: "green" },
   cancelled: { label: "Cancelado", color: "red" },
 };
+
+// Checkout sin pasarela (ver packages/core-api/modules/orders.js#POST /public):
+// el pedido siempre entra "pending" y la tienda confirma el pago/entrega a
+// mano según el método que eligió el cliente.
+export const PAYMENT_METHOD_LABELS = {
+  transfer: "Transferencia / SPEI",
+  pickup: "Pago en finca",
+};

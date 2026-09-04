@@ -1243,6 +1243,58 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
+  /api/products/public:
+    get:
+      tags: [Products]
+      summary: Catálogo público (storefront)
+      description: >
+        Sin autenticación. Solo productos con `isActive: true`. Filtro opcional
+        `?category=`. Consumido por frontend-user para la tienda pública.
+      parameters:
+        - in: query
+          name: category
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Listado de productos activos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Product"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/products/public/{id}:
+    get:
+      tags: [Products]
+      summary: Obtener un producto público (storefront)
+      description: Sin autenticación. 404 tanto si el producto no existe como si está inactivo (no distingue, para no filtrar información).
+      parameters:
+        - $ref: "#/components/parameters/ProductIdParam"
+      responses:
+        "200":
+          description: Producto activo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: Producto no encontrado o inactivo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
   /api/products:
     get:
       tags: [Products]
@@ -1585,6 +1637,58 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
+  /api/orders/public:
+    post:
+      tags: [Orders]
+      summary: Checkout público (storefront)
+      description: >
+        Sin autenticación, rate-limited (10 min / 6 intentos por IP —
+        `429 RATE_LIMIT_CHECKOUT_EXCEEDED`). Sin pasarela de pago: el pedido
+        siempre entra `pending` y la tienda confirma el pago/entrega a mano
+        según `paymentMethod`. Los precios se recalculan server-side desde el
+        catálogo (nunca del payload) y solo se aceptan productos con
+        `isActive: true` — `400 PRODUCT_UNAVAILABLE` si alguno no lo está.
+        Envía correo de confirmación al cliente y aviso a la tienda
+        (best-effort; un fallo de correo no impide crear el pedido).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PublicCheckoutRequest"
+      responses:
+        "201":
+          description: Pedido creado (estado `pending`)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  order:
+                    $ref: "#/components/schemas/Order"
+        "400":
+          description: Validación fallida, o producto inexistente/no disponible
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Alguno de los productos referenciados no existe
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Demasiados intentos de pedido desde la misma IP
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
   /api/orders:
     get:
       tags: [Orders]
@@ -1618,11 +1722,13 @@ paths:
           $ref: "#/components/responses/InternalServerError"
     post:
       tags: [Orders]
-      summary: Crear pedido
+      summary: Crear pedido (manual, panel)
       description: >
-        Solo super_admin, store_admin, order_manager. No hay carrito/checkout
-        en el storefront todavía — los pedidos se crean manualmente desde el
-        panel. unitPrice se toma del precio actual de cada producto, no del payload.
+        Solo super_admin, store_admin, order_manager. Venta manual desde el
+        panel (telefónica, mostrador, etc.) — el checkout real del storefront
+        usa POST /api/orders/public. unitPrice se toma del precio actual de
+        cada producto, no del payload; a diferencia del checkout público,
+        acepta productos inactivos.
       security:
         - bearerAuth: []
       requestBody:
@@ -2850,6 +2956,14 @@ components:
           type: string
         notes:
           type: string
+        paymentMethod:
+          type: string
+          enum: [transfer, pickup]
+          description: Sin pasarela — el pedido siempre entra "pending" y la tienda confirma el pago/entrega a mano.
+        orderNumber:
+          type: integer
+          readOnly: true
+          description: Folio legible secuencial, distinto de _id.
         createdAt:
           type: string
           format: date-time
@@ -2857,7 +2971,7 @@ components:
 
     OrderCreateRequest:
       type: object
-      description: total/productName/unitPrice/subtotal se calculan en el servidor a partir del precio actual de cada producto — no se aceptan del cliente.
+      description: total/productName/unitPrice/subtotal/orderNumber se calculan en el servidor a partir del precio actual de cada producto — no se aceptan del cliente.
       properties:
         customerName:
           type: string
@@ -2882,6 +2996,42 @@ components:
             required: [product, quantity]
         shippingAddress:
           type: string
+        notes:
+          type: string
+      required: [customerName, customerEmail, items]
+
+    PublicCheckoutRequest:
+      type: object
+      description: >
+        Igual que OrderCreateRequest más `paymentMethod`. `customer` se ignora
+        siempre (checkout anónimo, sin cuenta). `shippingAddress` es
+        obligatorio cuando `paymentMethod` es "transfer".
+      properties:
+        customerName:
+          type: string
+        customerEmail:
+          type: string
+        customerPhone:
+          type: string
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            properties:
+              product:
+                type: string
+              quantity:
+                type: integer
+                minimum: 1
+            required: [product, quantity]
+        paymentMethod:
+          type: string
+          enum: [transfer, pickup]
+          default: transfer
+        shippingAddress:
+          type: string
+          description: Requerido si paymentMethod es "transfer".
         notes:
           type: string
       required: [customerName, customerEmail, items]
