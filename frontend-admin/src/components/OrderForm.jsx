@@ -78,7 +78,7 @@ const OrderForm = () => {
   return (
     <section>
       <h3>Nuevo pedido</h3>
-      <p>Sin carrito/checkout todavía en el sitio público — se registra manualmente.</p>
+      <p>Registro manual de un pedido (venta telefónica, mostrador, etc.). Los pedidos del checkout público de la tienda llegan solos, ya con folio.</p>
 
       {error ? <div className="auth-error">{error}</div> : null}
 

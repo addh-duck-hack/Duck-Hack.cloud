@@ -34,7 +34,7 @@ const AgencyClientList = () => {
       });
       setClients(response.data?.items || []);
     } catch (err) {
-      const msg = err.response?.data?.error?.message || "No fue posible cargar los clientes de agencia.";
+      const msg = err.response?.data?.error?.message || "No fue posible cargar los clientes.";
       setError(msg);
     } finally {
       setIsLoading(false);
@@ -57,12 +57,12 @@ const AgencyClientList = () => {
         </button>
       </div>
 
-      <h3>Clientes de agencia</h3>
-      <p>Control interno de hosting y deudas. Uso confidencial (solo super_admin).</p>
+      <h3>Clientes</h3>
+      <p>Desde aqui se mostraran los clientes configurados.</p>
 
       {error ? <div className="auth-error">{error}</div> : null}
 
-      {!isLoading && clients.length === 0 && !error ? <p>No hay clientes de agencia registrados.</p> : null}
+      {!isLoading && clients.length === 0 && !error ? <p>No hay clientes registrados.</p> : null}
 
       {/* isActive no siempre viene en el payload de clientes viejos; por
           default del modelo se consideran activos si no se especifica. */}

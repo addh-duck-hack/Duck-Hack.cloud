@@ -17,8 +17,8 @@ const { ROLES } = auth;
 const { getNextInvoiceFolio } = require("../utils/accountingHooks");
 const { generateInvoicePdf } = require("../utils/invoicePdf");
 
-// Confidencial: mismo criterio que /api/agency-clients, solo super_admin.
-router.use(verifyToken, authorizeRoles(ROLES.SUPER_ADMIN));
+// Confidencial: mismo criterio que /api/agency-clients — super_admin + store_admin.
+router.use(verifyToken, authorizeRoles(ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN));
 
 const sanitizeDoc = (doc) => {
   if (!doc) return null;
@@ -67,7 +67,7 @@ router.post("/", validateInvoiceFromTransactionsPayload, async (req, res) => {
   try {
     const client = await AgencyClient.findById(req.body.client);
     if (!client) {
-      return sendError(res, 404, "AGENCY_CLIENT_NOT_FOUND", "Cliente de agencia no encontrado.");
+      return sendError(res, 404, "AGENCY_CLIENT_NOT_FOUND", "Cliente no encontrado.");
     }
 
     const transactions = await Transaction.find({ _id: { $in: req.body.transactionIds } });

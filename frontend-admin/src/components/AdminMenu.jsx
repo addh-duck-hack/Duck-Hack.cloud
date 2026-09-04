@@ -4,12 +4,11 @@ import { Link } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { INFRA_ICONS } from "../utils/infraIcons";
 import { formatBytes } from "../utils/formatBytes";
+import { ROLES } from "../utils/roles";
 
 const AdminMenu = () => {
   const role = localStorage.getItem("role");
-  const isSuperAdmin = role === "super_admin";
-  const canManageCatalog = ["super_admin", "store_admin", "catalog_manager"].includes(role);
-  const canManageOrders = ["super_admin", "store_admin", "order_manager"].includes(role);
+  const isSuperAdmin = role === ROLES.SUPER_ADMIN;
 
   const [items, setItems] = useState([]);
   const [isLoading, setIsLoading] = useState(false);

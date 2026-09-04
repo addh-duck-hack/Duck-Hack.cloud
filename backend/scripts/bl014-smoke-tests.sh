@@ -9,6 +9,7 @@ set -euo pipefail
 #   CUSTOMER_TOKEN=... \
 #   STAFF_TOKEN=... \
 #   CUSTOMER_ID=... \
+#   PRODUCT_ID=... \
 #   ./backend/scripts/bl014-smoke-tests.sh
 
 BASE_URL="${BASE_URL:-http://localhost:5000}"
@@ -17,6 +18,8 @@ BLOCKED_ORIGIN="${BLOCKED_ORIGIN:-https://blocked.example}"
 CUSTOMER_TOKEN="${CUSTOMER_TOKEN:-}"
 STAFF_TOKEN="${STAFF_TOKEN:-}"
 CUSTOMER_ID="${CUSTOMER_ID:-}"
+# Producto activo existente — habilita el test 13 (checkout público real).
+PRODUCT_ID="${PRODUCT_ID:-}"
 
 pass_count=0
 fail_count=0
@@ -135,6 +138,37 @@ if [[ -n "$CUSTOMER_TOKEN" && -n "$CUSTOMER_ID" ]]; then
     "$BASE_URL/api/users/$CUSTOMER_ID/password"
 else
   echo "[SKIP] Password endpoint self (CUSTOMER_TOKEN/CUSTOMER_ID faltante)"
+fi
+
+# 11) Catálogo público sin token (esperado 200)
+run_status_test \
+  "GET /api/products/public sin token retorna 200" \
+  "200" \
+  "$BASE_URL/api/products/public"
+
+# 12) Checkout público con body vacío (esperado 400, no debe tocar Mongo)
+run_status_test \
+  "POST /api/orders/public con body vacío retorna 400" \
+  "400" \
+  -H "Content-Type: application/json" \
+  -d '{}' \
+  "$BASE_URL/api/orders/public"
+
+# 13) Checkout público válido -> 201 con folio (orderNumber)
+if [[ -n "$PRODUCT_ID" ]]; then
+  run_status_test \
+    "POST /api/orders/public válido retorna 201" \
+    "201" \
+    -H "Content-Type: application/json" \
+    -d "{\"customerName\":\"BL014 Smoke\",\"customerEmail\":\"bl014-smoke@example.com\",\"paymentMethod\":\"pickup\",\"items\":[{\"product\":\"$PRODUCT_ID\",\"quantity\":1}]}" \
+    "$BASE_URL/api/orders/public"
+  if grep -q '"orderNumber"' /tmp/bl014-body.txt 2>/dev/null; then
+    pass "POST /api/orders/public válido incluye orderNumber"
+  else
+    fail "POST /api/orders/public válido -> sin orderNumber en la respuesta"
+  fi
+else
+  echo "[SKIP] Checkout público válido (PRODUCT_ID no definido)"
 fi
 
 echo
