@@ -53,7 +53,10 @@ const App = () => {
           <Route path="/register" element={<RegisterUser />} />
 
           <Route path="/admin" element={isLoggedIn ? <AdminShell /> : <Navigate to="/" />}>
-            <Route index element={<AdminMenu />} />
+            {/* store_admin no tiene nada que ver en el panel general (uso de
+                servidor/infraestructura es solo super_admin, ver AdminMenu.jsx)
+                — al entrar cae directo a Pedidos en vez de una pantalla vacía. */}
+            <Route index element={role === "store_admin" ? <Navigate to="/admin/orders" replace /> : <AdminMenu />} />
             <Route
               path="store-config"
               element={canManageStoreConfig ? <StoreConfigManager /> : <Navigate to="/admin" />}

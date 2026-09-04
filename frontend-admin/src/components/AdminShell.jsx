@@ -24,13 +24,17 @@ const AdminShell = () => {
   const canManageCatalog = ["super_admin", "store_admin", "catalog_manager"].includes(role);
   const canManageOrders = ["super_admin", "store_admin", "order_manager"].includes(role);
   const isSuperAdmin = role === "super_admin";
+  // El panel general (App.jsx) no tiene nada para store_admin y ya lo manda
+  // directo a Pedidos — no tiene sentido dejarle un link "Panel" en el riel
+  // que lo regrese a esa misma redirección.
+  const isStoreAdmin = role === "store_admin";
 
   useEffect(() => {
     setDrawerOpen(false);
   }, [location.pathname]);
 
   const navItems = [
-    { path: "/admin", label: "Panel", end: true },
+    ...(isStoreAdmin ? [] : [{ path: "/admin", label: "Panel", end: true }]),
     ...(canManageStoreConfig ? [{ path: "/admin/store-config", label: "Configurar tienda" }] : []),
     ...(canManageCatalog
       ? [
