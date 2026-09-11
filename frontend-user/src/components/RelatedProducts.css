@@ -1,0 +1,80 @@
+/* src/components/RelatedProducts.css — "También te puede interesar" */
+
+.related {
+  margin-top: 8px;
+}
+.related h2 {
+  font-size: clamp(1.4rem, 3.2vw, 2rem);
+  margin-top: 6px;
+  margin-bottom: 26px;
+}
+
+.related-rail {
+  display: flex;
+  gap: 22px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+
+.related-card {
+  flex: none;
+  width: 150px;
+  scroll-snap-align: start;
+  text-decoration: none;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.related-fig {
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  background: var(--panel2);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 2px var(--ink), inset 0 0 0 4px var(--line);
+  transition: box-shadow 0.15s ease;
+}
+.related-card:hover .related-fig {
+  box-shadow: inset 0 0 0 2px var(--ink), inset 0 0 0 4px var(--signal);
+}
+.related-fig svg {
+  width: 46%;
+  height: 46%;
+  color: var(--signal);
+}
+.related-fig img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.related-name {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  line-height: 1.3;
+}
+.related-price {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--text-mute);
+}
+
+@media (max-width: 640px) {
+  .related-card {
+    width: 120px;
+  }
+  .related-fig {
+    width: 104px;
+    height: 104px;
+  }
+}

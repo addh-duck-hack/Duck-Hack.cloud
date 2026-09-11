@@ -5,9 +5,9 @@ import { usePageMeta } from '../hooks/usePageMeta';
 import { useProduct } from '../hooks/useProducts';
 import { useCart, formatMxn, formatMxnLong } from '../hooks/useCart';
 import { iconForCategory } from './BrandMarks';
+import RichText from './RichText';
+import RelatedProducts from './RelatedProducts';
 import './ProductDetail.css';
-
-const firstSentence = (text) => (text ? text.split(/(?<=\.)\s/)[0] : '');
 
 // Selecciones por default: el primer valor de cada grupo de opciones del
 // producto (ver useProducts.js — options: [{name, values}]). Sin opciones,
@@ -117,8 +117,10 @@ const ProductDetail = () => {
         <div className="pd-body">
           <span className="eyebrow">{product.category}</span>
           <h1 className="pd-name">{product.name}</h1>
-          {product.description && <p className="pd-lede">{product.description}</p>}
-          {product.description && <div className="pd-cata">« {firstSentence(product.description).replace(/\.$/, '')} »</div>}
+          {/* Admite HTML básico (p, h1-h6, b, ul, etc.) escrito directo en el
+              campo de descripción del admin — sanitizado por RichText.jsx,
+              igual que el resto del sitio (StoreConfig). */}
+          {product.description && <RichText className="pd-lede" html={product.description} />}
 
           {specs.length > 0 && (
             <dl className="pd-specs">
@@ -168,6 +170,8 @@ const ProductDetail = () => {
           )}
         </div>
       </div>
+
+      <RelatedProducts excludeId={product.id} />
     </section>
   );
 };

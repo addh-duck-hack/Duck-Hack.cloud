@@ -96,16 +96,23 @@
   font-size: 1.1rem;
   color: var(--text-dim);
   margin-top: 14px;
-  max-width: 44ch;
+  max-width: 52ch;
 }
-.pd-cata {
-  margin-top: 20px;
-  padding: 16px 18px;
-  background: var(--panel);
-  border-left: 3px solid var(--signal);
-  font-family: var(--font-script);
-  font-size: 1.35rem;
-  color: var(--teal-dk);
+/* Descripción con HTML (p/h1-h6/ul/etc., ver RichText.jsx) — espacio entre
+   bloques para que una descripción larga con varios párrafos/encabezados no
+   se vea toda pegada. */
+.pd-lede > * + * {
+  margin-top: 0.8em;
+}
+.pd-lede h1,
+.pd-lede h2,
+.pd-lede h3,
+.pd-lede h4,
+.pd-lede h5,
+.pd-lede h6 {
+  font-size: 1.1rem;
+  text-transform: none;
+  letter-spacing: 0;
 }
 .pd-specs {
   display: grid;
