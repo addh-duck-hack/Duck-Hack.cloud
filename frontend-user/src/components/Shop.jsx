@@ -8,6 +8,8 @@ import { usePageMeta } from '../hooks/usePageMeta';
 import { useProducts, groupByCategory } from '../hooks/useProducts';
 import { formatMxn } from '../hooks/useCart';
 import { iconForCategory } from './BrandMarks';
+import RichText from './RichText';
+import { htmlExcerpt } from '../utils/htmlExcerpt';
 import './Shop.css';
 
 const Shop = () => {
@@ -56,7 +58,7 @@ const Shop = () => {
                   <span className="minfo">
                     <span className="mname">{p.name}</span>
                     {p.meta && <span className="mmeta">{p.meta}</span>}
-                    {p.description && <span className="mnotes">{p.description}</span>}
+                    {p.description && <RichText className="mnotes" html={htmlExcerpt(p.description)} />}
                   </span>
                   <span className="mprice">
                     {formatMxn(p.price)}

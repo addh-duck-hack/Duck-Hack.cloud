@@ -101,6 +101,42 @@
   max-width: 46ch;
   display: block;
 }
+/* Extracto con HTML (ver utils/htmlExcerpt.js) — si el admin arranca la
+   descripción con un encabezado, que no se vea gigante/mayúsculas dentro del
+   renglón de la carta; los párrafos tampoco necesitan su propio margen aquí. */
+.mnotes h1,
+.mnotes h2,
+.mnotes h3,
+.mnotes h4,
+.mnotes h5,
+.mnotes h6 {
+  font-size: inherit;
+  font-family: inherit;
+  text-transform: none;
+  letter-spacing: 0;
+  color: inherit;
+  display: inline;
+}
+.mnotes p,
+.mnotes blockquote {
+  display: inline;
+  margin: 0;
+  color: inherit;
+  font-size: inherit;
+}
+.mnotes ul,
+.mnotes ol {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mnotes li {
+  display: inline;
+}
+.mnotes li + li::before {
+  content: ' · ';
+}
 .mprice {
   font-family: var(--font-mono);
   font-size: 1.2rem;

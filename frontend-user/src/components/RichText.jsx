@@ -17,12 +17,15 @@
 // pega markup de una fuente no confiable sin darse cuenta).
 import DOMPurify from 'dompurify';
 
-const ALLOWED_TAGS = [
+// Exportado para que utils/htmlExcerpt.js (recortar la descripción en
+// listados, ver Shop.jsx) sanitice con exactamente el mismo criterio antes de
+// truncar, en vez de duplicar la lista de etiquetas permitidas.
+export const ALLOWED_TAGS = [
   'b', 'strong', 'i', 'em', 'u', 's', 'mark', 'small', 'sup', 'sub', 'br', 'span',
   'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'ul', 'ol', 'li', 'blockquote',
 ];
 
-const sanitize = (html) => DOMPurify.sanitize(html || '', { ALLOWED_TAGS, ALLOWED_ATTR: [] });
+export const sanitize = (html) => DOMPurify.sanitize(html || '', { ALLOWED_TAGS, ALLOWED_ATTR: [] });
 
 /**
  * Renderiza un campo de store config que puede traer HTML básico.
