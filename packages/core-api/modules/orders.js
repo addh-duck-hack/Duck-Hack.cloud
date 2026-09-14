@@ -9,6 +9,10 @@
 //     pago: el pedido entra "pending" y la tienda confirma el pago a mano
 //     (ver paymentMethod). Envía correo de confirmación al cliente y aviso a
 //     la tienda — best-effort, un fallo de correo no tumba el pedido ya creado.
+//     Sigue sin EXIGIR sesión (el invitado sigue pudiendo comprar), pero si el
+//     comprador inició sesión/se registró durante el checkout y el frontend
+//     manda su token, el pedido queda vinculado a esa cuenta — ver
+//     attachOptionalCustomer más abajo.
 const express = require("express");
 const mongoose = require("mongoose");
 const {
@@ -21,6 +25,8 @@ const {
 } = require("../lib/moduleHelpers");
 const { createRateLimiter } = require("../lib/rateLimit");
 const { sendMail } = require("../lib/mailer");
+const { verifyAccessToken } = require("../lib/jwt");
+const { extractBearerToken, ROLES: AUTH_ROLES } = require("../lib/authMiddleware");
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ORDER_STATUSES = ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"];
@@ -45,6 +51,12 @@ const orderSchema = new mongoose.Schema(
     customerName: { type: String, required: true, trim: true, maxlength: 200 },
     customerEmail: { type: String, required: true, trim: true, lowercase: true, maxlength: 200 },
     customerPhone: { type: String, trim: true, maxlength: 40 },
+    // Opcional a propósito: la venta manual de staff (POST /) casi nunca
+    // tiene cuenta de por medio, y el checkout público (POST /public) solo lo
+    // llena cuando attachOptionalCustomer verifica un JWT de customer válido
+    // — nunca se acepta este id directamente del payload (ver
+    // validateCheckoutExtras), para que nadie se adjudique el pedido de otra
+    // cuenta con solo mandar su id.
     customer: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     items: {
       type: [orderItemSchema],
@@ -152,8 +164,11 @@ const validateUpdatePayload = (sendError) => (req, res, next) => {
 // Solo para POST /public, encadenado DESPUÉS de validateCreatePayload. Valida
 // paymentMethod y exige shippingAddress cuando es "transfer" (hay que
 // enviarlo). También bloquea que un checkout anónimo se adjudique un
-// `customer` o un `orderNumber` arbitrarios — orderNumber siempre lo pone el
-// servidor y `customer` no aplica sin cuenta autenticada.
+// `customer` o un `orderNumber` arbitrarios enviados en el payload —
+// orderNumber siempre lo pone el servidor, y `customer` SOLO puede venir de
+// un JWT verificado (ver attachOptionalCustomer/req.checkoutCustomerId), nunca
+// de lo que mande el cliente en el body — si no, cualquiera podría adjudicarse
+// el pedido a la cuenta de otra persona con solo mandar su id.
 const validateCheckoutExtras = (sendError) => (req, res, next) => {
   const payload = req.body || {};
 
@@ -170,6 +185,26 @@ const validateCheckoutExtras = (sendError) => (req, res, next) => {
   delete req.body.customer;
   delete req.body.orderNumber;
 
+  return next();
+};
+
+// Token Bearer OPCIONAL en el checkout público: si viene y es un access token
+// válido de un customer, vincula el pedido a esa cuenta (req.checkoutCustomerId).
+// Si no viene, está vencido, es inválido o es de un rol que no es customer
+// (p.ej. un token de staff mandado por error), el checkout sigue igual que
+// siempre — como invitado — nunca responde error por esto.
+const attachOptionalCustomer = (req, res, next) => {
+  const token = extractBearerToken(req.header("Authorization"));
+  if (token) {
+    try {
+      const decoded = verifyAccessToken(token);
+      if (decoded.role === AUTH_ROLES.CUSTOMER) {
+        req.checkoutCustomerId = decoded.id;
+      }
+    } catch {
+      // Token inválido/expirado — seguimos como invitado, no rompemos el checkout.
+    }
+  }
   return next();
 };
 
@@ -272,6 +307,7 @@ function registerRoutes(app, ctx) {
   router.post(
     "/public",
     checkoutRateLimiter,
+    attachOptionalCustomer,
     validateCreatePayload(sendError),
     validateCheckoutExtras(sendError),
     async (req, res) => {
@@ -293,6 +329,9 @@ function registerRoutes(app, ctx) {
           total: built.total,
           orderNumber,
           status: "pending",
+          // Derivado del JWT verificado en attachOptionalCustomer, nunca de
+          // req.body (validateCheckoutExtras ya lo borró ahí).
+          ...(req.checkoutCustomerId ? { customer: req.checkoutCustomerId } : {}),
         });
         await order.save();
 
@@ -324,7 +363,9 @@ function registerRoutes(app, ctx) {
 
   const ensureOrderExists = async (req, res, next) => {
     try {
-      const order = await Order.findById(req.params.id);
+      // populate limitado a name/email (nunca password) — usado por GET/PUT/
+      // DELETE; el detalle (GET) es lo único que hoy lo muestra en el admin.
+      const order = await Order.findById(req.params.id).populate("customer", "name email");
       if (!order) return sendError(res, 404, "ORDER_NOT_FOUND", "Pedido no encontrado.");
       req.order = order;
       return next();
@@ -337,7 +378,9 @@ function registerRoutes(app, ctx) {
     try {
       const filter = {};
       if (req.query.status) filter.status = req.query.status;
-      const orders = await Order.find(filter).sort({ createdAt: -1 });
+      // populate limitado a name/email (nunca password) — así el admin ve
+      // qué pedidos vienen de una cuenta sin exponer el hash de contraseña.
+      const orders = await Order.find(filter).sort({ createdAt: -1 }).populate("customer", "name email");
       return res.status(200).json({ items: orders.map(sanitizeDoc) });
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al listar pedidos.");

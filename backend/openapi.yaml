@@ -1642,14 +1642,24 @@ paths:
       tags: [Orders]
       summary: Checkout público (storefront)
       description: >
-        Sin autenticación, rate-limited (10 min / 6 intentos por IP —
-        `429 RATE_LIMIT_CHECKOUT_EXCEEDED`). Sin pasarela de pago: el pedido
-        siempre entra `pending` y la tienda confirma el pago/entrega a mano
-        según `paymentMethod`. Los precios se recalculan server-side desde el
-        catálogo (nunca del payload) y solo se aceptan productos con
-        `isActive: true` — `400 PRODUCT_UNAVAILABLE` si alguno no lo está.
-        Envía correo de confirmación al cliente y aviso a la tienda
-        (best-effort; un fallo de correo no impide crear el pedido).
+        Sin autenticación obligatoria, rate-limited (10 min / 6 intentos por
+        IP — `429 RATE_LIMIT_CHECKOUT_EXCEEDED`). Acepta opcionalmente un
+        header `Authorization: Bearer <token>` de un `customer` ya logueado
+        (por ejemplo si inició sesión o se registró durante el checkout): si
+        el token es válido y de rol `customer`, el pedido queda vinculado a
+        esa cuenta (`customer` en la respuesta); si no viene, es inválido,
+        expiró o no es de rol `customer`, el pedido se crea igual como
+        invitado — nunca responde error por esto. `customer` enviado en el
+        body siempre se ignora (ver PublicCheckoutRequest). Sin pasarela de
+        pago: el pedido siempre entra `pending` y la tienda confirma el
+        pago/entrega a mano según `paymentMethod`. Los precios se recalculan
+        server-side desde el catálogo (nunca del payload) y solo se aceptan
+        productos con `isActive: true` — `400 PRODUCT_UNAVAILABLE` si alguno
+        no lo está. Envía correo de confirmación al cliente y aviso a la
+        tienda (best-effort; un fallo de correo no impide crear el pedido).
+      security:
+        - bearerAuth: []
+        - {}
       requestBody:
         required: true
         content:
@@ -2939,8 +2949,23 @@ components:
         customerPhone:
           type: string
         customer:
-          type: string
           nullable: true
+          description: >
+            Cuenta de User vinculada al pedido, si el comprador estaba
+            logueado en el checkout (ver POST /api/orders/public) o si se le
+            asignó una manualmente (POST /api/orders). Al crear el pedido
+            viene como el id (string); al listar/leer/actualizar
+            (GET/PUT /api/orders...) viene poblado con name/email.
+          oneOf:
+            - type: string
+            - type: object
+              properties:
+                _id:
+                  type: string
+                name:
+                  type: string
+                email:
+                  type: string
         items:
           type: array
           items:
@@ -3002,8 +3027,10 @@ components:
     PublicCheckoutRequest:
       type: object
       description: >
-        Igual que OrderCreateRequest más `paymentMethod`. `customer` se ignora
-        siempre (checkout anónimo, sin cuenta). `shippingAddress` es
+        Igual que OrderCreateRequest más `paymentMethod`. Un `customer` en
+        este body siempre se ignora — la única forma de vincular el pedido a
+        una cuenta es un header `Authorization: Bearer <token>` opcional (ver
+        el endpoint POST /api/orders/public). `shippingAddress` es
         obligatorio cuando `paymentMethod` es "transfer".
       properties:
         customerName:
