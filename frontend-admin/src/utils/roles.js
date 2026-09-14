@@ -22,6 +22,10 @@ export const STORE_CONFIG_ROLES = [ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN];
 export const AGENCY_ROLES = [ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN];
 export const CATALOG_ROLES = [ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN, ROLES.COLLABORATOR];
 export const ORDER_ROLES = [ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN, ROLES.COLLABORATOR];
+// Administrador de usuarios registrados (clientes + staff) — GET/PUT/DELETE
+// /api/users ya están restringidos a estos dos roles en el backend (ver
+// packages/core-api/modules/auth.js); collaborator no entra.
+export const USER_MANAGEMENT_ROLES = [ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN];
 
 export const ROLE_LABELS = {
   [ROLES.SUPER_ADMIN]: "Super admin",

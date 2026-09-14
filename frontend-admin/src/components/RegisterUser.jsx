@@ -8,6 +8,7 @@ const RegisterUser = ({ onBack }) => {
     email: "",
     password: "",
     confirmPassword: "",
+    phone: "",
   });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -53,11 +54,12 @@ const RegisterUser = ({ onBack }) => {
     }
 
     try {
-      const { name, email, password } = userData;
+      const { name, email, password, phone } = userData;
       const payload = { name, email, password };
+      if (phone) payload.phone = phone;
       const response = await axios.post(`${getApiBaseUrl()}/api/users/register`, payload);
       setMessage(response.data.message || "Usuario registrado correctamente");
-      setUserData({ name: "", email: "", password: "", confirmPassword: "" });
+      setUserData({ name: "", email: "", password: "", confirmPassword: "", phone: "" });
     } catch (error) {
       // Mostrar el mensaje del servidor como error si existe
       const serverMsg = error.response?.data?.error?.message;
@@ -110,6 +112,14 @@ const RegisterUser = ({ onBack }) => {
           value={userData.confirmPassword}
           onChange={handleChange}
           required
+        />
+        <input
+          type="tel"
+          name="phone"
+          placeholder="Teléfono (opcional)"
+          aria-label="Teléfono (opcional)"
+          value={userData.phone}
+          onChange={handleChange}
         />
         {/* El rol se asigna por defecto en backend como 'customer' */}
         <button type="submit" disabled={userData.password !== userData.confirmPassword}>Registrar</button>
