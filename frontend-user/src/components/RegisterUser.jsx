@@ -4,9 +4,6 @@ import { apiFetch } from "../utils/apiClient";
 import "./Auth.css";
 
 const RegisterUser = () => {
-  const { config } = useStoreConfig();
-  const logoSrc = resolveStoreImageUrl(config?.logoUrl) || logo;
-  const brandName = config?.storeName || "Duck-Hack";
   const [form, setForm] = useState({ name: "", email: "", password: "", phone: "" });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
