@@ -215,6 +215,25 @@ nunca al revés.
 - Nunca se mergea una rama `release-*` a otra `release-*` — si dos tiendas necesitan el
   mismo cambio, ese cambio pasa primero por `main`.
 
+**Excepción: `frontend-user` va directo en la rama `release-<dominio>`, no en `main`.**
+`backend`/`packages/core-api` y (casi siempre) `frontend-admin` sí son código
+genuinamente compartido que cada tienda corre sin modificar — para eso es la regla de
+arriba. `frontend-user` es distinto: el storefront de cada tienda suele ser un
+rediseño completo a la medida de esa marca (ver p. ej. el storefront "De Sutu Cha'Nu"
+de `release-tacita.duck-hack.cloud` — otros componentes, otro CSS, a veces otra
+estructura de páginas) que diverge de la base de `main` lo suficiente como para que
+hasta un cambio chico y aparentemente inofensivo en `main` (agregar un campo opcional a
+un formulario, por ejemplo) no aplique limpio al mergear, o se pierda sin darse cuenta
+al resolver un conflicto porque el archivo ya no se parece en nada al de `main` — esto
+ya pasó una vez con `frontend-user/src/components/RegisterUser.jsx` en
+`release-tacita.duck-hack.cloud`. Entonces: los cambios de `frontend-user` se hacen
+directo en la(s) rama(s) `release-<dominio>` que correspondan, nunca en `main`. Si de
+verdad hay algo de `frontend-user` que aplica igual a todas las tiendas (poco común, y
+fácil de sobreestimar — ante la duda, trátalo como específico de la tienda),
+replícalo a mano en cada rama `release-*` activa, o promuévelo a `packages/ui-kit` si
+es un componente reutilizable de verdad, para que se importe en vez de copiarse y
+pegarse.
+
 ### Publicar una tienda nueva
 
 ```bash

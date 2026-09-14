@@ -71,6 +71,24 @@ release-*`, never the other way and never `release-* → release-*`. Don't merge
 `release-*` branch into `main`, and don't put shared-feature work directly on a
 `release-*` branch — it belongs on `main` first.
 
+**Exception: `frontend-user` changes belong on the `release-*` branch, not `main`.**
+`backend`/`packages/core-api` and (mostly) `frontend-admin` are genuinely shared code
+that every store's clone runs unmodified — that's what the "shared work goes to `main`
+first" rule above is for. `frontend-user` is different: each store's storefront is
+typically a full bespoke redesign (e.g. `release-tacita.duck-hack.cloud`'s "De Sutu
+Cha'Nu" storefront — different components, different CSS, sometimes a different page
+structure entirely) that diverges from `main`'s baseline far enough that even a small,
+seemingly-safe change on `main` (e.g. adding one optional field to a form component)
+can fail to merge cleanly into a release branch, or get silently dropped while resolving
+a conflict because the file no longer looks anything like `main`'s version — this
+already happened once (see git history around `frontend-user/src/components/RegisterUser.jsx`
+on `release-tacita.duck-hack.cloud`). So: touch `frontend-user/` directly on each
+affected `release-<store-domain>` branch, never on `main`. If a `frontend-user` change
+is genuinely identical across every store (rare, and easy to be wrong about — when in
+doubt, treat it as store-specific), apply it by hand on each active `release-*` branch
+rather than on `main`, or promote the actually-reusable piece into `packages/ui-kit`
+instead so it's imported rather than copy-pasted.
+
 ### Backend request pipeline (`backend/server.js`)
 Middleware order: `express.json()` → CORS (allow-list built from `CORS_ALLOWED_ORIGINS`; throws at boot if empty) → `helmet` (CSP disabled — this is an API-only backend, CSP is the frontends' concern) → routers mounted at `/api/agency-clients`, `/api/infra`, `/api/accounting`, `/api/invoices` (the pieces that stayed in `backend/`) → `@duck-hack/core-api` modules mounted via `coreApiModules.forEach(...)` (`/api/users`, `/api/mail`, `/api/uploads`, `/api/store-config`, `/api/products`, `/api/inventory`, `/api/orders`) → static `/uploads` → CORS-error handler → generic error handler → 404 handler.
 
