@@ -206,6 +206,74 @@
   margin-top: 2px;
 }
 
+/* Paso "Tu cuenta" (CheckoutAccountStep.jsx) */
+.account-choice {
+  display: grid;
+  gap: 12px;
+}
+.account-choice-lead {
+  color: var(--text-dim);
+  margin: 0 0 4px;
+}
+.account-choice-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 4px;
+  padding: 16px 18px;
+  cursor: pointer;
+  color: var(--text);
+  font-family: var(--font-body);
+}
+.account-choice-card:hover {
+  border-color: var(--signal);
+}
+.account-choice-card strong {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+}
+.account-choice-card span {
+  font-size: 0.85rem;
+  color: var(--text-mute);
+}
+.account-choice-guest {
+  border-style: dashed;
+}
+.checkout-account-form h3 {
+  margin: 0 0 4px;
+  font-size: 1.1rem;
+  text-transform: none;
+  color: var(--text);
+}
+.checkout-account-success-actions {
+  margin-top: 10px;
+}
+.account-note {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+}
+.as-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--signal);
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: inherit;
+  text-decoration: underline;
+}
+
 .confirm {
   text-align: center;
   border: 1px solid var(--line);

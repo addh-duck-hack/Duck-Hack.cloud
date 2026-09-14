@@ -10,9 +10,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { useCart, formatMxn, formatMxnLong, formatOptions } from '../hooks/useCart';
 import { iconForCategory } from './BrandMarks';
+import CheckoutAccountStep from './CheckoutAccountStep';
 import './Cart.css';
 
-const STEPS = ['Tu canasta', 'Datos de envío', '¡Gracias!'];
+const STEPS = ['Tu canasta', 'Tu cuenta', 'Datos de envío', '¡Gracias!'];
 
 const PAYMENT_NOTES = {
   transfer: 'Te contactamos con los datos para la transferencia; tu pedido queda apartado como pendiente de pago.',
@@ -32,6 +33,10 @@ const Cart = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [order, setOrder] = useState(null);
+  // Cuenta ya iniciada (localStorage — mismos keys que LoginUser.jsx). Solo
+  // se usa para precargar nombre/correo y mostrar "¿no eres tú?"; el pedido
+  // sigue yendo por POST /api/orders/public sin vincularse a la cuenta.
+  const [authUser, setAuthUser] = useState(null);
 
   const handleFieldChange = (e) => {
     const { name, value } = e.target;
@@ -51,7 +56,7 @@ const Cart = () => {
         paymentMethod,
       });
       setOrder(created);
-      setStep(2);
+      setStep(3);
       window.scrollTo(0, 0);
     } catch (err) {
       setSubmitError(err.message || 'No fue posible enviar tu pedido. Intenta de nuevo.');
@@ -69,9 +74,74 @@ const Cart = () => {
     navigate('/tienda');
   };
 
-  const eyebrow = ['Tu canasta', 'Casi listo', 'Recibido'][step];
+  // Si ya hay una sesión guardada (mismos localStorage keys que escribe
+  // LoginUser.jsx), nos saltamos el paso "Tu cuenta" y precargamos el
+  // formulario de envío — hoy nada más en el storefront lee ese token, así
+  // que esto es puramente conveniencia de UI, no una sesión "real" del carrito.
+  const goToAccountOrSkip = () => {
+    try {
+      const token = localStorage.getItem('duckhack_customer_token');
+      const rawUser = localStorage.getItem('duckhack_customer_user');
+      if (token && rawUser) {
+        const user = JSON.parse(rawUser);
+        setAuthUser(user);
+        setForm((prev) => ({
+          ...prev,
+          customerName: user.name || prev.customerName,
+          customerEmail: user.email || prev.customerEmail,
+        }));
+        setStep(2);
+        window.scrollTo(0, 0);
+        return;
+      }
+    } catch {
+      // localStorage bloqueado o el JSON guardado está corrupto — seguimos
+      // como si no hubiera sesión.
+    }
+    setStep(1);
+    window.scrollTo(0, 0);
+  };
 
-  if (lines.length === 0 && step < 2) {
+  const handleAccountContinue = ({ customerName, customerEmail, authenticated, user }) => {
+    setForm((prev) => ({
+      ...prev,
+      customerName: customerName || prev.customerName,
+      customerEmail: customerEmail || prev.customerEmail,
+    }));
+    setAuthUser(authenticated ? user : null);
+    setStep(2);
+    window.scrollTo(0, 0);
+  };
+
+  const handleForgetAccount = () => {
+    try {
+      localStorage.removeItem('duckhack_customer_token');
+      localStorage.removeItem('duckhack_customer_user');
+    } catch {
+      // nada que limpiar si localStorage no está disponible
+    }
+    setAuthUser(null);
+    setStep(1);
+    window.scrollTo(0, 0);
+  };
+
+  const renderOrderSummary = () => (
+    <aside className="summary">
+      <h3>{count} {count === 1 ? 'producto' : 'productos'}</h3>
+      {lines.map((l) => (
+        <div className="srow" key={l.key}>
+          <span>{l.name} ×{l.qty}</span>
+          <span>{formatMxn(l.price * l.qty)}</span>
+        </div>
+      ))}
+      <div className="srow"><span>Envío</span><span>{shipping === 0 ? 'Gratis' : formatMxn(shipping)}</span></div>
+      <div className="srow total"><span>Total</span><span>{formatMxnLong(total)}</span></div>
+    </aside>
+  );
+
+  const eyebrow = ['Tu canasta', 'Antes de pagar', 'Casi listo', 'Recibido'][step];
+
+  if (lines.length === 0 && step < 3) {
     return (
       <section className="cart-view">
         <span className="eyebrow">Tu canasta</span>
@@ -132,7 +202,7 @@ const Cart = () => {
               </p>
             )}
             <div className="srow total"><span>Total</span><span>{formatMxnLong(total)}</span></div>
-            <button className="btn btn-solid block" onClick={() => { setStep(1); window.scrollTo(0, 0); }}>
+            <button className="btn btn-solid block" onClick={goToAccountOrSkip}>
               Continuar al pago
             </button>
             <Link className="cart-cont" to="/tienda">← Seguir viendo la carta</Link>
@@ -142,8 +212,26 @@ const Cart = () => {
 
       {step === 1 && (
         <div className="cart-grid">
+          <CheckoutAccountStep
+            onGuest={() => { setStep(2); window.scrollTo(0, 0); }}
+            onContinue={handleAccountContinue}
+            onBack={() => { setStep(0); window.scrollTo(0, 0); }}
+          />
+          {renderOrderSummary()}
+        </div>
+      )}
+
+      {step === 2 && (
+        <div className="cart-grid">
           <form className="ship-form" onSubmit={handleSubmitShipping}>
             {submitError ? <div className="checkout-error">{submitError}</div> : null}
+
+            {authUser && (
+              <div className="account-note">
+                Continuando como <strong>{authUser.name || authUser.email}</strong> ·{' '}
+                <button type="button" className="as-link" onClick={handleForgetAccount}>¿No eres tú?</button>
+              </div>
+            )}
 
             <div className="field">
               <label htmlFor="s-name">Nombre completo</label>
@@ -201,21 +289,11 @@ const Cart = () => {
             </button>
           </form>
 
-          <aside className="summary">
-            <h3>{count} {count === 1 ? 'producto' : 'productos'}</h3>
-            {lines.map((l) => (
-              <div className="srow" key={l.key}>
-                <span>{l.name} ×{l.qty}</span>
-                <span>{formatMxn(l.price * l.qty)}</span>
-              </div>
-            ))}
-            <div className="srow"><span>Envío</span><span>{shipping === 0 ? 'Gratis' : formatMxn(shipping)}</span></div>
-            <div className="srow total"><span>Total</span><span>{formatMxnLong(total)}</span></div>
-          </aside>
+          {renderOrderSummary()}
         </div>
       )}
 
-      {step === 2 && order && (
+      {step === 3 && order && (
         <div className="confirm">
           <div className="confirm-seal">✓</div>
           <h2>Pedido recibido</h2>
