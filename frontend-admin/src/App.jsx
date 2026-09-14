@@ -28,6 +28,7 @@ import OrderList from "./components/OrderList";
 import OrderForm from "./components/OrderForm";
 import OrderDetail from "./components/OrderDetail";
 import UserList from "./components/UserList";
+import UserCreateForm from "./components/UserCreateForm";
 import UserForm from "./components/UserForm";
 import { StoreConfigProvider } from "./hooks/useStoreConfig";
 import {
@@ -171,6 +172,10 @@ const App = () => {
             <Route
               path="users"
               element={canManageUsers ? <UserList /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="users/new"
+              element={canManageUsers ? <UserCreateForm /> : <Navigate to="/admin" />}
             />
             <Route
               path="users/:id/edit"

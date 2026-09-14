@@ -73,6 +73,9 @@ const UserList = () => {
     <section>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
         <h3 style={{ margin: 0 }}>Usuarios</h3>
+        <button type="button" onClick={() => navigate("/admin/users/new")} style={{ width: "auto" }}>
+          Nuevo usuario
+        </button>
       </div>
       <p>Cuentas registradas en el sitio — clientes de la tienda y staff del panel.</p>
 
@@ -95,6 +98,7 @@ const UserList = () => {
           <tr>
             <th>Nombre</th>
             <th>Correo</th>
+            <th>Teléfono</th>
             <th>Rol</th>
             <th>Verificado</th>
             <th>Registrado</th>
@@ -104,7 +108,7 @@ const UserList = () => {
         <tbody>
           {!isLoading && filteredUsers.length === 0 ? (
             <tr>
-              <td colSpan={6}>Sin usuarios registrados.</td>
+              <td colSpan={7}>Sin usuarios registrados.</td>
             </tr>
           ) : null}
           {filteredUsers.map((u) => (
@@ -114,6 +118,7 @@ const UserList = () => {
                 {u._id === currentUserId ? " (tú)" : ""}
               </td>
               <td>{u.email}</td>
+              <td>{u.phone || "—"}</td>
               <td>
                 <span className={`badge badge-${ROLE_BADGE_COLORS[u.role] || "yellow"}`}>
                   {ROLE_LABELS[u.role] || u.role}

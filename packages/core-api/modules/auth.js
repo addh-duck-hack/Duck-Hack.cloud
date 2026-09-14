@@ -46,6 +46,16 @@ const userSchema = new mongoose.Schema({
     enum: Object.values(ROLES),
     default: ROLES.CUSTOMER,
   },
+  // Opcional a propósito — ni /register (autoservicio) ni el alta de staff
+  // desde el panel (POST /) lo exigen. Sin validación de formato (mismo
+  // criterio que Order.customerPhone en modules/orders.js): los números
+  // vienen en formatos muy distintos según el país, un regex fijo rechazaría
+  // casos válidos.
+  phone: {
+    type: String,
+    trim: true,
+    maxlength: 40,
+  },
   profileImage: {
     type: String, // Almacena la ruta de la imagen subida
   },
@@ -104,6 +114,11 @@ const validateRegisterPayload = (sendError) => (req, res, next) => {
     return sendError(res, 400, "VALIDATION_ERROR", "La contraseña debe tener al menos 6 caracteres.");
   }
 
+  // Opcional — sin formato fijo, ver comentario en el schema.
+  if (req.body?.phone !== undefined) {
+    req.body.phone = asTrimmedString(req.body.phone);
+  }
+
   req.body.name = name;
   req.body.email = email;
   req.body.password = password;
@@ -123,8 +138,47 @@ const validateLoginPayload = (sendError) => (req, res, next) => {
   return next();
 };
 
+// Solo para POST / (alta de staff desde el panel, ver más abajo) — a
+// diferencia de validateRegisterPayload (POST /register, autoservicio,
+// siempre role: customer), aquí sí se acepta `role` porque quien crea la
+// cuenta ya es staff autenticado, no el propio dueño de la cuenta.
+const validateCreateStaffPayload = (sendError) => (req, res, next) => {
+  const name = asTrimmedString(req.body?.name);
+  const email = asTrimmedString(req.body?.email).toLowerCase();
+  const password = asTrimmedString(req.body?.password);
+  const role = asTrimmedString(req.body?.role);
+
+  if (!name) return sendError(res, 400, "VALIDATION_ERROR", "El nombre es requerido.");
+  if (name.length < 2 || name.length > 80) {
+    return sendError(res, 400, "VALIDATION_ERROR", "El nombre debe tener entre 2 y 80 caracteres.");
+  }
+
+  if (!email) return sendError(res, 400, "VALIDATION_ERROR", "El correo electrónico es requerido.");
+  if (!validateEmail(email)) return sendError(res, 400, "VALIDATION_ERROR", "El correo electrónico no es válido.");
+
+  if (!password) return sendError(res, 400, "VALIDATION_ERROR", "La contraseña es requerida.");
+  if (password.length < 6) {
+    return sendError(res, 400, "VALIDATION_ERROR", "La contraseña debe tener al menos 6 caracteres.");
+  }
+
+  if (!role || !isValidRole(role)) {
+    return sendError(res, 400, "INVALID_ROLE", "Rol no válido");
+  }
+
+  // Opcional — sin formato fijo, ver comentario en el schema.
+  if (req.body?.phone !== undefined) {
+    req.body.phone = asTrimmedString(req.body.phone);
+  }
+
+  req.body.name = name;
+  req.body.email = email;
+  req.body.password = password;
+  req.body.role = role;
+  return next();
+};
+
 const validateUpdateUserPayload = (sendError) => (req, res, next) => {
-  const { name, email, role } = req.body || {};
+  const { name, email, phone, role } = req.body || {};
 
   if (email !== undefined) {
     return sendError(res, 400, "EMAIL_CHANGE_NOT_ALLOWED", "El correo electrónico no puede modificarse.");
@@ -137,6 +191,12 @@ const validateUpdateUserPayload = (sendError) => (req, res, next) => {
       return sendError(res, 400, "VALIDATION_ERROR", "El nombre debe tener entre 2 y 80 caracteres.");
     }
     req.body.name = normalizedName;
+  }
+
+  // Opcional — a diferencia de `name`, sí se puede mandar vacío para borrar
+  // el teléfono guardado.
+  if (phone !== undefined) {
+    req.body.phone = asTrimmedString(phone);
   }
 
   if (role !== undefined) {
@@ -210,14 +270,14 @@ function registerRoutes(app, ctx) {
 
   router.post("/register", registerRateLimiter, validateRegisterPayload(sendError), async (req, res) => {
     try {
-      const { name, email, password } = req.body;
+      const { name, email, password, phone } = req.body;
 
       const existing = await User.findOne({ email });
       if (existing) {
         return sendError(res, 409, "EMAIL_ALREADY_REGISTERED", "El correo ya está registrado");
       }
 
-      const user = new User({ name, email, password, role: ROLES.CUSTOMER });
+      const user = new User({ name, email, password, phone, role: ROLES.CUSTOMER });
       await user.save();
       const token = signEmailVerificationToken({ id: user._id });
 
@@ -290,11 +350,14 @@ function registerRoutes(app, ctx) {
         const actorRole = req.user.role;
         const actorId = String(req.user.id);
 
-        const { name, role } = req.body;
+        const { name, phone, role } = req.body;
 
         const updateData = {};
         if (name !== undefined) {
           updateData.name = name;
+        }
+        if (phone !== undefined) {
+          updateData.phone = phone;
         }
 
         if (req.savedImagePath) {
@@ -379,9 +442,53 @@ function registerRoutes(app, ctx) {
     }
   );
 
+  // Alta de staff desde el panel (mismo criterio que POST / en
+  // packages/core-api/modules/orders.js: la versión "staff, autenticado" de
+  // un POST /register público). A diferencia de /register, la cuenta entra
+  // ya verificada (isVerified: true) porque quien la crea es un admin que le
+  // entrega la contraseña directo a la persona, no ella registrándose sola —
+  // no hace falta correo de verificación de por medio.
+  router.post(
+    "/",
+    verifyToken,
+    authorizeRoles(ROLES.STORE_ADMIN, ROLES.SUPER_ADMIN),
+    validateCreateStaffPayload(sendError),
+    async (req, res) => {
+      try {
+        const { name, email, password, role, phone } = req.body;
+        const actorRole = req.user.role;
+
+        // Mismo límite que en PUT /:id: store_admin no puede adjudicarle
+        // super_admin a nadie, ni de nueva cuenta.
+        if (actorRole === ROLES.STORE_ADMIN && role === ROLES.SUPER_ADMIN) {
+          return sendError(res, 403, "FORBIDDEN_ASSIGN_ROLE", "No tienes permisos para asignar este rol.");
+        }
+
+        const existing = await User.findOne({ email });
+        if (existing) {
+          return sendError(res, 409, "EMAIL_ALREADY_REGISTERED", "El correo ya está registrado");
+        }
+
+        const user = new User({ name, email, password, role, phone, isVerified: true });
+        await user.save();
+
+        res.status(201).json({ message: "Usuario creado correctamente.", user: sanitizeUser(user) });
+      } catch (error) {
+        if (error.name === "ValidationError") {
+          const messages = Object.values(error.errors).map((e) => e.message).join(", ");
+          return sendError(res, 400, "VALIDATION_ERROR", messages);
+        }
+        if (error.code === 11000) {
+          return sendError(res, 409, "EMAIL_ALREADY_REGISTERED", "El correo ya está registrado");
+        }
+        return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al crear el usuario");
+      }
+    }
+  );
+
   router.get("/", verifyToken, authorizeRoles(ROLES.STORE_ADMIN, ROLES.SUPER_ADMIN), async (req, res) => {
     try {
-      const users = await User.find().select("_id name email role isVerified createdAt");
+      const users = await User.find().select("_id name email phone role isVerified createdAt");
       res.json(users);
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al obtener usuarios");

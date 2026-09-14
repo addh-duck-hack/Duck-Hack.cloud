@@ -21,6 +21,7 @@ const UserForm = () => {
 
   const [user, setUser] = useState(null);
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [role, setRole] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -39,6 +40,7 @@ const UserForm = () => {
       const response = await axios.get(`${baseUrl}/api/users/${id}`, { headers: getAuthHeaders() });
       setUser(response.data);
       setName(response.data?.name || "");
+      setPhone(response.data?.phone || "");
       setRole(response.data?.role || "");
     } catch (err) {
       setError(err.response?.data?.error?.message || "No fue posible cargar el usuario.");
@@ -60,6 +62,7 @@ const UserForm = () => {
     try {
       const payload = {};
       if (name !== user.name) payload.name = name;
+      if (phone !== (user.phone || "")) payload.phone = phone;
       // Solo se manda `role` si de verdad cambió: PUT /:id dispara
       // CANNOT_CHANGE_OWN_ROLE en cuanto ve `role` en el body de tu propia
       // cuenta, aunque el valor sea el mismo que ya tenías (ver auth.js).
@@ -135,6 +138,17 @@ const UserForm = () => {
             required
             minLength={2}
             maxLength={80}
+          />
+        </label>
+
+        <label>
+          Teléfono (opcional)
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            maxLength={40}
+            placeholder="55 1234 5678"
           />
         </label>
 
