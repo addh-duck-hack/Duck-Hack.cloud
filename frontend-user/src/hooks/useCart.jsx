@@ -27,6 +27,22 @@ const optionsKey = (options) =>
 
 const lineKey = (id, options) => `${id}|${optionsKey(options) || '—'}`;
 
+// Mismo localStorage key que escriben LoginUser.jsx y CheckoutAccountStep.jsx
+// al iniciar sesión. Si existe, se manda como Bearer en el checkout público
+// para que el backend vincule el pedido a la cuenta (packages/core-api/
+// modules/orders.js#attachOptionalCustomer) — es puramente opcional: sin
+// token, con uno vencido/inválido, o si el usuario nunca inició sesión
+// (p.ej. solo se registró, que no deja token porque falta verificar el
+// correo), el pedido se crea igual como invitado, sin error.
+const getCheckoutAuthHeader = () => {
+  try {
+    const token = localStorage.getItem('duckhack_customer_token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+};
+
 export const formatOptions = (options) =>
   Object.entries(options || {})
     .filter(([, value]) => value)
@@ -121,7 +137,7 @@ export const CartProvider = ({ children }) => {
 
       const data = await apiFetch('/api/orders/public', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getCheckoutAuthHeader() },
         body: JSON.stringify(payload),
       });
       return data.order;
