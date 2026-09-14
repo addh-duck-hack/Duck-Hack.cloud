@@ -54,10 +54,10 @@ const App = () => {
                   <Route path="/carrito" element={<Cart />} />
                   <Route path="/legal-notice" element={<LegalNotice />} />
                   <Route path="/privacy-policy" element={<PrivacyNotice />} />
+                  <Route path="/login" element={<LoginUser />} />
+                  <Route path="/register" element={<RegisterUser />} />
                 </Route>
                 <Route path="/users/verify" element={<VerifyUser />} />
-                <Route path="/login" element={<LoginUser />} />
-                <Route path="/register" element={<RegisterUser />} />
               </Routes>
             )}
           </div>

@@ -9,9 +9,9 @@ import { Link } from 'react-router-dom';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { useStoreConfig, resolveStoreImageUrl } from '../hooks/useStoreConfig';
 import { pickList } from '../utils/storeConfigLists';
-import { formatMxn } from '../hooks/useCart';
 import RichText from './RichText';
 import { BrandSeal } from './BrandMarks';
+import RandomProducts from './RandomProducts';
 import './Inicio.css';
 
 const SLIDES = [
@@ -53,13 +53,6 @@ const METRICS = [
   { value: '48 h', label: 'del tueste a tu envío' },
 ];
 
-const PLANS = [
-  { name: 'Tacita 250 g', price: '180', featured: false, extraFeatures: ['Molienda a tu método', 'Notas a panela y cacao'] },
-  { name: 'Tacita 500 g', price: '320', originalPrice: '340', featured: true, extraFeatures: ['Rinde ~35 tazas', 'Empaque con válvula'] },
-  { name: 'Tacita 1 kg', price: '580', featured: false, extraFeatures: ['Grano entero', 'Mejor precio por gramo'] },
-  { name: 'Suscripción', price: '300', featured: false, extraFeatures: ['500 g al mes', 'Rotación de lotes'] },
-];
-
 const ALLIES = [
   { name: 'Café Corriente', rubro: 'Cafetería · Puebla' },
   { name: 'La Borra Lenta', rubro: 'Cafetería · CDMX, Roma' },
@@ -87,7 +80,6 @@ const Inicio = () => {
   );
   const steps = useMemo(() => pickList(config?.commands, STEPS), [config]);
   const metrics = useMemo(() => pickList(config?.metrics, METRICS), [config]);
-  const plans = useMemo(() => pickList(config?.pricingPlans, PLANS).slice(0, 4), [config]);
   const allies = useMemo(() => pickList(config?.testimonials, ALLIES).slice(0, 6), [config]);
 
   // Logo del admin (StoreConfig.logoUrl) dentro del disco del hero; si no hay
@@ -196,30 +188,13 @@ const Inicio = () => {
 
       <hr className="rule" />
 
-      {/* ---- Presentaciones teaser ---- */}
+      {/* ---- Descubre: productos al azar ---- */}
       <div className="section-head">
-        <span className="kicker">Presentaciones</span>
-        <h2>Elige tu Tacita</h2>
+        <span className="kicker">Descubre</span>
+        <h2>Prueba algo distinto</h2>
       </div>
-      <div className="pres">
-        {plans.map((p) => (
-          <Link className={`pres-card ${p.featured ? 'feat' : ''}`} to="/precios" key={p.name}>
-            {p.featured && <span className="pres-tag">La favorita</span>}
-            <h3>{p.name}</h3>
-            <div className="pres-price">
-              {p.price ? formatMxn(p.price) : 'Cotiza'}
-              {p.originalPrice && <span className="was">{formatMxn(p.originalPrice)}</span>}
-            </div>
-            {p.extraFeatures?.length > 0 && (
-              <ul>
-                {p.extraFeatures.slice(0, 3).map((f) => (
-                  <li key={f}>{f}</li>
-                ))}
-              </ul>
-            )}
-          </Link>
-        ))}
-      </div>
+      <RandomProducts count={4} />
+      <Link className="btn" to="/tienda" style={{ marginTop: '18px' }}>Ver toda la carta →</Link>
 
       <hr className="rule" />
 

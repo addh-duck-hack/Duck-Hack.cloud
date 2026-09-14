@@ -1,15 +1,17 @@
 .auth-page {
-  /* border-box: sin esto el padding se suma a min-height y siempre deja
-     ~80px de scroll vertical aunque el contenido quepa de sobra. */
+  /* Antes era una pantalla completa aparte (min-height: 100vh) con su propio
+     header de marca — ahora vive dentro de AppShell (nav + footer ya puestos
+     por el layout, ver App.jsx), así que solo centra la tarjeta en el
+     ancho normal de contenido. */
   box-sizing: border-box;
-  min-height: 100vh;
+  max-width: var(--shell-max);
+  width: 100%;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: 1.6rem;
-  padding: 40px 16px;
-  background: var(--ink);
+  padding: 24px 0 40px;
 }
 
 .auth-card {

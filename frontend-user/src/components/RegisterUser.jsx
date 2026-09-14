@@ -1,14 +1,9 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { apiFetch } from "../utils/apiClient";
-import logo from "../assets/logo.png";
-import { useStoreConfig, resolveStoreImageUrl, handleImageFallback } from "../hooks/useStoreConfig";
 import "./Auth.css";
 
 const RegisterUser = () => {
-  const { config } = useStoreConfig();
-  const logoSrc = resolveStoreImageUrl(config?.logoUrl) || logo;
-  const brandName = config?.storeName || "Café Tacita";
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -37,10 +32,6 @@ const RegisterUser = () => {
 
   return (
     <section className="auth-page">
-      <Link to="/" className="auth-brand">
-        <img src={logoSrc} alt={brandName} onError={handleImageFallback(logo)} />
-        <span>{brandName}</span>
-      </Link>
       <div className="auth-card">
         <h2>Crear cuenta</h2>
         <p>Regístrate para guardar pedidos y avanzar más rápido en checkout.</p>

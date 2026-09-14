@@ -48,7 +48,7 @@ const Footer = () => {
           <div className="foot-col">
             <h4>Tienda</h4>
             <Link to="/tienda">Catálogo</Link>
-            <Link to="/precios">Presentaciones</Link>
+            <Link to="/precios">Descubre</Link>
             <Link to="/carrito">Canasta</Link>
           </div>
           <div className="foot-col">

@@ -13,7 +13,7 @@ import './AppShell.css';
 const NAV_ITEMS = [
   { path: '/', label: 'Inicio', end: true },
   { path: '/tienda', label: 'Tienda' },
-  { path: '/precios', label: 'Presentaciones' },
+  { path: '/login', label: 'Mi cuenta' },
   { path: '/servicios', label: 'El proceso' },
   { path: '/nosotros', label: 'Nuestra raíz' },
   { path: '/clientes', label: 'Cafeterías' },
