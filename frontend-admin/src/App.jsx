@@ -27,8 +27,19 @@ import InventoryForm from "./components/InventoryForm";
 import OrderList from "./components/OrderList";
 import OrderForm from "./components/OrderForm";
 import OrderDetail from "./components/OrderDetail";
+import UserList from "./components/UserList";
+import UserCreateForm from "./components/UserCreateForm";
+import UserForm from "./components/UserForm";
 import { StoreConfigProvider } from "./hooks/useStoreConfig";
-import { ROLES, STAFF_ROLES, STORE_CONFIG_ROLES, AGENCY_ROLES, CATALOG_ROLES, ORDER_ROLES } from "./utils/roles";
+import {
+  ROLES,
+  STAFF_ROLES,
+  STORE_CONFIG_ROLES,
+  AGENCY_ROLES,
+  CATALOG_ROLES,
+  ORDER_ROLES,
+  USER_MANAGEMENT_ROLES,
+} from "./utils/roles";
 import './index.css';
 
 const App = () => {
@@ -39,6 +50,7 @@ const App = () => {
   const canManageAgencyClients = !!token && AGENCY_ROLES.includes(role);
   const canManageCatalog = !!token && CATALOG_ROLES.includes(role);
   const canManageOrders = !!token && ORDER_ROLES.includes(role);
+  const canManageUsers = !!token && USER_MANAGEMENT_ROLES.includes(role);
 
   return (
     <StoreConfigProvider>
@@ -156,6 +168,18 @@ const App = () => {
             <Route
               path="orders/:id"
               element={canManageOrders ? <OrderDetail /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="users"
+              element={canManageUsers ? <UserList /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="users/new"
+              element={canManageUsers ? <UserCreateForm /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="users/:id/edit"
+              element={canManageUsers ? <UserForm /> : <Navigate to="/admin" />}
             />
           </Route>
         </Routes>
