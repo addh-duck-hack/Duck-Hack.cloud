@@ -123,4 +123,9 @@ module.exports = {
   isValidRole,
   ROLES,
   STAFF_ROLES,
+  // Exportado aparte de createAuthMiddleware porque modules/orders.js lo
+  // necesita para un chequeo de token OPCIONAL (checkout público que vincula
+  // el pedido a la cuenta si el comprador inició sesión) — no encaja en
+  // verifyToken, que siempre exige el token y siempre responde error si falta.
+  extractBearerToken,
 };

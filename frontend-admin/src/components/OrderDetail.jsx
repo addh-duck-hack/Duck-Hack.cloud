@@ -86,6 +86,16 @@ const OrderDetail = () => {
         <p>Fecha: {formatDate(order.createdAt)}</p>
         <p>Correo: {order.customerEmail}</p>
         {order.customerPhone ? <p>Teléfono: {order.customerPhone}</p> : null}
+        <p>
+          Cuenta:{" "}
+          {order.customer ? (
+            <span className="badge badge-blue">
+              {order.customer.name || order.customer.email || "vinculada"}
+            </span>
+          ) : (
+            "Invitado (sin cuenta)"
+          )}
+        </p>
         <p>Pago: {PAYMENT_METHOD_LABELS[order.paymentMethod] || order.paymentMethod || "—"}</p>
         {order.shippingAddress ? <p>Dirección de envío: {order.shippingAddress}</p> : null}
         {order.notes ? <p>Notas: {order.notes}</p> : null}

@@ -68,6 +68,7 @@ const OrderList = () => {
             <th>Folio</th>
             <th>Fecha</th>
             <th>Cliente</th>
+            <th>Cuenta</th>
             <th>Artículos</th>
             <th>Pago</th>
             <th>Total</th>
@@ -78,7 +79,7 @@ const OrderList = () => {
         <tbody>
           {!isLoading && orders.length === 0 ? (
             <tr>
-              <td colSpan={8}>Sin pedidos registrados.</td>
+              <td colSpan={9}>Sin pedidos registrados.</td>
             </tr>
           ) : null}
           {orders.map((order) => {
@@ -88,6 +89,13 @@ const OrderList = () => {
                 <td>{order.orderNumber ? `#${order.orderNumber}` : "—"}</td>
                 <td>{formatDate(order.createdAt)}</td>
                 <td>{order.customerName}</td>
+                <td>
+                  {order.customer ? (
+                    <span className="badge badge-blue">Cuenta</span>
+                  ) : (
+                    <span style={{ color: "var(--text-dim, #888)" }}>Invitado</span>
+                  )}
+                </td>
                 <td>{order.items?.length || 0}</td>
                 <td>{PAYMENT_METHOD_LABELS[order.paymentMethod] || "—"}</td>
                 <td>{formatMxn(order.total)}</td>
