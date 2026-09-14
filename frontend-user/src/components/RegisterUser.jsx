@@ -4,7 +4,7 @@ import { apiFetch } from "../utils/apiClient";
 import "./Auth.css";
 
 const RegisterUser = () => {
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", phone: "" });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -18,10 +18,13 @@ const RegisterUser = () => {
     setSuccess("");
 
     try {
+      const payload = { name: form.name, email: form.email, password: form.password };
+      if (form.phone) payload.phone = form.phone;
+
       const data = await apiFetch("/api/users/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
 
       setSuccess(data?.message || "Registro exitoso. Revisa tu correo para verificar tu cuenta.");
@@ -61,6 +64,13 @@ const RegisterUser = () => {
             value={form.password}
             onChange={onChange}
             required
+          />
+          <input
+            type="tel"
+            name="phone"
+            placeholder="Teléfono / WhatsApp (opcional)"
+            value={form.phone}
+            onChange={onChange}
           />
           <button type="submit">Crear cuenta</button>
         </form>

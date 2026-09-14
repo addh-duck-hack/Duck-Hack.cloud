@@ -89,6 +89,7 @@ const Cart = () => {
           ...prev,
           customerName: user.name || prev.customerName,
           customerEmail: user.email || prev.customerEmail,
+          customerPhone: user.phone || prev.customerPhone,
         }));
         setStep(2);
         window.scrollTo(0, 0);
@@ -102,11 +103,12 @@ const Cart = () => {
     window.scrollTo(0, 0);
   };
 
-  const handleAccountContinue = ({ customerName, customerEmail, authenticated, user }) => {
+  const handleAccountContinue = ({ customerName, customerEmail, customerPhone, authenticated, user }) => {
     setForm((prev) => ({
       ...prev,
       customerName: customerName || prev.customerName,
       customerEmail: customerEmail || prev.customerEmail,
+      customerPhone: customerPhone || prev.customerPhone,
     }));
     setAuthUser(authenticated ? user : null);
     setStep(2);

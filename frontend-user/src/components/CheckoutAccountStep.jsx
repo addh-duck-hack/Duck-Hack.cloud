@@ -5,9 +5,9 @@
 // invitado. Reutiliza los mismos endpoints que LoginUser.jsx/RegisterUser.jsx
 // (POST /api/users/login y /api/users/register) — el pedido en sí siempre se
 // manda por POST /api/orders/public (ver useCart.jsx#submitOrder), así que
-// iniciar sesión aquí solo precarga nombre/correo; no vincula el pedido a la
-// cuenta (packages/core-api/modules/orders.js#validateCheckoutExtras borra
-// `customer` de cualquier checkout público, con o sin token).
+// iniciar sesión aquí solo precarga nombre/correo/teléfono; no vincula el
+// pedido a la cuenta (packages/core-api/modules/orders.js#validateCheckoutExtras
+// borra `customer` de cualquier checkout público, con o sin token).
 //
 // Registrarse tampoco deja loguearse de inmediato (el backend exige verificar
 // el correo antes de permitir login, sin atajo), así que después de crear la
@@ -22,7 +22,7 @@ const REGISTER_AUTO_CONTINUE_MS = 1600;
 const CheckoutAccountStep = ({ onGuest, onContinue, onBack }) => {
   const [mode, setMode] = useState('choice'); // 'choice' | 'login' | 'register'
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
-  const [registerForm, setRegisterForm] = useState({ name: '', email: '', password: '' });
+  const [registerForm, setRegisterForm] = useState({ name: '', email: '', password: '', phone: '' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -61,6 +61,7 @@ const CheckoutAccountStep = ({ onGuest, onContinue, onBack }) => {
       onContinue({
         customerName: data?.user?.name || '',
         customerEmail: data?.user?.email || loginForm.email,
+        customerPhone: data?.user?.phone || '',
         authenticated: true,
         user: data?.user || { email: loginForm.email },
       });
@@ -76,14 +77,22 @@ const CheckoutAccountStep = ({ onGuest, onContinue, onBack }) => {
     setError('');
     setIsSubmitting(true);
     try {
+      const payload = { name: registerForm.name, email: registerForm.email, password: registerForm.password };
+      if (registerForm.phone) payload.phone = registerForm.phone;
+
       const data = await apiFetch('/api/users/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(registerForm),
+        body: JSON.stringify(payload),
       });
       setSuccess(data?.message || 'Cuenta creada. Revisa tu correo para verificarla.');
       autoContinueRef.current = setTimeout(() => {
-        onContinue({ customerName: registerForm.name, customerEmail: registerForm.email, authenticated: false });
+        onContinue({
+          customerName: registerForm.name,
+          customerEmail: registerForm.email,
+          customerPhone: registerForm.phone,
+          authenticated: false,
+        });
       }, REGISTER_AUTO_CONTINUE_MS);
     } catch (err) {
       setError(err.message || 'No se pudo crear la cuenta');
@@ -94,7 +103,12 @@ const CheckoutAccountStep = ({ onGuest, onContinue, onBack }) => {
 
   const handleContinueAsGuestNow = () => {
     clearTimeout(autoContinueRef.current);
-    onContinue({ customerName: registerForm.name, customerEmail: registerForm.email, authenticated: false });
+    onContinue({
+      customerName: registerForm.name,
+      customerEmail: registerForm.email,
+      customerPhone: registerForm.phone,
+      authenticated: false,
+    });
   };
 
   if (mode === 'login') {
@@ -156,6 +170,13 @@ const CheckoutAccountStep = ({ onGuest, onContinue, onBack }) => {
           value={registerForm.password}
           onChange={handleRegisterChange}
           required
+        />
+        <input
+          type="tel"
+          name="phone"
+          placeholder="Teléfono / WhatsApp (opcional)"
+          value={registerForm.phone}
+          onChange={handleRegisterChange}
         />
         {error ? <div className="auth-error">{error}</div> : null}
         {success ? (
