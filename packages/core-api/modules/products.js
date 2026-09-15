@@ -5,8 +5,11 @@
 //
 // GET /public y GET /public/:id son las únicas rutas sin auth: las consume el
 // storefront (frontend-user) para la tienda pública. Van montadas ANTES de
-// `router.use(verifyToken)` (mismo criterio que storeConfig.js#GET /public) y
-// siempre filtran isActive:true — nunca exponen un producto dado de baja.
+// `router.use(verifyToken)` (mismo criterio que storeConfig.js#GET /public),
+// siempre filtran isActive:true — nunca exponen un producto dado de baja — y,
+// además, solo devuelven productos con inventario cargado y quantity > 0 (ver
+// filterInStock) — un producto sin registro de inventario se trata como sin
+// existencias, no como "ilimitado".
 const express = require("express");
 const mongoose = require("mongoose");
 const {
@@ -80,6 +83,21 @@ const validatePayload = (sendError) => (req, res, next) => {
   return next();
 };
 
+// Solo se muestran productos con inventario cargado y quantity > 0 — un
+// producto sin registro de inventario (nunca se le dio de alta stock) se
+// considera sin existencias, no "ilimitado" (decisión explícita del
+// negocio). Usado únicamente por GET /public y GET /public/:id — las rutas
+// de staff siguen viendo el catálogo completo para poder gestionarlo.
+const filterInStock = async (Inventory, products) => {
+  if (!Inventory || products.length === 0) return [];
+  const ids = products.map((p) => p._id);
+  const stocked = await Inventory.find({ product: { $in: ids }, quantity: { $gt: 0 } })
+    .select("product")
+    .lean();
+  const stockedIds = new Set(stocked.map((i) => String(i.product)));
+  return products.filter((p) => stockedIds.has(String(p._id)));
+};
+
 function registerRoutes(app, ctx) {
   const { mongooseConnection, verifyToken, authorizeRoles, ROLES, STAFF_ROLES, sendError } = ctx;
   const Product = getOrCreateModel(mongooseConnection, "Product", productSchema);
@@ -104,13 +122,17 @@ function registerRoutes(app, ctx) {
     }
   };
 
-  // ---- rutas públicas (storefront) — sin verifyToken, siempre isActive:true ----
+  // ---- rutas públicas (storefront) — sin verifyToken, siempre isActive:true
+  // y con stock (ver filterInStock) ----
   router.get("/public", async (req, res) => {
     try {
       const filter = { isActive: true };
       if (req.query.category) filter.category = asTrimmedString(req.query.category);
       const products = await Product.find(filter).sort({ name: 1 }).lean();
-      return res.status(200).json({ items: products.map(sanitizeDoc) });
+
+      const Inventory = mongooseConnection.models.Inventory;
+      const inStock = await filterInStock(Inventory, products);
+      return res.status(200).json({ items: inStock.map(sanitizeDoc) });
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al listar productos.");
     }
@@ -120,7 +142,12 @@ function registerRoutes(app, ctx) {
     try {
       const product = await Product.findOne({ _id: req.params.id, isActive: true }).lean();
       if (!product) return sendError(res, 404, "PRODUCT_NOT_FOUND", "Producto no encontrado.");
-      return res.status(200).json(sanitizeDoc(product));
+
+      const Inventory = mongooseConnection.models.Inventory;
+      const [inStock] = await filterInStock(Inventory, [product]);
+      if (!inStock) return sendError(res, 404, "PRODUCT_NOT_FOUND", "Producto no encontrado.");
+
+      return res.status(200).json(sanitizeDoc(inStock));
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al consultar el producto.");
     }

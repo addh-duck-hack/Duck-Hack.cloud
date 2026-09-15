@@ -3,7 +3,15 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png";
-import { ROLES, STORE_CONFIG_ROLES, AGENCY_ROLES, CATALOG_ROLES, ORDER_ROLES, USER_MANAGEMENT_ROLES } from "../utils/roles";
+import {
+  ROLES,
+  ROLE_LABELS,
+  STORE_CONFIG_ROLES,
+  AGENCY_ROLES,
+  CATALOG_ROLES,
+  ORDER_ROLES,
+  USER_MANAGEMENT_ROLES,
+} from "../utils/roles";
 import "./AdminShell.css";
 
 const ROUTE_LABELS = {
@@ -22,6 +30,7 @@ const AdminShell = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const role = localStorage.getItem("role");
+  const name = localStorage.getItem("name");
   const canManageStoreConfig = STORE_CONFIG_ROLES.includes(role);
   const canManageCatalog = CATALOG_ROLES.includes(role);
   const canManageOrders = ORDER_ROLES.includes(role);
@@ -59,6 +68,7 @@ const AdminShell = () => {
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
+    localStorage.removeItem("name");
     navigate("/");
     window.location.reload();
   };
@@ -130,6 +140,11 @@ const AdminShell = () => {
               duckhack-admin://<b>{breadcrumb}</b>
             </span>
           </div>
+          {name ? (
+            <span className="topbar-user">
+              whoami: <b>{name}</b> ({ROLE_LABELS[role] || role})
+            </span>
+          ) : null}
           <div className="chrome-dots">
             <span className="c1" />
             <span className="c2" />
