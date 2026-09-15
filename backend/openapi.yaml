@@ -1468,8 +1468,10 @@ paths:
       tags: [Products]
       summary: Catálogo público (storefront)
       description: >
-        Sin autenticación. Solo productos con `isActive: true`. Filtro opcional
-        `?category=`. Consumido por frontend-user para la tienda pública.
+        Sin autenticación. Solo productos con `isActive: true` Y con inventario
+        cargado con quantity > 0 — un producto sin registro de inventario se
+        considera sin existencias, no se muestra. Filtro opcional `?category=`.
+        Consumido por frontend-user para la tienda pública.
       parameters:
         - in: query
           name: category
@@ -1494,7 +1496,10 @@ paths:
     get:
       tags: [Products]
       summary: Obtener un producto público (storefront)
-      description: Sin autenticación. 404 tanto si el producto no existe como si está inactivo (no distingue, para no filtrar información).
+      description: >
+        Sin autenticación. 404 tanto si el producto no existe, como si está
+        inactivo, como si no tiene existencias — no distingue entre los tres,
+        para no filtrar información.
       parameters:
         - $ref: "#/components/parameters/ProductIdParam"
       responses:
@@ -2053,7 +2058,12 @@ paths:
     put:
       tags: [Orders]
       summary: Actualizar estado/notas/dirección de envío de un pedido
-      description: Solo super_admin, store_admin, collaborator. items/customer no se reabren después de creado.
+      description: >
+        Solo super_admin, store_admin, collaborator. items/customer no se reabren
+        después de creado. Si `status` transiciona hacia "confirmed", se descuenta
+        el inventario de cada producto del pedido; si transiciona fuera de
+        "confirmed" (cancelado, regresado a pending, etc.), el stock se restaura
+        automáticamente. No bloquea la actualización si el inventario queda en 0.
       security:
         - bearerAuth: []
       parameters:
@@ -2109,6 +2119,46 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Pedido no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/orders/{id}/pdf:
+    get:
+      tags: [Orders]
+      summary: Descargar el comprobante del pedido en PDF
+      description: >
+        Accesible por cualquier rol de staff, o por el cliente dueño del pedido
+        (cuenta vinculada vía `customer`, o cuenta cuyo correo coincide con
+        `customerEmail` — mismo criterio que GET /api/orders/mine). Un pedido de
+        invitado sin cuenta no se puede descargar por aquí. El PDF se genera al
+        vuelo a partir del pedido y los datos de la tienda (StoreConfig) —
+        nunca se guarda en disco.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderIdParam"
+      responses:
+        "200":
+          description: Comprobante en PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: No eres staff ni el dueño del pedido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Pedido no encontrado
           content:

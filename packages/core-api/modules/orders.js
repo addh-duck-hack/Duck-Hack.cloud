@@ -27,6 +27,7 @@ const { createRateLimiter } = require("../lib/rateLimit");
 const { sendMail } = require("../lib/mailer");
 const { verifyAccessToken } = require("../lib/jwt");
 const { extractBearerToken, ROLES: AUTH_ROLES } = require("../lib/authMiddleware");
+const { recalculateStatus } = require("./inventory");
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ORDER_STATUSES = ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"];
@@ -355,8 +356,45 @@ const sendCheckoutEmails = async (order) => {
   });
 };
 
+// Ajusta el inventario de cada producto del pedido — sign=-1 al confirmar
+// (se descuenta lo vendido), sign=+1 al salir de "confirmed" hacia cualquier
+// otro estado (se regresa el stock — decisión explícita: un pedido
+// confirmado por error, o cancelado después de confirmado, no debe dejar el
+// inventario descuadrado). Nunca bloquea la actualización del pedido, que ya
+// se guardó antes de llamar esto — best-effort: si Inventory no está
+// montado, o un producto no tiene registro de inventario, ese renglón
+// simplemente se ignora.
+const adjustInventoryForOrder = async (mongooseConnection, order, sign) => {
+  const Inventory = mongooseConnection.models.Inventory;
+  if (!Inventory) return;
+
+  for (const item of order.items) {
+    try {
+      const updated = await Inventory.findOneAndUpdate(
+        { product: item.product },
+        { $inc: { quantity: sign * item.quantity } },
+        { new: true }
+      );
+      if (!updated) continue; // producto sin registro de inventario — nada que ajustar
+
+      // Nunca queda en negativo: si varios pedidos se confirmaron con más
+      // unidades de las que había, se recorta a 0 en vez de mostrar un stock
+      // imposible.
+      const clampedQuantity = Math.max(0, updated.quantity);
+      const status = recalculateStatus(clampedQuantity, updated.lowStockThreshold || 0);
+      if (clampedQuantity !== updated.quantity || status !== updated.status) {
+        updated.quantity = clampedQuantity;
+        updated.status = status;
+        await updated.save();
+      }
+    } catch (error) {
+      console.error(`No fue posible ajustar el inventario del producto ${item.product}:`, error.message);
+    }
+  }
+};
+
 function registerRoutes(app, ctx) {
-  const { mongooseConnection, verifyToken, authorizeRoles, ROLES, STAFF_ROLES, sendError } = ctx;
+  const { mongooseConnection, verifyToken, authorizeRoles, ROLES, STAFF_ROLES, sendError, generateOrderPdf } = ctx;
   const Order = getOrCreateModel(mongooseConnection, "Order", orderSchema);
 
   const router = express.Router();
@@ -514,17 +552,69 @@ function registerRoutes(app, ctx) {
     validateUpdatePayload(sendError),
     async (req, res) => {
       try {
+        const previousStatus = req.order.status;
         const allowedFields = ["status", "shippingAddress", "notes"];
         for (const key of allowedFields) {
           if (req.body[key] !== undefined) req.order[key] = req.body[key];
         }
         await req.order.save();
+
+        // Ajuste de inventario SOLO en la transición hacia/desde "confirmed"
+        // — nunca al volver a guardar un pedido que ya estaba (o sigue sin
+        // estar) confirmado. Ver adjustInventoryForOrder arriba.
+        const nowConfirmed = req.order.status === "confirmed";
+        const wasConfirmed = previousStatus === "confirmed";
+        if (nowConfirmed !== wasConfirmed) {
+          await adjustInventoryForOrder(mongooseConnection, req.order, nowConfirmed ? -1 : 1);
+        }
+
         return res.status(200).json({ message: "Pedido actualizado.", order: sanitizeDoc(req.order) });
       } catch (error) {
         return handleMongooseError(sendError, res, error, "Error al actualizar el pedido.");
       }
     }
   );
+
+  // Comprobante del pedido en PDF — mismo criterio que
+  // GET /api/invoices/:id/pdf (facturación interna de Duck-Hack), pero con
+  // los datos de ESTA tienda (StoreConfig), no los de Duck-Hack. Accesible
+  // por staff o por el dueño del pedido (cuenta vinculada o mismo correo,
+  // igual que GET /mine) — un pedido de invitado sin cuenta no se puede
+  // descargar por aquí (no hay con qué autenticarse como "el invitado").
+  router.get("/:id/pdf", validateObjectIdParam("id"), async (req, res) => {
+    try {
+      const order = await Order.findById(req.params.id);
+      if (!order) return sendError(res, 404, "ORDER_NOT_FOUND", "Pedido no encontrado.");
+
+      const isStaff = STAFF_ROLES.includes(req.user.role);
+      let isOwner = false;
+      if (!isStaff) {
+        if (order.customer && String(order.customer) === String(req.user.id)) {
+          isOwner = true;
+        } else {
+          const User = mongooseConnection.models.User;
+          const me = User && (await User.findById(req.user.id).select("email"));
+          if (me?.email && me.email === order.customerEmail) isOwner = true;
+        }
+      }
+      if (!isStaff && !isOwner) {
+        return sendError(res, 403, "FORBIDDEN", "No tienes permisos para ver este pedido.");
+      }
+
+      if (!generateOrderPdf) {
+        return sendError(res, 500, "PDF_GENERATOR_NOT_AVAILABLE", "La generación de comprobantes no está disponible.");
+      }
+
+      const StoreConfig = mongooseConnection.models.StoreConfig;
+      const storeConfig = StoreConfig ? await StoreConfig.findOne({ singletonKey: "default" }).lean() : null;
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `inline; filename="pedido-${order.orderNumber ?? order._id}.pdf"`);
+      generateOrderPdf(order, storeConfig, res);
+    } catch (error) {
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al generar el comprobante.");
+    }
+  });
 
   router.delete("/:id", validateObjectIdParam("id"), canWrite, ensureOrderExists, async (req, res) => {
     try {

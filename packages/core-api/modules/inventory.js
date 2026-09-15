@@ -169,4 +169,8 @@ module.exports = {
   name: "inventory",
   registerRoutes,
   models: { Inventory: inventorySchema },
+  // Reutilizado por modules/orders.js al descontar/restaurar stock cuando un
+  // pedido entra o sale de "confirmed" — mismo criterio de cálculo que este
+  // módulo usa para su propio CRUD, para no tener dos copias de la regla.
+  recalculateStatus,
 };
