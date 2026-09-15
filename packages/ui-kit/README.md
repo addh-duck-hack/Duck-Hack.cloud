@@ -3,8 +3,9 @@
 React components shared between `frontend-admin` and `frontend-user`. Today
 those two apps share zero code (not even a `Loader`) — this package exists so
 a component built for one store's admin/storefront UI can be reused by every
-other store's app instead of being copy-pasted per client. See
-`docs/adr-monorepo-shared-packages.md` for the wider decision this is part of.
+other store's app instead of being copy-pasted per client. The wider decision
+this is part of is recorded as an ADR in the project's Obsidian vault, not in
+this repo.
 
 ## Usage
 

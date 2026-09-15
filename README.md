@@ -180,20 +180,17 @@ La API devuelve errores en formato uniforme:
 ## Documentación complementaria
 
 - API OpenAPI: `backend/openapi.yaml`
-- Contratos para Notion: `docs/notion-interface-contracts.md`
-- Handbook técnico de API (BL-015): `docs/bl-015-api-handbook.md`
-- Plantilla Notion para cambios de API: `docs/notion-bl015-api-change-template.md`
-- Smoke tests de flujo (BL-014): `docs/bl-014-test-flow.md`
+- Arquitectura, ADRs, contratos de API y backlog histórico: vault de Obsidian del proyecto (ya no viven en este repo).
 
 ## Reutilización de módulos entre tiendas
 
 La infraestructura de tenant compartido (Modelo B: `backend/utils/dbConnectionManager.js`,
 `backend/scripts/tenant-bootstrap.mongo.js`, variables `TENANT_*`) que documentaban antes
-las secciones INF-001/INF-002/BE-001 fue removida — ver
-[`docs/adr-monorepo-shared-packages.md`](docs/adr-monorepo-shared-packages.md). Cada tienda
-sigue con su propio backend/DB/despliegue; la reutilización de código entre tiendas se
-resuelve ahora con los paquetes de workspace en `packages/core-api` y `packages/ui-kit`
-(ver sus respectivos `README.md`).
+las secciones INF-001/INF-002/BE-001 fue removida — la decisión que la reemplaza (backends
+separados por tienda + paquetes de workspace compartidos) está documentada en el vault de
+Obsidian del proyecto, no en este repo. Cada tienda sigue con su propio backend/DB/despliegue;
+la reutilización de código entre tiendas se resuelve con los paquetes de workspace en
+`packages/core-api` y `packages/ui-kit` (ver sus respectivos `README.md`).
 
 ## Publicar tiendas: flujo de ramas (`main` → `release-<dominio>`)
 
