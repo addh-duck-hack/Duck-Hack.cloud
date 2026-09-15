@@ -28,7 +28,7 @@ const { createRateLimiter } = require("../lib/rateLimit");
 const { sendMail } = require("../lib/mailer");
 const { verifyAccessToken } = require("../lib/jwt");
 const { extractBearerToken, ROLES: AUTH_ROLES } = require("../lib/authMiddleware");
-const { orderConfirmationEmailTemplate } = require("../lib/emailTemplates");
+const { orderConfirmationEmailTemplate, orderNotificationEmailTemplate } = require("../lib/emailTemplates");
 const { recalculateStatus } = require("./inventory");
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -75,20 +75,6 @@ const normalizeShippingAddress = (raw) => {
     if (source[field] !== undefined) normalized[field] = asTrimmedString(source[field]);
   }
   return normalized;
-};
-
-// Junta los campos en líneas legibles para el correo a la tienda (ver
-// sendCheckoutEmails más abajo) — nunca se manda tal cual al cliente en el
-// pedido, ese ya viaja estructurado.
-const formatShippingAddress = (addr) => {
-  if (!addr) return "";
-  const line1 = [addr.street, addr.exteriorNumber].filter(Boolean).join(" ") +
-    (addr.interiorNumber ? ` Int. ${addr.interiorNumber}` : "");
-  const line2 = [addr.neighborhood, addr.city, addr.state].filter(Boolean).join(", ");
-  const line3 = addr.zipCode ? `C.P. ${addr.zipCode}` : "";
-  return [addr.recipientName, line1, line2, line3, addr.phone ? `Tel: ${addr.phone}` : ""]
-    .filter(Boolean)
-    .join("\n");
 };
 
 const orderItemSchema = new mongoose.Schema(
@@ -387,19 +373,14 @@ const sendCheckoutEmails = async (order, { mongooseConnection, generateOrderPdf 
     attachments,
   });
 
-  const lines = order.items.map((i) => `- ${i.productName} ×${i.quantity} — $${i.subtotal.toFixed(2)}`).join("\n");
   const storeTo = process.env.CONTACT_EMAIL_TO || process.env.EMAIL_USER;
   if (!storeTo) return;
+  const notification = orderNotificationEmailTemplate({ order, storeConfig, logoAbsoluteUrl });
   await sendMail({
     to: storeTo,
     subject: `Nuevo pedido #${order.orderNumber} — ${order.customerName}`,
-    text:
-      `Nuevo pedido del storefront.\n\n` +
-      `Cliente: ${order.customerName} <${order.customerEmail}>${order.customerPhone ? ` · ${order.customerPhone}` : ""}\n` +
-      `Método de pago: ${order.paymentMethod}\n` +
-      (order.shippingAddress ? `Dirección de envío:\n${formatShippingAddress(order.shippingAddress)}\n` : "") +
-      (order.notes ? `Notas: ${order.notes}\n` : "") +
-      `\n${lines}\n\nTotal: $${order.total.toFixed(2)}`,
+    text: notification.text,
+    html: notification.html,
   });
 };
 
