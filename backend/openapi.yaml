@@ -361,6 +361,115 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
+  /api/users/{id}/addresses:
+    post:
+      tags: [Users]
+      summary: Agregar una dirección a la libreta
+      description: Solo el dueño de la cuenta. La primera dirección de la cuenta siempre queda como isDefault:true, aunque no se pida explícito.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddressCreateRequest"
+      responses:
+        "201":
+          description: Dirección agregada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/UserNotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/users/{id}/addresses/{addressId}:
+    put:
+      tags: [Users]
+      summary: Editar una dirección de la libreta
+      description: Solo el dueño de la cuenta. Marcar isDefault:true le quita esa marca a las demás direcciones de la cuenta.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserIdParam"
+        - in: path
+          name: addressId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddressUpdateRequest"
+      responses:
+        "200":
+          description: Dirección actualizada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Usuario o dirección no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    delete:
+      tags: [Users]
+      summary: Eliminar una dirección de la libreta
+      description: Solo el dueño de la cuenta. Si se borra la dirección default y quedan otras, la primera que quede pasa a ser la nueva default.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserIdParam"
+        - in: path
+          name: addressId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Dirección eliminada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Usuario o dirección no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
   /api/mail/send-email:
     post:
       tags: [Mail]
@@ -2321,10 +2430,11 @@ components:
           type: string
           nullable: true
           description: Opcional, sin formato fijo (números de distintos países).
-        address:
-          type: string
-          nullable: true
-          description: Una sola dirección guardada (texto libre), opcional.
+        addresses:
+          type: array
+          description: Libreta de direcciones — se gestiona con POST/PUT/DELETE /api/users/{id}/addresses[/{addressId}], nunca con PUT /api/users/{id}.
+          items:
+            $ref: "#/components/schemas/Address"
         favorites:
           type: array
           description: >
@@ -2364,6 +2474,52 @@ components:
           type: array
           items:
             type: string
+
+    Address:
+      type: object
+      properties:
+        _id:
+          type: string
+        label:
+          type: string
+          nullable: true
+          description: "Etiqueta opcional (\"Casa\", \"Oficina\")."
+        address:
+          type: string
+        isDefault:
+          type: boolean
+          description: Como mucho una dirección por usuario tiene isDefault:true — es la que precarga el checkout.
+        createdAt:
+          type: string
+          format: date-time
+      required: [_id, address, isDefault]
+
+    AddressCreateRequest:
+      type: object
+      properties:
+        label:
+          type: string
+          maxLength: 60
+        address:
+          type: string
+          maxLength: 500
+        isDefault:
+          type: boolean
+          description: Opcional — la primera dirección de la cuenta siempre queda como default aunque no se mande.
+      required: [address]
+
+    AddressUpdateRequest:
+      type: object
+      description: Todos los campos son opcionales; solo se actualiza lo que se manda.
+      properties:
+        label:
+          type: string
+          maxLength: 60
+        address:
+          type: string
+          maxLength: 500
+        isDefault:
+          type: boolean
 
     UserListItem:
       type: object
@@ -2465,9 +2621,6 @@ components:
         phone:
           type: string
           description: Opcional — mándalo vacío para borrar el teléfono guardado.
-        address:
-          type: string
-          description: Opcional — mándalo vacío para borrar la dirección guardada.
         role:
           $ref: "#/components/schemas/Role"
         profileImage:
