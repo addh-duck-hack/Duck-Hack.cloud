@@ -2484,7 +2484,25 @@ components:
           type: string
           nullable: true
           description: "Etiqueta opcional (\"Casa\", \"Oficina\")."
-        address:
+        recipientName:
+          type: string
+        phone:
+          type: string
+        street:
+          type: string
+        exteriorNumber:
+          type: string
+        interiorNumber:
+          type: string
+          nullable: true
+          description: Único campo del domicilio que es opcional.
+        zipCode:
+          type: string
+        neighborhood:
+          type: string
+        city:
+          type: string
+        state:
           type: string
         isDefault:
           type: boolean
@@ -2492,7 +2510,8 @@ components:
         createdAt:
           type: string
           format: date-time
-      required: [_id, address, isDefault]
+      required:
+        [_id, recipientName, phone, street, exteriorNumber, zipCode, neighborhood, city, state, isDefault]
 
     AddressCreateRequest:
       type: object
@@ -2500,13 +2519,38 @@ components:
         label:
           type: string
           maxLength: 60
-        address:
+        recipientName:
           type: string
-          maxLength: 500
+          maxLength: 200
+        phone:
+          type: string
+          maxLength: 40
+        street:
+          type: string
+          maxLength: 200
+        exteriorNumber:
+          type: string
+          maxLength: 20
+        interiorNumber:
+          type: string
+          maxLength: 20
+          description: Opcional.
+        zipCode:
+          type: string
+          maxLength: 10
+        neighborhood:
+          type: string
+          maxLength: 120
+        city:
+          type: string
+          maxLength: 120
+        state:
+          type: string
+          maxLength: 120
         isDefault:
           type: boolean
           description: Opcional — la primera dirección de la cuenta siempre queda como default aunque no se mande.
-      required: [address]
+      required: [recipientName, phone, street, exteriorNumber, zipCode, neighborhood, city, state]
 
     AddressUpdateRequest:
       type: object
@@ -2515,9 +2559,33 @@ components:
         label:
           type: string
           maxLength: 60
-        address:
+        recipientName:
           type: string
-          maxLength: 500
+          maxLength: 200
+        phone:
+          type: string
+          maxLength: 40
+        street:
+          type: string
+          maxLength: 200
+        exteriorNumber:
+          type: string
+          maxLength: 20
+        interiorNumber:
+          type: string
+          maxLength: 20
+        zipCode:
+          type: string
+          maxLength: 10
+        neighborhood:
+          type: string
+          maxLength: 120
+        city:
+          type: string
+          maxLength: 120
+        state:
+          type: string
+          maxLength: 120
         isDefault:
           type: boolean
 
@@ -3298,6 +3366,36 @@ components:
           readOnly: true
       required: [product, quantity]
 
+    ShippingAddress:
+      type: object
+      description: >
+        Mismo set de campos que Address (User.addresses, ver más abajo) —
+        una dirección guardada se puede copiar tal cual al hacer el pedido.
+        Todos los campos menos interiorNumber son requeridos cuando
+        paymentMethod es "transfer" (ver PublicCheckoutRequest); para
+        "pickup" es opcional por completo.
+      properties:
+        recipientName:
+          type: string
+        phone:
+          type: string
+        street:
+          type: string
+        exteriorNumber:
+          type: string
+        interiorNumber:
+          type: string
+          nullable: true
+          description: Único campo del domicilio que es opcional.
+        zipCode:
+          type: string
+        neighborhood:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+
     Order:
       type: object
       properties:
@@ -3338,7 +3436,7 @@ components:
           type: number
           readOnly: true
         shippingAddress:
-          type: string
+          $ref: "#/components/schemas/ShippingAddress"
         notes:
           type: string
         paymentMethod:
@@ -3380,7 +3478,7 @@ components:
                 minimum: 1
             required: [product, quantity]
         shippingAddress:
-          type: string
+          $ref: "#/components/schemas/ShippingAddress"
         notes:
           type: string
       required: [customerName, customerEmail, items]
@@ -3417,8 +3515,9 @@ components:
           enum: [transfer, pickup]
           default: transfer
         shippingAddress:
-          type: string
-          description: Requerido si paymentMethod es "transfer".
+          allOf:
+            - $ref: "#/components/schemas/ShippingAddress"
+          description: Todos los campos (menos interiorNumber) son requeridos si paymentMethod es "transfer".
         notes:
           type: string
       required: [customerName, customerEmail, items]
@@ -3431,7 +3530,7 @@ components:
           type: string
           enum: [pending, confirmed, processing, shipped, delivered, cancelled]
         shippingAddress:
-          type: string
+          $ref: "#/components/schemas/ShippingAddress"
         notes:
           type: string
 
