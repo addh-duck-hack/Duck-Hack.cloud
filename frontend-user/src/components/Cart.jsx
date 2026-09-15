@@ -282,6 +282,9 @@ const Cart = () => {
   const [showNewAddressForm, setShowNewAddressForm] = useState(false);
   const [isSavingNewAddress, setIsSavingNewAddress] = useState(false);
   const [newAddressError, setNewAddressError] = useState('');
+  // Mientras se refresca la libreta de direcciones (ver goToAccountOrSkip) —
+  // solo importa para deshabilitar "Continuar al pago" y no dar doble clic.
+  const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
 
   const handleFieldChange = (e) => {
     const { name, value } = e.target;
@@ -382,8 +385,14 @@ const Cart = () => {
   };
 
   // Si ya hay sesión (useAuth.jsx), nos saltamos el paso "Tu cuenta" y
-  // precargamos el formulario de envío.
-  const goToAccountOrSkip = () => {
+  // precargamos el formulario de envío. `auth.user.addresses` es la
+  // fotografía de cuando se inició sesión — si el cliente agregó/editó
+  // direcciones después (en "Mi cuenta", en esta sesión o en otra) sin
+  // volver a loguearse, esa copia queda vieja (mismo motivo por el que
+  // MiCuenta.jsx tampoco confía en auth.user y hace su propio GET /:id). Por
+  // eso se trae la libreta fresca del servidor antes de entrar al paso 2, en
+  // vez de leer auth.user.addresses directo.
+  const goToAccountOrSkip = async () => {
     if (auth.isAuthenticated) {
       setForm((prev) => ({
         ...prev,
@@ -391,7 +400,19 @@ const Cart = () => {
         customerEmail: auth.user.email || prev.customerEmail,
         customerPhone: auth.user.phone || prev.customerPhone,
       }));
-      syncAddressesFromUser(auth.user);
+      setIsLoadingAddresses(true);
+      try {
+        const freshUser = await apiFetch(`/api/users/${auth.user._id}`, {
+          headers: { Authorization: `Bearer ${auth.token}` },
+        });
+        syncAddressesFromUser(freshUser);
+      } catch (err) {
+        // Best-effort: si falla el refresco, mejor mostrar lo que ya
+        // teníamos guardado que bloquear el checkout por completo.
+        syncAddressesFromUser(auth.user);
+      } finally {
+        setIsLoadingAddresses(false);
+      }
       setStep(2);
     } else {
       setStep(1);
@@ -508,8 +529,8 @@ const Cart = () => {
               </p>
             )}
             <div className="srow total"><span>Total</span><span>{formatMxnLong(total)}</span></div>
-            <button className="btn btn-solid block" onClick={goToAccountOrSkip}>
-              Continuar al pago
+            <button className="btn btn-solid block" onClick={goToAccountOrSkip} disabled={isLoadingAddresses}>
+              {isLoadingAddresses ? 'Cargando…' : 'Continuar al pago'}
             </button>
             <Link className="cart-cont" to="/tienda">← Seguir viendo la carta</Link>
           </aside>
