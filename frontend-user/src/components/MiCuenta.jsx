@@ -211,6 +211,13 @@ const MiCuenta = () => {
   const [favoritesError, setFavoritesError] = useState('');
   const [removingFavoriteId, setRemovingFavoriteId] = useState('');
 
+  // Derecho ARCO de Cancelación (ver Aviso de Privacidad) — el usuario puede
+  // eliminar su propia cuenta. El backend no la borra físicamente, la
+  // anonimiza (ver DELETE /api/users/:id en packages/core-api/modules/auth.js).
+  const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState('');
+
   const loadProfile = useCallback(async () => {
     if (!userId) return;
     setIsLoadingProfile(true);
@@ -444,6 +451,24 @@ const MiCuenta = () => {
     navigate('/');
   };
 
+  const handleDeleteAccount = async () => {
+    setDeleteAccountError('');
+    setIsDeletingAccount(true);
+    try {
+      await apiFetch(`/api/users/${userId}`, {
+        method: 'DELETE',
+        headers: authHeader,
+      });
+      // La cuenta ya no existe como tal (se anonimizó en el servidor) — se
+      // cierra la sesión local igual que en un logout normal.
+      auth.logout();
+      navigate('/');
+    } catch (err) {
+      setDeleteAccountError(err.message || 'No fue posible eliminar tu cuenta.');
+      setIsDeletingAccount(false);
+    }
+  };
+
   const handleOpenOrder = (orderId) => {
     setReorderMessage('');
     setReorderError('');
@@ -577,6 +602,48 @@ const MiCuenta = () => {
                   {isSavingProfile ? 'Guardando…' : 'Guardar cambios'}
                 </button>
               </form>
+
+              <div className="account-danger-zone">
+                <h3>Eliminar mi cuenta</h3>
+                <p>
+                  Al eliminar tu cuenta, borraremos tus datos personales (nombre, teléfono, direcciones guardadas y
+                  favoritos) conforme a tu derecho ARCO de Cancelación. Tu historial de pedidos se conserva para
+                  fines contables y fiscales, pero deja de estar asociado a una cuenta activa. Esta acción no se
+                  puede deshacer.
+                </p>
+                {!showDeleteAccountConfirm ? (
+                  <button
+                    type="button"
+                    className="btn btn-outline account-danger-btn"
+                    onClick={() => setShowDeleteAccountConfirm(true)}
+                  >
+                    Eliminar mi cuenta
+                  </button>
+                ) : (
+                  <div className="account-danger-confirm">
+                    <p>¿Seguro que quieres eliminar tu cuenta? Esta acción no se puede deshacer.</p>
+                    {deleteAccountError ? <div className="auth-error">{deleteAccountError}</div> : null}
+                    <div className="account-danger-actions">
+                      <button
+                        type="button"
+                        className="btn btn-outline account-danger-btn account-danger-btn-solid"
+                        onClick={handleDeleteAccount}
+                        disabled={isDeletingAccount}
+                      >
+                        {isDeletingAccount ? 'Eliminando…' : 'Sí, eliminar mi cuenta'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-outline"
+                        onClick={() => setShowDeleteAccountConfirm(false)}
+                        disabled={isDeletingAccount}
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

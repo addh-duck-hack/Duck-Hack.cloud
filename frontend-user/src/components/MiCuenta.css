@@ -104,6 +104,48 @@
   margin-top: -4px;
 }
 
+.account-danger-zone {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.account-danger-zone h3 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+  color: #ff9a9a;
+}
+.account-danger-zone p {
+  font-size: 0.85rem;
+  color: var(--text-mute);
+  margin: 0 0 14px;
+  max-width: 52ch;
+}
+.account-danger-btn {
+  border-color: #ff9a9a;
+  color: #ff9a9a;
+}
+.account-danger-btn-solid {
+  background: #ff9a9a;
+  color: var(--ink);
+}
+.account-danger-btn-solid:hover {
+  background: #ff8080;
+  border-color: #ff8080;
+  color: var(--ink);
+}
+.account-danger-confirm {
+  background: rgba(255, 107, 107, 0.08);
+  border: 1px solid rgba(255, 107, 107, 0.3);
+  border-radius: 10px;
+  padding: 16px;
+}
+.account-danger-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
 .account-form {
   display: grid;
   gap: 14px;
