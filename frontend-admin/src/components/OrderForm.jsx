@@ -8,7 +8,25 @@ const formatMxn = (value) => Number(value || 0).toLocaleString("es-MX", { style:
 const OrderForm = () => {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
-  const [contact, setContact] = useState({ customerName: "", customerEmail: "", customerPhone: "", shippingAddress: "", notes: "" });
+  const [contact, setContact] = useState({
+    customerName: "",
+    customerEmail: "",
+    customerPhone: "",
+    notes: "",
+    // Mismos campos que Order.shippingAddress en packages/core-api/modules/
+    // orders.js — interiorNumber es el único opcional del bloque.
+    shippingAddress: {
+      recipientName: "",
+      phone: "",
+      street: "",
+      exteriorNumber: "",
+      interiorNumber: "",
+      zipCode: "",
+      neighborhood: "",
+      city: "",
+      state: "",
+    },
+  });
   const [lines, setLines] = useState([{ product: "", quantity: 1 }]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
@@ -36,6 +54,11 @@ const OrderForm = () => {
     setContact((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleAddressChange = (event) => {
+    const { name, value } = event.target;
+    setContact((prev) => ({ ...prev, shippingAddress: { ...prev.shippingAddress, [name]: value } }));
+  };
+
   const handleLineChange = (index, field, value) => {
     setLines((prev) => prev.map((line, i) => (i === index ? { ...line, [field]: value } : line)));
   };
@@ -60,8 +83,13 @@ const OrderForm = () => {
     setIsSaving(true);
     setError("");
     try {
+      // Solo se manda shippingAddress si de verdad se llenó algo — si no, el
+      // pedido quedaría con un objeto de puros campos vacíos en vez de sin
+      // dirección.
+      const hasShippingAddress = Object.values(contact.shippingAddress).some(Boolean);
       const payload = {
         ...contact,
+        shippingAddress: hasShippingAddress ? contact.shippingAddress : undefined,
         items: validLines.map((l) => ({ product: l.product, quantity: Number(l.quantity) })),
       };
       const response = await axios.post(`${baseUrl}/api/orders`, payload, {
@@ -96,11 +124,68 @@ const OrderForm = () => {
             Teléfono (opcional)
             <input type="text" name="customerPhone" value={contact.customerPhone} onChange={handleContactChange} />
           </label>
+        </div>
+
+        <h4 style={{ marginTop: "1.5rem" }}>Dirección de envío (opcional)</h4>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
           <label>
-            Dirección de envío (opcional)
-            <input type="text" name="shippingAddress" value={contact.shippingAddress} onChange={handleContactChange} />
+            Nombre de quien recibe
+            <input
+              type="text"
+              name="recipientName"
+              value={contact.shippingAddress.recipientName}
+              onChange={handleAddressChange}
+            />
+          </label>
+          <label>
+            Teléfono
+            <input type="text" name="phone" value={contact.shippingAddress.phone} onChange={handleAddressChange} />
+          </label>
+          <label style={{ gridColumn: "1 / -1" }}>
+            Calle
+            <input type="text" name="street" value={contact.shippingAddress.street} onChange={handleAddressChange} />
+          </label>
+          <label>
+            Número exterior
+            <input
+              type="text"
+              name="exteriorNumber"
+              value={contact.shippingAddress.exteriorNumber}
+              onChange={handleAddressChange}
+            />
+          </label>
+          <label>
+            Número interior (opcional)
+            <input
+              type="text"
+              name="interiorNumber"
+              value={contact.shippingAddress.interiorNumber}
+              onChange={handleAddressChange}
+            />
+          </label>
+          <label>
+            Código postal
+            <input type="text" name="zipCode" value={contact.shippingAddress.zipCode} onChange={handleAddressChange} />
+          </label>
+          <label>
+            Colonia
+            <input
+              type="text"
+              name="neighborhood"
+              value={contact.shippingAddress.neighborhood}
+              onChange={handleAddressChange}
+            />
+          </label>
+          <label>
+            Ciudad
+            <input type="text" name="city" value={contact.shippingAddress.city} onChange={handleAddressChange} />
+          </label>
+          <label>
+            Estado
+            <input type="text" name="state" value={contact.shippingAddress.state} onChange={handleAddressChange} />
           </label>
         </div>
+
         <label>
           Notas (opcional)
           <input type="text" name="notes" value={contact.notes} onChange={handleContactChange} />

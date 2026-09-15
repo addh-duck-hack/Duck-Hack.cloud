@@ -97,7 +97,21 @@ const OrderDetail = () => {
           )}
         </p>
         <p>Pago: {PAYMENT_METHOD_LABELS[order.paymentMethod] || order.paymentMethod || "—"}</p>
-        {order.shippingAddress ? <p>Dirección de envío: {order.shippingAddress}</p> : null}
+        {order.shippingAddress ? (
+          <div>
+            <p style={{ marginBottom: "0.25rem" }}>Dirección de envío:</p>
+            <p style={{ marginTop: 0, paddingLeft: "1rem" }}>
+              {order.shippingAddress.recipientName} · {order.shippingAddress.phone}
+              <br />
+              {order.shippingAddress.street} {order.shippingAddress.exteriorNumber}
+              {order.shippingAddress.interiorNumber ? `, Int. ${order.shippingAddress.interiorNumber}` : ""}
+              <br />
+              {order.shippingAddress.neighborhood}, {order.shippingAddress.city}, {order.shippingAddress.state}
+              <br />
+              C.P. {order.shippingAddress.zipCode}
+            </p>
+          </div>
+        ) : null}
         {order.notes ? <p>Notas: {order.notes}</p> : null}
       </div>
 

@@ -32,6 +32,62 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ORDER_STATUSES = ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"];
 const PAYMENT_METHODS = ["transfer", "pickup"];
 
+// Mismo set de campos que User.addresses en modules/auth.js — así una
+// dirección de la libreta se copia tal cual al pedido (ver Cart.jsx en
+// frontend-user). `interiorNumber` es el único opcional; los demás solo se
+// exigen cuando paymentMethod es "transfer" (ver validateCheckoutExtras).
+const SHIPPING_ADDRESS_REQUIRED_FIELDS = [
+  "recipientName",
+  "phone",
+  "street",
+  "exteriorNumber",
+  "zipCode",
+  "neighborhood",
+  "city",
+  "state",
+];
+const SHIPPING_ADDRESS_FIELDS = [...SHIPPING_ADDRESS_REQUIRED_FIELDS, "interiorNumber"];
+
+const shippingAddressSchema = new mongoose.Schema(
+  {
+    recipientName: { type: String, trim: true, maxlength: 200 },
+    phone: { type: String, trim: true, maxlength: 40 },
+    street: { type: String, trim: true, maxlength: 200 },
+    exteriorNumber: { type: String, trim: true, maxlength: 20 },
+    interiorNumber: { type: String, trim: true, maxlength: 20 },
+    zipCode: { type: String, trim: true, maxlength: 10 },
+    neighborhood: { type: String, trim: true, maxlength: 120 },
+    city: { type: String, trim: true, maxlength: 120 },
+    state: { type: String, trim: true, maxlength: 120 },
+  },
+  { _id: false }
+);
+
+// Usado por validateCreatePayload y validateUpdatePayload — recorta cada
+// campo del objeto que mande el cliente, ignorando cualquier otra llave.
+const normalizeShippingAddress = (raw) => {
+  const source = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+  const normalized = {};
+  for (const field of SHIPPING_ADDRESS_FIELDS) {
+    if (source[field] !== undefined) normalized[field] = asTrimmedString(source[field]);
+  }
+  return normalized;
+};
+
+// Junta los campos en líneas legibles para el correo a la tienda (ver
+// sendCheckoutEmails más abajo) — nunca se manda tal cual al cliente en el
+// pedido, ese ya viaja estructurado.
+const formatShippingAddress = (addr) => {
+  if (!addr) return "";
+  const line1 = [addr.street, addr.exteriorNumber].filter(Boolean).join(" ") +
+    (addr.interiorNumber ? ` Int. ${addr.interiorNumber}` : "");
+  const line2 = [addr.neighborhood, addr.city, addr.state].filter(Boolean).join(", ");
+  const line3 = addr.zipCode ? `C.P. ${addr.zipCode}` : "";
+  return [addr.recipientName, line1, line2, line3, addr.phone ? `Tel: ${addr.phone}` : ""]
+    .filter(Boolean)
+    .join("\n");
+};
+
 const orderItemSchema = new mongoose.Schema(
   {
     product: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true },
@@ -69,7 +125,7 @@ const orderSchema = new mongoose.Schema(
     // Calculado server-side = suma de items[].subtotal, nunca aceptado del
     // cliente — mismo criterio que Invoice.amount (backend/routes/invoices.routes.js).
     total: { type: Number, required: true, min: 0 },
-    shippingAddress: { type: String, trim: true, maxlength: 500 },
+    shippingAddress: { type: shippingAddressSchema },
     notes: { type: String, trim: true, maxlength: 1000 },
     // Sin pasarela de pago (decisión del cliente): el pedido siempre entra
     // "pending" y la tienda confirma el pago/entrega a mano. "transfer" =
@@ -101,7 +157,7 @@ const validateCreatePayload = (sendError) => (req, res, next) => {
   req.body.customerEmail = customerEmail;
 
   if (payload.customerPhone !== undefined) req.body.customerPhone = asTrimmedString(payload.customerPhone);
-  if (payload.shippingAddress !== undefined) req.body.shippingAddress = asTrimmedString(payload.shippingAddress);
+  if (payload.shippingAddress !== undefined) req.body.shippingAddress = normalizeShippingAddress(payload.shippingAddress);
   if (payload.notes !== undefined) req.body.notes = asTrimmedString(payload.notes);
 
   if (payload.customer !== undefined && payload.customer !== "") {
@@ -147,7 +203,7 @@ const validateUpdatePayload = (sendError) => (req, res, next) => {
     }
     req.body.status = status;
   }
-  if (payload.shippingAddress !== undefined) req.body.shippingAddress = asTrimmedString(payload.shippingAddress);
+  if (payload.shippingAddress !== undefined) req.body.shippingAddress = normalizeShippingAddress(payload.shippingAddress);
   if (payload.notes !== undefined) req.body.notes = asTrimmedString(payload.notes);
 
   // items/customer/total no se reabren después de creado — ver plan.
@@ -162,8 +218,9 @@ const validateUpdatePayload = (sendError) => (req, res, next) => {
 };
 
 // Solo para POST /public, encadenado DESPUÉS de validateCreatePayload. Valida
-// paymentMethod y exige shippingAddress cuando es "transfer" (hay que
-// enviarlo). También bloquea que un checkout anónimo se adjudique un
+// paymentMethod y exige los campos de shippingAddress (ver
+// SHIPPING_ADDRESS_REQUIRED_FIELDS) cuando es "transfer". También bloquea
+// que un checkout anónimo se adjudique un
 // `customer` o un `orderNumber` arbitrarios enviados en el payload —
 // orderNumber siempre lo pone el servidor, y `customer` SOLO puede venir de
 // un JWT verificado (ver attachOptionalCustomer/req.checkoutCustomerId), nunca
@@ -178,8 +235,17 @@ const validateCheckoutExtras = (sendError) => (req, res, next) => {
   }
   req.body.paymentMethod = paymentMethod;
 
-  if (paymentMethod === "transfer" && !req.body.shippingAddress) {
-    return sendError(res, 400, "VALIDATION_ERROR", "shippingAddress es requerido para pago por transferencia/envío.");
+  if (paymentMethod === "transfer") {
+    const addr = req.body.shippingAddress || {};
+    const missing = SHIPPING_ADDRESS_REQUIRED_FIELDS.filter((field) => !addr[field]);
+    if (missing.length > 0) {
+      return sendError(
+        res,
+        400,
+        "VALIDATION_ERROR",
+        `La dirección de envío está incompleta para pago por transferencia/envío (falta: ${missing.join(", ")}).`
+      );
+    }
   }
 
   delete req.body.customer;
@@ -283,7 +349,7 @@ const sendCheckoutEmails = async (order) => {
       `Nuevo pedido del storefront.\n\n` +
       `Cliente: ${order.customerName} <${order.customerEmail}>${order.customerPhone ? ` · ${order.customerPhone}` : ""}\n` +
       `Método de pago: ${order.paymentMethod}\n` +
-      (order.shippingAddress ? `Dirección: ${order.shippingAddress}\n` : "") +
+      (order.shippingAddress ? `Dirección de envío:\n${formatShippingAddress(order.shippingAddress)}\n` : "") +
       (order.notes ? `Notas: ${order.notes}\n` : "") +
       `\n${lines}\n\nTotal: $${order.total.toFixed(2)}`,
   });
