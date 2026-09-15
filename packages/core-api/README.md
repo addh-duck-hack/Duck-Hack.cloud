@@ -1,9 +1,10 @@
 # @duck-hack/core-api
 
 Backend modules (routes + Mongoose models) shared across every store's
-independently-deployed backend. See `docs/adr-monorepo-shared-packages.md` for
-why this exists: each store keeps its own backend/DB/deploy, but a module's
-*code* lives here once so every store's backend can mount it.
+independently-deployed backend (the reasoning behind this — each store keeps
+its own backend/DB/deploy, but a module's *code* lives here once so every
+store's backend can mount it — is recorded as an ADR in the project's Obsidian
+vault, not in this repo).
 
 ## Modules in this package
 
