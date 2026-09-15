@@ -56,6 +56,22 @@ const userSchema = new mongoose.Schema({
     trim: true,
     maxlength: 40,
   },
+  // Una sola dirección guardada (no libreta de varias) — mismo criterio de
+  // texto libre que Order.shippingAddress en modules/orders.js, para
+  // precargar el formulario de envío del checkout (ver "Mi cuenta" en
+  // frontend-user). Opcional.
+  address: {
+    type: String,
+    trim: true,
+    maxlength: 500,
+  },
+  // Productos guardados para después — "Mi cuenta > Favoritos" en
+  // frontend-user. Se gestiona con POST/DELETE /:id/favorites, nunca con
+  // PUT /:id (ver validateUpdateUserPayload, que ni siquiera lo acepta).
+  favorites: {
+    type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Product" }],
+    default: [],
+  },
   profileImage: {
     type: String, // Almacena la ruta de la imagen subida
   },
@@ -178,7 +194,7 @@ const validateCreateStaffPayload = (sendError) => (req, res, next) => {
 };
 
 const validateUpdateUserPayload = (sendError) => (req, res, next) => {
-  const { name, email, phone, role } = req.body || {};
+  const { name, email, phone, address, role } = req.body || {};
 
   if (email !== undefined) {
     return sendError(res, 400, "EMAIL_CHANGE_NOT_ALLOWED", "El correo electrónico no puede modificarse.");
@@ -193,10 +209,13 @@ const validateUpdateUserPayload = (sendError) => (req, res, next) => {
     req.body.name = normalizedName;
   }
 
-  // Opcional — a diferencia de `name`, sí se puede mandar vacío para borrar
-  // el teléfono guardado.
+  // Opcionales — a diferencia de `name`, sí se pueden mandar vacíos para
+  // borrar lo guardado.
   if (phone !== undefined) {
     req.body.phone = asTrimmedString(phone);
+  }
+  if (address !== undefined) {
+    req.body.address = asTrimmedString(address);
   }
 
   if (role !== undefined) {
@@ -350,7 +369,7 @@ function registerRoutes(app, ctx) {
         const actorRole = req.user.role;
         const actorId = String(req.user.id);
 
-        const { name, phone, role } = req.body;
+        const { name, phone, address, role } = req.body;
 
         const updateData = {};
         if (name !== undefined) {
@@ -358,6 +377,9 @@ function registerRoutes(app, ctx) {
         }
         if (phone !== undefined) {
           updateData.phone = phone;
+        }
+        if (address !== undefined) {
+          updateData.address = address;
         }
 
         if (req.savedImagePath) {
@@ -442,6 +464,70 @@ function registerRoutes(app, ctx) {
     }
   );
 
+  // Favoritos — solo el dueño de la cuenta los administra (ni siquiera
+  // super_admin/store_admin, a diferencia de PUT/DELETE /:id), y solo se
+  // exponen name/price/images/category del producto vía el populate de
+  // GET /:id de arriba, nunca se editan por PUT /:id.
+  router.post(
+    "/:id/favorites",
+    validateObjectIdParam("id"),
+    verifyToken,
+    authorizeSelf("id"),
+    async (req, res) => {
+      try {
+        const { productId } = req.body || {};
+        if (!isValidObjectId(productId)) {
+          return sendError(res, 400, "VALIDATION_ERROR", "productId debe ser un id válido.");
+        }
+
+        const Product = mongooseConnection.models.Product;
+        const product = Product && (await Product.findById(productId).select("_id"));
+        if (!product) {
+          return sendError(res, 404, "PRODUCT_NOT_FOUND", "El producto no existe.");
+        }
+
+        // $addToSet: idempotente — agregar el mismo producto dos veces no
+        // duplica la entrada.
+        const user = await User.findByIdAndUpdate(
+          req.params.id,
+          { $addToSet: { favorites: productId } },
+          { new: true }
+        ).populate("favorites", "name price images category");
+        if (!user) {
+          return sendError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado");
+        }
+
+        res.status(200).json({ message: "Agregado a favoritos.", user: sanitizeUser(user) });
+      } catch (error) {
+        return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al agregar a favoritos");
+      }
+    }
+  );
+
+  router.delete(
+    "/:id/favorites/:productId",
+    validateObjectIdParam("id"),
+    validateObjectIdParam("productId"),
+    verifyToken,
+    authorizeSelf("id"),
+    async (req, res) => {
+      try {
+        const user = await User.findByIdAndUpdate(
+          req.params.id,
+          { $pull: { favorites: req.params.productId } },
+          { new: true }
+        ).populate("favorites", "name price images category");
+        if (!user) {
+          return sendError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado");
+        }
+
+        res.status(200).json({ message: "Quitado de favoritos.", user: sanitizeUser(user) });
+      } catch (error) {
+        return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al quitar de favoritos");
+      }
+    }
+  );
+
   // Alta de staff desde el panel (mismo criterio que POST / en
   // packages/core-api/modules/orders.js: la versión "staff, autenticado" de
   // un POST /register público). A diferencia de /register, la cuenta entra
@@ -505,7 +591,9 @@ function registerRoutes(app, ctx) {
         const userId = req.params.id;
         const actorRole = req.user.role;
 
-        const user = await User.findById(userId);
+        // populate solo lo necesario para pintar una tarjeta en "Mi cuenta >
+        // Favoritos" sin una segunda llamada — Product no trae nada sensible.
+        const user = await User.findById(userId).populate("favorites", "name price images category");
 
         if (!user) {
           return sendError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado");
