@@ -87,13 +87,13 @@ const OrderDetail = () => {
         <p>Correo: {order.customerEmail}</p>
         {order.customerPhone ? <p>Teléfono: {order.customerPhone}</p> : null}
         <p>
-          Cuenta:{" "}
+          Cliente:{" "}
           {order.customer ? (
             <span className="badge badge-blue">
-              {order.customer.name || order.customer.email || "vinculada"}
+              {order.customer.name || order.customer.email || "Usuario registrado"}
             </span>
           ) : (
-            "Invitado (sin cuenta)"
+            "Invitado"
           )}
         </p>
         <p>Pago: {PAYMENT_METHOD_LABELS[order.paymentMethod] || order.paymentMethod || "—"}</p>
