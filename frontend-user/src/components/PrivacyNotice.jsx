@@ -76,7 +76,7 @@ const PrivacyNotice = () => {
       </section>
       <section>
         <h2>7. Derechos ARCO (Acceso, Rectificación, Cancelación y Oposición)</h2>
-        <p>Los Titulares tienen derecho a ejercer sus derechos ARCO (Acceso, Rectificación, Cancelación y Oposición) respecto a sus datos personales. Para ello, podrán enviar una solicitud al correo <a href="mailto:arco@duck-hack.com"><strong>arco@duck-hack.com</strong></a> indicando su nombre, el derecho o derechos que desea ejercer (acceder a sus datos, corregirlos, cancelarlos u oponerse a su tratamiento) y los datos sobre los que desea ejercerlos, acompañando copia de una identificación oficial que acredite su identidad o la de su representante legal. La Empresa responderá en un plazo de 20 días hábiles contados a partir de la recepción de la solicitud.</p>
+        <p>Los Titulares tienen derecho a ejercer sus derechos ARCO (Acceso, Rectificación, Cancelación y Oposición) respecto a sus datos personales. Para ello, podrán enviar una solicitud al correo <a href="mailto:arco@duck-hack.com">arco@duck-hack.com</a> indicando su nombre, el derecho o derechos que desea ejercer (acceder a sus datos, corregirlos, cancelarlos u oponerse a su tratamiento) y los datos sobre los que desea ejercerlos, acompañando copia de una identificación oficial que acredite su identidad o la de su representante legal. La Empresa responderá en un plazo de 20 días hábiles contados a partir de la recepción de la solicitud.</p>
       </section>
       <section>
         <h2>8. Modificaciones al Aviso de Privacidad</h2>
