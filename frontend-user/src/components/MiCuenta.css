@@ -5,28 +5,93 @@
   width: 100%;
 }
 
-.account-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+/* Layout de menú lateral + panel — un solo apartado visible a la vez (ver
+   `activeSection` en MiCuenta.jsx), en vez de todo apilado en una pantalla. */
+.account-layout {
+  display: flex;
+  align-items: flex-start;
   gap: 24px;
   margin-top: 24px;
 }
-@media (max-width: 860px) {
-  .account-grid {
-    grid-template-columns: 1fr;
+@media (max-width: 720px) {
+  .account-layout {
+    flex-direction: column;
   }
 }
 
-.account-card {
+.account-sidebar {
+  flex: 0 0 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.account-sidebar nav {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.account-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 16px;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  text-align: left;
+  cursor: pointer;
+}
+.account-sidebar nav .account-nav-item:last-child {
+  border-bottom: 0;
+}
+.account-nav-item i:first-child {
+  width: 16px;
+  color: var(--text-mute);
+}
+.account-nav-item span {
+  flex: 1;
+}
+.account-nav-arrow {
+  font-size: 0.75rem;
+  color: var(--text-mute);
+}
+.account-nav-item:hover {
+  background: var(--panel2);
+}
+.account-nav-item.active {
+  color: var(--signal);
+  font-weight: 600;
+}
+.account-nav-item.active i:first-child {
+  color: var(--signal);
+}
+.account-nav-logout {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 4px;
+}
+.account-nav-logout:hover {
+  border-color: var(--signal);
+  color: var(--signal);
+}
+
+.account-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.account-panel {
   border: 1px solid var(--line);
   background: var(--panel);
   border-radius: 4px;
   padding: 24px;
 }
-.account-card-wide {
-  grid-column: 1 / -1;
-}
-.account-card h2 {
+.account-panel h2 {
   margin-top: 0;
   font-size: 1.1rem;
   text-transform: none;
@@ -115,14 +180,13 @@
   flex-wrap: wrap;
 }
 .account-address-default {
+  display: block;
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #4ade80;
-  border: 1px solid currentColor;
-  border-radius: 999px;
-  padding: 3px 8px;
+  color: var(--signal);
+  margin-bottom: 2px;
 }
 .account-address-form {
   border-top: 1px solid var(--line);
@@ -227,8 +291,4 @@
 .account-fav-price {
   font-family: var(--font-mono);
   font-size: 0.95rem;
-}
-
-.account-logout {
-  margin-top: 28px;
 }
