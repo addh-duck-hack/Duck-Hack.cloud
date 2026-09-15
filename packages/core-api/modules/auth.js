@@ -56,14 +56,25 @@ const userSchema = new mongoose.Schema({
     trim: true,
     maxlength: 40,
   },
-  // Una sola dirección guardada (no libreta de varias) — mismo criterio de
-  // texto libre que Order.shippingAddress en modules/orders.js, para
-  // precargar el formulario de envío del checkout (ver "Mi cuenta" en
-  // frontend-user). Opcional.
-  address: {
-    type: String,
-    trim: true,
-    maxlength: 500,
+  // Libreta de direcciones ("Mi cuenta > Direcciones" en frontend-user) — se
+  // gestiona con POST/PUT/DELETE /:id/addresses[/:addressId], nunca con
+  // PUT /:id (igual que favorites, ver validateUpdateUserPayload). Cada
+  // dirección es texto libre, mismo criterio que Order.shippingAddress en
+  // modules/orders.js. `isDefault` marca cuál se usa para precargar el
+  // checkout (Cart.jsx en frontend-user) — las rutas de abajo garantizan que
+  // como mucho una tenga isDefault:true a la vez.
+  addresses: {
+    type: [
+      new mongoose.Schema(
+        {
+          label: { type: String, trim: true, maxlength: 60 },
+          address: { type: String, required: true, trim: true, maxlength: 500 },
+          isDefault: { type: Boolean, default: false },
+        },
+        { timestamps: true }
+      ),
+    ],
+    default: [],
   },
   // Productos guardados para después — "Mi cuenta > Favoritos" en
   // frontend-user. Se gestiona con POST/DELETE /:id/favorites, nunca con
@@ -194,7 +205,7 @@ const validateCreateStaffPayload = (sendError) => (req, res, next) => {
 };
 
 const validateUpdateUserPayload = (sendError) => (req, res, next) => {
-  const { name, email, phone, address, role } = req.body || {};
+  const { name, email, phone, role } = req.body || {};
 
   if (email !== undefined) {
     return sendError(res, 400, "EMAIL_CHANGE_NOT_ALLOWED", "El correo electrónico no puede modificarse.");
@@ -209,13 +220,11 @@ const validateUpdateUserPayload = (sendError) => (req, res, next) => {
     req.body.name = normalizedName;
   }
 
-  // Opcionales — a diferencia de `name`, sí se pueden mandar vacíos para
-  // borrar lo guardado.
+  // Opcional — a diferencia de `name`, sí se puede mandar vacío para borrar
+  // el teléfono guardado. Las direcciones NO se tocan aquí — ver
+  // POST/PUT/DELETE /:id/addresses más abajo.
   if (phone !== undefined) {
     req.body.phone = asTrimmedString(phone);
-  }
-  if (address !== undefined) {
-    req.body.address = asTrimmedString(address);
   }
 
   if (role !== undefined) {
@@ -369,7 +378,7 @@ function registerRoutes(app, ctx) {
         const actorRole = req.user.role;
         const actorId = String(req.user.id);
 
-        const { name, phone, address, role } = req.body;
+        const { name, phone, role } = req.body;
 
         const updateData = {};
         if (name !== undefined) {
@@ -377,9 +386,6 @@ function registerRoutes(app, ctx) {
         }
         if (phone !== undefined) {
           updateData.phone = phone;
-        }
-        if (address !== undefined) {
-          updateData.address = address;
         }
 
         if (req.savedImagePath) {
@@ -524,6 +530,135 @@ function registerRoutes(app, ctx) {
         res.status(200).json({ message: "Quitado de favoritos.", user: sanitizeUser(user) });
       } catch (error) {
         return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al quitar de favoritos");
+      }
+    }
+  );
+
+  // Direcciones — igual que favoritos, solo el dueño de la cuenta las
+  // administra. `isDefault` es la que usa Cart.jsx (frontend-user) para
+  // precargar el checkout; como mucho una queda con isDefault:true a la vez
+  // — marcar una nueva como default le quita la marca a las demás.
+  router.post(
+    "/:id/addresses",
+    validateObjectIdParam("id"),
+    verifyToken,
+    authorizeSelf("id"),
+    async (req, res) => {
+      try {
+        const label = asTrimmedString(req.body?.label);
+        const address = asTrimmedString(req.body?.address);
+        if (!address) {
+          return sendError(res, 400, "VALIDATION_ERROR", "address es requerido.");
+        }
+
+        const user = await User.findById(req.params.id);
+        if (!user) {
+          return sendError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado");
+        }
+
+        // La primera dirección siempre queda como default aunque no se pida
+        // explícito — si no, "Mi cuenta" tendría una sola dirección guardada
+        // y ninguna para precargar el checkout.
+        const makeDefault = Boolean(req.body?.isDefault) || user.addresses.length === 0;
+        if (makeDefault) {
+          user.addresses.forEach((a) => {
+            a.isDefault = false;
+          });
+        }
+        user.addresses.push({ label, address, isDefault: makeDefault });
+        await user.save();
+
+        res.status(201).json({ message: "Dirección agregada.", user: sanitizeUser(user) });
+      } catch (error) {
+        if (error.name === "ValidationError") {
+          const messages = Object.values(error.errors).map((e) => e.message).join(", ");
+          return sendError(res, 400, "VALIDATION_ERROR", messages);
+        }
+        return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al agregar la dirección");
+      }
+    }
+  );
+
+  router.put(
+    "/:id/addresses/:addressId",
+    validateObjectIdParam("id"),
+    validateObjectIdParam("addressId"),
+    verifyToken,
+    authorizeSelf("id"),
+    async (req, res) => {
+      try {
+        const user = await User.findById(req.params.id);
+        if (!user) {
+          return sendError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado");
+        }
+
+        const target = user.addresses.id(req.params.addressId);
+        if (!target) {
+          return sendError(res, 404, "ADDRESS_NOT_FOUND", "Dirección no encontrada.");
+        }
+
+        if (req.body?.label !== undefined) {
+          target.label = asTrimmedString(req.body.label);
+        }
+        if (req.body?.address !== undefined) {
+          const normalizedAddress = asTrimmedString(req.body.address);
+          if (!normalizedAddress) {
+            return sendError(res, 400, "VALIDATION_ERROR", "address no puede quedar vacío.");
+          }
+          target.address = normalizedAddress;
+        }
+        if (req.body?.isDefault !== undefined) {
+          if (req.body.isDefault) {
+            user.addresses.forEach((a) => {
+              a.isDefault = String(a._id) === String(target._id);
+            });
+          } else {
+            target.isDefault = false;
+          }
+        }
+
+        await user.save();
+        res.status(200).json({ message: "Dirección actualizada.", user: sanitizeUser(user) });
+      } catch (error) {
+        if (error.name === "ValidationError") {
+          const messages = Object.values(error.errors).map((e) => e.message).join(", ");
+          return sendError(res, 400, "VALIDATION_ERROR", messages);
+        }
+        return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al actualizar la dirección");
+      }
+    }
+  );
+
+  router.delete(
+    "/:id/addresses/:addressId",
+    validateObjectIdParam("id"),
+    validateObjectIdParam("addressId"),
+    verifyToken,
+    authorizeSelf("id"),
+    async (req, res) => {
+      try {
+        const user = await User.findById(req.params.id);
+        if (!user) {
+          return sendError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado");
+        }
+
+        const target = user.addresses.id(req.params.addressId);
+        if (!target) {
+          return sendError(res, 404, "ADDRESS_NOT_FOUND", "Dirección no encontrada.");
+        }
+
+        const wasDefault = target.isDefault;
+        target.deleteOne();
+        // Si borré la default y quedan otras, la primera que quede pasa a
+        // default — para que siempre haya una precargando el checkout.
+        if (wasDefault && user.addresses.length > 0) {
+          user.addresses[0].isDefault = true;
+        }
+        await user.save();
+
+        res.status(200).json({ message: "Dirección eliminada.", user: sanitizeUser(user) });
+      } catch (error) {
+        return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al eliminar la dirección");
       }
     }
   );
