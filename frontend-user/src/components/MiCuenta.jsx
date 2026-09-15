@@ -41,6 +41,114 @@ const SECTIONS = [
   { id: 'favoritos', label: 'Mi lista de deseos', icon: 'fa-heart' },
 ];
 
+// Mismos campos que Order.shippingAddress (packages/core-api/modules/orders.js)
+// — así una dirección guardada se copia tal cual al hacer un pedido (ver
+// Cart.jsx#pickShippingAddress en frontend-user). `label`/`isDefault` son
+// propios de la libreta, no existen en el pedido.
+const INITIAL_ADDRESS_FORM = {
+  label: '',
+  recipientName: '',
+  phone: '',
+  street: '',
+  exteriorNumber: '',
+  interiorNumber: '',
+  zipCode: '',
+  neighborhood: '',
+  city: '',
+  state: '',
+  isDefault: false,
+};
+
+// Campos de una dirección — se usa tal cual tanto para agregar una nueva
+// como para editar una ya guardada (ver handleAddAddress/handleSaveEditAddress
+// más abajo), para no duplicar el mismo bloque de 9 campos dos veces.
+const AddressFormFields = ({ values, onChange }) => (
+  <>
+    <label>
+      Etiqueta (opcional)
+      <input name="label" value={values.label} onChange={onChange} maxLength={60} placeholder="Casa, oficina…" />
+    </label>
+
+    <div className="account-address-grid">
+      <label>
+        Nombre de quien recibe
+        <input
+          name="recipientName"
+          value={values.recipientName}
+          onChange={onChange}
+          maxLength={200}
+          required
+          placeholder="María Fernanda Ruiz"
+        />
+      </label>
+      <label>
+        Teléfono
+        <input name="phone" value={values.phone} onChange={onChange} maxLength={40} required placeholder="55 1234 5678" />
+      </label>
+      <label className="account-field-wide">
+        Calle
+        <input name="street" value={values.street} onChange={onChange} maxLength={200} required placeholder="Av. Reforma" />
+      </label>
+      <label>
+        Número exterior
+        <input
+          name="exteriorNumber"
+          value={values.exteriorNumber}
+          onChange={onChange}
+          maxLength={20}
+          required
+          placeholder="123"
+        />
+      </label>
+      <label>
+        Número interior (opcional)
+        <input
+          name="interiorNumber"
+          value={values.interiorNumber}
+          onChange={onChange}
+          maxLength={20}
+          placeholder="Depto. 4"
+        />
+      </label>
+      <label>
+        Código postal
+        <input name="zipCode" value={values.zipCode} onChange={onChange} maxLength={10} required placeholder="73080" />
+      </label>
+      <label>
+        Colonia
+        <input
+          name="neighborhood"
+          value={values.neighborhood}
+          onChange={onChange}
+          maxLength={120}
+          required
+          placeholder="Centro"
+        />
+      </label>
+      <label>
+        Ciudad
+        <input
+          name="city"
+          value={values.city}
+          onChange={onChange}
+          maxLength={120}
+          required
+          placeholder="Xicotepec de Juárez"
+        />
+      </label>
+      <label>
+        Estado
+        <input name="state" value={values.state} onChange={onChange} maxLength={120} required placeholder="Puebla" />
+      </label>
+    </div>
+
+    <label className="account-checkbox">
+      <input type="checkbox" name="isDefault" checked={values.isDefault} onChange={onChange} />
+      Usarla como predeterminada
+    </label>
+  </>
+);
+
 const MiCuenta = () => {
   usePageMeta('Mi cuenta');
   const navigate = useNavigate();
@@ -59,11 +167,19 @@ const MiCuenta = () => {
   const [profileMessage, setProfileMessage] = useState('');
   const [profileError, setProfileError] = useState('');
 
-  const [newAddressForm, setNewAddressForm] = useState({ label: '', address: '', isDefault: false });
+  const [newAddressForm, setNewAddressForm] = useState(INITIAL_ADDRESS_FORM);
   const [isSavingAddress, setIsSavingAddress] = useState(false);
   const [addressMessage, setAddressMessage] = useState('');
   const [addressError, setAddressError] = useState('');
   const [addressActionId, setAddressActionId] = useState('');
+
+  // Edición en línea de una dirección ya guardada — separado de
+  // newAddressForm (que es solo para agregar una nueva) porque ambos
+  // formularios pueden coexistir en pantalla (agregar mientras se edita otra).
+  const [editingAddressId, setEditingAddressId] = useState('');
+  const [editAddressForm, setEditAddressForm] = useState(INITIAL_ADDRESS_FORM);
+  const [isSavingEditAddress, setIsSavingEditAddress] = useState(false);
+  const [editAddressError, setEditAddressError] = useState('');
 
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '' });
   const [isSavingPassword, setIsSavingPassword] = useState(false);
@@ -174,7 +290,7 @@ const MiCuenta = () => {
         body: JSON.stringify(newAddressForm),
       });
       setProfile((prev) => ({ ...prev, addresses: data.user?.addresses || [] }));
-      setNewAddressForm({ label: '', address: '', isDefault: false });
+      setNewAddressForm(INITIAL_ADDRESS_FORM);
       setAddressMessage('Dirección agregada.');
     } catch (err) {
       setAddressError(err.message || 'No fue posible agregar la dirección.');
@@ -209,10 +325,58 @@ const MiCuenta = () => {
         headers: authHeader,
       });
       setProfile((prev) => ({ ...prev, addresses: data.user?.addresses || [] }));
+      if (editingAddressId === addressId) setEditingAddressId('');
     } catch (err) {
       setAddressError(err.message || 'No fue posible eliminar la dirección.');
     } finally {
       setAddressActionId('');
+    }
+  };
+
+  const handleStartEditAddress = (a) => {
+    setEditAddressError('');
+    setEditingAddressId(a._id);
+    setEditAddressForm({
+      label: a.label || '',
+      recipientName: a.recipientName || '',
+      phone: a.phone || '',
+      street: a.street || '',
+      exteriorNumber: a.exteriorNumber || '',
+      interiorNumber: a.interiorNumber || '',
+      zipCode: a.zipCode || '',
+      neighborhood: a.neighborhood || '',
+      city: a.city || '',
+      state: a.state || '',
+      isDefault: Boolean(a.isDefault),
+    });
+  };
+
+  const handleCancelEditAddress = () => {
+    setEditingAddressId('');
+    setEditAddressError('');
+  };
+
+  const handleEditAddressFieldChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setEditAddressForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  const handleSaveEditAddress = async (e) => {
+    e.preventDefault();
+    setIsSavingEditAddress(true);
+    setEditAddressError('');
+    try {
+      const data = await apiFetch(`/api/users/${userId}/addresses/${editingAddressId}`, {
+        method: 'PUT',
+        headers: { ...authHeader, 'Content-Type': 'application/json' },
+        body: JSON.stringify(editAddressForm),
+      });
+      setProfile((prev) => ({ ...prev, addresses: data.user?.addresses || [] }));
+      setEditingAddressId('');
+    } catch (err) {
+      setEditAddressError(err.message || 'No fue posible guardar los cambios.');
+    } finally {
+      setIsSavingEditAddress(false);
     }
   };
 
@@ -376,74 +540,86 @@ const MiCuenta = () => {
                 <p className="account-empty">Todavía no guardas ninguna dirección.</p>
               ) : (
                 <div className="account-addresses">
-                  {(profile?.addresses || []).map((a) => (
-                    <div className="account-address" key={a._id}>
-                      <div className="account-address-body">
-                        {a.isDefault ? (
-                          <span className="account-address-default">
-                            <i className="fas fa-star" aria-hidden="true" /> Dirección predeterminada
-                          </span>
-                        ) : null}
-                        {a.label ? <strong>{a.label}</strong> : null}
-                        <span>{a.address}</span>
-                      </div>
-                      <div className="account-address-actions">
-                        {!a.isDefault && (
+                  {(profile?.addresses || []).map((a) =>
+                    editingAddressId === a._id ? (
+                      <form
+                        onSubmit={handleSaveEditAddress}
+                        className="account-form account-address-form account-address-edit"
+                        key={a._id}
+                      >
+                        <AddressFormFields values={editAddressForm} onChange={handleEditAddressFieldChange} />
+                        {editAddressError ? <div className="auth-error">{editAddressError}</div> : null}
+                        <div className="account-address-actions">
+                          <button type="submit" className="btn btn-solid" disabled={isSavingEditAddress}>
+                            {isSavingEditAddress ? 'Guardando…' : 'Guardar cambios'}
+                          </button>
                           <button
                             type="button"
                             className="btn"
-                            onClick={() => handleSetDefaultAddress(a._id)}
+                            onClick={handleCancelEditAddress}
+                            disabled={isSavingEditAddress}
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div className="account-address" key={a._id}>
+                        <div className="account-address-body">
+                          {a.isDefault ? (
+                            <span className="account-address-default">
+                              <i className="fas fa-star" aria-hidden="true" /> Dirección predeterminada
+                            </span>
+                          ) : null}
+                          {a.label ? <strong>{a.label}</strong> : null}
+                          <span>
+                            {a.recipientName} · {a.phone}
+                          </span>
+                          <span>
+                            {a.street} {a.exteriorNumber}
+                            {a.interiorNumber ? `, Int. ${a.interiorNumber}` : ''}
+                          </span>
+                          <span>
+                            {a.neighborhood}, {a.city}, {a.state}
+                          </span>
+                          <span>C.P. {a.zipCode}</span>
+                        </div>
+                        <div className="account-address-actions">
+                          {!a.isDefault && (
+                            <button
+                              type="button"
+                              className="btn"
+                              onClick={() => handleSetDefaultAddress(a._id)}
+                              disabled={addressActionId === a._id}
+                            >
+                              Usar como predeterminada
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="btn"
+                            onClick={() => handleStartEditAddress(a)}
                             disabled={addressActionId === a._id}
                           >
-                            Usar como predeterminada
+                            Editar
                           </button>
-                        )}
-                        <button
-                          type="button"
-                          className="btn"
-                          onClick={() => handleRemoveAddress(a._id)}
-                          disabled={addressActionId === a._id}
-                        >
-                          {addressActionId === a._id ? 'Eliminando…' : 'Eliminar'}
-                        </button>
+                          <button
+                            type="button"
+                            className="btn"
+                            onClick={() => handleRemoveAddress(a._id)}
+                            disabled={addressActionId === a._id}
+                          >
+                            {addressActionId === a._id ? 'Eliminando…' : 'Eliminar'}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  )}
                 </div>
               )}
 
               <form onSubmit={handleAddAddress} className="account-form account-address-form">
-                <label>
-                  Etiqueta (opcional)
-                  <input
-                    name="label"
-                    value={newAddressForm.label}
-                    onChange={handleNewAddressChange}
-                    maxLength={60}
-                    placeholder="Casa, oficina…"
-                  />
-                </label>
-                <label>
-                  Dirección
-                  <textarea
-                    name="address"
-                    value={newAddressForm.address}
-                    onChange={handleNewAddressChange}
-                    rows={2}
-                    maxLength={500}
-                    required
-                    placeholder="Calle, número, colonia, ciudad, CP"
-                  />
-                </label>
-                <label className="account-checkbox">
-                  <input
-                    type="checkbox"
-                    name="isDefault"
-                    checked={newAddressForm.isDefault}
-                    onChange={handleNewAddressChange}
-                  />
-                  Usarla como predeterminada
-                </label>
+                <AddressFormFields values={newAddressForm} onChange={handleNewAddressChange} />
                 <button type="submit" className="btn btn-solid" disabled={isSavingAddress}>
                   {isSavingAddress ? 'Agregando…' : 'Agregar dirección'}
                 </button>

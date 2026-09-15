@@ -21,7 +21,40 @@ const PAYMENT_NOTES = {
   pickup: 'Puedes pasar a recoger y pagar en la finca; te escribimos para coordinar.',
 };
 
-const INITIAL_FORM = { customerName: '', customerEmail: '', customerPhone: '', shippingAddress: '' };
+// Mismos campos que Order.shippingAddress (packages/core-api/modules/orders.js)
+// y User.addresses (modules/auth.js) — una dirección guardada se copia tal
+// cual a este bloque, ver pickShippingAddress más abajo.
+const INITIAL_SHIPPING_ADDRESS = {
+  recipientName: '',
+  phone: '',
+  street: '',
+  exteriorNumber: '',
+  interiorNumber: '',
+  zipCode: '',
+  neighborhood: '',
+  city: '',
+  state: '',
+};
+
+const INITIAL_FORM = {
+  customerName: '',
+  customerEmail: '',
+  customerPhone: '',
+  shippingAddress: INITIAL_SHIPPING_ADDRESS,
+};
+
+// Extrae solo los campos de dirección de un objeto más grande (una entrada
+// de User.addresses trae también _id/label/isDefault/etc., que no aplican
+// al pedido) — usado tanto para la sesión ya iniciada (goToAccountOrSkip)
+// como para el login/registro dentro del checkout (handleAccountContinue).
+const pickShippingAddress = (addr) => {
+  if (!addr) return null;
+  const picked = {};
+  Object.keys(INITIAL_SHIPPING_ADDRESS).forEach((field) => {
+    picked[field] = addr[field] || '';
+  });
+  return picked;
+};
 
 const Cart = () => {
   usePageMeta('Canasta');
@@ -43,6 +76,11 @@ const Cart = () => {
   const handleFieldChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleAddressFieldChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, shippingAddress: { ...prev.shippingAddress, [name]: value } }));
   };
 
   const handleSubmitShipping = async (e) => {
@@ -80,7 +118,7 @@ const Cart = () => {
   // precargamos el formulario de envío.
   const goToAccountOrSkip = () => {
     if (auth.isAuthenticated) {
-      const defaultAddress = auth.user.addresses?.find((a) => a.isDefault)?.address;
+      const defaultAddress = pickShippingAddress(auth.user.addresses?.find((a) => a.isDefault));
       setForm((prev) => ({
         ...prev,
         customerName: auth.user.name || prev.customerName,
@@ -95,13 +133,13 @@ const Cart = () => {
     window.scrollTo(0, 0);
   };
 
-  const handleAccountContinue = ({ customerName, customerEmail, customerPhone, shippingAddress }) => {
+  const handleAccountContinue = ({ customerName, customerEmail, customerPhone, defaultAddress }) => {
     setForm((prev) => ({
       ...prev,
       customerName: customerName || prev.customerName,
       customerEmail: customerEmail || prev.customerEmail,
       customerPhone: customerPhone || prev.customerPhone,
-      shippingAddress: shippingAddress || prev.shippingAddress,
+      shippingAddress: pickShippingAddress(defaultAddress) || prev.shippingAddress,
     }));
     setStep(2);
     window.scrollTo(0, 0);
@@ -233,18 +271,111 @@ const Cart = () => {
               <label htmlFor="s-phone">Teléfono / WhatsApp</label>
               <input id="s-phone" name="customerPhone" value={form.customerPhone} onChange={handleFieldChange} required placeholder="55 1234 5678" />
             </div>
+
             <div className="field">
-              <label htmlFor="s-address">
+              <label>
                 {paymentMethod === 'transfer' ? 'Dirección de envío' : 'Dirección de envío (opcional)'}
               </label>
-              <input
-                id="s-address"
-                name="shippingAddress"
-                value={form.shippingAddress}
-                onChange={handleFieldChange}
-                required={paymentMethod === 'transfer'}
-                placeholder="Calle, número, colonia, ciudad, CP"
-              />
+            </div>
+            <div className="ship-address-grid">
+              <div className="field">
+                <label htmlFor="a-recipientName">Nombre de quien recibe</label>
+                <input
+                  id="a-recipientName"
+                  name="recipientName"
+                  value={form.shippingAddress.recipientName}
+                  onChange={handleAddressFieldChange}
+                  required={paymentMethod === 'transfer'}
+                  placeholder="María Fernanda Ruiz"
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="a-phone">Teléfono</label>
+                <input
+                  id="a-phone"
+                  name="phone"
+                  value={form.shippingAddress.phone}
+                  onChange={handleAddressFieldChange}
+                  required={paymentMethod === 'transfer'}
+                  placeholder="55 1234 5678"
+                />
+              </div>
+              <div className="field field-wide">
+                <label htmlFor="a-street">Calle</label>
+                <input
+                  id="a-street"
+                  name="street"
+                  value={form.shippingAddress.street}
+                  onChange={handleAddressFieldChange}
+                  required={paymentMethod === 'transfer'}
+                  placeholder="Av. Reforma"
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="a-exteriorNumber">Número exterior</label>
+                <input
+                  id="a-exteriorNumber"
+                  name="exteriorNumber"
+                  value={form.shippingAddress.exteriorNumber}
+                  onChange={handleAddressFieldChange}
+                  required={paymentMethod === 'transfer'}
+                  placeholder="123"
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="a-interiorNumber">Número interior (opcional)</label>
+                <input
+                  id="a-interiorNumber"
+                  name="interiorNumber"
+                  value={form.shippingAddress.interiorNumber}
+                  onChange={handleAddressFieldChange}
+                  placeholder="Depto. 4"
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="a-zipCode">Código postal</label>
+                <input
+                  id="a-zipCode"
+                  name="zipCode"
+                  value={form.shippingAddress.zipCode}
+                  onChange={handleAddressFieldChange}
+                  required={paymentMethod === 'transfer'}
+                  placeholder="73080"
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="a-neighborhood">Colonia</label>
+                <input
+                  id="a-neighborhood"
+                  name="neighborhood"
+                  value={form.shippingAddress.neighborhood}
+                  onChange={handleAddressFieldChange}
+                  required={paymentMethod === 'transfer'}
+                  placeholder="Centro"
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="a-city">Ciudad</label>
+                <input
+                  id="a-city"
+                  name="city"
+                  value={form.shippingAddress.city}
+                  onChange={handleAddressFieldChange}
+                  required={paymentMethod === 'transfer'}
+                  placeholder="Xicotepec de Juárez"
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="a-state">Estado</label>
+                <input
+                  id="a-state"
+                  name="state"
+                  value={form.shippingAddress.state}
+                  onChange={handleAddressFieldChange}
+                  required={paymentMethod === 'transfer'}
+                  placeholder="Puebla"
+                />
+              </div>
             </div>
 
             <div className="field"><label>Método de pago</label></div>

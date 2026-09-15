@@ -117,7 +117,11 @@ export const CartProvider = ({ children }) => {
         items: lines.map((l) => ({ product: l.id, quantity: l.qty })),
       };
       if (customerPhone) payload.customerPhone = customerPhone;
-      if (shippingAddress) payload.shippingAddress = shippingAddress;
+      // shippingAddress ahora es un objeto (recipientName/phone/street/...,
+      // ver Cart.jsx) — solo se manda si de verdad se llenó algo, para no
+      // guardar un objeto de puros campos vacíos en pedidos de "pickup".
+      const hasShippingAddress = shippingAddress && Object.values(shippingAddress).some(Boolean);
+      if (hasShippingAddress) payload.shippingAddress = shippingAddress;
       if (optionsNote) payload.notes = optionsNote;
 
       // Bearer opcional: si hay sesión, el backend vincula el pedido a la

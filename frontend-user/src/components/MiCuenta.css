@@ -150,6 +150,12 @@
   gap: 10px;
   margin: 10px 0;
 }
+.account-address-edit {
+  border: 1px solid var(--signal);
+  border-radius: 3px;
+  padding: 14px;
+  margin: 0;
+}
 .account-address {
   border: 1px solid var(--line);
   border-radius: 3px;
@@ -191,7 +197,20 @@
 .account-address-form {
   border-top: 1px solid var(--line);
   padding-top: 16px;
-  max-width: 480px;
+  max-width: 640px;
+}
+.account-address-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 14px;
+}
+.account-address-grid .account-field-wide {
+  grid-column: 1 / -1;
+}
+@media (max-width: 520px) {
+  .account-address-grid {
+    grid-template-columns: 1fr;
+  }
 }
 .account-checkbox {
   flex-direction: row !important;
