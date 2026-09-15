@@ -9,6 +9,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { useCart, formatMxn, formatMxnLong, formatOptions } from '../hooks/useCart';
+import { useAuth } from '../hooks/useAuth';
 import { iconForCategory } from './BrandMarks';
 import CheckoutAccountStep from './CheckoutAccountStep';
 import './Cart.css';
@@ -26,6 +27,11 @@ const Cart = () => {
   usePageMeta('Canasta');
   const navigate = useNavigate();
   const { lines, subtotal, shipping, total, count, freeShippingFrom, setQty, removeItem, clear, submitOrder } = useCart();
+  // Sesión del cliente (useAuth.jsx) — solo se usa para precargar
+  // nombre/correo/teléfono y mostrar "¿no eres tú?"; el pedido siempre va
+  // por POST /api/orders/public, que decide por su cuenta si lo vincula
+  // (ver useCart.jsx#submitOrder / attachOptionalCustomer en orders.js).
+  const auth = useAuth();
 
   const [step, setStep] = useState(0);
   const [form, setForm] = useState(INITIAL_FORM);
@@ -33,10 +39,6 @@ const Cart = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [order, setOrder] = useState(null);
-  // Cuenta ya iniciada (localStorage — mismos keys que LoginUser.jsx). Solo
-  // se usa para precargar nombre/correo y mostrar "¿no eres tú?"; el pedido
-  // sigue yendo por POST /api/orders/public sin vincularse a la cuenta.
-  const [authUser, setAuthUser] = useState(null);
 
   const handleFieldChange = (e) => {
     const { name, value } = e.target;
@@ -74,55 +76,36 @@ const Cart = () => {
     navigate('/tienda');
   };
 
-  // Si ya hay una sesión guardada (mismos localStorage keys que escribe
-  // LoginUser.jsx), nos saltamos el paso "Tu cuenta" y precargamos el
-  // formulario de envío — hoy nada más en el storefront lee ese token, así
-  // que esto es puramente conveniencia de UI, no una sesión "real" del carrito.
+  // Si ya hay sesión (useAuth.jsx), nos saltamos el paso "Tu cuenta" y
+  // precargamos el formulario de envío.
   const goToAccountOrSkip = () => {
-    try {
-      const token = localStorage.getItem('duckhack_customer_token');
-      const rawUser = localStorage.getItem('duckhack_customer_user');
-      if (token && rawUser) {
-        const user = JSON.parse(rawUser);
-        setAuthUser(user);
-        setForm((prev) => ({
-          ...prev,
-          customerName: user.name || prev.customerName,
-          customerEmail: user.email || prev.customerEmail,
-          customerPhone: user.phone || prev.customerPhone,
-        }));
-        setStep(2);
-        window.scrollTo(0, 0);
-        return;
-      }
-    } catch {
-      // localStorage bloqueado o el JSON guardado está corrupto — seguimos
-      // como si no hubiera sesión.
+    if (auth.isAuthenticated) {
+      setForm((prev) => ({
+        ...prev,
+        customerName: auth.user.name || prev.customerName,
+        customerEmail: auth.user.email || prev.customerEmail,
+        customerPhone: auth.user.phone || prev.customerPhone,
+      }));
+      setStep(2);
+    } else {
+      setStep(1);
     }
-    setStep(1);
     window.scrollTo(0, 0);
   };
 
-  const handleAccountContinue = ({ customerName, customerEmail, customerPhone, authenticated, user }) => {
+  const handleAccountContinue = ({ customerName, customerEmail, customerPhone }) => {
     setForm((prev) => ({
       ...prev,
       customerName: customerName || prev.customerName,
       customerEmail: customerEmail || prev.customerEmail,
       customerPhone: customerPhone || prev.customerPhone,
     }));
-    setAuthUser(authenticated ? user : null);
     setStep(2);
     window.scrollTo(0, 0);
   };
 
   const handleForgetAccount = () => {
-    try {
-      localStorage.removeItem('duckhack_customer_token');
-      localStorage.removeItem('duckhack_customer_user');
-    } catch {
-      // nada que limpiar si localStorage no está disponible
-    }
-    setAuthUser(null);
+    auth.logout();
     setStep(1);
     window.scrollTo(0, 0);
   };
@@ -228,9 +211,9 @@ const Cart = () => {
           <form className="ship-form" onSubmit={handleSubmitShipping}>
             {submitError ? <div className="checkout-error">{submitError}</div> : null}
 
-            {authUser && (
+            {auth.isAuthenticated && (
               <div className="account-note">
-                Continuando como <strong>{authUser.name || authUser.email}</strong> ·{' '}
+                Continuando como <strong>{auth.user.name || auth.user.email}</strong> ·{' '}
                 <button type="button" className="as-link" onClick={handleForgetAccount}>¿No eres tú?</button>
               </div>
             )}

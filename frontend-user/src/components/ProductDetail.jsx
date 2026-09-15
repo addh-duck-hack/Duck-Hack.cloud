@@ -4,6 +4,8 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { useProduct } from '../hooks/useProducts';
 import { useCart, formatMxn, formatMxnLong } from '../hooks/useCart';
+import { useAuth } from '../hooks/useAuth';
+import { apiFetch } from '../utils/apiClient';
 import { iconForCategory } from './BrandMarks';
 import RichText from './RichText';
 import RelatedProducts from './RelatedProducts';
@@ -25,6 +27,7 @@ const ProductDetail = () => {
   const navigate = useNavigate();
   const { product, isLoading } = useProduct(id);
   const { addItem } = useCart();
+  const auth = useAuth();
 
   usePageMeta(product ? product.name : 'Producto', product?.description || undefined);
 
@@ -32,6 +35,8 @@ const ProductDetail = () => {
   const [selectedOptions, setSelectedOptions] = useState({});
   const [activeImage, setActiveImage] = useState(0);
   const [added, setAdded] = useState(false);
+  const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
+  const [favoriteError, setFavoriteError] = useState('');
 
   useEffect(() => {
     setQty(1);
@@ -72,6 +77,43 @@ const ProductDetail = () => {
     addItem(product, qty, selectedOptions);
     setAdded(true);
     setTimeout(() => setAdded(false), 1600);
+  };
+
+  // auth.user.favorites siempre son solo ids (nunca poblados) para que este
+  // chequeo sea directo — a diferencia de "Mi cuenta > Favoritos"
+  // (MiCuenta.jsx), que carga su propia copia poblada con GET /api/users/:id
+  // porque ahí sí necesita name/price/images.
+  const isFavorite =
+    auth.isAuthenticated && (auth.user?.favorites || []).some((favId) => String(favId) === String(product.id));
+
+  const handleToggleFavorite = async () => {
+    if (!auth.isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+    setFavoriteError('');
+    setIsTogglingFavorite(true);
+    try {
+      const authHeader = { Authorization: `Bearer ${auth.token}` };
+      const data = isFavorite
+        ? await apiFetch(`/api/users/${auth.user._id}/favorites/${product.id}`, {
+            method: 'DELETE',
+            headers: authHeader,
+          })
+        : await apiFetch(`/api/users/${auth.user._id}/favorites`, {
+            method: 'POST',
+            headers: { ...authHeader, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ productId: product.id }),
+          });
+      // La respuesta trae favorites poblado (ver auth.js) — se normaliza de
+      // vuelta a puros ids antes de guardarlo en el contexto.
+      const ids = (data.user?.favorites || []).map((f) => (typeof f === 'string' ? f : f._id));
+      auth.updateUser({ favorites: ids });
+    } catch (err) {
+      setFavoriteError(err.message || 'No fue posible actualizar tus favoritos.');
+    } finally {
+      setIsTogglingFavorite(false);
+    }
   };
 
   const specs = [
@@ -161,7 +203,18 @@ const ProductDetail = () => {
             <button className="btn btn-solid" onClick={handleAdd}>
               {added ? 'Añadido ✓' : 'Agregar a la canasta'}
             </button>
+            <button
+              type="button"
+              className={`btn pd-favorite ${isFavorite ? 'active' : ''}`}
+              onClick={handleToggleFavorite}
+              disabled={isTogglingFavorite}
+              aria-pressed={isFavorite}
+            >
+              {isFavorite ? '♥ En favoritos' : '♡ Agregar a favoritos'}
+            </button>
           </div>
+
+          {favoriteError ? <p className="pd-save">{favoriteError}</p> : null}
 
           {product.compareAtPrice && product.compareAtPrice > product.price && (
             <p className="pd-save">

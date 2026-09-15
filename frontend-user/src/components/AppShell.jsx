@@ -8,6 +8,7 @@ import Footer from './Footer';
 import BrandMarks, { BrandSeal } from './BrandMarks';
 import { useStoreConfig, resolveStoreImageUrl } from '../hooks/useStoreConfig';
 import { useCart } from '../hooks/useCart';
+import { useAuth } from '../hooks/useAuth';
 import './AppShell.css';
 
 const NAV_ITEMS = [
@@ -17,7 +18,6 @@ const NAV_ITEMS = [
   { path: '/nosotros', label: 'Nuestra raíz' },
   { path: '/clientes', label: 'Cafeterías' },
   { path: '/contacto', label: 'Contacto' },
-  { path: '/login', label: 'Mi cuenta' }
 ];
 
 const AppShell = () => {
@@ -26,6 +26,11 @@ const AppShell = () => {
   const navigate = useNavigate();
   const { config } = useStoreConfig();
   const { count } = useCart();
+  const { isAuthenticated } = useAuth();
+
+  // "Mi cuenta" no es un item fijo de NAV_ITEMS porque su destino cambia con
+  // la sesión: con sesión va directo a la cuenta, sin sesión al login.
+  const navItems = [...NAV_ITEMS, { path: isAuthenticated ? '/mi-cuenta' : '/login', label: 'Mi cuenta' }];
 
   // Cierra el drawer móvil automáticamente al cambiar de ruta.
   useEffect(() => {
@@ -76,7 +81,7 @@ const AppShell = () => {
           </button>
 
           <div className={`nav-links ${drawerOpen ? 'open' : ''}`}>
-            {NAV_ITEMS.map((item) => (
+            {navItems.map((item) => (
               <NavLink
                 key={item.path}
                 to={item.path}

@@ -7,6 +7,7 @@
 // server-side, este hook nunca los manda.
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../utils/apiClient';
+import { getAuthHeader } from './useAuth';
 
 const STORAGE_KEY = 'tacita.cart.v1';
 const FREE_SHIPPING_FROM = 600;
@@ -26,22 +27,6 @@ const optionsKey = (options) =>
     .join(',');
 
 const lineKey = (id, options) => `${id}|${optionsKey(options) || '—'}`;
-
-// Mismo localStorage key que escriben LoginUser.jsx y CheckoutAccountStep.jsx
-// al iniciar sesión. Si existe, se manda como Bearer en el checkout público
-// para que el backend vincule el pedido a la cuenta (packages/core-api/
-// modules/orders.js#attachOptionalCustomer) — es puramente opcional: sin
-// token, con uno vencido/inválido, o si el usuario nunca inició sesión
-// (p.ej. solo se registró, que no deja token porque falta verificar el
-// correo), el pedido se crea igual como invitado, sin error.
-const getCheckoutAuthHeader = () => {
-  try {
-    const token = localStorage.getItem('duckhack_customer_token');
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  } catch {
-    return {};
-  }
-};
 
 export const formatOptions = (options) =>
   Object.entries(options || {})
@@ -135,9 +120,15 @@ export const CartProvider = ({ children }) => {
       if (shippingAddress) payload.shippingAddress = shippingAddress;
       if (optionsNote) payload.notes = optionsNote;
 
+      // Bearer opcional: si hay sesión, el backend vincula el pedido a la
+      // cuenta (packages/core-api/modules/orders.js#attachOptionalCustomer);
+      // sin token, con uno vencido/inválido, o si el usuario nunca inició
+      // sesión (p.ej. solo se registró, que no deja token porque falta
+      // verificar el correo), el pedido se crea igual como invitado, sin
+      // error.
       const data = await apiFetch('/api/orders/public', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getCheckoutAuthHeader() },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
         body: JSON.stringify(payload),
       });
       return data.order;

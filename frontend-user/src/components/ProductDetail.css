@@ -200,6 +200,11 @@
   font-weight: 600;
 }
 
+.pd-favorite.active {
+  border-color: var(--signal);
+  color: var(--signal);
+}
+
 @media (max-width: 860px) {
   .pd {
     grid-template-columns: 1fr;

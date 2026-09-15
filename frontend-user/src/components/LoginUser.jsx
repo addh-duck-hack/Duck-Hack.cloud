@@ -1,12 +1,15 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "../utils/apiClient";
+import { useAuth } from "../hooks/useAuth";
 import "./Auth.css";
 
 const LoginUser = () => {
+  const navigate = useNavigate();
+  const auth = useAuth();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const onChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -15,7 +18,7 @@ const LoginUser = () => {
   const onSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    setSuccess("");
+    setIsSubmitting(true);
 
     try {
       const data = await apiFetch("/api/users/login", {
@@ -24,16 +27,12 @@ const LoginUser = () => {
         body: JSON.stringify(form),
       });
 
-      if (data?.token) {
-        localStorage.setItem("duckhack_customer_token", data.token);
-      }
-      if (data?.user) {
-        localStorage.setItem("duckhack_customer_user", JSON.stringify(data.user));
-      }
-
-      setSuccess("Inicio de sesión exitoso.");
+      auth.login(data);
+      navigate("/mi-cuenta");
     } catch (err) {
       setError(err.message || "No se pudo iniciar sesión");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -60,11 +59,12 @@ const LoginUser = () => {
             onChange={onChange}
             required
           />
-          <button type="submit">Entrar</button>
+          <button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Entrando…" : "Entrar"}
+          </button>
         </form>
 
         {error && <div className="auth-error">{error}</div>}
-        {success && <div className="auth-success">{success}</div>}
 
         <div className="auth-link">
           ¿Aún no tienes cuenta? <Link to="/register">Regístrate aquí</Link>

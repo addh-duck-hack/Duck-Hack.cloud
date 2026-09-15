@@ -17,8 +17,10 @@ import PrivacyNotice from './components/PrivacyNotice';
 import VerifyUser from './components/VerifyUser';
 import LoginUser from './components/LoginUser';
 import RegisterUser from './components/RegisterUser';
+import MiCuenta from './components/MiCuenta';
 import { StoreConfigProvider } from './hooks/useStoreConfig';
 import { CartProvider } from './hooks/useCart';
+import { AuthProvider } from './hooks/useAuth';
 import './App.css';
 
 const App = () => {
@@ -35,34 +37,37 @@ const App = () => {
 
   return (
     <StoreConfigProvider>
-      <CartProvider>
-        <Router>
-          <div className="App">
-            {loading ? (
-              <Loader />
-            ) : (
-              <Routes>
-                <Route element={<AppShell />}>
-                  <Route path="/" element={<Inicio />} />
-                  <Route path="/nosotros" element={<AboutUs />} />
-                  <Route path="/servicios" element={<OurServices />} />
-                  <Route path="/precios" element={<Services />} />
-                  <Route path="/clientes" element={<Customers />} />
-                  <Route path="/contacto" element={<ContactUs />} />
-                  <Route path="/tienda" element={<Shop />} />
-                  <Route path="/tienda/:id" element={<ProductDetail />} />
-                  <Route path="/carrito" element={<Cart />} />
-                  <Route path="/legal-notice" element={<LegalNotice />} />
-                  <Route path="/privacy-policy" element={<PrivacyNotice />} />
-                  <Route path="/login" element={<LoginUser />} />
-                  <Route path="/register" element={<RegisterUser />} />
-                </Route>
-                <Route path="/users/verify" element={<VerifyUser />} />
-              </Routes>
-            )}
-          </div>
-        </Router>
-      </CartProvider>
+      <AuthProvider>
+        <CartProvider>
+          <Router>
+            <div className="App">
+              {loading ? (
+                <Loader />
+              ) : (
+                <Routes>
+                  <Route element={<AppShell />}>
+                    <Route path="/" element={<Inicio />} />
+                    <Route path="/nosotros" element={<AboutUs />} />
+                    <Route path="/servicios" element={<OurServices />} />
+                    <Route path="/precios" element={<Services />} />
+                    <Route path="/clientes" element={<Customers />} />
+                    <Route path="/contacto" element={<ContactUs />} />
+                    <Route path="/tienda" element={<Shop />} />
+                    <Route path="/tienda/:id" element={<ProductDetail />} />
+                    <Route path="/carrito" element={<Cart />} />
+                    <Route path="/legal-notice" element={<LegalNotice />} />
+                    <Route path="/privacy-policy" element={<PrivacyNotice />} />
+                    <Route path="/login" element={<LoginUser />} />
+                    <Route path="/register" element={<RegisterUser />} />
+                    <Route path="/mi-cuenta" element={<MiCuenta />} />
+                  </Route>
+                  <Route path="/users/verify" element={<VerifyUser />} />
+                </Routes>
+              )}
+            </div>
+          </Router>
+        </CartProvider>
+      </AuthProvider>
     </StoreConfigProvider>
   );
 };

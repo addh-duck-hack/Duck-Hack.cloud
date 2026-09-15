@@ -15,11 +15,13 @@
 // escritos — la cuenta queda lista para la próxima vez.
 import React, { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../utils/apiClient';
+import { useAuth } from '../hooks/useAuth';
 import './Auth.css';
 
 const REGISTER_AUTO_CONTINUE_MS = 1600;
 
 const CheckoutAccountStep = ({ onGuest, onContinue, onBack }) => {
+  const auth = useAuth();
   const [mode, setMode] = useState('choice'); // 'choice' | 'login' | 'register'
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [registerForm, setRegisterForm] = useState({ name: '', email: '', password: '', phone: '' });
@@ -56,8 +58,7 @@ const CheckoutAccountStep = ({ onGuest, onContinue, onBack }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(loginForm),
       });
-      if (data?.token) localStorage.setItem('duckhack_customer_token', data.token);
-      if (data?.user) localStorage.setItem('duckhack_customer_user', JSON.stringify(data.user));
+      auth.login(data);
       onContinue({
         customerName: data?.user?.name || '',
         customerEmail: data?.user?.email || loginForm.email,
