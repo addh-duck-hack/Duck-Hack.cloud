@@ -10,6 +10,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { useCart, formatMxn, formatMxnLong, formatOptions } from '../hooks/useCart';
 import { useAuth } from '../hooks/useAuth';
+import { apiFetch } from '../utils/apiClient';
 import { iconForCategory } from './BrandMarks';
 import CheckoutAccountStep from './CheckoutAccountStep';
 import './Cart.css';
@@ -72,6 +73,9 @@ const Cart = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [order, setOrder] = useState(null);
+  // Solo aplica con sesión iniciada — un invitado no tiene libreta de
+  // direcciones donde guardarla (ver checkbox en el paso de envío).
+  const [saveAddress, setSaveAddress] = useState(false);
 
   const handleFieldChange = (e) => {
     const { name, value } = e.target;
@@ -98,6 +102,19 @@ const Cart = () => {
       setOrder(created);
       setStep(3);
       window.scrollTo(0, 0);
+
+      // Best-effort: si falla, no le quitamos al cliente su confirmación de
+      // pedido por esto — la dirección ya viaja completa en el pedido de
+      // todos modos, guardarla en la libreta es solo una conveniencia.
+      if (saveAddress && auth.isAuthenticated) {
+        apiFetch(`/api/users/${auth.user._id}/addresses`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${auth.token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(form.shippingAddress),
+        }).catch(() => {
+          // Silencioso a propósito — ver comentario arriba.
+        });
+      }
     } catch (err) {
       setSubmitError(err.message || 'No fue posible enviar tu pedido. Intenta de nuevo.');
     } finally {
@@ -110,6 +127,7 @@ const Cart = () => {
     setForm(INITIAL_FORM);
     setPaymentMethod('transfer');
     setOrder(null);
+    setSaveAddress(false);
     setStep(0);
     navigate('/tienda');
   };
@@ -377,6 +395,17 @@ const Cart = () => {
                 />
               </div>
             </div>
+
+            {auth.isAuthenticated && (
+              <label className="save-address-check">
+                <input
+                  type="checkbox"
+                  checked={saveAddress}
+                  onChange={(e) => setSaveAddress(e.target.checked)}
+                />
+                Guardar esta dirección en mis direcciones
+              </label>
+            )}
 
             <div className="field"><label>Método de pago</label></div>
             <div className="pay">

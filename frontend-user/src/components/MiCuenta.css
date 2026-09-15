@@ -267,6 +267,119 @@
 .status-delivered { color: #4ade80; }
 .status-cancelled { color: #ff6b6b; }
 
+/* El pedido en la lista es un <button>, no un <div> — hay que resetear el
+   estilo nativo antes de que herede el look de .account-order. */
+.account-order-clickable {
+  width: 100%;
+  text-align: left;
+  background: var(--panel);
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+.account-order-clickable:hover {
+  border-color: var(--signal);
+}
+
+.account-back-btn {
+  margin-bottom: 14px;
+}
+
+.account-subheading {
+  margin: 20px 0 10px;
+  font-size: 0.95rem;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* Timeline del pedido — puntos conectados por una línea, el actual y los
+   anteriores resaltados, los que faltan atenuados. */
+.account-timeline {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  margin-top: 16px;
+  overflow-x: auto;
+}
+.account-timeline-step {
+  flex: 1;
+  min-width: 90px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  text-align: center;
+}
+.account-timeline-step::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: -50%;
+  width: 100%;
+  height: 2px;
+  background: var(--line);
+  z-index: 0;
+}
+.account-timeline-step:first-child::before {
+  display: none;
+}
+.account-timeline-dot {
+  position: relative;
+  z-index: 1;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 2px solid var(--line);
+}
+.account-timeline-label {
+  font-size: 0.72rem;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.account-timeline-step.done .account-timeline-dot,
+.account-timeline-step.current .account-timeline-dot {
+  border-color: var(--signal);
+  background: var(--signal);
+}
+.account-timeline-step.done::before {
+  background: var(--signal);
+}
+.account-timeline-step.done .account-timeline-label,
+.account-timeline-step.current .account-timeline-label {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.account-order-cancelled {
+  margin-top: 16px;
+  color: #ff6b6b;
+  font-weight: 600;
+}
+
+.account-order-items {
+  display: grid;
+  gap: 6px;
+  margin-top: 4px;
+}
+.account-order-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.9rem;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.account-order-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
 .account-favorites {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));

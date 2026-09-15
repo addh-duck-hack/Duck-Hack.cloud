@@ -10,8 +10,9 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { useAuth } from '../hooks/useAuth';
 import { resolveStoreImageUrl } from '../hooks/useStoreConfig';
-import { apiFetch } from '../utils/apiClient';
-import { formatMxn, formatMxnLong } from '../hooks/useCart';
+import { apiFetch, getApiBaseUrl } from '../utils/apiClient';
+import { useCart, formatMxn, formatMxnLong } from '../hooks/useCart';
+import { useProducts } from '../hooks/useProducts';
 import { iconForCategory } from './BrandMarks';
 import './Auth.css';
 import './MiCuenta.css';
@@ -24,6 +25,10 @@ const ORDER_STATUS_LABELS = {
   delivered: 'Entregado',
   cancelled: 'Cancelado',
 };
+
+// "cancelled" no forma parte de la secuencia — se muestra aparte (ver el
+// detalle de pedido más abajo), no encaja en un timeline lineal.
+const ORDER_STATUS_SEQUENCE = ['pending', 'confirmed', 'processing', 'shipped', 'delivered'];
 
 const formatDate = (value) => {
   const date = new Date(value);
@@ -189,6 +194,19 @@ const MiCuenta = () => {
   const [orders, setOrders] = useState([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
   const [ordersError, setOrdersError] = useState('');
+
+  // Detalle de un pedido — se abre en el mismo panel "pedidos" (sin ruta
+  // aparte, ver JSX más abajo). El pedido completo ya viene en `orders`
+  // (GET /api/orders/mine trae items/shippingAddress/etc. completos), así
+  // que aquí solo guardamos CUÁL está abierto.
+  const [selectedOrderId, setSelectedOrderId] = useState('');
+  const [reorderMessage, setReorderMessage] = useState('');
+  const [reorderError, setReorderError] = useState('');
+  const [isDownloadingReceipt, setIsDownloadingReceipt] = useState(false);
+  const [downloadError, setDownloadError] = useState('');
+
+  const { addItem } = useCart();
+  const { products: catalogProducts } = useProducts();
 
   const [favoritesError, setFavoritesError] = useState('');
   const [removingFavoriteId, setRemovingFavoriteId] = useState('');
@@ -426,8 +444,75 @@ const MiCuenta = () => {
     navigate('/');
   };
 
+  const handleOpenOrder = (orderId) => {
+    setReorderMessage('');
+    setReorderError('');
+    setDownloadError('');
+    setSelectedOrderId(orderId);
+  };
+
+  const handleBackToOrders = () => {
+    setSelectedOrderId('');
+  };
+
+  // "Comprar de nuevo": compara contra el catálogo público YA cargado por
+  // useProducts() (que solo trae productos con stock, ver
+  // packages/core-api/modules/products.js) — un producto que ya no aparece
+  // ahí (se borró, se desactivó o se agotó) se reporta como no disponible en
+  // vez de agregarse. Se agregan los demás igual (parcial), no todo o nada.
+  const handleReorder = (order) => {
+    setReorderError('');
+    setReorderMessage('');
+
+    const catalogById = new Map(catalogProducts.map((p) => [String(p.id), p]));
+    const unavailable = [];
+    let addedCount = 0;
+
+    for (const item of order.items || []) {
+      const product = catalogById.get(String(item.product));
+      if (!product) {
+        unavailable.push(item.productName);
+        continue;
+      }
+      addItem(product, item.quantity, {});
+      addedCount += 1;
+    }
+
+    if (unavailable.length > 0) {
+      setReorderError(
+        `Producto no disponible: ${unavailable.join(', ')}${unavailable.length === 1 ? ' ya no está' : ' ya no están'} en la tienda.`
+      );
+    }
+    if (addedCount > 0) {
+      setReorderMessage(`Se agregaron ${addedCount} producto${addedCount === 1 ? '' : 's'} a tu canasta.`);
+    }
+  };
+
+  // El PDF exige Bearer token, así que no puede ser un <a href> normal —
+  // mismo patrón que frontend-admin/src/components/InvoiceList.jsx#handleViewPdf:
+  // se trae como blob y se abre en una pestaña nueva con el visor nativo.
+  const handleDownloadReceipt = async (order) => {
+    setDownloadError('');
+    setIsDownloadingReceipt(true);
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/api/orders/${order._id}/pdf`, { headers: authHeader });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error?.message || 'No fue posible descargar el comprobante.');
+      }
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      window.open(blobUrl, '_blank');
+    } catch (err) {
+      setDownloadError(err.message || 'No fue posible descargar el comprobante.');
+    } finally {
+      setIsDownloadingReceipt(false);
+    }
+  };
+
   const favorites = profile?.favorites || [];
   const pendingCount = orders.filter((o) => !['delivered', 'cancelled'].includes(o.status)).length;
+  const selectedOrder = orders.find((o) => o._id === selectedOrderId) || null;
 
   return (
     <section className="account-view">
@@ -629,37 +714,109 @@ const MiCuenta = () => {
 
           {activeSection === 'pedidos' && (
             <div className="account-panel">
-              <h2>Mis pedidos</h2>
-              {isLoadingOrders ? <p>Cargando…</p> : null}
-              {ordersError ? <div className="auth-error">{ordersError}</div> : null}
-              {!isLoadingOrders && orders.length === 0 && !ordersError ? (
-                <p className="account-empty">
-                  Todavía no vemos pedidos con esta cuenta — solo se listan los que hiciste con sesión iniciada o
-                  con este mismo correo.
-                </p>
-              ) : null}
-              {pendingCount > 0 && (
-                <p className="account-hint">
-                  {pendingCount} {pendingCount === 1 ? 'pedido en curso' : 'pedidos en curso'}.
-                </p>
-              )}
-              {orders.length > 0 && (
-                <div className="account-orders">
-                  {orders.map((o) => (
-                    <div className="account-order" key={o._id}>
-                      <div className="account-order-head">
-                        <span>Folio TAC-{String(o.orderNumber ?? '').padStart(5, '0')}</span>
-                        <span className={`account-order-status status-${o.status}`}>
-                          {ORDER_STATUS_LABELS[o.status] || o.status}
-                        </span>
-                      </div>
-                      <div className="account-order-meta">
-                        <span>{formatDate(o.createdAt)}</span>
-                        <span>{formatMxnLong(o.total)}</span>
-                      </div>
+              {selectedOrder ? (
+                <>
+                  <button type="button" className="btn account-back-btn" onClick={handleBackToOrders}>
+                    ← Volver a mis pedidos
+                  </button>
+                  <h2>Pedido TAC-{String(selectedOrder.orderNumber ?? '').padStart(5, '0')}</h2>
+                  <p className="account-hint">
+                    {formatDate(selectedOrder.createdAt)} · {formatMxnLong(selectedOrder.total)}
+                  </p>
+
+                  {selectedOrder.status === 'cancelled' ? (
+                    <p className="account-order-cancelled">
+                      <i className="fas fa-ban" aria-hidden="true" /> Este pedido fue cancelado.
+                    </p>
+                  ) : (
+                    <div className="account-timeline">
+                      {ORDER_STATUS_SEQUENCE.map((s, i) => {
+                        const currentIndex = ORDER_STATUS_SEQUENCE.indexOf(selectedOrder.status);
+                        const state = i < currentIndex ? 'done' : i === currentIndex ? 'current' : 'upcoming';
+                        return (
+                          <div className={`account-timeline-step ${state}`} key={s}>
+                            <span className="account-timeline-dot" />
+                            <span className="account-timeline-label">{ORDER_STATUS_LABELS[s]}</span>
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))}
-                </div>
+                  )}
+
+                  <h3 className="account-subheading">Productos</h3>
+                  <div className="account-order-items">
+                    {(selectedOrder.items || []).map((item, index) => (
+                      <div className="account-order-item" key={`${item.product}-${index}`}>
+                        <span>
+                          {item.productName} ×{item.quantity}
+                        </span>
+                        <span>{formatMxn(item.subtotal)}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {reorderError ? <div className="auth-error">{reorderError}</div> : null}
+                  {reorderMessage ? (
+                    <div className="auth-success">
+                      {reorderMessage} <Link to="/carrito">Ver canasta →</Link>
+                    </div>
+                  ) : null}
+                  {downloadError ? <div className="auth-error">{downloadError}</div> : null}
+
+                  <div className="account-order-actions">
+                    <button type="button" className="btn btn-solid" onClick={() => handleReorder(selectedOrder)}>
+                      Comprar de nuevo
+                    </button>
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => handleDownloadReceipt(selectedOrder)}
+                      disabled={isDownloadingReceipt}
+                    >
+                      {isDownloadingReceipt ? 'Generando…' : 'Descargar comprobante'}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h2>Mis pedidos</h2>
+                  {isLoadingOrders ? <p>Cargando…</p> : null}
+                  {ordersError ? <div className="auth-error">{ordersError}</div> : null}
+                  {!isLoadingOrders && orders.length === 0 && !ordersError ? (
+                    <p className="account-empty">
+                      Todavía no vemos pedidos con esta cuenta — solo se listan los que hiciste con sesión iniciada o
+                      con este mismo correo.
+                    </p>
+                  ) : null}
+                  {pendingCount > 0 && (
+                    <p className="account-hint">
+                      {pendingCount} {pendingCount === 1 ? 'pedido en curso' : 'pedidos en curso'}.
+                    </p>
+                  )}
+                  {orders.length > 0 && (
+                    <div className="account-orders">
+                      {orders.map((o) => (
+                        <button
+                          type="button"
+                          className="account-order account-order-clickable"
+                          key={o._id}
+                          onClick={() => handleOpenOrder(o._id)}
+                        >
+                          <div className="account-order-head">
+                            <span>Folio TAC-{String(o.orderNumber ?? '').padStart(5, '0')}</span>
+                            <span className={`account-order-status status-${o.status}`}>
+                              {ORDER_STATUS_LABELS[o.status] || o.status}
+                            </span>
+                          </div>
+                          <div className="account-order-meta">
+                            <span>{formatDate(o.createdAt)}</span>
+                            <span>{formatMxnLong(o.total)}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
