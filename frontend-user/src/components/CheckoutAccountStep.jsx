@@ -59,10 +59,12 @@ const CheckoutAccountStep = ({ onGuest, onContinue, onBack }) => {
         body: JSON.stringify(loginForm),
       });
       auth.login(data);
+      const defaultAddress = data?.user?.addresses?.find((a) => a.isDefault)?.address;
       onContinue({
         customerName: data?.user?.name || '',
         customerEmail: data?.user?.email || loginForm.email,
         customerPhone: data?.user?.phone || '',
+        shippingAddress: defaultAddress || '',
         authenticated: true,
         user: data?.user || { email: loginForm.email },
       });

@@ -39,12 +39,19 @@ const MiCuenta = () => {
   const authHeader = auth.token ? { Authorization: `Bearer ${auth.token}` } : {};
 
   const [profile, setProfile] = useState(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [loadError, setLoadError] = useState('');
 
-  const [profileForm, setProfileForm] = useState({ name: '', phone: '', address: '' });
+  const [profileForm, setProfileForm] = useState({ name: '', phone: '' });
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
   const [profileError, setProfileError] = useState('');
+
+  const [newAddressForm, setNewAddressForm] = useState({ label: '', address: '', isDefault: false });
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
+  const [addressMessage, setAddressMessage] = useState('');
+  const [addressError, setAddressError] = useState('');
+  const [addressActionId, setAddressActionId] = useState('');
 
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '' });
   const [isSavingPassword, setIsSavingPassword] = useState(false);
@@ -60,13 +67,16 @@ const MiCuenta = () => {
 
   const loadProfile = useCallback(async () => {
     if (!userId) return;
+    setIsLoadingProfile(true);
     setLoadError('');
     try {
       const data = await apiFetch(`/api/users/${userId}`, { headers: authHeader });
       setProfile(data);
-      setProfileForm({ name: data.name || '', phone: data.phone || '', address: data.address || '' });
+      setProfileForm({ name: data.name || '', phone: data.phone || '' });
     } catch (err) {
       setLoadError(err.message || 'No fue posible cargar tu perfil.');
+    } finally {
+      setIsLoadingProfile(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
@@ -110,7 +120,6 @@ const MiCuenta = () => {
       const payload = {};
       if (profileForm.name !== (profile?.name || '')) payload.name = profileForm.name;
       if (profileForm.phone !== (profile?.phone || '')) payload.phone = profileForm.phone;
-      if (profileForm.address !== (profile?.address || '')) payload.address = profileForm.address;
 
       if (Object.keys(payload).length === 0) {
         setProfileMessage('No hay cambios que guardar.');
@@ -122,10 +131,10 @@ const MiCuenta = () => {
         headers: { ...authHeader, 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      // `favorites` NO viene poblado en esta respuesta (PUT /:id no hace
-      // populate, a diferencia de GET /:id) — se descarta para no
-      // pisar la lista de favoritos ya cargada con puros ids.
-      const { favorites, ...rest } = data.user || {};
+      // `favorites`/`addresses` NO vienen poblados/completos en esta
+      // respuesta (PUT /:id no los toca) — se descartan para no pisar lo
+      // que ya se cargó por separado con GET /:id.
+      const { favorites, addresses, ...rest } = data.user || {};
       setProfile((prev) => ({ ...prev, ...rest }));
       auth.updateUser(rest);
       setProfileMessage('Datos actualizados.');
@@ -133,6 +142,65 @@ const MiCuenta = () => {
       setProfileError(err.message || 'No fue posible guardar tus datos.');
     } finally {
       setIsSavingProfile(false);
+    }
+  };
+
+  const handleNewAddressChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setNewAddressForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  const handleAddAddress = async (e) => {
+    e.preventDefault();
+    setIsSavingAddress(true);
+    setAddressError('');
+    setAddressMessage('');
+    try {
+      const data = await apiFetch(`/api/users/${userId}/addresses`, {
+        method: 'POST',
+        headers: { ...authHeader, 'Content-Type': 'application/json' },
+        body: JSON.stringify(newAddressForm),
+      });
+      setProfile((prev) => ({ ...prev, addresses: data.user?.addresses || [] }));
+      setNewAddressForm({ label: '', address: '', isDefault: false });
+      setAddressMessage('Dirección agregada.');
+    } catch (err) {
+      setAddressError(err.message || 'No fue posible agregar la dirección.');
+    } finally {
+      setIsSavingAddress(false);
+    }
+  };
+
+  const handleSetDefaultAddress = async (addressId) => {
+    setAddressError('');
+    setAddressActionId(addressId);
+    try {
+      const data = await apiFetch(`/api/users/${userId}/addresses/${addressId}`, {
+        method: 'PUT',
+        headers: { ...authHeader, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isDefault: true }),
+      });
+      setProfile((prev) => ({ ...prev, addresses: data.user?.addresses || [] }));
+    } catch (err) {
+      setAddressError(err.message || 'No fue posible actualizar la dirección.');
+    } finally {
+      setAddressActionId('');
+    }
+  };
+
+  const handleRemoveAddress = async (addressId) => {
+    setAddressError('');
+    setAddressActionId(addressId);
+    try {
+      const data = await apiFetch(`/api/users/${userId}/addresses/${addressId}`, {
+        method: 'DELETE',
+        headers: authHeader,
+      });
+      setProfile((prev) => ({ ...prev, addresses: data.user?.addresses || [] }));
+    } catch (err) {
+      setAddressError(err.message || 'No fue posible eliminar la dirección.');
+    } finally {
+      setAddressActionId('');
     }
   };
 
@@ -219,17 +287,6 @@ const MiCuenta = () => {
                 placeholder="55 1234 5678"
               />
             </label>
-            <label>
-              Dirección de envío (opcional)
-              <textarea
-                name="address"
-                value={profileForm.address}
-                onChange={handleProfileChange}
-                rows={2}
-                maxLength={500}
-                placeholder="Calle, número, colonia, ciudad, CP"
-              />
-            </label>
             {profileError ? <div className="auth-error">{profileError}</div> : null}
             {profileMessage ? <div className="auth-success">{profileMessage}</div> : null}
             <button type="submit" className="btn btn-solid" disabled={isSavingProfile}>
@@ -266,6 +323,87 @@ const MiCuenta = () => {
             {passwordMessage ? <div className="auth-success">{passwordMessage}</div> : null}
             <button type="submit" className="btn btn-solid" disabled={isSavingPassword}>
               {isSavingPassword ? 'Guardando…' : 'Actualizar contraseña'}
+            </button>
+          </form>
+        </div>
+
+        <div className="account-card account-card-wide">
+          <h2>Direcciones</h2>
+          {addressError ? <div className="auth-error">{addressError}</div> : null}
+          {addressMessage ? <div className="auth-success">{addressMessage}</div> : null}
+
+          {isLoadingProfile ? <p>Cargando…</p> : null}
+          {!isLoadingProfile && (profile?.addresses || []).length === 0 ? (
+            <p className="account-empty">Todavía no guardas ninguna dirección.</p>
+          ) : (
+            <div className="account-addresses">
+              {(profile?.addresses || []).map((a) => (
+                <div className="account-address" key={a._id}>
+                  <div className="account-address-body">
+                    {a.label ? <strong>{a.label}</strong> : null}
+                    <span>{a.address}</span>
+                  </div>
+                  <div className="account-address-actions">
+                    {a.isDefault ? (
+                      <span className="account-address-default">Predeterminada</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={() => handleSetDefaultAddress(a._id)}
+                        disabled={addressActionId === a._id}
+                      >
+                        Usar como predeterminada
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => handleRemoveAddress(a._id)}
+                      disabled={addressActionId === a._id}
+                    >
+                      {addressActionId === a._id ? 'Eliminando…' : 'Eliminar'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <form onSubmit={handleAddAddress} className="account-form account-address-form">
+            <label>
+              Etiqueta (opcional)
+              <input
+                name="label"
+                value={newAddressForm.label}
+                onChange={handleNewAddressChange}
+                maxLength={60}
+                placeholder="Casa, oficina…"
+              />
+            </label>
+            <label>
+              Dirección
+              <textarea
+                name="address"
+                value={newAddressForm.address}
+                onChange={handleNewAddressChange}
+                rows={2}
+                maxLength={500}
+                required
+                placeholder="Calle, número, colonia, ciudad, CP"
+              />
+            </label>
+            <label className="account-checkbox">
+              <input
+                type="checkbox"
+                name="isDefault"
+                checked={newAddressForm.isDefault}
+                onChange={handleNewAddressChange}
+              />
+              Usarla como predeterminada
+            </label>
+            <button type="submit" className="btn btn-solid" disabled={isSavingAddress}>
+              {isSavingAddress ? 'Agregando…' : 'Agregar dirección'}
             </button>
           </form>
         </div>
@@ -308,7 +446,8 @@ const MiCuenta = () => {
         <div className="account-card account-card-wide">
           <h2>Favoritos</h2>
           {favoritesError ? <div className="auth-error">{favoritesError}</div> : null}
-          {favorites.length === 0 ? (
+          {isLoadingProfile ? <p>Cargando…</p> : null}
+          {!isLoadingProfile && favorites.length === 0 ? (
             <p className="account-empty">Marca productos como favoritos desde su ficha para verlos aquí.</p>
           ) : (
             <div className="account-favorites">

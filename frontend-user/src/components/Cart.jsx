@@ -80,11 +80,13 @@ const Cart = () => {
   // precargamos el formulario de envío.
   const goToAccountOrSkip = () => {
     if (auth.isAuthenticated) {
+      const defaultAddress = auth.user.addresses?.find((a) => a.isDefault)?.address;
       setForm((prev) => ({
         ...prev,
         customerName: auth.user.name || prev.customerName,
         customerEmail: auth.user.email || prev.customerEmail,
         customerPhone: auth.user.phone || prev.customerPhone,
+        shippingAddress: defaultAddress || prev.shippingAddress,
       }));
       setStep(2);
     } else {
@@ -93,12 +95,13 @@ const Cart = () => {
     window.scrollTo(0, 0);
   };
 
-  const handleAccountContinue = ({ customerName, customerEmail, customerPhone }) => {
+  const handleAccountContinue = ({ customerName, customerEmail, customerPhone, shippingAddress }) => {
     setForm((prev) => ({
       ...prev,
       customerName: customerName || prev.customerName,
       customerEmail: customerEmail || prev.customerEmail,
       customerPhone: customerPhone || prev.customerPhone,
+      shippingAddress: shippingAddress || prev.shippingAddress,
     }));
     setStep(2);
     window.scrollTo(0, 0);
