@@ -208,7 +208,6 @@ const orderConfirmationEmailTemplate = ({ order, storeConfig, logoAbsoluteUrl })
     : BRAND.action;
 
   const payment = buildPaymentInstructions(order, storeConfig);
-  const itemRows = order.items.map((item) => renderOrderItemRowHtml(item, BRAND.white, BRAND.textDim)).join("");
 
   const html = `<!DOCTYPE html>
 <html lang="es">
@@ -222,12 +221,7 @@ const orderConfirmationEmailTemplate = ({ order, storeConfig, logoAbsoluteUrl })
       <tr>
         <td align="center" style="padding:40px 16px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
-            <tr>
-              <td align="center" style="padding-bottom:24px;">
-                ${logoAbsoluteUrl ? `<img src="${logoAbsoluteUrl}" width="32" height="32" alt="${escapeHtml(storeName)}" style="display:inline-block; vertical-align:middle; border-radius:8px;" />` : ""}
-                <span style="display:inline-block; vertical-align:middle; margin-left:10px; font-family:${monoFont}; font-size:18px; color:${BRAND.white}; letter-spacing:0.02em;">${escapeHtml(storeName)}</span>
-              </td>
-            </tr>
+            ${renderOrderEmailHeader(storeName, logoAbsoluteUrl)}
             <tr>
               <td style="background-color:${BRAND.panel}; border-radius:12px; padding:32px;">
                 <h1 style="margin:0 0 4px; font-family:${monoFont}; font-size:20px; color:${BRAND.white}; font-weight:700;">
@@ -238,15 +232,7 @@ const orderConfirmationEmailTemplate = ({ order, storeConfig, logoAbsoluteUrl })
                   <strong style="color:${BRAND.white};">${formatCurrency(order.total)}</strong>
                 </p>
 
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
-                  <tr>
-                    <td style="padding-bottom:6px; font-family:${bodyFont}; font-size:12px; letter-spacing:0.04em; text-transform:uppercase; color:${accent}; border-bottom:2px solid ${accent};">Producto</td>
-                    <td style="padding-bottom:6px; font-family:${bodyFont}; font-size:12px; letter-spacing:0.04em; text-transform:uppercase; color:${accent}; border-bottom:2px solid ${accent}; text-align:center;">Cant.</td>
-                    <td style="padding-bottom:6px; font-family:${bodyFont}; font-size:12px; letter-spacing:0.04em; text-transform:uppercase; color:${accent}; border-bottom:2px solid ${accent}; text-align:right;">Precio</td>
-                    <td style="padding-bottom:6px; font-family:${bodyFont}; font-size:12px; letter-spacing:0.04em; text-transform:uppercase; color:${accent}; border-bottom:2px solid ${accent}; text-align:right;">Subtotal</td>
-                  </tr>
-                  ${itemRows}
-                </table>
+                ${renderOrderItemsTableHtml(order, accent)}
 
                 <h2 style="margin:0 0 12px; font-family:${monoFont}; font-size:15px; color:${BRAND.white}; font-weight:700;">
                   ¿Cómo pagar?
@@ -279,4 +265,135 @@ Adjuntamos tu comprobante de pedido en PDF. Gracias por tu compra.`;
   return { html, text };
 };
 
-module.exports = { verificationEmailTemplate, orderConfirmationEmailTemplate };
+const PAYMENT_METHOD_LABELS = {
+  transfer: "Transferencia / SPEI",
+  pickup: "Pago en tienda",
+};
+
+// Encabezado compartido (logo + nombre de tienda) entre las plantillas de
+// pedido — extraído para que orderConfirmationEmailTemplate y
+// orderNotificationEmailTemplate se vean idénticas en esta parte.
+const renderOrderEmailHeader = (storeName, logoAbsoluteUrl) => `
+  <tr>
+    <td align="center" style="padding-bottom:24px;">
+      ${logoAbsoluteUrl ? `<img src="${logoAbsoluteUrl}" width="32" height="32" alt="${escapeHtml(storeName)}" style="display:inline-block; vertical-align:middle; border-radius:8px;" />` : ""}
+      <span style="display:inline-block; vertical-align:middle; margin-left:10px; font-family:${monoFont}; font-size:18px; color:${BRAND.white}; letter-spacing:0.02em;">${escapeHtml(storeName)}</span>
+    </td>
+  </tr>`;
+
+const renderOrderItemsTableHtml = (order, accent) => `
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+    <tr>
+      <td style="padding-bottom:6px; font-family:${bodyFont}; font-size:12px; letter-spacing:0.04em; text-transform:uppercase; color:${accent}; border-bottom:2px solid ${accent};">Producto</td>
+      <td style="padding-bottom:6px; font-family:${bodyFont}; font-size:12px; letter-spacing:0.04em; text-transform:uppercase; color:${accent}; border-bottom:2px solid ${accent}; text-align:center;">Cant.</td>
+      <td style="padding-bottom:6px; font-family:${bodyFont}; font-size:12px; letter-spacing:0.04em; text-transform:uppercase; color:${accent}; border-bottom:2px solid ${accent}; text-align:right;">Precio</td>
+      <td style="padding-bottom:6px; font-family:${bodyFont}; font-size:12px; letter-spacing:0.04em; text-transform:uppercase; color:${accent}; border-bottom:2px solid ${accent}; text-align:right;">Subtotal</td>
+    </tr>
+    ${order.items.map((item) => renderOrderItemRowHtml(item, BRAND.white, BRAND.textDim)).join("")}
+  </table>`;
+
+/**
+ * Aviso interno a la tienda cuando entra un pedido del storefront — mismo
+ * encabezado/marca/tabla de productos que orderConfirmationEmailTemplate
+ * (para que ambos correos se vean consistentes), pero con la información que
+ * necesita quien despacha el pedido en vez de instrucciones de pago: datos
+ * de contacto del cliente, dirección de envío y notas. No lleva el bloque
+ * "¿Cómo pagar?" (es para la tienda, no para el comprador) ni menciona un
+ * PDF adjunto (este correo no lleva uno).
+ * @param {{ order: object, storeConfig: object|null, logoAbsoluteUrl?: string }} params
+ * @returns {{ html: string, text: string }}
+ */
+const orderNotificationEmailTemplate = ({ order, storeConfig, logoAbsoluteUrl }) => {
+  const storeName = storeConfig?.storeName || "Tienda";
+  const accent = (storeConfig?.theme?.accentColor && /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/.test(storeConfig.theme.accentColor))
+    ? storeConfig.theme.accentColor
+    : BRAND.action;
+
+  const paymentLabel = PAYMENT_METHOD_LABELS[order.paymentMethod] || order.paymentMethod;
+
+  const infoRows = [
+    ["Cliente", `${order.customerName} <${order.customerEmail}>${order.customerPhone ? ` · ${order.customerPhone}` : ""}`],
+    ["Método de pago", paymentLabel],
+  ];
+  if (order.notes) infoRows.push(["Notas", order.notes]);
+
+  const addr = order.shippingAddress;
+  const hasAddress = Boolean(addr && addr.street);
+
+  const html = `<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Nuevo pedido #${order.orderNumber} — ${escapeHtml(storeName)}</title>
+  </head>
+  <body style="margin:0; padding:0; background-color:${BRAND.ink}; font-family:${bodyFont};">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${BRAND.ink};">
+      <tr>
+        <td align="center" style="padding:40px 16px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+            ${renderOrderEmailHeader(storeName, logoAbsoluteUrl)}
+            <tr>
+              <td style="background-color:${BRAND.panel}; border-radius:12px; padding:32px;">
+                <h1 style="margin:0 0 4px; font-family:${monoFont}; font-size:20px; color:${BRAND.white}; font-weight:700;">
+                  Nuevo pedido del storefront
+                </h1>
+                <p style="margin:0 0 20px; font-family:${bodyFont}; font-size:14px; color:${BRAND.textDim};">
+                  Pedido <strong style="color:${accent};">#${order.orderNumber}</strong> por un total de
+                  <strong style="color:${BRAND.white};">${formatCurrency(order.total)}</strong>
+                </p>
+
+                <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+                  ${infoRows
+                    .map(
+                      ([label, value]) => `<tr>
+                        <td style="padding:4px 12px 4px 0; font-family:${bodyFont}; font-size:13px; color:${BRAND.textDim}; vertical-align:top; white-space:nowrap;">${escapeHtml(label)}</td>
+                        <td style="padding:4px 0; font-family:${bodyFont}; font-size:14px; color:${BRAND.white};">${escapeHtml(value)}</td>
+                      </tr>`
+                    )
+                    .join("")}
+                  ${hasAddress
+                    ? `<tr>
+                        <td style="padding:4px 12px 4px 0; font-family:${bodyFont}; font-size:13px; color:${BRAND.textDim}; vertical-align:top; white-space:nowrap;">Dirección de envío</td>
+                        <td style="padding:4px 0; font-family:${bodyFont}; font-size:14px; color:${BRAND.white}; line-height:1.5;">${escapeHtml(formatShippingAddressLine(addr)).replace(/\n/g, "<br/>")}</td>
+                      </tr>`
+                    : ""}
+                </table>
+
+                ${renderOrderItemsTableHtml(order, accent)}
+
+                <p style="margin:0; font-family:${bodyFont}; font-size:13px; line-height:1.5; color:${BRAND.textDim};">
+                  Este aviso es solo informativo — el pedido ya quedó guardado en el panel.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  const text = `Nuevo pedido del storefront.
+
+Pedido #${order.orderNumber} por un total de ${formatCurrency(order.total)}.
+
+${infoRows.map(([label, value]) => `${label}: ${value}`).join("\n")}
+${hasAddress ? `Dirección de envío:\n${formatShippingAddressLine(addr)}\n` : ""}
+${order.items.map(renderOrderItemLineText).join("\n")}`;
+
+  return { html, text };
+};
+
+// Misma dirección que ya se usaba en el correo de texto plano (una línea por
+// dato, unida con salto de línea) — reutilizada aquí para HTML (con <br/>) y
+// para el texto plano de orderNotificationEmailTemplate.
+const formatShippingAddressLine = (addr) => {
+  const line1 = [addr.street, addr.exteriorNumber].filter(Boolean).join(" ") +
+    (addr.interiorNumber ? ` Int. ${addr.interiorNumber}` : "");
+  const line2 = [addr.neighborhood, addr.city, addr.state].filter(Boolean).join(", ");
+  const line3 = addr.zipCode ? `C.P. ${addr.zipCode}` : "";
+  return [addr.recipientName, line1, line2, line3, addr.phone ? `Tel: ${addr.phone}` : ""].filter(Boolean).join("\n");
+};
+
+module.exports = { verificationEmailTemplate, orderConfirmationEmailTemplate, orderNotificationEmailTemplate };
