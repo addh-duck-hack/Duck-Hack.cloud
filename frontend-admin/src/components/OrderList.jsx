@@ -91,7 +91,7 @@ const OrderList = () => {
                 <td>{order.customerName}</td>
                 <td>
                   {order.customer ? (
-                    <span className="badge badge-blue">Cuenta</span>
+                    <span className="badge badge-blue">Usuario registrado</span>
                   ) : (
                     <span style={{ color: "var(--text-dim, #888)" }}>Invitado</span>
                   )}
