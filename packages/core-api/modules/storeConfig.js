@@ -25,9 +25,42 @@ const { createSingleImageUploadMiddlewares } = require("../lib/uploads");
 const HEX_COLOR_REGEX = /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/;
 const SLUG_REGEX = /^[a-z0-9-]+$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const CLABE_REGEX = /^\d{18}$/;
 const isValidHexColor = (value) => !value || HEX_COLOR_REGEX.test(value);
 const validateEmail = (email) => EMAIL_REGEX.test(asTrimmedString(email));
 const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+
+// Catálogo de bancos para el dropdown de "Banco receptor" en Pagos (SPEI).
+// Duplicado a propósito en frontend-admin/src/utils/mexicanBanks.js — mismo
+// criterio que hostingPlans.js (no hay paquete compartido entre backend y
+// frontend-admin). "Otro" es la válvula de escape para un banco no listado.
+const MEXICAN_BANKS = [
+  "BBVA México",
+  "Banorte",
+  "Santander",
+  "Citibanamex",
+  "HSBC México",
+  "Scotiabank México",
+  "Banco Azteca",
+  "Inbursa",
+  "BanBajío",
+  "Banregio",
+  "Afirme",
+  "Multiva",
+  "Mifel",
+  "BanCoppel",
+  "Actinver",
+  "CIBanco",
+  "Intercam Banco",
+  "Consubanco",
+  "Banco Ve por Más (BX+)",
+  "STP",
+  "Nu México",
+  "Mercado Pago",
+  "Klar",
+  "Hey Banco",
+  "Otro",
+];
 
 // --- Schema ---
 
@@ -60,6 +93,24 @@ const legalIdentitySchema = new mongoose.Schema(
     legalAddress: { type: String, trim: true, maxlength: 400 },
     legalEmail: { type: String, trim: true, lowercase: true, maxlength: 160 },
     legalPhone: { type: String, trim: true, maxlength: 30 },
+  },
+  { _id: false }
+);
+
+// Cuenta destino para pagos por transferencia SPEI — se usa (en un cambio
+// posterior) para incluir estos datos en el correo de confirmación de pedido
+// (ver modules/orders.js) para que el comprador pueda pagar. NUNCA se expone
+// vía GET /public (ver registerRoutes más abajo) — a diferencia de
+// legalIdentity, esto es información bancaria sensible (CLABE), no contenido
+// público del storefront.
+const speiPaymentSchema = new mongoose.Schema(
+  {
+    accountHolderName: { type: String, trim: true, maxlength: 160 },
+    // 18 dígitos exactos (formato de CLABE interbancaria) — no se valida el
+    // dígito verificador real, solo formato (longitud + solo dígitos).
+    clabe: { type: String, trim: true, maxlength: 18 },
+    phone: { type: String, trim: true, maxlength: 20 },
+    bank: { type: String, trim: true, enum: [...MEXICAN_BANKS, ""] },
   },
   { _id: false }
 );
@@ -200,6 +251,7 @@ const storeConfigSchema = new mongoose.Schema(
     homeBlocks: { type: [homeBlockSchema], default: [] },
     socialLinks: { type: socialLinksSchema, default: () => ({}) },
     legalIdentity: { type: legalIdentitySchema, default: () => ({}) },
+    speiPayment: { type: speiPaymentSchema, default: () => ({}) },
     heroSlides: { type: [heroSlideSchema], default: [] },
     metrics: { type: [metricSchema], default: [] },
     commands: { type: [commandSchema], default: [] },
@@ -567,6 +619,25 @@ const validateStoreConfigPayload = (sendError) => (req, res, next) => {
     }
   }
 
+  if (payload.speiPayment !== undefined) {
+    if (typeof payload.speiPayment !== "object" || payload.speiPayment === null || Array.isArray(payload.speiPayment)) {
+      return sendError(res, 400, "VALIDATION_ERROR", "speiPayment debe ser un objeto.");
+    }
+    const { accountHolderName, clabe, phone, bank } = payload.speiPayment;
+    if (accountHolderName !== undefined && asTrimmedString(accountHolderName).length > 160) {
+      return sendError(res, 400, "VALIDATION_ERROR", "speiPayment.accountHolderName excede 160 caracteres.");
+    }
+    if (clabe !== undefined && asTrimmedString(clabe) && !CLABE_REGEX.test(asTrimmedString(clabe))) {
+      return sendError(res, 400, "VALIDATION_ERROR", "speiPayment.clabe debe tener exactamente 18 dígitos numéricos.");
+    }
+    if (phone !== undefined && asTrimmedString(phone).length > 20) {
+      return sendError(res, 400, "VALIDATION_ERROR", "speiPayment.phone excede 20 caracteres.");
+    }
+    if (bank !== undefined && asTrimmedString(bank) && !MEXICAN_BANKS.includes(asTrimmedString(bank))) {
+      return sendError(res, 400, "VALIDATION_ERROR", "speiPayment.bank no es un banco válido.");
+    }
+  }
+
   const arrayFieldError =
     validateStoreConfigArrayField(payload, "heroSlides", validateHeroSlideItem) ||
     validateStoreConfigArrayField(payload, "metrics", validateMetricItem) ||
@@ -627,6 +698,10 @@ function registerRoutes(app, ctx) {
         return sendError(res, 404, "STORE_CONFIG_NOT_FOUND", "Configuración de tienda no encontrada.");
       }
       config.metrics = await resolveLiveMetrics(config.metrics, resolveLiveMetricSources);
+      // Datos bancarios (CLABE) — nunca se exponen en el endpoint público, a
+      // diferencia de legalIdentity. Se envían al comprador por correo desde
+      // el servidor (ver modules/orders.js), no vía este endpoint.
+      delete config.speiPayment;
       return res.status(200).json(sanitizeDoc(config));
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al consultar configuración de tienda.");
@@ -649,7 +724,7 @@ function registerRoutes(app, ctx) {
     try {
       const allowedFields = [
         "storeName", "storeSlug", "contactEmail", "contactPhone", "logoUrl", "theme", "homeBlocks",
-        "isActive", "socialLinks", "legalIdentity", "heroSlides", "metrics", "commands", "services",
+        "isActive", "socialLinks", "legalIdentity", "speiPayment", "heroSlides", "metrics", "commands", "services",
         "pricingPlans", "commonPlanChecks", "faqs", "teamMembers", "testimonials",
       ];
 
