@@ -255,6 +255,7 @@
   }
 }
 .account-checkbox {
+  display: flex !important;
   flex-direction: row !important;
   align-items: center;
   gap: 8px !important;
@@ -265,6 +266,18 @@
 }
 .account-checkbox input {
   width: auto !important;
+  margin: 0;
+}
+
+/* Acciones del formulario de "agregar dirección" (Agregar/Cancelar) —
+   centradas en vez de estirarse a todo el ancho del grid del formulario. */
+.account-address-actions-center {
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.account-address-add-toggle {
+  margin-top: 10px;
 }
 
 .account-orders {

@@ -57,6 +57,204 @@ const pickShippingAddress = (addr) => {
   return picked;
 };
 
+// Los 8 campos de dirección — usados tanto por invitados (siempre) como por
+// un usuario registrado agregando una dirección nueva durante el checkout
+// (ver AddressStep más abajo). `required` se apaga para "pago en finca"
+// (dirección opcional), igual que antes de este cambio.
+const ShippingAddressFields = ({ values, onChange, required }) => (
+  <div className="ship-address-grid">
+    <div className="field">
+      <label htmlFor="a-recipientName">Nombre de quien recibe</label>
+      <input
+        id="a-recipientName"
+        name="recipientName"
+        value={values.recipientName}
+        onChange={onChange}
+        required={required}
+        placeholder="María Fernanda Ruiz"
+      />
+    </div>
+    <div className="field">
+      <label htmlFor="a-phone">Teléfono</label>
+      <input
+        id="a-phone"
+        name="phone"
+        value={values.phone}
+        onChange={onChange}
+        required={required}
+        placeholder="55 1234 5678"
+      />
+    </div>
+    <div className="field field-wide">
+      <label htmlFor="a-street">Calle</label>
+      <input
+        id="a-street"
+        name="street"
+        value={values.street}
+        onChange={onChange}
+        required={required}
+        placeholder="Av. Reforma"
+      />
+    </div>
+    <div className="field">
+      <label htmlFor="a-exteriorNumber">Número exterior</label>
+      <input
+        id="a-exteriorNumber"
+        name="exteriorNumber"
+        value={values.exteriorNumber}
+        onChange={onChange}
+        required={required}
+        placeholder="123"
+      />
+    </div>
+    <div className="field">
+      <label htmlFor="a-interiorNumber">Número interior (opcional)</label>
+      <input
+        id="a-interiorNumber"
+        name="interiorNumber"
+        value={values.interiorNumber}
+        onChange={onChange}
+        placeholder="Depto. 4"
+      />
+    </div>
+    <div className="field">
+      <label htmlFor="a-zipCode">Código postal</label>
+      <input
+        id="a-zipCode"
+        name="zipCode"
+        value={values.zipCode}
+        onChange={onChange}
+        required={required}
+        placeholder="73080"
+      />
+    </div>
+    <div className="field">
+      <label htmlFor="a-neighborhood">Colonia</label>
+      <input
+        id="a-neighborhood"
+        name="neighborhood"
+        value={values.neighborhood}
+        onChange={onChange}
+        required={required}
+        placeholder="Centro"
+      />
+    </div>
+    <div className="field">
+      <label htmlFor="a-city">Ciudad</label>
+      <input
+        id="a-city"
+        name="city"
+        value={values.city}
+        onChange={onChange}
+        required={required}
+        placeholder="Xicotepec de Juárez"
+      />
+    </div>
+    <div className="field">
+      <label htmlFor="a-state">Estado</label>
+      <input
+        id="a-state"
+        name="state"
+        value={values.state}
+        onChange={onChange}
+        required={required}
+        placeholder="Puebla"
+      />
+    </div>
+  </div>
+);
+
+// Sección "Dirección de envío" del paso 2 — para un invitado siempre es el
+// formulario directo (nunca tuvo libreta de direcciones). Para un usuario
+// registrado, según el estado que arma syncAddressesFromUser en Cart:
+//   - sin direcciones y sin estar agregando una → botón "Agregar dirección"
+//     (requisito 1, en vez del formulario directo).
+//   - agregando una nueva (showNewAddressForm) → el mismo formulario, con
+//     botón "Guardar dirección" que la manda a la libreta (no solo al pedido).
+//   - con direcciones guardadas → listado seleccionable; la predeterminada
+//     llega preseleccionada (requisito 2) y si ninguna es default el radio
+//     `required` obliga a elegir una antes de poder enviar (requisito 3).
+const AddressStep = ({
+  auth,
+  paymentMethod,
+  form,
+  onAddressFieldChange,
+  addresses,
+  selectedAddressId,
+  onSelectAddress,
+  showNewAddressForm,
+  onShowNewAddressForm,
+  onCancelNewAddressForm,
+  onSaveNewAddress,
+  isSavingNewAddress,
+  newAddressError,
+}) => {
+  const required = paymentMethod === 'transfer';
+
+  if (!auth.isAuthenticated) {
+    return <ShippingAddressFields values={form.shippingAddress} onChange={onAddressFieldChange} required={required} />;
+  }
+
+  if (addresses.length === 0 && !showNewAddressForm) {
+    return (
+      <button type="button" className="btn btn-solid" onClick={onShowNewAddressForm}>
+        Agregar dirección
+      </button>
+    );
+  }
+
+  if (showNewAddressForm) {
+    return (
+      <>
+        <ShippingAddressFields values={form.shippingAddress} onChange={onAddressFieldChange} required={required} />
+        {newAddressError ? <div className="checkout-error">{newAddressError}</div> : null}
+        <div className="ship-address-form-actions">
+          <button type="button" className="btn btn-solid" onClick={onSaveNewAddress} disabled={isSavingNewAddress}>
+            {isSavingNewAddress ? 'Guardando…' : 'Guardar dirección'}
+          </button>
+          {addresses.length > 0 && (
+            <button type="button" className="btn" onClick={onCancelNewAddressForm} disabled={isSavingNewAddress}>
+              Cancelar
+            </button>
+          )}
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <div className="ship-address-list">
+      {addresses.map((a) => (
+        <label
+          key={a._id}
+          className={`ship-address-option${selectedAddressId === a._id ? ' selected' : ''}`}
+        >
+          <input
+            type="radio"
+            name="savedShippingAddress"
+            checked={selectedAddressId === a._id}
+            onChange={() => onSelectAddress(a)}
+            required={required}
+          />
+          <span className="ship-address-option-body">
+            {a.isDefault ? <span className="ship-address-default-badge">Predeterminada</span> : null}
+            {a.label ? <strong>{a.label}</strong> : null}
+            <span>{a.recipientName} · {a.phone}</span>
+            <span>
+              {a.street} {a.exteriorNumber}
+              {a.interiorNumber ? `, Int. ${a.interiorNumber}` : ''}
+            </span>
+            <span>{a.neighborhood}, {a.city}, {a.state} · C.P. {a.zipCode}</span>
+          </span>
+        </label>
+      ))}
+      <button type="button" className="btn ship-add-address-btn" onClick={onShowNewAddressForm}>
+        + Agregar otra dirección
+      </button>
+    </div>
+  );
+};
+
 const Cart = () => {
   usePageMeta('Canasta');
   const navigate = useNavigate();
@@ -73,9 +271,17 @@ const Cart = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [order, setOrder] = useState(null);
-  // Solo aplica con sesión iniciada — un invitado no tiene libreta de
-  // direcciones donde guardarla (ver checkbox en el paso de envío).
-  const [saveAddress, setSaveAddress] = useState(false);
+
+  // Libreta de direcciones del cliente (solo aplica con sesión iniciada) —
+  // ver AddressStep más abajo. `selectedAddressId` vacío significa "ninguna
+  // elegida todavía" (fuerza selección cuando no hay predeterminada, ver
+  // syncAddressesFromUser); `showNewAddressForm` alterna entre el
+  // listado/botón y el formulario de dirección nueva.
+  const [addresses, setAddresses] = useState([]);
+  const [selectedAddressId, setSelectedAddressId] = useState('');
+  const [showNewAddressForm, setShowNewAddressForm] = useState(false);
+  const [isSavingNewAddress, setIsSavingNewAddress] = useState(false);
+  const [newAddressError, setNewAddressError] = useState('');
 
   const handleFieldChange = (e) => {
     const { name, value } = e.target;
@@ -102,19 +308,6 @@ const Cart = () => {
       setOrder(created);
       setStep(3);
       window.scrollTo(0, 0);
-
-      // Best-effort: si falla, no le quitamos al cliente su confirmación de
-      // pedido por esto — la dirección ya viaja completa en el pedido de
-      // todos modos, guardarla en la libreta es solo una conveniencia.
-      if (saveAddress && auth.isAuthenticated) {
-        apiFetch(`/api/users/${auth.user._id}/addresses`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${auth.token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify(form.shippingAddress),
-        }).catch(() => {
-          // Silencioso a propósito — ver comentario arriba.
-        });
-      }
     } catch (err) {
       setSubmitError(err.message || 'No fue posible enviar tu pedido. Intenta de nuevo.');
     } finally {
@@ -127,23 +320,78 @@ const Cart = () => {
     setForm(INITIAL_FORM);
     setPaymentMethod('transfer');
     setOrder(null);
-    setSaveAddress(false);
+    setAddresses([]);
+    setSelectedAddressId('');
+    setShowNewAddressForm(false);
     setStep(0);
     navigate('/tienda');
+  };
+
+  // Refleja la libreta de direcciones de `user` en el estado local del
+  // checkout: con predeterminada → se preselecciona (requisito 2); con
+  // direcciones pero sin predeterminada → ninguna queda marcada, así el
+  // radio `required` de abajo obliga a elegir una (requisito 3); sin
+  // direcciones → arranca en "botón de agregar", no en el formulario
+  // directo (requisito 1, ver AddressStep más abajo).
+  const syncAddressesFromUser = (user) => {
+    const list = user?.addresses || [];
+    setAddresses(list);
+    setShowNewAddressForm(false);
+    const defaultAddress = list.find((a) => a.isDefault);
+    if (defaultAddress) {
+      setSelectedAddressId(defaultAddress._id);
+      setForm((prev) => ({ ...prev, shippingAddress: pickShippingAddress(defaultAddress) || prev.shippingAddress }));
+    } else {
+      setSelectedAddressId('');
+    }
+  };
+
+  const handleSelectSavedAddress = (address) => {
+    setSelectedAddressId(address._id);
+    setForm((prev) => ({ ...prev, shippingAddress: pickShippingAddress(address) || prev.shippingAddress }));
+  };
+
+  // Guarda la dirección nueva en la libreta del cliente (no solo en el
+  // pedido) — a diferencia del checkbox que había antes, aquí es siempre así
+  // para un usuario registrado: el punto es que la próxima vez ya aparezca
+  // en el listado (requisito 1).
+  const handleSaveNewAddressDuringCheckout = async () => {
+    setNewAddressError('');
+    setIsSavingNewAddress(true);
+    try {
+      const data = await apiFetch(`/api/users/${auth.user._id}/addresses`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${auth.token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(form.shippingAddress),
+      });
+      const updatedAddresses = data.user?.addresses || [];
+      setAddresses(updatedAddresses);
+      // El backend hace push al final del arreglo — la recién creada es la
+      // última (ver POST /:id/addresses en packages/core-api/modules/auth.js).
+      const newAddress = updatedAddresses[updatedAddresses.length - 1];
+      if (newAddress) {
+        setSelectedAddressId(newAddress._id);
+        setForm((prev) => ({ ...prev, shippingAddress: pickShippingAddress(newAddress) || prev.shippingAddress }));
+      }
+      setShowNewAddressForm(false);
+    } catch (err) {
+      setNewAddressError(err.message || 'No fue posible guardar la dirección.');
+    } finally {
+      setIsSavingNewAddress(false);
+    }
   };
 
   // Si ya hay sesión (useAuth.jsx), nos saltamos el paso "Tu cuenta" y
   // precargamos el formulario de envío.
   const goToAccountOrSkip = () => {
     if (auth.isAuthenticated) {
-      const defaultAddress = pickShippingAddress(auth.user.addresses?.find((a) => a.isDefault));
       setForm((prev) => ({
         ...prev,
         customerName: auth.user.name || prev.customerName,
         customerEmail: auth.user.email || prev.customerEmail,
         customerPhone: auth.user.phone || prev.customerPhone,
-        shippingAddress: defaultAddress || prev.shippingAddress,
       }));
+      syncAddressesFromUser(auth.user);
       setStep(2);
     } else {
       setStep(1);
@@ -151,20 +399,34 @@ const Cart = () => {
     window.scrollTo(0, 0);
   };
 
-  const handleAccountContinue = ({ customerName, customerEmail, customerPhone, defaultAddress }) => {
+  const handleAccountContinue = ({ customerName, customerEmail, customerPhone, user }) => {
     setForm((prev) => ({
       ...prev,
       customerName: customerName || prev.customerName,
       customerEmail: customerEmail || prev.customerEmail,
       customerPhone: customerPhone || prev.customerPhone,
-      shippingAddress: pickShippingAddress(defaultAddress) || prev.shippingAddress,
     }));
+    if (user) {
+      // Login exitoso durante el checkout — usamos `user` tal cual lo
+      // regresa el login en vez de auth.user (el estado del contexto puede
+      // no estar actualizado todavía justo después de auth.login()).
+      syncAddressesFromUser(user);
+    } else {
+      // Registro recién hecho (pendiente de verificar correo, sin sesión
+      // todavía) — no hay libreta de direcciones, se comporta como invitado.
+      setAddresses([]);
+      setSelectedAddressId('');
+      setShowNewAddressForm(false);
+    }
     setStep(2);
     window.scrollTo(0, 0);
   };
 
   const handleForgetAccount = () => {
     auth.logout();
+    setAddresses([]);
+    setSelectedAddressId('');
+    setShowNewAddressForm(false);
     setStep(1);
     window.scrollTo(0, 0);
   };
@@ -295,117 +557,24 @@ const Cart = () => {
                 {paymentMethod === 'transfer' ? 'Dirección de envío' : 'Dirección de envío (opcional)'}
               </label>
             </div>
-            <div className="ship-address-grid">
-              <div className="field">
-                <label htmlFor="a-recipientName">Nombre de quien recibe</label>
-                <input
-                  id="a-recipientName"
-                  name="recipientName"
-                  value={form.shippingAddress.recipientName}
-                  onChange={handleAddressFieldChange}
-                  required={paymentMethod === 'transfer'}
-                  placeholder="María Fernanda Ruiz"
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="a-phone">Teléfono</label>
-                <input
-                  id="a-phone"
-                  name="phone"
-                  value={form.shippingAddress.phone}
-                  onChange={handleAddressFieldChange}
-                  required={paymentMethod === 'transfer'}
-                  placeholder="55 1234 5678"
-                />
-              </div>
-              <div className="field field-wide">
-                <label htmlFor="a-street">Calle</label>
-                <input
-                  id="a-street"
-                  name="street"
-                  value={form.shippingAddress.street}
-                  onChange={handleAddressFieldChange}
-                  required={paymentMethod === 'transfer'}
-                  placeholder="Av. Reforma"
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="a-exteriorNumber">Número exterior</label>
-                <input
-                  id="a-exteriorNumber"
-                  name="exteriorNumber"
-                  value={form.shippingAddress.exteriorNumber}
-                  onChange={handleAddressFieldChange}
-                  required={paymentMethod === 'transfer'}
-                  placeholder="123"
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="a-interiorNumber">Número interior (opcional)</label>
-                <input
-                  id="a-interiorNumber"
-                  name="interiorNumber"
-                  value={form.shippingAddress.interiorNumber}
-                  onChange={handleAddressFieldChange}
-                  placeholder="Depto. 4"
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="a-zipCode">Código postal</label>
-                <input
-                  id="a-zipCode"
-                  name="zipCode"
-                  value={form.shippingAddress.zipCode}
-                  onChange={handleAddressFieldChange}
-                  required={paymentMethod === 'transfer'}
-                  placeholder="73080"
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="a-neighborhood">Colonia</label>
-                <input
-                  id="a-neighborhood"
-                  name="neighborhood"
-                  value={form.shippingAddress.neighborhood}
-                  onChange={handleAddressFieldChange}
-                  required={paymentMethod === 'transfer'}
-                  placeholder="Centro"
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="a-city">Ciudad</label>
-                <input
-                  id="a-city"
-                  name="city"
-                  value={form.shippingAddress.city}
-                  onChange={handleAddressFieldChange}
-                  required={paymentMethod === 'transfer'}
-                  placeholder="Xicotepec de Juárez"
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="a-state">Estado</label>
-                <input
-                  id="a-state"
-                  name="state"
-                  value={form.shippingAddress.state}
-                  onChange={handleAddressFieldChange}
-                  required={paymentMethod === 'transfer'}
-                  placeholder="Puebla"
-                />
-              </div>
-            </div>
-
-            {auth.isAuthenticated && (
-              <label className="save-address-check">
-                <input
-                  type="checkbox"
-                  checked={saveAddress}
-                  onChange={(e) => setSaveAddress(e.target.checked)}
-                />
-                Guardar esta dirección en mis direcciones
-              </label>
-            )}
+            <AddressStep
+              auth={auth}
+              paymentMethod={paymentMethod}
+              form={form}
+              onAddressFieldChange={handleAddressFieldChange}
+              addresses={addresses}
+              selectedAddressId={selectedAddressId}
+              onSelectAddress={handleSelectSavedAddress}
+              showNewAddressForm={showNewAddressForm}
+              onShowNewAddressForm={() => setShowNewAddressForm(true)}
+              onCancelNewAddressForm={() => {
+                setShowNewAddressForm(false);
+                setNewAddressError('');
+              }}
+              onSaveNewAddress={handleSaveNewAddressDuringCheckout}
+              isSavingNewAddress={isSavingNewAddress}
+              newAddressError={newAddressError}
+            />
 
             <div className="field"><label>Método de pago</label></div>
             <div className="pay">

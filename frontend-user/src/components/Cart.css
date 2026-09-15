@@ -196,19 +196,60 @@
   }
 }
 
-.save-address-check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-body);
-  font-size: 0.88rem;
-  color: var(--text-dim);
-  text-transform: none;
+.ship-address-list {
+  display: grid;
+  gap: 10px;
   margin-bottom: 16px;
+}
+.ship-address-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid var(--text);
+  border-radius: 3px;
+  padding: 12px 14px;
   cursor: pointer;
 }
-.save-address-check input {
+.ship-address-option.selected {
+  border-color: var(--gold);
+  background: rgba(200, 162, 39, 0.08);
+}
+.ship-address-option input {
   width: auto;
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+.ship-address-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.88rem;
+  color: var(--text);
+}
+.ship-address-option-body strong {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gold);
+}
+.ship-address-default-badge {
+  display: inline-block;
+  width: fit-content;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--signal);
+}
+.ship-add-address-btn {
+  justify-self: start;
+}
+.ship-address-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
 }
 
 .pay {

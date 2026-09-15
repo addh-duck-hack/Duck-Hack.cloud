@@ -177,6 +177,9 @@ const MiCuenta = () => {
   const [addressMessage, setAddressMessage] = useState('');
   const [addressError, setAddressError] = useState('');
   const [addressActionId, setAddressActionId] = useState('');
+  // El formulario de "agregar dirección" empieza oculto — se muestra el
+  // listado (o el mensaje de vacío) primero, y este botón lo revela.
+  const [showAddAddressForm, setShowAddAddressForm] = useState(false);
 
   // Edición en línea de una dirección ya guardada — separado de
   // newAddressForm (que es solo para agregar una nueva) porque ambos
@@ -316,6 +319,7 @@ const MiCuenta = () => {
       });
       setProfile((prev) => ({ ...prev, addresses: data.user?.addresses || [] }));
       setNewAddressForm(INITIAL_ADDRESS_FORM);
+      setShowAddAddressForm(false);
       setAddressMessage('Dirección agregada.');
     } catch (err) {
       setAddressError(err.message || 'No fue posible agregar la dirección.');
@@ -770,12 +774,36 @@ const MiCuenta = () => {
                 </div>
               )}
 
-              <form onSubmit={handleAddAddress} className="account-form account-address-form">
-                <AddressFormFields values={newAddressForm} onChange={handleNewAddressChange} />
-                <button type="submit" className="btn btn-solid" disabled={isSavingAddress}>
-                  {isSavingAddress ? 'Agregando…' : 'Agregar dirección'}
+              {showAddAddressForm ? (
+                <form onSubmit={handleAddAddress} className="account-form account-address-form">
+                  <AddressFormFields values={newAddressForm} onChange={handleNewAddressChange} />
+                  <div className="account-address-actions account-address-actions-center">
+                    <button type="submit" className="btn btn-solid" disabled={isSavingAddress}>
+                      {isSavingAddress ? 'Agregando…' : 'Agregar dirección'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => {
+                        setShowAddAddressForm(false);
+                        setNewAddressForm(INITIAL_ADDRESS_FORM);
+                        setAddressError('');
+                      }}
+                      disabled={isSavingAddress}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-solid account-address-add-toggle"
+                  onClick={() => setShowAddAddressForm(true)}
+                >
+                  + Agregar nueva dirección
                 </button>
-              </form>
+              )}
             </div>
           )}
 
