@@ -309,6 +309,13 @@ const Cart = () => {
         paymentMethod,
       });
       setOrder(created);
+      // El pedido ya se creó con estos artículos — la canasta debe vaciarse
+      // aquí mismo, no solo si el cliente llega a pulsar "Seguir comprando"
+      // (si navega por el menú en vez de eso, antes se quedaba con los
+      // artículos ya comprados). La pantalla de confirmación usa
+      // order.items para su propio total, no el estado de la canasta, así
+      // que vaciarla no le afecta.
+      clear();
       setStep(3);
       window.scrollTo(0, 0);
     } catch (err) {
