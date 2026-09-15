@@ -15,6 +15,7 @@
 //     attachOptionalCustomer más abajo.
 const express = require("express");
 const mongoose = require("mongoose");
+const { PassThrough } = require("stream");
 const {
   sanitizeDoc,
   handleMongooseError,
@@ -27,6 +28,7 @@ const { createRateLimiter } = require("../lib/rateLimit");
 const { sendMail } = require("../lib/mailer");
 const { verifyAccessToken } = require("../lib/jwt");
 const { extractBearerToken, ROLES: AUTH_ROLES } = require("../lib/authMiddleware");
+const { orderConfirmationEmailTemplate } = require("../lib/emailTemplates");
 const { recalculateStatus } = require("./inventory");
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -98,6 +100,13 @@ const orderItemSchema = new mongoose.Schema(
     productName: { type: String, required: true, trim: true },
     quantity: { type: Number, required: true, min: 1 },
     unitPrice: { type: Number, required: true, min: 0 },
+    // Snapshot de Product.compareAtPrice SOLO cuando representaba un
+    // descuento real al momento de la compra (compareAtPrice > price) —
+    // mismo criterio de snapshot que productName/unitPrice: si el producto
+    // cambia de precio después, el pedido ya hecho no se mueve. Ausente
+    // (undefined) = sin descuento, ver renderOrderItemRowHtml en
+    // lib/emailTemplates.js y orderPdf.js.
+    compareAtPrice: { type: Number, min: 0 },
     subtotal: { type: Number, required: true, min: 0 },
   },
   { _id: false }
@@ -301,11 +310,13 @@ const buildOrderItems = async (Product, requestedItems, { requireActive }) => {
       };
     }
     const subtotal = product.price * item.quantity;
+    const hasDiscount = product.compareAtPrice && product.compareAtPrice > product.price;
     items.push({
       product: product._id,
       productName: product.name,
       quantity: item.quantity,
       unitPrice: product.price,
+      ...(hasDiscount ? { compareAtPrice: product.compareAtPrice } : {}),
       subtotal,
     });
   }
@@ -321,26 +332,62 @@ const nextOrderNumber = async (Order) => {
   return (last?.orderNumber || 0) + 1;
 };
 
-const PAYMENT_METHOD_NOTES = {
-  transfer: "Te contactaremos con los datos para la transferencia; tu pedido queda apartado como pendiente de pago.",
-  pickup: "Puedes pasar a recoger y pagar en la finca; te escribimos para coordinar.",
-};
+// Junta el PDF del pedido en memoria (Buffer) para adjuntarlo al correo del
+// cliente — mismo generateOrderPdf que usa GET /:id/pdf (ver más abajo), solo
+// que ahí escribe directo a la respuesta HTTP y aquí a un stream intermedio
+// que se puede convertir a Buffer sin tocar orderPdf.js.
+const renderOrderPdfBuffer = (order, storeConfig, generateOrderPdf) =>
+  new Promise((resolve, reject) => {
+    const chunks = [];
+    const passthrough = new PassThrough();
+    passthrough.on("data", (chunk) => chunks.push(chunk));
+    passthrough.on("end", () => resolve(Buffer.concat(chunks)));
+    passthrough.on("error", reject);
+    try {
+      generateOrderPdf(order, storeConfig, passthrough);
+    } catch (error) {
+      reject(error);
+    }
+  });
 
-// Correo al cliente + aviso a la tienda cuando entra un pedido del storefront.
-// Se llama sin `await` desde el handler (fire-and-forget con su propio catch)
-// para no retrasar la respuesta 201 ni tumbar el pedido si el mailer falla.
-const sendCheckoutEmails = async (order) => {
-  const lines = order.items.map((i) => `- ${i.productName} ×${i.quantity} — $${i.subtotal.toFixed(2)}`).join("\n");
-  const paymentNote = PAYMENT_METHOD_NOTES[order.paymentMethod] || "";
+// Correo al cliente (con formato/marca de la tienda, detalle de productos
+// con descuento, datos de pago SPEI de la tienda, y el ticket en PDF
+// adjunto) + aviso interno a la tienda cuando entra un pedido del
+// storefront. Se llama sin `await` desde el handler (fire-and-forget con su
+// propio catch) para no retrasar la respuesta 201 ni tumbar el pedido si el
+// mailer o la generación del PDF fallan.
+const sendCheckoutEmails = async (order, { mongooseConnection, generateOrderPdf }) => {
+  const StoreConfig = mongooseConnection.models.StoreConfig;
+  const storeConfig = StoreConfig ? await StoreConfig.findOne({ singletonKey: "default" }).lean() : null;
+
+  const backendPublicUrl = (process.env.BACKEND_PUBLIC_URL || "").replace(/\/+$/, "");
+  const logoAbsoluteUrl = backendPublicUrl && storeConfig?.logoUrl
+    ? `${backendPublicUrl}/${String(storeConfig.logoUrl).replace(/^\/+/, "")}`
+    : undefined;
+
+  const { html, text } = orderConfirmationEmailTemplate({ order, storeConfig, logoAbsoluteUrl });
+
+  let attachments;
+  if (generateOrderPdf) {
+    try {
+      const pdfBuffer = await renderOrderPdfBuffer(order, storeConfig, generateOrderPdf);
+      attachments = [{ filename: `pedido-${order.orderNumber ?? order._id}.pdf`, content: pdfBuffer, contentType: "application/pdf" }];
+    } catch (error) {
+      // El ticket es un extra del correo, no el motivo de enviarlo — si
+      // falla la generación del PDF, el correo se manda igual sin adjunto.
+      console.error("No fue posible generar el PDF del pedido para el correo:", error.message);
+    }
+  }
 
   await sendMail({
     to: order.customerEmail,
     subject: `Pedido #${order.orderNumber} recibido`,
-    text: `Hola ${order.customerName},\n\nRecibimos tu pedido #${order.orderNumber} por un total de $${order.total.toFixed(
-      2
-    )}.\n\n${lines}\n\n${paymentNote}\n\nGracias por tu compra.`,
+    text,
+    html,
+    attachments,
   });
 
+  const lines = order.items.map((i) => `- ${i.productName} ×${i.quantity} — $${i.subtotal.toFixed(2)}`).join("\n");
   const storeTo = process.env.CONTACT_EMAIL_TO || process.env.EMAIL_USER;
   if (!storeTo) return;
   await sendMail({
@@ -439,7 +486,7 @@ function registerRoutes(app, ctx) {
         });
         await order.save();
 
-        sendCheckoutEmails(order).catch((error) => {
+        sendCheckoutEmails(order, { mongooseConnection, generateOrderPdf }).catch((error) => {
           // El pedido ya se guardó — un correo fallido no debe verse como que
           // el pedido no se recibió. Solo se deja constancia en el log.
           console.error("No fue posible enviar los correos de confirmación del pedido:", error.message);

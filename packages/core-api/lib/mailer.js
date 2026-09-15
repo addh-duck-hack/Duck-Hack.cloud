@@ -20,7 +20,7 @@ const createTransporter = () =>
     },
   });
 
-const sendMail = ({ to, subject, text, html }) => {
+const sendMail = ({ to, subject, text, html, attachments }) => {
   const transporter = createTransporter();
   return transporter.sendMail({
     from: process.env.EMAIL_USER,
@@ -28,6 +28,7 @@ const sendMail = ({ to, subject, text, html }) => {
     subject,
     text,
     html,
+    ...(attachments && attachments.length > 0 ? { attachments } : {}),
   });
 };
 
