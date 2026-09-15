@@ -127,11 +127,29 @@ const generateOrderPdf = (order, storeConfig, outputStream) => {
       doc.addPage();
       rowY = 50;
     }
-    const rowHeight = Math.max(doc.heightOfString(item.productName, { width: 280 }), 14);
-    doc.text(item.productName, 50, rowY, { width: 280 });
+    // Descuento (Product.compareAtPrice al momento de la compra, ver
+    // Order.items#compareAtPrice en modules/orders.js) — se muestra el precio
+    // anterior tachado justo arriba del precio pagado, misma columna.
+    const hasDiscount = item.compareAtPrice && item.compareAtPrice > item.unitPrice;
+    const rowHeight = Math.max(doc.heightOfString(item.productName, { width: 280 }), hasDiscount ? 26 : 14);
+
+    doc.fillColor(BRAND_TEXT_DIM).font("Helvetica").text(item.productName, 50, rowY, { width: 280 });
     doc.text(String(item.quantity), 340, rowY, { width: 50, align: "right" });
-    doc.text(formatCurrency(item.unitPrice), 400, rowY, { width: 80, align: "right" });
-    doc.text(formatCurrency(item.subtotal), 482, rowY, { width: 80, align: "right" });
+
+    if (hasDiscount) {
+      const strikeText = formatCurrency(item.compareAtPrice);
+      const strikeWidth = doc.widthOfString(strikeText);
+      doc.fontSize(8).fillColor("#999999").text(strikeText, 400, rowY, { width: 80, align: "right" });
+      // pdfkit no tiene "line-through" nativo — se dibuja la línea a mano
+      // sobre el texto recién puesto.
+      const strikeX = 400 + 80 - strikeWidth;
+      doc.moveTo(strikeX, rowY + 4).lineTo(strikeX + strikeWidth, rowY + 4).strokeColor("#999999").lineWidth(0.5).stroke();
+      doc.fontSize(10).fillColor(BRAND_TEXT_DIM).text(formatCurrency(item.unitPrice), 400, rowY + 11, { width: 80, align: "right" });
+    } else {
+      doc.fontSize(10).fillColor(BRAND_TEXT_DIM).text(formatCurrency(item.unitPrice), 400, rowY, { width: 80, align: "right" });
+    }
+
+    doc.fontSize(10).fillColor(BRAND_TEXT_DIM).text(formatCurrency(item.subtotal), 482, rowY, { width: 80, align: "right" });
     rowY += rowHeight + 10;
   }
 
