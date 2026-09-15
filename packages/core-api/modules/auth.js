@@ -9,6 +9,7 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
+const crypto = require("crypto");
 const {
   asTrimmedString,
   isValidObjectId,
@@ -119,6 +120,14 @@ const userSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now,
+  },
+  // Derecho ARCO de Cancelación (ver Aviso de Privacidad, frontend-user): el
+  // documento NUNCA se borra físicamente (Order.customer lo referencia, ver
+  // modules/orders.js) — en su lugar se anonimiza (ver DELETE /:id más abajo)
+  // y se marca aquí. `null` = cuenta activa.
+  deletedAt: {
+    type: Date,
+    default: null,
   },
 });
 
@@ -740,7 +749,7 @@ function registerRoutes(app, ctx) {
 
   router.get("/", verifyToken, authorizeRoles(ROLES.STORE_ADMIN, ROLES.SUPER_ADMIN), async (req, res) => {
     try {
-      const users = await User.find().select("_id name email phone role isVerified createdAt");
+      const users = await User.find({ deletedAt: null }).select("_id name email phone role isVerified createdAt");
       res.json(users);
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al obtener usuarios");
@@ -810,37 +819,63 @@ function registerRoutes(app, ctx) {
     }
   });
 
+  // Derecho ARCO de Cancelación: un customer puede ejercerlo sobre su PROPIA
+  // cuenta (autoservicio, ver MiCuenta.jsx en frontend-user), y staff
+  // (store_admin/super_admin) puede ejercerlo sobre la cuenta de OTRO
+  // usuario (panel admin) — nunca sobre la suya propia, para no bloquearse
+  // a sí mismos. No es un hard-delete: el documento se conserva (Order.customer
+  // lo referencia, ver modules/orders.js — Order ya guarda su propia copia de
+  // customerName/customerEmail/customerPhone, así que el historial de pedidos
+  // no pierde nada) pero se anonimiza por completo y se marca con `deletedAt`.
   router.delete(
     "/:id",
     validateObjectIdParam("id"),
     verifyToken,
-    authorizeRoles(ROLES.STORE_ADMIN, ROLES.SUPER_ADMIN),
+    authorizeSelfOrRoles("id", ROLES.STORE_ADMIN, ROLES.SUPER_ADMIN),
     async (req, res) => {
       try {
         const userId = req.params.id;
         const actorRole = req.user.role;
         const actorId = String(req.user.id);
+        const isSelf = actorId === userId;
 
         const userToDelete = await User.findById(userId);
         if (!userToDelete) {
           return sendError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado");
         }
 
+        if (userToDelete.deletedAt) {
+          return sendError(res, 400, "USER_ALREADY_DELETED", "Esta cuenta ya fue eliminada.");
+        }
+
         if (actorRole === ROLES.STORE_ADMIN && userToDelete.role === ROLES.SUPER_ADMIN) {
           return sendError(res, 403, "FORBIDDEN_DELETE_USER", "No tienes permisos para eliminar este usuario.");
         }
 
-        if (actorId === String(userToDelete._id)) {
+        // Staff no puede auto-eliminarse (evita que un admin se bloquee a sí
+        // mismo); un customer sí, es exactamente el caso de autoservicio.
+        if (isSelf && actorRole !== ROLES.CUSTOMER) {
           return sendError(res, 400, "CANNOT_DELETE_OWN_ACCOUNT", "No puedes eliminar tu propia cuenta.");
         }
 
-        const deletedUser = await User.findByIdAndDelete(userId);
+        userToDelete.name = "Cuenta eliminada";
+        userToDelete.phone = undefined;
+        userToDelete.addresses = [];
+        userToDelete.favorites = [];
+        userToDelete.profileImage = undefined;
+        // Único a propósito: el correo original queda disponible de nuevo
+        // para un registro futuro, y ".delete" nunca choca con el índice
+        // único de `email` entre distintas cuentas eliminadas.
+        userToDelete.email = `${userToDelete.email}.delete`;
+        // Password aleatoria (nunca queda en texto plano, el hook
+        // pre("save") la hashea igual que en el cambio de contraseña de
+        // arriba) — cierra el acceso aunque alguien adivinara el correo
+        // transformado.
+        userToDelete.password = crypto.randomBytes(32).toString("hex");
+        userToDelete.deletedAt = new Date();
+        await userToDelete.save();
 
-        if (!deletedUser) {
-          return sendError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado");
-        }
-
-        res.status(200).json({ message: "Usuario eliminado correctamente", user: sanitizeUser(deletedUser) });
+        res.status(200).json({ message: "Usuario eliminado correctamente", user: sanitizeUser(userToDelete) });
       } catch (error) {
         return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al eliminar usuario");
       }
