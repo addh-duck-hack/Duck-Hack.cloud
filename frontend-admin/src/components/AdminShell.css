@@ -201,6 +201,22 @@
   font-weight: 500;
 }
 
+.topbar-user {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--placeholder-color);
+  white-space: nowrap;
+}
+.topbar-user b {
+  color: var(--heading-color);
+  font-weight: 500;
+}
+@media (max-width: 640px) {
+  .topbar-user {
+    display: none;
+  }
+}
+
 .chrome-dots {
   display: flex;
   gap: 0.4rem;

@@ -8,6 +8,7 @@ const { resolveUploadsDir } = require("./utils/uploads");
 const { modules: coreApiModules, auth } = require("@duck-hack/core-api");
 const AgencyClient = require("./models/agencyClient.model");
 const { getRunningContainersCount } = require("./utils/portainerClient");
+const { generateOrderPdf } = require("./utils/orderPdf");
 
 // Auth/Users vive ahora en @duck-hack/core-api (packages/core-api/modules/auth.js)
 // — verifyToken/authorizeRoles se arman acá con createAuthMiddleware(sendError)
@@ -99,6 +100,11 @@ coreApiModules.forEach((mod) =>
       active_clients: () => AgencyClient.countDocuments({ isActive: { $ne: false } }),
       active_containers: () => getRunningContainersCount(),
     },
+    // Solo lo usa modules/orders.js (GET /:id/pdf) — pdfkit vive únicamente
+    // en backend/ (packages/core-api no lo trae como dependencia), así que
+    // el generador de PDF se inyecta en vez de requerirse directo desde el
+    // paquete (mismo criterio que resolveLiveMetricSources arriba).
+    generateOrderPdf,
   })
 );
 

@@ -49,9 +49,11 @@ const Login = () => {
         return;
       }
 
-      // Guardar credenciales de sesión para el panel
+      // Guardar credenciales de sesión para el panel — "name" es para
+      // mostrar quién tiene sesión iniciada en la topbar (ver AdminShell.jsx).
       localStorage.setItem("token", response.data.token);
       localStorage.setItem("role", role);
+      localStorage.setItem("name", response.data?.user?.name || "");
 
       // Actualizar el estado para indicar que el login fue exitoso
       setMessage("Login exitoso");
