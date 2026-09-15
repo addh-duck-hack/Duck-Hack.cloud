@@ -9,7 +9,10 @@
 // Vive en backend/ (no en packages/core-api) porque pdfkit solo está
 // instalado ahí — se inyecta a packages/core-api/modules/orders.js vía ctx
 // (ver server.js), mismo criterio que resolveLiveMetricSources.
+const fs = require("fs");
+const path = require("path");
 const PDFDocument = require("pdfkit");
+const { resolveUploadsDir } = require("./uploads");
 
 const BRAND_NAVY = "#0d2130";
 const BRAND_AMBER = "#f8af11";
@@ -39,6 +42,22 @@ const formatDate = (date) => {
   return parsed.toLocaleDateString("es-MX", { year: "numeric", month: "long", day: "numeric" });
 };
 
+// Resuelve el archivo del logo directo del disco (no por HTTP) — este código
+// corre en el propio backend, así que no depende de BACKEND_PUBLIC_URL ni de
+// que el archivo sea alcanzable desde fuera (a diferencia del <img> del
+// correo, ver lib/emailTemplates.js). Solo soporta logoUrl relativo a
+// /uploads (lo que deja el uploader del admin) — si es una URL externa
+// absoluta (http/https), se omite: incrustarla requeriría descargarla por
+// red y volver async esta función, que hoy es síncrona a propósito.
+const resolveLocalLogoPath = (logoUrl) => {
+  if (!logoUrl || /^https?:\/\//i.test(logoUrl)) return null;
+  const uploadsDir = resolveUploadsDir();
+  if (!uploadsDir) return null;
+  const relative = String(logoUrl).replace(/^\/?uploads\//, "");
+  const candidate = path.join(uploadsDir, relative);
+  return fs.existsSync(candidate) ? candidate : null;
+};
+
 /**
  * Genera el comprobante de un pedido (sin validez fiscal, no es CFDI) y lo
  * escribe al stream de salida dado. Nunca se persiste en disco — se
@@ -54,16 +73,25 @@ const generateOrderPdf = (order, storeConfig, outputStream) => {
   const storeName = storeConfig?.storeName || "Tienda";
   const contactLine = [storeConfig?.contactEmail, storeConfig?.contactPhone].filter(Boolean).join("  ·  ");
   const legalAddress = storeConfig?.legalIdentity?.legalAddress;
+  const logoPath = resolveLocalLogoPath(storeConfig?.logoUrl);
 
-  // --- Encabezado: nombre de la tienda + contacto ---
-  doc.fillColor(BRAND_NAVY).font("Helvetica-Bold").fontSize(20).text(storeName, 50, 48);
+  // --- Encabezado: logo (si hay) + nombre de la tienda + contacto ---
+  const textX = logoPath ? 96 : 50;
+  if (logoPath) {
+    try {
+      doc.image(logoPath, 50, 44, { fit: [36, 36] });
+    } catch (error) {
+      // Un logo corrupto/ilegible no debe tumbar la generación del PDF.
+    }
+  }
+  doc.fillColor(BRAND_NAVY).font("Helvetica-Bold").fontSize(20).text(storeName, textX, 48);
   let headY = 74;
   if (contactLine) {
-    doc.fillColor(BRAND_TEXT_DIM).font("Helvetica").fontSize(9).text(contactLine, 50, headY);
+    doc.fillColor(BRAND_TEXT_DIM).font("Helvetica").fontSize(9).text(contactLine, textX, headY);
     headY += 14;
   }
   if (legalAddress) {
-    doc.fillColor(BRAND_TEXT_DIM).font("Helvetica").fontSize(9).text(legalAddress, 50, headY, { width: 300 });
+    doc.fillColor(BRAND_TEXT_DIM).font("Helvetica").fontSize(9).text(legalAddress, textX, headY, { width: 300 });
   }
 
   doc
