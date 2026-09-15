@@ -411,6 +411,31 @@ function registerRoutes(app, ctx) {
     }
   });
 
+  // Autoservicio del cliente ("Mi cuenta > Mis pedidos" en frontend-user) —
+  // cualquier rol autenticado, sin canRead (STAFF_ROLES): el filtro por
+  // `customer`/`customerEmail` ya lo limita a lo propio, no hace falta
+  // restringir por rol encima. Va ANTES de GET /:id a propósito: si quedara
+  // después, Express probaría a interpretar "mine" como el :id del otro
+  // endpoint (fallaría con INVALID_OBJECT_ID) en vez de llegar aquí.
+  // También junta por `customerEmail` (no solo por `customer`) para que un
+  // cliente que ya había comprado como invitado, con el mismo correo con el
+  // que después creó su cuenta, vea esos pedidos viejos sin que haya hecho
+  // falta vincularlos a mano.
+  router.get("/mine", async (req, res) => {
+    try {
+      const User = mongooseConnection.models.User;
+      const me = User && (await User.findById(req.user.id).select("email"));
+      const filter = me?.email
+        ? { $or: [{ customer: req.user.id }, { customerEmail: me.email }] }
+        : { customer: req.user.id };
+
+      const orders = await Order.find(filter).sort({ createdAt: -1 });
+      return res.status(200).json({ items: orders.map(sanitizeDoc) });
+    } catch (error) {
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al listar tus pedidos.");
+    }
+  });
+
   router.get("/:id", validateObjectIdParam("id"), canRead, ensureOrderExists, async (req, res) => {
     return res.status(200).json(sanitizeDoc(req.order));
   });

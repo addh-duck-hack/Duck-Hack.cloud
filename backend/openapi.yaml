@@ -288,6 +288,79 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
+  /api/users/{id}/favorites:
+    post:
+      tags: [Users]
+      summary: Agregar un producto a favoritos
+      description: Solo el dueño de la cuenta (ni siquiera super_admin/store_admin). Idempotente — agregar el mismo producto dos veces no duplica la entrada.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                productId:
+                  type: string
+              required: [productId]
+      responses:
+        "200":
+          description: Agregado a favoritos (favorites viene poblado, ver UserPublic)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Usuario o producto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/users/{id}/favorites/{productId}:
+    delete:
+      tags: [Users]
+      summary: Quitar un producto de favoritos
+      description: Solo el dueño de la cuenta. No es error quitar un producto que ya no estaba en favoritos.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserIdParam"
+        - in: path
+          name: productId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Quitado de favoritos (favorites viene poblado, ver UserPublic)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/UserNotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
   /api/mail/send-email:
     post:
       tags: [Mail]
@@ -1737,6 +1810,35 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
+  /api/orders/mine:
+    get:
+      tags: [Orders]
+      summary: Mis pedidos (autoservicio del cliente)
+      description: >
+        Cualquier rol autenticado (no exige staff, a diferencia de GET /api/orders)
+        — se autolimita a lo propio: pedidos con `customer` igual a la cuenta que
+        hace la llamada, más los que se hicieron como invitado con el mismo
+        correo de esa cuenta (para que aparezcan compras viejas sin cuenta
+        vinculada). Usado por "Mi cuenta > Mis pedidos" en frontend-user.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Listado de pedidos propios
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Order"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
   /api/orders:
     get:
       tags: [Orders]
@@ -2219,6 +2321,21 @@ components:
           type: string
           nullable: true
           description: Opcional, sin formato fijo (números de distintos países).
+        address:
+          type: string
+          nullable: true
+          description: Una sola dirección guardada (texto libre), opcional.
+        favorites:
+          type: array
+          description: >
+            En GET /api/users/{id} y en las respuestas de
+            POST/DELETE /api/users/{id}/favorites viene poblado (objeto
+            resumido del producto); en cualquier otra respuesta que incluya
+            un usuario (login, register, listado) son solo los ids.
+          items:
+            oneOf:
+              - type: string
+              - $ref: "#/components/schemas/FavoriteProduct"
         role:
           $ref: "#/components/schemas/Role"
         profileImage:
@@ -2230,6 +2347,23 @@ components:
           type: string
           format: date-time
       required: [_id, name, email, role, isVerified, createdAt]
+
+    FavoriteProduct:
+      type: object
+      description: Resumen del producto — lo que trae el populate de favorites, nunca el Product completo.
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+        price:
+          type: number
+        category:
+          type: string
+        images:
+          type: array
+          items:
+            type: string
 
     UserListItem:
       type: object
@@ -2331,6 +2465,9 @@ components:
         phone:
           type: string
           description: Opcional — mándalo vacío para borrar el teléfono guardado.
+        address:
+          type: string
+          description: Opcional — mándalo vacío para borrar la dirección guardada.
         role:
           $ref: "#/components/schemas/Role"
         profileImage:
