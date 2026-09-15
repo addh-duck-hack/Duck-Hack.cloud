@@ -24,6 +24,24 @@ const { verificationEmailTemplate } = require("../lib/emailTemplates");
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const validateEmail = (email) => EMAIL_REGEX.test(asTrimmedString(email));
 
+// Campos de una dirección de la libreta (User.addresses) — mismo set que
+// Order.shippingAddress en modules/orders.js, para que una dirección
+// guardada se pueda copiar tal cual al pedido en el checkout (ver Cart.jsx
+// en frontend-user). `interiorNumber` es el único opcional del bloque de
+// domicilio; `label`/`isDefault` se manejan aparte (no son parte de "la
+// dirección" en sí).
+const ADDRESS_REQUIRED_FIELDS = [
+  "recipientName",
+  "phone",
+  "street",
+  "exteriorNumber",
+  "zipCode",
+  "neighborhood",
+  "city",
+  "state",
+];
+const ADDRESS_FIELDS = [...ADDRESS_REQUIRED_FIELDS, "interiorNumber"];
+
 const userSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -68,7 +86,15 @@ const userSchema = new mongoose.Schema({
       new mongoose.Schema(
         {
           label: { type: String, trim: true, maxlength: 60 },
-          address: { type: String, required: true, trim: true, maxlength: 500 },
+          recipientName: { type: String, required: true, trim: true, maxlength: 200 },
+          phone: { type: String, required: true, trim: true, maxlength: 40 },
+          street: { type: String, required: true, trim: true, maxlength: 200 },
+          exteriorNumber: { type: String, required: true, trim: true, maxlength: 20 },
+          interiorNumber: { type: String, trim: true, maxlength: 20 },
+          zipCode: { type: String, required: true, trim: true, maxlength: 10 },
+          neighborhood: { type: String, required: true, trim: true, maxlength: 120 },
+          city: { type: String, required: true, trim: true, maxlength: 120 },
+          state: { type: String, required: true, trim: true, maxlength: 120 },
           isDefault: { type: Boolean, default: false },
         },
         { timestamps: true }
@@ -546,9 +572,13 @@ function registerRoutes(app, ctx) {
     async (req, res) => {
       try {
         const label = asTrimmedString(req.body?.label);
-        const address = asTrimmedString(req.body?.address);
-        if (!address) {
-          return sendError(res, 400, "VALIDATION_ERROR", "address es requerido.");
+        const fields = {};
+        for (const field of ADDRESS_FIELDS) {
+          fields[field] = asTrimmedString(req.body?.[field]);
+        }
+        const missing = ADDRESS_REQUIRED_FIELDS.filter((field) => !fields[field]);
+        if (missing.length > 0) {
+          return sendError(res, 400, "VALIDATION_ERROR", `Faltan campos requeridos: ${missing.join(", ")}.`);
         }
 
         const user = await User.findById(req.params.id);
@@ -565,7 +595,7 @@ function registerRoutes(app, ctx) {
             a.isDefault = false;
           });
         }
-        user.addresses.push({ label, address, isDefault: makeDefault });
+        user.addresses.push({ label, ...fields, isDefault: makeDefault });
         await user.save();
 
         res.status(201).json({ message: "Dirección agregada.", user: sanitizeUser(user) });
@@ -600,12 +630,13 @@ function registerRoutes(app, ctx) {
         if (req.body?.label !== undefined) {
           target.label = asTrimmedString(req.body.label);
         }
-        if (req.body?.address !== undefined) {
-          const normalizedAddress = asTrimmedString(req.body.address);
-          if (!normalizedAddress) {
-            return sendError(res, 400, "VALIDATION_ERROR", "address no puede quedar vacío.");
+        for (const field of ADDRESS_FIELDS) {
+          if (req.body?.[field] === undefined) continue;
+          const normalized = asTrimmedString(req.body[field]);
+          if (ADDRESS_REQUIRED_FIELDS.includes(field) && !normalized) {
+            return sendError(res, 400, "VALIDATION_ERROR", `${field} no puede quedar vacío.`);
           }
-          target.address = normalizedAddress;
+          target[field] = normalized;
         }
         if (req.body?.isDefault !== undefined) {
           if (req.body.isDefault) {
