@@ -20,7 +20,7 @@ const {
   asFiniteNumber,
   getOrCreateModel,
 } = require("../lib/moduleHelpers");
-const { createSingleImageUploadMiddlewares } = require("../lib/uploads");
+const { createSingleImageUploadMiddlewares, createHeroImageUploadMiddlewares } = require("../lib/uploads");
 
 const HEX_COLOR_REGEX = /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/;
 const SLUG_REGEX = /^[a-z0-9-]+$/;
@@ -115,12 +115,20 @@ const speiPaymentSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const HERO_MEDIA_TYPES = ["none", "image", "gif", "video_direct", "video_youtube"];
+
 const heroSlideSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true, maxlength: 160 },
     description: { type: String, trim: true, maxlength: 300 },
     sortOrder: { type: Number, default: 0, min: 0 },
     isActive: { type: Boolean, default: true },
+    // Media rica del header: imagen/gif subidos (mediaPath) o video por
+    // enlace (mediaUrl) — nunca los dos a la vez, mediaType decide cuál lee
+    // el frontend. Ver packages/core-api/lib/uploads.js#createHeroImageUploadMiddlewares.
+    mediaType: { type: String, enum: HERO_MEDIA_TYPES, default: "none" },
+    mediaPath: { type: String, trim: true, maxlength: 300 },
+    mediaUrl: { type: String, trim: true, maxlength: 500 },
   },
   { _id: false }
 );
@@ -299,6 +307,31 @@ const validateHeroSlideItem = (item, index) => {
     return `heroSlides[${index}].sortOrder debe ser entero >= 0.`;
   }
   if (item.isActive !== undefined && typeof item.isActive !== "boolean") return `heroSlides[${index}].isActive debe ser boolean.`;
+
+  const mediaType = item.mediaType !== undefined ? asTrimmedString(item.mediaType) || "none" : "none";
+  if (!HERO_MEDIA_TYPES.includes(mediaType)) return `heroSlides[${index}].mediaType no es válido.`;
+  item.mediaType = mediaType;
+
+  if (item.mediaPath !== undefined) {
+    const mediaPath = asTrimmedString(item.mediaPath);
+    if (mediaPath.length > 300) return `heroSlides[${index}].mediaPath excede 300 caracteres.`;
+    item.mediaPath = mediaPath;
+  }
+  if (item.mediaUrl !== undefined) {
+    const mediaUrl = asTrimmedString(item.mediaUrl);
+    if (mediaUrl.length > 500) return `heroSlides[${index}].mediaUrl excede 500 caracteres.`;
+    if (mediaUrl) {
+      try {
+        new URL(mediaUrl);
+      } catch (error) {
+        return `heroSlides[${index}].mediaUrl no es una URL válida.`;
+      }
+    }
+    item.mediaUrl = mediaUrl;
+  }
+  if ((mediaType === "video_direct" || mediaType === "video_youtube") && !item.mediaUrl) {
+    return `heroSlides[${index}].mediaUrl es requerido cuando mediaType es de video.`;
+  }
   return null;
 };
 
@@ -769,6 +802,23 @@ function registerRoutes(app, ctx) {
   router.post("/upload-image", verifyToken, canManage, uploadStoreImage, sanitizeStoreImage, (req, res) => {
     if (!req.savedImagePath) {
       return sendError(res, 400, "FILE_REQUIRED", "Se requiere un archivo en el campo image.");
+    }
+    return res.status(201).json({ message: "Imagen subida correctamente.", imagePath: req.savedImagePath });
+  });
+
+  const { uploadMiddleware: uploadHeroImage, sanitizeAndStoreMiddleware: sanitizeHeroImage } =
+    createHeroImageUploadMiddlewares({
+      fieldName: "heroImage",
+      filePrefix: "hero-media",
+      maxFileSizeMB: 10,
+      sendError,
+    });
+
+  // Igual que /upload-image, pero acepta también GIF (sin aplanar la
+  // animación) — solo para el media del hero, ver heroSlideSchema.mediaPath.
+  router.post("/upload-hero-image", verifyToken, canManage, uploadHeroImage, sanitizeHeroImage, (req, res) => {
+    if (!req.savedImagePath) {
+      return sendError(res, 400, "FILE_REQUIRED", "Se requiere un archivo en el campo heroImage.");
     }
     return res.status(201).json({ message: "Imagen subida correctamente.", imagePath: req.savedImagePath });
   });

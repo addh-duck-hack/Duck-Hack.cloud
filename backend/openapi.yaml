@@ -2292,6 +2292,44 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
+  /api/store-config/upload-hero-image:
+    post:
+      tags: [StoreConfig]
+      summary: Subir imagen o GIF para el media del hero
+      description: >
+        Requiere autenticación y rol `super_admin` o `store_admin`.
+        Igual que /upload-image, pero además acepta GIF real (máx. 10MB) sin
+        aplanar la animación — solo pensado para heroSlides[].mediaPath.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                heroImage:
+                  type: string
+                  format: binary
+                  description: Imagen en JPG, PNG o GIF
+              required: [heroImage]
+      responses:
+        "201":
+          description: Imagen subida correctamente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoreImageUploadResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -3643,6 +3681,22 @@ components:
           minimum: 0
         isActive:
           type: boolean
+        mediaType:
+          type: string
+          enum: [none, image, gif, video_direct, video_youtube]
+          default: none
+          description: >
+            Tipo de media del header. "image"/"gif" leen mediaPath (subido vía
+            POST /api/store-config/upload-hero-image); "video_direct" (enlace a
+            .mp4/.webm) y "video_youtube" (enlace de YouTube) leen mediaUrl.
+        mediaPath:
+          type: string
+          maxLength: 300
+          description: Ruta relativa devuelta por upload-hero-image (solo image/gif).
+        mediaUrl:
+          type: string
+          maxLength: 500
+          description: URL externa del video (solo video_direct/video_youtube).
       required: [title]
 
     Metric:
