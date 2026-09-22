@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usePageMeta } from '../hooks/usePageMeta';
-import { useStoreConfig } from '../hooks/useStoreConfig';
+import { useStoreConfig, resolveStoreImageUrl } from '../hooks/useStoreConfig';
 import { pickList } from '../utils/storeConfigLists';
 import RichText from './RichText';
 import './Inicio.css';
@@ -57,6 +57,25 @@ const getSlideDuration = (slide) => {
   return Math.min(MAX_SLIDE_MS, Math.max(MIN_SLIDE_MS, words * READ_MS_PER_WORD));
 };
 
+// Soporta youtube.com/watch?v=, youtu.be/ y youtube.com/embed/ — si el link
+// no matchea ninguno de estos formatos, devuelve null y el hero simplemente
+// no renderiza el media (cae al fondo degradado de siempre) en vez de romper.
+const getYoutubeEmbedId = (url) => {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, '');
+    if (host === 'youtu.be') return parsed.pathname.slice(1) || null;
+    if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtube-nocookie.com') {
+      if (parsed.pathname === '/watch') return parsed.searchParams.get('v');
+      if (parsed.pathname.startsWith('/embed/')) return parsed.pathname.split('/embed/')[1] || null;
+    }
+    return null;
+  } catch (error) {
+    return null;
+  }
+};
+
 // Anima un contador de "0" al valor real cuando su tarjeta entra en el
 // viewport — trabaja directo sobre el DOM vía ref (no sobre estado de React)
 // para no disparar un re-render por frame; termina siempre fijando el texto
@@ -88,7 +107,15 @@ const Inicio = () => {
   const { config } = useStoreConfig();
 
   const slides = useMemo(
-    () => pickList(config?.heroSlides, SLIDES).map((s, i) => ({ id: s.id ?? i, title: s.title, description: s.description })),
+    () =>
+      pickList(config?.heroSlides, SLIDES).map((s, i) => ({
+        id: s.id ?? i,
+        title: s.title,
+        description: s.description,
+        mediaType: s.mediaType || 'none',
+        mediaPath: s.mediaPath || '',
+        mediaUrl: s.mediaUrl || '',
+      })),
     [config]
   );
   const metrics = useMemo(() => pickList(config?.metrics, METRICS), [config]);
@@ -116,6 +143,9 @@ const Inicio = () => {
   }, [slides, currentIndex]);
 
   const slide = slides[currentIndex] || slides[0];
+  const reduceMotion =
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const youtubeId = slide?.mediaType === 'video_youtube' ? getYoutubeEmbedId(slide.mediaUrl) : null;
 
   // ---- Riel de "arranque": el riel a la izquierda se enciende por etapas
   // conforme el hero, el panel de métricas y los pasos entran en el
@@ -223,7 +253,27 @@ const Inicio = () => {
       <div className="boot-node" ref={(el) => (nodeRefs.current[2] = el)} />
 
       <section className="hero2" ref={(el) => (sectionRefs.current[0] = el)}>
-        <div className="hero2-bg" aria-hidden="true" />
+        {slide?.mediaType && slide.mediaType !== 'none' ? (
+          <div className="hero2-media" key={`media-${slide.id}`} aria-hidden="true">
+            {(slide.mediaType === 'image' || slide.mediaType === 'gif') && slide.mediaPath && (
+              <img src={resolveStoreImageUrl(slide.mediaPath)} alt="" />
+            )}
+            {slide.mediaType === 'video_direct' && slide.mediaUrl && (
+              <video src={slide.mediaUrl} autoPlay={!reduceMotion} muted loop playsInline />
+            )}
+            {slide.mediaType === 'video_youtube' && youtubeId && (
+              <iframe
+                src={`https://www.youtube-nocookie.com/embed/${youtubeId}?autoplay=${reduceMotion ? 0 : 1}&mute=1&loop=1&playlist=${youtubeId}&controls=0&playsinline=1`}
+                title="Video del header"
+                frameBorder="0"
+                allow="autoplay; encrypted-media"
+              />
+            )}
+            <div className="hero2-scrim" />
+          </div>
+        ) : (
+          <div className="hero2-bg" aria-hidden="true" />
+        )}
         <div className="hero2-content">
           <span className="hero2-badge">duck-hack · cloud-os</span>
           <div className="term-copy" key={slide.id}>

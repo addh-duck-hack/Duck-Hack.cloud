@@ -155,7 +155,14 @@ const renderField = (field, item, onItemChange) => {
   if (field.type === "image") {
     return (
       <div key={field.name} style={{ gridColumn: field.fullWidth ? "1 / span 2" : undefined }}>
-        <ImageUploadField label={field.label} value={value} onChange={(imagePath) => onItemChange(field.name, imagePath)} />
+        <ImageUploadField
+          label={field.label}
+          value={value}
+          onChange={(imagePath) => onItemChange(field.name, imagePath)}
+          uploadUrl={field.uploadUrl}
+          fieldName={field.fieldName}
+          accept={field.accept}
+        />
       </div>
     );
   }

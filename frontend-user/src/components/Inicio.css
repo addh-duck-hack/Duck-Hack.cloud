@@ -91,6 +91,37 @@
   max-width: 640px;
 }
 
+/* Media rico del header (imagen/gif/video) — fondo a pantalla completa del
+   hero, con un scrim oscuro para que el texto siga legible encima. Solo se
+   monta cuando el slide trae mediaType !== 'none'; sin media se sigue viendo
+   .hero2-bg (el degradado de siempre), cero cambio visual. */
+.hero2-media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+.hero2-media img,
+.hero2-media video,
+.hero2-media iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: 0;
+}
+.hero2-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    color-mix(in srgb, var(--ink) 88%, transparent) 0%,
+    color-mix(in srgb, var(--ink) 60%, transparent) 45%,
+    color-mix(in srgb, var(--ink) 30%, transparent) 100%
+  );
+}
+
 .hero2-badge {
   display: inline-flex;
   align-items: center;

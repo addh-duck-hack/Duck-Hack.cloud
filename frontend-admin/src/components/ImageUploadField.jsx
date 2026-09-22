@@ -17,6 +17,7 @@ const ImageUploadField = ({
   previewBaseUrl,
   uploadUrl = "/api/store-config/upload-image",
   fieldName = "image",
+  accept = "image/png,image/jpeg",
 }) => {
   const [file, setFile] = useState(null);
   const [localPreviewUrl, setLocalPreviewUrl] = useState("");
@@ -89,7 +90,7 @@ const ImageUploadField = ({
           />
         )}
         <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-          <input type="file" accept="image/png,image/jpeg" onChange={handleFileChange} />
+          <input type="file" accept={accept} onChange={handleFileChange} />
           <div style={{ display: "flex", gap: "0.5rem" }}>
             <button
               type="button"

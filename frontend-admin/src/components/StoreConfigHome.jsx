@@ -4,10 +4,35 @@ import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import StoreConfigListEditor from "./StoreConfigListEditor";
 import StoreConfigTabs from "./StoreConfigTabs";
 
+const HERO_MEDIA_TYPE_OPTIONS = [
+  { value: "none", label: "Ninguno" },
+  { value: "image", label: "Imagen" },
+  { value: "gif", label: "GIF animado" },
+  { value: "video_direct", label: "Video — enlace directo (.mp4/.webm)" },
+  { value: "video_youtube", label: "Video — enlace de YouTube" },
+];
+
 const HERO_SLIDE_FIELDS = [
   { name: "title", label: "Título", type: "text", required: true, maxLength: 160, fullWidth: true },
   { name: "description", label: "Descripción", type: "textarea", maxLength: 300, fullWidth: true },
   { name: "isActive", label: "Activa", type: "boolean" },
+  { name: "mediaType", label: "Tipo de contenido del header", type: "select", options: HERO_MEDIA_TYPE_OPTIONS, fullWidth: true },
+  {
+    name: "mediaPath",
+    label: "Imagen o GIF (usado si el tipo es Imagen o GIF animado)",
+    type: "image",
+    uploadUrl: "/api/store-config/upload-hero-image",
+    fieldName: "heroImage",
+    accept: "image/png,image/jpeg,image/gif",
+    fullWidth: true,
+  },
+  {
+    name: "mediaUrl",
+    label: "URL de video (usado si el tipo es enlace directo o de YouTube)",
+    type: "url",
+    maxLength: 500,
+    fullWidth: true,
+  },
 ];
 
 const METRIC_SOURCE_OPTIONS = [
@@ -113,7 +138,14 @@ const StoreConfigHome = () => {
           onChange={setHeroSlides}
           itemLabel={(item) => item.title}
           fields={HERO_SLIDE_FIELDS}
-          createEmptyItem={() => ({ title: "", description: "", isActive: true })}
+          createEmptyItem={() => ({
+            title: "",
+            description: "",
+            isActive: true,
+            mediaType: "none",
+            mediaPath: "",
+            mediaUrl: "",
+          })}
           addButtonLabel="+ Agregar slide"
         />
 
