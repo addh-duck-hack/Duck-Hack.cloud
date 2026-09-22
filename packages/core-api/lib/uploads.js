@@ -114,7 +114,82 @@ const createSingleImageUploadMiddlewares = ({ fieldName, filePrefix, maxFileSize
   return { uploadMiddleware, sanitizeAndStoreMiddleware };
 };
 
+const ALLOWED_HERO_IMAGE_FORMATS = new Set(["jpeg", "png", "gif"]);
+
+// Variante de createSingleImageUploadMiddlewares para el media del hero:
+// jpeg/png siguen re-encodeándose con sharp (mismo camino de siempre), pero
+// un gif real se escribe TAL CUAL (sin pasar por sharp) — sharp aplanaría la
+// animación a un solo frame si se le pidiera .toFile() sobre un gif.
+const createHeroImageUploadMiddlewares = ({ fieldName, filePrefix, maxFileSizeMB = 10, sendError }) => {
+  const uploadMiddleware = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: maxFileSizeMB * 1024 * 1024 },
+  }).single(fieldName);
+
+  const sanitizeAndStoreMiddleware = async (req, res, next) => {
+    if (!req.file) {
+      return next();
+    }
+
+    try {
+      const uploadsDir = resolveUploadsDir();
+      if (!uploadsDir) {
+        return sendError(
+          res,
+          500,
+          "UPLOAD_STORAGE_UNAVAILABLE",
+          "No hay un directorio de uploads con permisos de escritura."
+        );
+      }
+
+      const metadata = await sharp(req.file.buffer).metadata();
+      if (!metadata?.format || !ALLOWED_HERO_IMAGE_FORMATS.has(metadata.format)) {
+        return sendError(
+          res,
+          400,
+          "INVALID_FILE_TYPE",
+          "Solo se permiten imágenes reales en formato JPG, PNG o GIF."
+        );
+      }
+
+      const uniqueSuffix = `${Date.now()}-${crypto.randomUUID()}`;
+
+      if (metadata.format === "gif") {
+        const outputFileName = `${filePrefix}-${uniqueSuffix}.gif`;
+        const outputPath = path.join(uploadsDir, outputFileName);
+        await fs.promises.writeFile(outputPath, req.file.buffer);
+        req.savedImagePath = `uploads/${outputFileName}`;
+        return next();
+      }
+
+      const extension = metadata.format === "png" ? "png" : "jpg";
+      const outputFileName = `${filePrefix}-${uniqueSuffix}.${extension}`;
+      const outputPath = path.join(uploadsDir, outputFileName);
+
+      const imagePipeline = sharp(req.file.buffer).rotate();
+      if (extension === "png") {
+        await imagePipeline.png({ compressionLevel: 9 }).toFile(outputPath);
+      } else {
+        await imagePipeline.jpeg({ quality: 85, mozjpeg: true }).toFile(outputPath);
+      }
+
+      req.savedImagePath = `uploads/${outputFileName}`;
+      return next();
+    } catch (error) {
+      return sendError(
+        res,
+        400,
+        "INVALID_IMAGE_CONTENT",
+        "El archivo no es válido o está corrupto."
+      );
+    }
+  };
+
+  return { uploadMiddleware, sanitizeAndStoreMiddleware };
+};
+
 module.exports = {
   resolveUploadsDir,
   createSingleImageUploadMiddlewares,
+  createHeroImageUploadMiddlewares,
 };
