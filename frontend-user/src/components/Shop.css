@@ -18,8 +18,15 @@
   color: var(--text-mute);
 }
 
+.shop-catalog {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 12px 48px;
+  margin-top: 20px;
+}
+
 .chapter {
-  margin-top: 52px;
+  margin-top: 32px;
 }
 .chapter-head {
   display: flex;

@@ -53,6 +53,23 @@ const METRICS = [
   { value: '48 h', label: 'del tueste a tu envío' },
 ];
 
+// Glosario genérico de cata (no son afirmaciones sobre el perfil de un lote
+// puntual, solo vocabulario estándar para describir café).
+const TASTING_TERMS = [
+  'Dulzor', 'Cuerpo', 'Acidez', 'Aroma', 'Final limpio', 'Balance',
+  'Notas florales', 'Notas achocolatadas', 'Notas cítricas', 'Notas a caramelo',
+];
+
+// Reformula, en formato de lista, lo que el sitio ya afirma en otras páginas
+// (Shop.jsx / OurServices.jsx / el hero) — no se inventan certificaciones ni
+// afirmaciones nuevas.
+const WHY_DIRECT = [
+  'Tueste bajo pedido, no de bodega.',
+  'Molienda a tu método, el día que lo enviamos.',
+  'De la planta a tu taza, sin intermediarios.',
+  'Trato directo con la familia productora.',
+];
+
 const ALLIES = [
   { name: 'Café Corriente', rubro: 'Cafetería · Puebla' },
   { name: 'La Borra Lenta', rubro: 'Cafetería · CDMX, Roma' },
@@ -130,6 +147,16 @@ const Inicio = () => {
               ))}
             </div>
           )}
+          {metrics.length > 0 && (
+            <div className="hero-stats">
+              {metrics.slice(0, 3).map((m) => (
+                <div className="hero-stat" key={m.label}>
+                  <b>{m.value}</b>
+                  <span>{m.label}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         <div className="hero-figure">
           <div className="hero-disc">
@@ -157,6 +184,16 @@ const Inicio = () => {
         ))}
       </div>
 
+      {/* ---- Vocabulario de cata (glosario, no afirma el perfil de un lote
+          específico) ---- */}
+      <div className="notes-marquee" aria-hidden="true">
+        <div className="notes-track">
+          {[...TASTING_TERMS, ...TASTING_TERMS].map((term, i) => (
+            <span key={`${term}-${i}`}>{term}</span>
+          ))}
+        </div>
+      </div>
+
       <hr className="rule" />
 
       {/* ---- Proceso ---- */}
@@ -176,15 +213,16 @@ const Inicio = () => {
 
       <hr className="rule" />
 
-      {/* ---- Números de origen ---- */}
-      <div className="origin">
-        {metrics.map((m) => (
-          <div className="origin-cell" key={m.label}>
-            <div className="origin-n">{m.value}</div>
-            <div className="origin-l">{m.label}</div>
-          </div>
-        ))}
+      {/* ---- Por qué directo del productor ---- */}
+      <div className="section-head">
+        <span className="kicker">Por qué así</span>
+        <h2>Directo del productor a tu taza</h2>
       </div>
+      <ul className="compare-list">
+        {WHY_DIRECT.map((line) => (
+          <li key={line}>{line}</li>
+        ))}
+      </ul>
 
       <hr className="rule" />
 
@@ -203,13 +241,15 @@ const Inicio = () => {
         <span className="kicker">Dónde nos sirven</span>
         <h2>Cafeterías aliadas</h2>
       </div>
-      <div className="allies-row">
-        {allies.map((a) => (
-          <div className="ally" key={a.name}>
-            <b>{a.name}</b>
-            <span>{a.rubro}</span>
-          </div>
-        ))}
+      <div className="allies-marquee">
+        <div className="allies-track">
+          {[...allies, ...allies].map((a, i) => (
+            <div className="ally" key={`${a.name}-${i}`}>
+              <b>{a.name}</b>
+              <span>{a.rubro}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
       <hr className="rule" />
