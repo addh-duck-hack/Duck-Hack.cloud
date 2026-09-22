@@ -28,7 +28,7 @@
 .account-sidebar nav {
   border: 1px solid var(--line);
   background: var(--panel);
-  border-radius: 4px;
+  border-radius: 16px;
   overflow: hidden;
 }
 .account-nav-item {
@@ -73,7 +73,7 @@
 .account-nav-logout {
   border: 1px solid var(--line);
   background: var(--panel);
-  border-radius: 4px;
+  border-radius: 16px;
 }
 .account-nav-logout:hover {
   border-color: var(--signal);
@@ -88,7 +88,7 @@
 .account-panel {
   border: 1px solid var(--line);
   background: var(--panel);
-  border-radius: 4px;
+  border-radius: 16px;
   padding: 24px;
 }
 .account-panel h2 {
@@ -170,7 +170,7 @@
   letter-spacing: normal;
   background: var(--ink);
   border: 1px solid var(--text);
-  border-radius: 3px;
+  border-radius: 16px;
   padding: 10px 12px;
   color: var(--text);
   width: 100%;
@@ -194,13 +194,13 @@
 }
 .account-address-edit {
   border: 1px solid var(--signal);
-  border-radius: 3px;
+  border-radius: 16px;
   padding: 14px;
   margin: 0;
 }
 .account-address {
   border: 1px solid var(--line);
-  border-radius: 3px;
+  border-radius: 16px;
   padding: 12px 14px;
   display: flex;
   justify-content: space-between;
@@ -287,7 +287,7 @@
 }
 .account-order {
   border: 1px solid var(--line);
-  border-radius: 3px;
+  border-radius: 16px;
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
@@ -443,7 +443,7 @@
 }
 .account-fav-card {
   border: 1px solid var(--line);
-  border-radius: 3px;
+  border-radius: 16px;
   padding: 14px;
   display: flex;
   flex-direction: column;
@@ -452,7 +452,7 @@
 .account-fav-fig {
   width: 100%;
   aspect-ratio: 1;
-  border-radius: 3px;
+  border-radius: 16px;
   background: var(--panel2);
   display: grid;
   place-items: center;

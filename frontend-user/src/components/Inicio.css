@@ -227,7 +227,7 @@
   border: 1px solid var(--line);
   background: var(--panel);
   padding: 22px;
-  border-radius: 3px;
+  border-radius: 16px;
   text-decoration: none;
   color: var(--text);
   display: block;
@@ -312,7 +312,7 @@
   text-align: center;
   background: var(--signal);
   color: var(--ink);
-  border-radius: 4px;
+  border-radius: 16px;
   padding: clamp(36px, 7vw, 68px) 28px;
 }
 .big-cta h2 {

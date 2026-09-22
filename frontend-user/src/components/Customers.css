@@ -15,7 +15,7 @@
 .client-card {
   border: 1px solid var(--line);
   background: var(--panel);
-  border-radius: 3px;
+  border-radius: 16px;
   overflow: hidden;
   text-decoration: none;
   color: var(--text);

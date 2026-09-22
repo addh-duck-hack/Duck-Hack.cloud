@@ -2,24 +2,26 @@
    Utilidades compartidas entre páginas (evita repetir las mismas reglas en cada
    CSS de componente — mismo espíritu que el dedup de tokens en index.css).
 
-   PROPUESTA B · "De Sutu Cha'Nu": antetítulos en script, botones tipo píldora. */
+   PROPUESTA "Function Cha'Nu": antetítulos chicos en mono tracked (como los
+   "eyebrow" de Function Health), botones tipo píldora (ya lo eran, sin cambio). */
 
 .eyebrow {
-  font-family: var(--font-script);
-  font-size: 1.5rem;
-  line-height: 1;
+  font-family: var(--font-label);
+  font-weight: 600;
+  font-size: 0.72rem;
+  line-height: 1.4;
   color: var(--signal);
-  text-transform: none;
-  letter-spacing: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 10px;
 }
 
 .kicker {
-  font-family: var(--font-body);
+  font-family: var(--font-label);
   font-weight: 600;
   font-size: 0.78rem;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--gold);
 }

@@ -8,7 +8,7 @@
 .rp-card {
   border: 1px solid var(--line);
   background: var(--panel);
-  border-radius: 3px;
+  border-radius: 16px;
   padding: 18px;
   text-decoration: none;
   color: var(--text);
@@ -24,7 +24,7 @@
 .rp-fig {
   width: 100%;
   aspect-ratio: 1;
-  border-radius: 3px;
+  border-radius: 16px;
   background: var(--panel2);
   display: grid;
   place-items: center;

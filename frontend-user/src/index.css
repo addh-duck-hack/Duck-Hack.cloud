@@ -1,53 +1,61 @@
 /* Tokens de diseño globales — única fuente de verdad (ver CLAUDE.md: antes duplicados
    entre index.css y App.css). App.css solo debe consumir estas variables, no redeclararlas.
 
-   PROPUESTA B · "De Sutu Cha'Nu" — sitio editorial claro para Café Tacita, sobre
-   papel crema. Se conservan los MISMOS nombres de token que traía el storefront
-   (--ink, --panel, --signal, --action, --font-mono, ...) para no reescribir el CSS
-   de cada componente; solo cambian los valores. Los nombres siguen la semántica
-   original: --ink = superficie base, --white = color de títulos, --font-mono = la
-   fuente "display". */
+   PROPUESTA "Function Cha'Nu" — sistema cálido tipo "apothecary sobre parchment"
+   (paleta terracota extraída de functionhealth.com vía design-store/, ver DESIGN.md),
+   aplicado sobre el contenido real de Café Tacita. Se conservan los MISMOS nombres
+   de token que traía el storefront (--ink, --panel, --signal, --action, --font-mono,
+   ...) para no reescribir el CSS de cada componente ni el override en runtime desde
+   StoreConfig.theme (ver useStoreConfig.jsx#applyStoreTheme) — solo cambian los
+   valores. --signal/--gold/--teal-* colapsan al único acento terracota que usa
+   Function (un solo acento, no dos), y --font-script pasa a ser la misma serif de
+   --font-mono pero en itálico (ver regla .script más abajo) en vez de una cursiva
+   aparte — así el mismo <em class="script"> del JSX obtiene el efecto roman+italic
+   mezclado de Function sin tocar ningún componente. */
 @import './styles/shared.css';
 
 :root {
   color-scheme: light;
 
-  /* Superficies (papel crema de la marca) */
-  --ink: #fff7ec;      /* fondo base */
-  --panel: #fbe9d0;    /* tarjetas / paneles */
-  --panel2: #f6ddbb;   /* paneles más marcados */
-  --line: #e3c9a2;     /* filetes */
-  --line-soft: #ecd8b8;
+  /* Superficies (parchment/aged paper de Function) */
+  --ink: #fef9ef;      /* fondo base — parchment */
+  --panel: #f5eee1;    /* tarjetas / paneles — aged paper */
+  --panel2: #eee3d1;   /* paneles más marcados */
+  --line: #d1c9bf;     /* filetes — warm taupe */
+  --line-soft: #ded6ca;
 
-  /* Acentos (teal + café de la paleta) */
-  --signal: #006e6e;        /* teal — links, detalles, estado activo */
-  --signal-dim: #006e6e1f;
-  --teal-soft: #2bc7c7;
-  --teal-dk: #054f4f;
-  --gold: #b06a1c;
+  /* Acento único (terracota) — Function reserva un solo acento, no dos */
+  --signal: #b05a36;        /* terracota — links, detalles, estado activo */
+  --signal-dim: #b05a361f;
+  --teal-soft: #c98865;     /* variante clara del acento (hover/selection) */
+  --teal-dk: #7a3d22;       /* variante oscura del acento */
+  --gold: #b05a36;
 
-  /* CTA sólido: café oscuro, hover teal */
-  --action: #3a2410;
-  --action-hover: #006e6e;
-  --on-accent: #fff7ec;
+  /* CTA sólido: terracota, hover variante oscura */
+  --action: #b05a36;
+  --action-hover: #7a3d22;
+  --on-accent: #fef9ef;
 
-  /* Texto (café tostado sobre crema) */
-  --text: #3a2410;
-  --text-dim: #6e4e2e;
-  --text-mute: #8a6b48;
-  --white: #3a2410;   /* títulos */
+  /* Texto (ink/charcoal/graphite de Function) */
+  --text: #2a2b2f;
+  --text-dim: #333333;
+  --text-mute: #515151;
+  --white: #2a2b2f;   /* títulos */
 
   /* Sombras */
-  --shadow: rgba(58, 36, 16, 0.16);
+  --shadow: rgba(42, 27, 15, 0.16);
 
   /* Tipografía
-     --font-mono  : la fuente "display" (antes JetBrains Mono) → Actor, sustituto
-                    de LEMON/MILK. El nombre se conserva por compatibilidad de CSS.
-     --font-body  : cuerpo editorial → Fraunces (serif óptico).
-     --font-script: firma de marca → Meow Script, sustituto de Intrigue Script. */
-  --font-mono: 'Actor', 'Trebuchet MS', 'Arial', sans-serif;
-  --font-body: 'Fraunces', Georgia, 'Times New Roman', serif;
-  --font-script: 'Meow Script', 'Snell Roundhand', cursive;
+     --font-mono  : la fuente "display" → Newsreader (serif editorial óptica,
+                    con soporte roman/italic — antes Actor). El nombre se conserva
+                    por compatibilidad de CSS/StoreConfig.theme.
+     --font-body  : cuerpo/UI → Inter (sans humanista — antes Fraunces).
+     --font-script: acento itálico dentro de títulos → misma Newsreader, activada
+                    vía font-style:italic en la regla .script (antes Meow Script). */
+  --font-mono: 'Newsreader', Georgia, 'Times New Roman', serif;
+  --font-body: 'Inter', 'Trebuchet MS', 'Arial', sans-serif;
+  --font-script: 'Newsreader', Georgia, 'Times New Roman', serif;
+  --font-label: 'IBM Plex Mono', ui-monospace, 'Courier New', monospace;
 
   --shell-max: 1120px;
   --measure: 62ch;
@@ -71,9 +79,9 @@ body {
 h1, h2, h3 {
   font-family: var(--font-mono);
   color: var(--white);
-  text-transform: uppercase;
-  letter-spacing: 0.01em;
-  line-height: 1.08;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.05;
   margin: 0;
   text-wrap: balance;
 }
@@ -108,10 +116,12 @@ a {
   color: var(--text);
 }
 
-/* Firma de marca reutilizable — "Café" en script sobre "TACITA" en display. */
+/* Acento de marca reutilizable — mezcla roman/italic dentro del mismo título o
+   frase, como en Function Health ("Check your health."), en vez de una cursiva
+   aparte. "Café" en index.css/AppShell usa esta misma clase. */
 .script {
   font-family: var(--font-script);
-  font-style: normal;
+  font-style: italic;
   font-weight: 400;
   text-transform: none;
   letter-spacing: 0;
