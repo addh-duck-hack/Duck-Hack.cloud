@@ -22,6 +22,9 @@ export const STORE_CONFIG_ROLES = [ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN];
 export const AGENCY_ROLES = [ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN];
 export const CATALOG_ROLES = [ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN, ROLES.COLLABORATOR];
 export const ORDER_ROLES = [ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN, ROLES.COLLABORATOR];
+// Biblioteca de medios (carpeta uploads/) — mismos roles que /api/media en
+// packages/core-api/modules/media.js.
+export const MEDIA_ROLES = [ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN, ROLES.COLLABORATOR];
 // Administrador de usuarios registrados (clientes + staff) — GET/PUT/DELETE
 // /api/users ya están restringidos a estos dos roles en el backend (ver
 // packages/core-api/modules/auth.js); collaborator no entra.

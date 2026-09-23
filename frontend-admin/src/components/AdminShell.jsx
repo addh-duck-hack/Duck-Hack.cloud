@@ -10,6 +10,7 @@ import {
   AGENCY_ROLES,
   CATALOG_ROLES,
   ORDER_ROLES,
+  MEDIA_ROLES,
   USER_MANAGEMENT_ROLES,
 } from "../utils/roles";
 import "./AdminShell.css";
@@ -21,6 +22,7 @@ const ROUTE_LABELS = {
   "/admin/products": "products",
   "/admin/inventory": "inventory",
   "/admin/orders": "orders",
+  "/admin/media": "media",
   "/admin/users": "users",
 };
 
@@ -36,6 +38,7 @@ const AdminShell = () => {
   const canManageOrders = ORDER_ROLES.includes(role);
   const canManageAgency = AGENCY_ROLES.includes(role);
   const canManageUsers = USER_MANAGEMENT_ROLES.includes(role);
+  const canManageMedia = MEDIA_ROLES.includes(role);
   const isSuperAdmin = role === ROLES.SUPER_ADMIN;
 
   useEffect(() => {
@@ -54,6 +57,7 @@ const AdminShell = () => {
         ]
       : []),
     ...(canManageOrders ? [{ path: "/admin/orders", label: "Pedidos" }] : []),
+    ...(canManageMedia ? [{ path: "/admin/media", label: "Medios" }] : []),
     ...(canManageUsers ? [{ path: "/admin/users", label: "Usuarios" }] : []),
     ...(canManageAgency
       ? [

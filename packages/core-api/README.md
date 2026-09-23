@@ -22,6 +22,10 @@ vault, not in this repo).
 - `modules/inventory.js` — per-product stock (`/api/inventory`).
 - `modules/orders.js` — orders, created manually from the admin panel for now
   (`/api/orders`).
+- `modules/media.js` — admin media library over the `uploads/` folder
+  (`/api/media`): lists files from disk, uploads images/GIF/MP4/WebM, edits
+  title + alt text (stored in the `Media` collection, the file itself is never
+  renamed), and deletes with a usage check (Product/User/StoreConfig).
 
 Still in `backend/`, and **not** a candidate to move here — Duck-Hack's own
 internal agency-management tooling, not a per-store eCommerce feature:
