@@ -1,75 +1,59 @@
-// src/App.js
-import React, { useEffect, useState } from 'react';
+// src/App.jsx
+//
+// Providers globales + mapa del sitio. Toda la lógica vive en hooks/ (sesión,
+// canasta, catálogo, checkout, cuenta, formularios) — las páginas en pages/
+// solo pintan. El sitio se está rediseñando sección por sección: las rutas
+// que todavía no se construyen muestran SectionPlaceholder.
+import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import AppShell from './components/AppShell';
-import Loader from './components/Loader';
-import Inicio from './components/Inicio';
-import AboutUs from './components/AboutUs';
-import OurServices from './components/OurServices';
-import Services from './components/Services';
-import Customers from './components/Customers';
-import ContactUs from './components/ContactUs';
-import Shop from './components/Shop';
-import ProductDetail from './components/ProductDetail';
-import Cart from './components/Cart';
-import LegalNotice from './components/LegalNotice';
-import PrivacyNotice from './components/PrivacyNotice';
-import VerifyUser from './components/VerifyUser';
-import LoginUser from './components/LoginUser';
-import RegisterUser from './components/RegisterUser';
-import MiCuenta from './components/MiCuenta';
+import Home from './pages/Home';
+import AboutUs from './pages/AboutUs';
+import OurServices from './pages/OurServices';
+import Services from './pages/Services';
+import Customers from './pages/Customers';
+import ContactUs from './pages/ContactUs';
+import Shop from './pages/Shop';
+import ProductDetail from './pages/ProductDetail';
+import Cart from './pages/Cart';
+import LegalNotice from './pages/LegalNotice';
+import PrivacyNotice from './pages/PrivacyNotice';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Account from './pages/Account';
+import VerifyEmail from './pages/VerifyEmail';
 import { StoreConfigProvider } from './hooks/useStoreConfig';
 import { CartProvider } from './hooks/useCart';
 import { AuthProvider } from './hooks/useAuth';
-import './App.css';
 
-const App = () => {
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-      document.body.classList.add('loaded');
-    }, 1400);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  return (
-    <StoreConfigProvider>
-      <AuthProvider>
-        <CartProvider>
-          <Router>
-            <div className="App">
-              {loading ? (
-                <Loader />
-              ) : (
-                <Routes>
-                  <Route element={<AppShell />}>
-                    <Route path="/" element={<Inicio />} />
-                    <Route path="/nosotros" element={<AboutUs />} />
-                    <Route path="/servicios" element={<OurServices />} />
-                    <Route path="/precios" element={<Services />} />
-                    <Route path="/clientes" element={<Customers />} />
-                    <Route path="/contacto" element={<ContactUs />} />
-                    <Route path="/tienda" element={<Shop />} />
-                    <Route path="/tienda/:id" element={<ProductDetail />} />
-                    <Route path="/carrito" element={<Cart />} />
-                    <Route path="/legal-notice" element={<LegalNotice />} />
-                    <Route path="/privacy-policy" element={<PrivacyNotice />} />
-                    <Route path="/login" element={<LoginUser />} />
-                    <Route path="/register" element={<RegisterUser />} />
-                    <Route path="/mi-cuenta" element={<MiCuenta />} />
-                  </Route>
-                  <Route path="/users/verify" element={<VerifyUser />} />
-                </Routes>
-              )}
-            </div>
-          </Router>
-        </CartProvider>
-      </AuthProvider>
-    </StoreConfigProvider>
-  );
-};
+const App = () => (
+  <StoreConfigProvider>
+    <AuthProvider>
+      <CartProvider>
+        <Router>
+          <Routes>
+            <Route element={<AppShell />}>
+              <Route path="/" element={<Home />} />
+              <Route path="/nosotros" element={<AboutUs />} />
+              <Route path="/servicios" element={<OurServices />} />
+              <Route path="/precios" element={<Services />} />
+              <Route path="/clientes" element={<Customers />} />
+              <Route path="/contacto" element={<ContactUs />} />
+              <Route path="/tienda" element={<Shop />} />
+              <Route path="/tienda/:id" element={<ProductDetail />} />
+              <Route path="/carrito" element={<Cart />} />
+              <Route path="/legal-notice" element={<LegalNotice />} />
+              <Route path="/privacy-policy" element={<PrivacyNotice />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/mi-cuenta" element={<Account />} />
+            </Route>
+            <Route path="/users/verify" element={<VerifyEmail />} />
+          </Routes>
+        </Router>
+      </CartProvider>
+    </AuthProvider>
+  </StoreConfigProvider>
+);
 
 export default App;

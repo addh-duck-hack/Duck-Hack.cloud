@@ -118,7 +118,7 @@ export const CartProvider = ({ children }) => {
       };
       if (customerPhone) payload.customerPhone = customerPhone;
       // shippingAddress ahora es un objeto (recipientName/phone/street/...,
-      // ver Cart.jsx) — solo se manda si de verdad se llenó algo, para no
+      // ver useCheckout.js) — solo se manda si de verdad se llenó algo, para no
       // guardar un objeto de puros campos vacíos en pedidos de "pickup".
       const hasShippingAddress = shippingAddress && Object.values(shippingAddress).some(Boolean);
       if (hasShippingAddress) payload.shippingAddress = shippingAddress;

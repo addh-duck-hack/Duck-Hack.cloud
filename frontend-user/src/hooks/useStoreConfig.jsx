@@ -24,14 +24,15 @@ export const resolveStoreImageUrl = (relativePath) => {
   return `${getApiBaseUrl()}/${relativePath}`;
 };
 
-// Mapeo conservador theme -> tokens CSS: solo el color de acento y las
-// fuentes en esta primera iteración. primaryColor/secondaryColor tocan
-// fondos completos del sitio y requieren validar contraste antes de
-// exponerlos aquí (ver plan de "store config dinámico").
+// Mapeo theme -> tokens CSS (ver src/index.css): color de acento y las dos
+// familias tipográficas. Las fuentes que el admin configure reemplazan a las
+// temporales de diseño (Roboto / Roboto Condensed, cargadas en index.html).
+// primaryColor/secondaryColor todavía no se mapean: tocan fondos completos y
+// requieren validar contraste.
 
-// Familias que ya vienen embebidas vía index.html (Actor / Meow Script /
-// Fraunces) o que son genéricas de CSS — no hay que pedirlas a Google Fonts.
-const BUNDLED_FONTS = new Set(['actor', 'meow script', 'fraunces']);
+// Familias que ya vienen embebidas vía index.html o que son genéricas de CSS
+// — no hay que pedirlas a Google Fonts.
+const BUNDLED_FONTS = new Set(['roboto', 'roboto condensed']);
 const GENERIC_FAMILIES = new Set([
   'serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui',
   'ui-serif', 'ui-sans-serif', 'ui-monospace', 'ui-rounded',
@@ -85,23 +86,19 @@ const syncStoreFontLink = (families) => {
 const applyStoreTheme = (theme) => {
   if (!theme) return;
   const root = document.documentElement;
-  if (theme.accentColor) root.style.setProperty('--action', theme.accentColor);
+  if (theme.accentColor) root.style.setProperty('--color-accent', theme.accentColor);
   if (theme.fontFamilyHeading) {
-    root.style.setProperty(
-      '--font-mono',
-      withFallback(theme.fontFamilyHeading, '"Trebuchet MS", Arial, sans-serif')
-    );
+    root.style.setProperty('--font-heading', withFallback(theme.fontFamilyHeading, 'sans-serif'));
   }
   if (theme.fontFamilyBody) {
-    root.style.setProperty('--font-body', withFallback(theme.fontFamilyBody, 'Georgia, serif'));
+    root.style.setProperty('--font-body', withFallback(theme.fontFamilyBody, 'sans-serif'));
   }
   syncStoreFontLink([theme.fontFamilyHeading, theme.fontFamilyBody]);
 };
 
 // El favicon del navegador (pestaña) se deja estático (index.html,
-// /favicon.ico) a propósito — solo el logo dentro de la propia página (rail
-// lateral, footer, pantalla de carga) sigue el logoUrl del admin, ver
-// AppShell/Footer/Loader/etc. usando resolveStoreImageUrl.
+// /favicon.ico) a propósito — solo el logo dentro de la propia página sigue
+// el logoUrl del admin (vía resolveStoreImageUrl).
 
 export const StoreConfigProvider = ({ children }) => {
   const [state, setState] = useState({ config: null, isLoading: true, error: null });
@@ -129,15 +126,3 @@ export const StoreConfigProvider = ({ children }) => {
 };
 
 export const useStoreConfig = () => useContext(StoreConfigContext);
-
-// Handler compartido para el `onError` de un <img> que usa resolveStoreImageUrl
-// (logo, fotos de equipo/clientes): si la imagen personalizada ya no resuelve
-// (archivo borrado del servidor, subida perdida en un redeploy sin volumen
-// persistente para UPLOADS_DIR, URL editada a mano con un typo en StoreConfig),
-// cae automáticamente al asset local en vez de dejar el ícono de imagen rota
-// del navegador. Se limpia el propio onerror antes de reasignar el src para no
-// entrar en bucle si el fallback también fallara.
-export const handleImageFallback = (fallbackSrc) => (event) => {
-  event.currentTarget.onerror = null;
-  event.currentTarget.src = fallbackSrc;
-};

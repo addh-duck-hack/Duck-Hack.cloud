@@ -1,173 +1,98 @@
-/* Tokens de diseño globales — única fuente de verdad (ver CLAUDE.md: antes duplicados
-   entre index.css y App.css). App.css solo debe consumir estas variables, no redeclararlas.
-
-   PROPUESTA "Function Cha'Nu" — sistema cálido tipo "apothecary sobre parchment"
-   (paleta terracota extraída de functionhealth.com vía design-store/, ver DESIGN.md),
-   aplicado sobre el contenido real de Café Tacita. Se conservan los MISMOS nombres
-   de token que traía el storefront (--ink, --panel, --signal, --action, --font-mono,
-   ...) para no reescribir el CSS de cada componente ni el override en runtime desde
-   StoreConfig.theme (ver useStoreConfig.jsx#applyStoreTheme) — solo cambian los
-   valores. --signal/--gold/--teal-* colapsan al único acento terracota que usa
-   Function (un solo acento, no dos), y --font-script pasa a ser la misma serif de
-   --font-mono pero en itálico (ver regla .script más abajo) en vez de una cursiva
-   aparte — así el mismo <em class="script"> del JSX obtiene el efecto roman+italic
-   mezclado de Function sin tocar ningún componente. */
-@import './styles/shared.css';
-
+/* src/index.css — base global del storefront.
+ *
+ * Tokens mínimos para arrancar el rediseño sección por sección. Las familias
+ * tipográficas son temporales (Roboto / Roboto Condensed): en producción las
+ * sobrescribe useStoreConfig.jsx#applyStoreTheme con las fuentes configuradas
+ * en el admin (--font-heading / --font-body), igual que --color-accent.
+ */
 :root {
-  color-scheme: light;
+  --font-heading: 'Roboto Condensed', 'Roboto', sans-serif;
+  --font-body: 'Roboto', sans-serif;
 
-  /* Superficies (parchment/aged paper de Function) */
-  --ink: #fef9ef;      /* fondo base — parchment */
-  --panel: #f5eee1;    /* tarjetas / paneles — aged paper */
-  --panel2: #eee3d1;   /* paneles más marcados */
-  --line: #d1c9bf;     /* filetes — warm taupe */
-  --line-soft: #ded6ca;
-
-  /* Acento único (terracota) — Function reserva un solo acento, no dos */
-  --signal: #b05a36;        /* terracota — links, detalles, estado activo */
-  --signal-dim: #b05a361f;
-  --teal-soft: #c98865;     /* variante clara del acento (hover/selection) */
-  --teal-dk: #7a3d22;       /* variante oscura del acento */
-  --gold: #b05a36;
-
-  /* CTA sólido: terracota, hover variante oscura */
-  --action: #b05a36;
-  --action-hover: #7a3d22;
-  --on-accent: #fef9ef;
-
-  /* Texto (ink/charcoal/graphite de Function) */
-  --text: #2a2b2f;
-  --text-dim: #333333;
-  --text-mute: #515151;
-  --white: #2a2b2f;   /* títulos */
-
-  /* Sombras */
-  --shadow: rgba(42, 27, 15, 0.16);
-
-  /* Tipografía
-     --font-mono  : la fuente "display" → Newsreader (serif editorial óptica,
-                    con soporte roman/italic — antes Actor). El nombre se conserva
-                    por compatibilidad de CSS/StoreConfig.theme.
-     --font-body  : cuerpo/UI → Inter (sans humanista — antes Fraunces).
-     --font-script: acento itálico dentro de títulos → misma Newsreader, activada
-                    vía font-style:italic en la regla .script (antes Meow Script). */
-  --font-mono: 'Newsreader', Georgia, 'Times New Roman', serif;
-  --font-body: 'Inter', 'Trebuchet MS', 'Arial', sans-serif;
-  --font-script: 'Newsreader', Georgia, 'Times New Roman', serif;
-  --font-label: 'IBM Plex Mono', ui-monospace, 'Courier New', monospace;
-
-  --shell-max: 1120px;
-  --measure: 62ch;
-
-  /* Radios (Function Health: cards 24px, botones 40px, tags/pills 9999px —
-     ver DESIGN.md "Border Radius"). */
-  --radius-card: 24px;
-  --radius-btn: 40px;
-  --radius-pill: 9999px;
-
-  /* Sombras (DESIGN.md "Shadows") — usar en vez de box-shadow sueltas por
-     componente para tarjetas/paneles flotantes. */
-  --shadow-lg: rgba(0, 0, 0, 0.15) 0px 0px 20px 0px;
-  --shadow-xl: rgba(42, 43, 47, 0.1) 12px 32px 80px 0px;
-
-  /* Escala tipográfica (DESIGN.md "Type Scale") — para h1/h2 de hero y
-     encabezados de sección en vez de tamaños sueltos por componente. */
-  --text-eyebrow: 12px;
-  --text-body-sm: 14px;
-  --text-body: 16px;
-  --text-body-lg: 18px;
-  --text-subheading: 20px;
-  --text-heading: 34px;
-  --text-heading-lg: 45px;
-  --text-display: 64px;
-  --text-hero: 80px;
-  --text-display-xl: 88px;
-
-  /* Escala de espaciado (base 8px, DESIGN.md "Spacing Scale"). */
-  --space-8: 8px;
-  --space-16: 16px;
-  --space-24: 24px;
-  --space-32: 32px;
-  --space-40: 40px;
-  --space-48: 48px;
-  --space-56: 56px;
-  --space-64: 64px;
-  --space-80: 80px;
+  --color-accent: #333333;
+  --color-text: #1a1a1a;
+  --color-muted: #6b6b6b;
+  --color-bg: #ffffff;
+  --color-border: #d9d9d9;
+  --color-placeholder: #ececec;
 }
 
-html {
-  scroll-behavior: smooth;
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
 }
 
 body {
   font-family: var(--font-body);
-  color: var(--text);
-  background-color: var(--ink);
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-optical-sizing: auto;
+  color: var(--color-text);
+  background: var(--color-bg);
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3 {
-  font-family: var(--font-mono);
-  color: var(--white);
-  font-weight: 400;
-  letter-spacing: -0.01em;
-  line-height: 1.05;
-  margin: 0;
-  text-wrap: balance;
-}
-
-p {
-  font-family: var(--font-body);
-  line-height: 1.7;
-  color: var(--text-dim);
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading);
+  line-height: 1.15;
   margin: 0;
 }
 
-/* Campos de "descripción" del store config que pueden traer HTML básico
-   (ver src/components/RichText.jsx) — se renderizan en un <div>, no un <p>,
-   así que necesitan la misma base tipográfica explícita. */
-.rich-text {
-  font-family: var(--font-body);
-  line-height: 1.7;
-  color: var(--text-dim);
-  margin: 0;
+img {
+  max-width: 100%;
+  display: block;
 }
 
 a {
-  color: var(--signal);
+  color: inherit;
 }
 
-*, *::before, *::after {
-  box-sizing: border-box;
+button,
+input,
+select,
+textarea {
+  font: inherit;
 }
 
-::selection {
-  background: var(--teal-soft);
-  color: var(--text);
+/* Recuadro que marca dónde va una imagen que llega desde el admin — ver
+ * components/StoreImage.jsx. */
+.img-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+  background: var(--color-placeholder);
+  border: 1px dashed var(--color-border);
+  color: var(--color-muted);
+  font-family: var(--font-heading);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 8px;
 }
 
-/* Acento de marca reutilizable — mezcla roman/italic dentro del mismo título o
-   frase, como en Function Health ("Check your health."), en vez de una cursiva
-   aparte. "Café" en index.css/AppShell usa esta misma clase. */
-.script {
-  font-family: var(--font-script);
-  font-style: italic;
-  font-weight: 400;
-  text-transform: none;
-  letter-spacing: 0;
-  color: var(--signal);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
-  *, *::before, *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-  }
+/* Página aún sin diseñar — ver components/SectionPlaceholder.jsx. */
+.section-placeholder {
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--color-muted);
 }

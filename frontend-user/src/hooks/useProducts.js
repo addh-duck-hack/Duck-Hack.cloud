@@ -163,6 +163,30 @@ export const useProducts = () => {
   return state;
 };
 
+// Toma `count` elementos al azar sin repetir (Fisher–Yates parcial).
+export const pickRandom = (list, count) => {
+  const pool = [...list];
+  const picked = [];
+  while (pool.length > 0 && picked.length < count) {
+    const index = Math.floor(Math.random() * pool.length);
+    picked.push(pool.splice(index, 1)[0]);
+  }
+  return picked;
+};
+
+// Selección al azar del catálogo (bloques "También te puede interesar" y
+// destacados de Inicio). `excludeId` saca el producto que se está viendo. Se
+// vuelve a sortear solo si cambia el catálogo o el excluido, no en cada
+// render, para que las tarjetas no "salten" solas.
+export const useRandomProducts = (count = 4, excludeId = null) => {
+  const { products, isLoading } = useProducts();
+  const picks = useMemo(
+    () => pickRandom(products.filter((p) => String(p.id) !== String(excludeId)), count),
+    [products, count, excludeId]
+  );
+  return { products: picks, isLoading };
+};
+
 export const useProduct = (id) => {
   const { products, isLoading, isFallback } = useProducts();
   const product = useMemo(() => products.find((p) => String(p.id) === String(id)) || null, [products, id]);

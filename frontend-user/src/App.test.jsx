@@ -1,7 +1,7 @@
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import App from './App';
 
-test('muestra el loader de Café Tacita al montar', () => {
-  const { container } = render(<App />);
-  expect(container.querySelector('.loader-container')).toBeInTheDocument();
+test('monta la app y pinta la ruta de inicio', () => {
+  render(<App />);
+  expect(screen.getByRole('heading', { name: 'Inicio' })).toBeInTheDocument();
 });

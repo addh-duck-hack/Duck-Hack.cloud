@@ -1,7 +1,7 @@
 // src/hooks/useAuth.jsx
 //
-// Sesión del cliente en el storefront. Antes cada componente (LoginUser,
-// CheckoutAccountStep, Cart) leía/escribía a mano los mismos localStorage
+// Sesión del cliente en el storefront. Antes cada componente (login,
+// checkout, canasta) leía/escribía a mano los mismos localStorage
 // keys (duckhack_customer_token/duckhack_customer_user) sin compartir
 // estado entre ellos — este contexto es ahora la única fuente de verdad.
 // No es "seguridad real": el backend es quien de verdad valida el JWT en
@@ -38,8 +38,8 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(readStoredUser);
 
   // Se llama con la respuesta tal cual de POST /api/users/login
-  // ({ token, user }) — CheckoutAccountStep.jsx y LoginUser.jsx comparten
-  // esta misma función.
+  // ({ token, user }) desde useAuthForms.js#useLoginForm (página /login y
+  // paso "Tu cuenta" del checkout).
   const login = useCallback(({ token: newToken, user: newUser }) => {
     try {
       if (newToken) localStorage.setItem(TOKEN_KEY, newToken);
@@ -54,7 +54,7 @@ export const AuthProvider = ({ children }) => {
 
   // Actualiza solo los datos del usuario (nombre/teléfono/dirección/
   // favoritos) sin tocar el token — usado tras editar el perfil en
-  // "Mi cuenta" (MiCuenta.jsx), donde PUT /api/users/:id regresa el user
+  // "Mi cuenta" (useAccount.js), donde PUT /api/users/:id regresa el user
   // actualizado pero no un token nuevo.
   const updateUser = useCallback((patch) => {
     setUser((prev) => {
