@@ -1,32 +1,32 @@
 // src/components/OriginMap.jsx
 //
-// Mapa de puntos de Xicotepec de Juárez (Puebla). El contorno es un trazo
-// aproximado del límite urbano en el mapa de referencia; se rellena con puntos
-// del color acento que se desvanecen hacia abajo, más un punto destacado en el
-// centro del pueblo. Alrededor, una trama tenue de puntos (patrón SVG, no
-// miles de <circle>) que se desvanece hacia los bordes llena la tarjeta.
-// Puramente decorativo.
+// Mapa de puntos del municipio de Xicotepec (Puebla). El contorno es un trazo
+// aproximado del límite municipal en el mapa de referencia; se rellena con
+// puntos del color acento que se desvanecen hacia abajo, más un punto
+// destacado sobre Xicotepec de Juárez. Alrededor, una trama tenue de puntos
+// (patrón SVG, no miles de <circle>) que se desvanece hacia los bordes llena
+// la tarjeta. Puramente decorativo.
 import React, { useMemo } from 'react';
 
-// Contorno en coordenadas del mapa de referencia (796×789 px).
+// Contorno en coordenadas del mapa de referencia (469×363 px), en sentido
+// horario desde el extremo oeste.
 const OUTLINE = [
-  [320, 100], [345, 95], [380, 75], [420, 62], [455, 45], [470, 60], [500, 75], [520, 95],
-  [525, 120], [515, 140], [520, 160], [535, 180], [540, 210], [545, 240], [540, 270],
-  [548, 300], [545, 330], [540, 365], [530, 395], [530, 420], [525, 445], [500, 440],
-  [490, 450], [475, 470], [455, 490], [420, 475], [405, 495], [395, 520], [380, 540],
-  [385, 560], [380, 590], [375, 620], [360, 640], [365, 660], [370, 690], [350, 700],
-  [345, 720], [330, 740], [305, 745], [290, 740], [275, 720], [250, 695], [270, 670],
-  [265, 650], [285, 640], [280, 610], [270, 590], [280, 560], [270, 530], [280, 500],
-  [270, 470], [275, 420], [250, 430], [220, 425], [195, 370], [180, 320], [180, 280],
-  [185, 250], [205, 220], [225, 200], [230, 170], [260, 160], [275, 130], [295, 120],
+  [0, 188], [30, 192], [55, 212], [80, 220], [100, 212], [120, 195], [145, 170], [155, 150],
+  [170, 130], [185, 110], [192, 90], [215, 78], [240, 68], [250, 62], [262, 72], [270, 85],
+  [300, 82], [320, 82], [335, 72], [355, 55], [380, 45], [410, 38], [440, 30], [462, 22],
+  [468, 38], [460, 55], [448, 80], [435, 105], [418, 125], [400, 145], [385, 160], [365, 170],
+  [345, 175], [330, 185], [328, 205], [312, 222], [298, 238], [290, 255], [285, 275],
+  [278, 295], [268, 312], [245, 318], [222, 320], [200, 326], [175, 330], [150, 328],
+  [125, 326], [100, 320], [80, 310], [68, 295], [60, 282], [52, 268], [70, 262], [72, 250],
+  [55, 242], [40, 230], [28, 215], [15, 200],
 ];
 
-// Centro (Col. Centro) en las mismas coordenadas.
-const TOWN_CENTER = [400, 300];
+// Xicotepec de Juárez (cabecera municipal) en las mismas coordenadas.
+const TOWN_CENTER = [125, 252];
 
-const STEP = 16;
-const DOT_R = 4.2;
-const PAD = 24;
+const STEP = 10;
+const DOT_R = 2.8;
+const PAD = 20;
 
 const xs = OUTLINE.map(([x]) => x);
 const ys = OUTLINE.map(([, y]) => y);
@@ -37,12 +37,14 @@ const TOWN = {
   maxY: Math.max(...ys),
 };
 
-// Lienzo apaisado (≈2.4:1) con el pueblo en el tercio izquierdo; el lado
-// derecho queda libre para el texto de la tarjeta.
+// Lienzo apaisado (≈2.4:1). El municipio queda a la izquierda del centro; el
+// hueco que deja abajo a la derecha es donde va el texto de la tarjeta.
 const VIEW_H = TOWN.maxY - TOWN.minY + PAD * 2;
 const VIEW_W = VIEW_H * 2.4;
-const VIEW_X = (TOWN.minX + TOWN.maxX) / 2 - VIEW_W * 0.3;
+const VIEW_X = TOWN.minX - (VIEW_W - (TOWN.maxX - TOWN.minX)) * 0.25;
 const VIEW_Y = TOWN.minY - PAD;
+// Centro de la trama exterior: el centro de la silueta.
+const FADE_CENTER = [(TOWN.minX + TOWN.maxX) / 2, (TOWN.minY + TOWN.maxY) / 2];
 
 // Ray casting: ¿el punto cae dentro del contorno?
 const isInside = (x, y) => {
@@ -70,8 +72,8 @@ const buildTownDots = () => {
     const offset = row % 2 ? STEP / 2 : 0; // filas desfasadas: trama más orgánica
     for (let x = VIEW_X + offset; x <= TOWN.maxX; x += STEP) {
       if (x < TOWN.minX || !isInside(x, y)) continue;
-      const fade = 1 - ((y - TOWN.minY) / height) * 0.7; // más tenue hacia abajo
-      dots.push({ x, y, opacity: Math.max(0.18, fade * (0.4 + noise(x, y) * 0.6)) });
+      const fade = 1 - ((y - TOWN.minY) / height) * 0.6; // más tenue hacia abajo
+      dots.push({ x, y, opacity: Math.max(0.2, fade * (0.45 + noise(x, y) * 0.55)) });
     }
   }
   return dots;
@@ -102,7 +104,13 @@ const OriginMap = ({ className = '' }) => {
           <circle cx={STEP} cy={0} r={DOT_R} />
           <circle cx={STEP / 2} cy={STEP} r={DOT_R} />
         </pattern>
-        <radialGradient id="origin-fade" gradientUnits="userSpaceOnUse" cx={cx} cy={cy} r={VIEW_W * 0.55}>
+        <radialGradient
+          id="origin-fade"
+          gradientUnits="userSpaceOnUse"
+          cx={FADE_CENTER[0]}
+          cy={FADE_CENTER[1]}
+          r={VIEW_W * 0.55}
+        >
           <stop offset="0" stopColor="#fff" stopOpacity="1" />
           <stop offset="1" stopColor="#fff" stopOpacity="0" />
         </radialGradient>
@@ -121,8 +129,8 @@ const OriginMap = ({ className = '' }) => {
         ))}
       </g>
 
-      <circle cx={cx} cy={cy} r={16} fill="var(--color-accent)" opacity={0.18} />
-      <circle cx={cx} cy={cy} r={8} fill="var(--color-accent)" stroke="var(--color-bg)" strokeWidth={3} />
+      <circle cx={cx} cy={cy} r={11} fill="var(--color-accent)" opacity={0.18} />
+      <circle cx={cx} cy={cy} r={5.5} fill="var(--color-accent)" stroke="var(--color-bg)" strokeWidth={2} />
     </svg>
   );
 };
