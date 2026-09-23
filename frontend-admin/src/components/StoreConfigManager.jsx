@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
-import ImageUploadField from "./ImageUploadField";
+import MediaField from "./MediaField";
 import StoreConfigTabs from "./StoreConfigTabs";
 
 const initialState = {
@@ -224,7 +224,7 @@ const StoreConfigManager = () => {
         <h4 style={{ marginTop: "2rem" }}>Marca</h4>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
           <div style={{ gridColumn: "1 / span 2" }}>
-            <ImageUploadField label="Logo" value={form.logoUrl} onChange={handleLogoChange} previewBaseUrl={baseUrl} />
+            <MediaField label="Logo" value={form.logoUrl} onChange={handleLogoChange} />
           </div>
 
           <ColorField

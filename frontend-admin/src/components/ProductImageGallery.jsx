@@ -1,40 +1,20 @@
 import React, { useState } from "react";
-import { getApiBaseUrl } from "../utils/apiBaseUrl";
-import { uploadImage } from "../utils/uploadImage";
-
-const UPLOAD_URL = "/api/uploads/products-image";
-const FIELD_NAME = "productImage";
+import { mediaSrc } from "../utils/mediaApi";
+import MediaPicker from "./MediaPicker";
 
 // Galería de varias imágenes por producto (Product.images[]) — la primera es
 // la "principal" (la que usan ProductList.jsx y el storefront como
-// miniatura/portada). A diferencia de ImageUploadField (un solo valor), este
-// componente maneja el arreglo completo: agregar, quitar y reordenar.
+// miniatura/portada). A diferencia de MediaField (un solo valor), este
+// componente maneja el arreglo completo: agregar (desde MediaPicker, varias a
+// la vez, de la biblioteca o subiendo nuevas), quitar y reordenar.
 const ProductImageGallery = ({ label = "Imágenes del producto", value, onChange }) => {
   const images = value || [];
-  const baseUrl = getApiBaseUrl();
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
 
-  const [file, setFile] = useState(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [error, setError] = useState("");
-
-  const handleFileChange = (event) => {
-    setError("");
-    setFile(event.target.files?.[0] || null);
-  };
-
-  const handleAdd = async () => {
-    if (!file) return;
-    setIsUploading(true);
-    setError("");
-    try {
-      const imagePath = await uploadImage(file, { uploadUrl: UPLOAD_URL, fieldName: FIELD_NAME, baseUrl });
-      if (imagePath) onChange([...images, imagePath]);
-      setFile(null);
-    } catch (err) {
-      setError(err.response?.data?.error?.message || "No fue posible subir la imagen.");
-    } finally {
-      setIsUploading(false);
-    }
+  const handleAdd = (items) => {
+    const newPaths = items.map((item) => item.path).filter((path) => !images.includes(path));
+    if (newPaths.length) onChange([...images, ...newPaths]);
+    setIsPickerOpen(false);
   };
 
   const handleRemove = (index) => {
@@ -70,7 +50,7 @@ const ProductImageGallery = ({ label = "Imágenes del producto", value, onChange
               }}
             >
               <img
-                src={`${baseUrl}/${path}`}
+                src={mediaSrc(path)}
                 alt={`Imagen ${index + 1}`}
                 style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 4 }}
               />
@@ -114,19 +94,20 @@ const ProductImageGallery = ({ label = "Imágenes del producto", value, onChange
         <p style={{ margin: "0 0 0.5rem", color: "var(--placeholder-color)" }}>Este producto todavía no tiene imágenes.</p>
       )}
 
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-        <input type="file" accept="image/png,image/jpeg" onChange={handleFileChange} />
-        <button
-          type="button"
-          className="btn-secondary"
-          style={{ width: "auto" }}
-          disabled={!file || isUploading}
-          onClick={handleAdd}
-        >
-          {isUploading ? "Subiendo..." : "Agregar imagen"}
-        </button>
-      </div>
-      {error ? <div className="auth-error">{error}</div> : null}
+      <button type="button" className="btn-secondary" style={{ width: "auto" }} onClick={() => setIsPickerOpen(true)}>
+        <i className="fas fa-photo-video" aria-hidden="true" /> Agregar imágenes
+      </button>
+
+      {isPickerOpen ? (
+        <MediaPicker
+          kinds={["image", "gif"]}
+          multiple
+          title="Agregar imágenes al producto"
+          disabledPaths={images}
+          onSelect={handleAdd}
+          onClose={() => setIsPickerOpen(false)}
+        />
+      ) : null}
     </div>
   );
 };

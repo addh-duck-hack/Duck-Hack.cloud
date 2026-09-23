@@ -21,15 +21,15 @@ const HERO_SLIDE_FIELDS = [
     name: "mediaPath",
     label: "Imagen o GIF (usado si el tipo es Imagen o GIF animado)",
     type: "image",
-    uploadUrl: "/api/store-config/upload-hero-image",
-    fieldName: "heroImage",
-    accept: "image/png,image/jpeg,image/gif",
+    mediaKinds: ["image", "gif"],
     fullWidth: true,
   },
   {
     name: "mediaUrl",
     label: "URL de video (usado si el tipo es enlace directo o de YouTube)",
     type: "url",
+    // Un video directo también se puede elegir/subir desde Medios.
+    mediaKinds: ["video"],
     maxLength: 500,
     fullWidth: true,
   },
