@@ -6,7 +6,16 @@
 // destacado sobre Xicotepec de Juárez. Alrededor, una trama tenue de puntos
 // (patrón SVG, no miles de <circle>) que se desvanece hacia los bordes llena
 // la tarjeta. Puramente decorativo.
-import React, { useMemo } from 'react';
+//
+// Variantes:
+//   - "card" (default, OriginSection): lienzo apaisado que llena la tarjeta,
+//     con la trama exterior.
+//   - "standalone" (Footer): encuadrado justo a la silueta, completa y sin
+//     trama exterior (fuera de una tarjeta, la trama dejaría bordes rectos).
+// Se usa dos veces en la misma página: los ids del patrón y la máscara salen
+// de useId para no chocar. El borde del punto central usa --map-bg (color del
+// fondo donde va el mapa).
+import React, { useId, useMemo } from 'react';
 
 // Contorno en coordenadas del mapa de referencia (469×363 px), en sentido
 // horario desde el extremo oeste.
@@ -80,49 +89,61 @@ const buildTownDots = () => {
   return dots;
 };
 
-const OriginMap = ({ className = '' }) => {
+const OriginMap = ({ className = '', variant = 'card' }) => {
   const dots = useMemo(buildTownDots, []);
   const [cx, cy] = TOWN_CENTER;
+  const uid = useId().replace(/:/g, '');
+  const dotsId = `origin-dots-${uid}`;
+  const fadeId = `origin-fade-${uid}`;
+  const maskId = `origin-mask-${uid}`;
+  const isCard = variant === 'card';
+  const viewBox = isCard
+    ? `${VIEW_X} ${VIEW_Y} ${VIEW_W} ${VIEW_H}`
+    : `${TOWN.minX - DOT_R * 2} ${TOWN.minY - DOT_R * 2} ${TOWN.maxX - TOWN.minX + DOT_R * 4} ${TOWN.maxY - TOWN.minY + DOT_R * 4}`;
 
   return (
     <svg
       className={className}
-      viewBox={`${VIEW_X} ${VIEW_Y} ${VIEW_W} ${VIEW_H}`}
-      preserveAspectRatio="xMinYMid slice"
+      viewBox={viewBox}
+      preserveAspectRatio={isCard ? 'xMinYMid slice' : 'xMidYMid meet'}
       role="img"
       aria-label="Mapa de Xicotepec de Juárez"
     >
-      <defs>
-        <pattern
-          id="origin-dots"
-          patternUnits="userSpaceOnUse"
-          x={VIEW_X}
-          y={VIEW_Y}
-          width={STEP}
-          height={STEP * 2}
-        >
-          <circle cx={0} cy={0} r={DOT_R} />
-          <circle cx={STEP} cy={0} r={DOT_R} />
-          <circle cx={STEP / 2} cy={STEP} r={DOT_R} />
-        </pattern>
-        <radialGradient
-          id="origin-fade"
-          gradientUnits="userSpaceOnUse"
-          cx={FADE_CENTER[0]}
-          cy={FADE_CENTER[1]}
-          r={VIEW_W * 0.55}
-        >
-          <stop offset="0" stopColor="#fff" stopOpacity="1" />
-          <stop offset="1" stopColor="#fff" stopOpacity="0" />
-        </radialGradient>
-        <mask id="origin-mask">
-          <rect x={VIEW_X} y={VIEW_Y} width={VIEW_W} height={VIEW_H} fill="url(#origin-fade)" />
-        </mask>
-      </defs>
+      {isCard ? (
+        <>
+          <defs>
+            <pattern
+              id={dotsId}
+              patternUnits="userSpaceOnUse"
+              x={VIEW_X}
+              y={VIEW_Y}
+              width={STEP}
+              height={STEP * 2}
+            >
+              <circle cx={0} cy={0} r={DOT_R} />
+              <circle cx={STEP} cy={0} r={DOT_R} />
+              <circle cx={STEP / 2} cy={STEP} r={DOT_R} />
+            </pattern>
+            <radialGradient
+              id={fadeId}
+              gradientUnits="userSpaceOnUse"
+              cx={FADE_CENTER[0]}
+              cy={FADE_CENTER[1]}
+              r={VIEW_W * 0.55}
+            >
+              <stop offset="0" stopColor="#fff" stopOpacity="1" />
+              <stop offset="1" stopColor="#fff" stopOpacity="0" />
+            </radialGradient>
+            <mask id={maskId}>
+              <rect x={VIEW_X} y={VIEW_Y} width={VIEW_W} height={VIEW_H} fill={`url(#${fadeId})`} />
+            </mask>
+          </defs>
 
-      <g fill="var(--color-accent)" opacity={0.16} mask="url(#origin-mask)">
-        <rect x={VIEW_X} y={VIEW_Y} width={VIEW_W} height={VIEW_H} fill="url(#origin-dots)" />
-      </g>
+          <g fill="var(--color-accent)" opacity={0.16} mask={`url(#${maskId})`}>
+            <rect x={VIEW_X} y={VIEW_Y} width={VIEW_W} height={VIEW_H} fill={`url(#${dotsId})`} />
+          </g>
+        </>
+      ) : null}
 
       <g fill="var(--color-accent)">
         {dots.map((d) => (
@@ -131,7 +152,7 @@ const OriginMap = ({ className = '' }) => {
       </g>
 
       <circle cx={cx} cy={cy} r={11} fill="var(--color-accent)" opacity={0.18} />
-      <circle cx={cx} cy={cy} r={5.5} fill="var(--color-accent)" stroke="var(--color-bg)" strokeWidth={2} />
+      <circle cx={cx} cy={cy} r={5.5} fill="var(--color-accent)" stroke="var(--map-bg, var(--color-bg))" strokeWidth={2} />
     </svg>
   );
 };

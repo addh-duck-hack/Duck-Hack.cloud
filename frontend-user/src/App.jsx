@@ -22,6 +22,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Account from './pages/Account';
 import VerifyEmail from './pages/VerifyEmail';
+import ForgotPassword from './pages/ForgotPassword';
 import { StoreConfigProvider } from './hooks/useStoreConfig';
 import { CartProvider } from './hooks/useCart';
 import { AuthProvider } from './hooks/useAuth';
@@ -46,6 +47,7 @@ const App = () => (
               <Route path="/privacy-policy" element={<PrivacyNotice />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/recuperar-contrasena" element={<ForgotPassword />} />
               <Route path="/mi-cuenta" element={<Account />} />
             </Route>
             <Route path="/users/verify" element={<VerifyEmail />} />
