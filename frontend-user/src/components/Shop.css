@@ -20,29 +20,34 @@
 
 .shop-catalog {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 12px 48px;
-  margin-top: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  gap: 20px;
+  margin-top: 28px;
 }
 
 .chapter {
-  margin-top: 32px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  padding: 26px 26px 10px;
 }
 .chapter-head {
   display: flex;
   align-items: baseline;
   gap: 14px;
-  border-bottom: 2px solid var(--text);
-  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
 }
 .chapter-head h2 {
   font-size: 1.5rem;
 }
 .chapter-c {
-  font-family: var(--font-body);
+  font-family: var(--font-label);
   font-weight: 600;
-  color: var(--text-mute);
-  font-size: 0.85rem;
+  color: var(--signal);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .menu-list {
@@ -53,14 +58,20 @@
   display: grid;
   grid-template-columns: 84px 1fr auto;
   gap: 20px;
-  padding: 20px 0;
+  padding: 18px 10px;
+  margin: 0 -10px;
+  border-radius: 16px;
   border-bottom: 1px solid var(--line-soft);
   align-items: center;
   text-decoration: none;
   color: var(--text);
+  transition: background 0.15s ease;
+}
+.menu-list .menu-item:last-child {
+  border-bottom: none;
 }
 .menu-item:hover {
-  background: color-mix(in srgb, var(--panel) 50%, transparent);
+  background: var(--ink);
 }
 .mfig {
   width: 84px;

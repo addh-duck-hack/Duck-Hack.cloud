@@ -14,9 +14,9 @@
   width: 100%;
   margin: 0;
   background: var(--panel);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   padding: 2.25rem;
-  box-shadow: 0 12px 32px var(--shadow);
+  box-shadow: var(--shadow-lg);
   color: var(--text);
   border: 1px solid var(--line);
 }
@@ -56,7 +56,7 @@
 .verify-btn {
   background-color: var(--action);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-btn);
   color: var(--on-accent);
   cursor: pointer;
   display: block;

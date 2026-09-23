@@ -14,6 +14,10 @@
   margin-top: 8px;
 }
 
+.contact-info {
+  display: flex;
+  flex-direction: column;
+}
 .contact-info p {
   color: var(--text-dim);
   max-width: 32ch;
@@ -21,15 +25,18 @@
 .contact-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 16px;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 16px 18px;
   font-family: var(--font-body);
   color: var(--text-dim);
 }
 .contact-item i {
   color: var(--signal);
-  width: 18px;
+  width: 22px;
+  font-size: 1.1rem;
   text-align: center;
+  flex: none;
 }
 .contact-item a {
   color: var(--text-dim);
@@ -39,16 +46,13 @@
 }
 
 .contact-card {
-  border: 1px solid var(--line);
-  background: var(--panel);
-  border-radius: 16px;
-  padding: 26px;
+  padding: 32px;
 }
 .contact-error {
   background: color-mix(in srgb, var(--gold) 14%, transparent);
   border: 1px solid var(--gold);
   color: var(--gold);
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   padding: 10px 12px;
   font-size: 0.88rem;
   margin-bottom: 14px;
@@ -72,14 +76,22 @@
   font-family: var(--font-body);
   font-size: 0.95rem;
   background: var(--ink);
-  border: 1px solid var(--text);
-  border-radius: 16px;
-  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  padding: 12px 18px;
   color: var(--text);
   width: 100%;
 }
+.contact-card input:focus,
+.contact-card select:focus,
+.contact-card textarea:focus {
+  outline: none;
+  border-color: var(--signal);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--signal) 20%, transparent);
+}
 .contact-card textarea {
   min-height: 120px;
+  border-radius: var(--radius-card);
   resize: vertical;
 }
 .contact-card .btn {

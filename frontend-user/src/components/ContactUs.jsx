@@ -69,23 +69,23 @@ const ContactUs = () => {
         <div className="contact-info">
           <p>Respondemos en español, directo desde la finca — sin buzones automáticos.</p>
           {whatsapp && (
-            <div className="contact-item">
+            <div className="contact-item panel">
               <i className="fab fa-whatsapp" aria-hidden="true" />
               <a href={whatsapp} target="_blank" rel="noopener noreferrer">WhatsApp {contactPhoneLabel}</a>
             </div>
           )}
-          <div className="contact-item">
+          <div className="contact-item panel">
             <i className="fas fa-envelope" aria-hidden="true" />
             <a href={`mailto:${contactEmail}`}>{contactEmail}</a>
           </div>
-          <div className="contact-item">
+          <div className="contact-item panel">
             <i className="fas fa-map-marker-alt" aria-hidden="true" />
             <span>{address}</span>
           </div>
         </div>
 
         {!formSubmitted ? (
-          <form className="contact-card" onSubmit={handleSubmit}>
+          <form className="contact-card panel" onSubmit={handleSubmit}>
             {error && <div className="contact-error">{error}</div>}
             <div className="field">
               <label htmlFor="fullName">Nombre completo</label>
@@ -115,7 +115,7 @@ const ContactUs = () => {
             <button type="submit" className="btn btn-solid">Enviar mensaje</button>
           </form>
         ) : (
-          <div className="contact-card thank-you">
+          <div className="contact-card panel thank-you">
             <h3>¡Gracias por escribirnos!</h3>
             <p>Recibimos tu mensaje y te respondemos lo antes posible.</p>
           </div>

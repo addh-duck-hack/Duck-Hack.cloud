@@ -44,6 +44,10 @@ const AppShell = () => {
     <div className="app-shell">
       <BrandMarks />
 
+      {/* Copy fijo de marca, mismo criterio que el manifiesto de Inicio.jsx:
+          no hay campo de StoreConfig para un mensaje de anuncio. */}
+      <div className="announce">Tostado bajo pedido · Envíos a todo México</div>
+
       <div
         className={`shell-scrim ${drawerOpen ? 'show' : ''}`}
         onClick={() => setDrawerOpen(false)}

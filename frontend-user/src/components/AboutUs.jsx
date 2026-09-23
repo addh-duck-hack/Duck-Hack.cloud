@@ -82,7 +82,7 @@ const AboutUs = () => {
         {team.map((member) => {
           const photo = resolveStoreImageUrl(member.photoUrl);
           return (
-            <div className="tm" key={member.name}>
+            <div className="tm panel" key={member.name}>
               {photo ? (
                 <img className="tm-av tm-av-img" src={photo} alt={member.name} />
               ) : (

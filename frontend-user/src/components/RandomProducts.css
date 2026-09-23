@@ -8,7 +8,7 @@
 .rp-card {
   border: 1px solid var(--line);
   background: var(--panel);
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   padding: 18px;
   text-decoration: none;
   color: var(--text);

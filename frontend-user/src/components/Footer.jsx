@@ -34,50 +34,53 @@ const Footer = () => {
 
   return (
     <footer className="foot">
-      <div className="foot-inner">
-        <div className="foot-brand">
-          <span className="script">{brandName} · de Sutu Cha'Nu</span>
-          <p className="foot-lines">
-            {location}
-            <br />
-            <a href={`mailto:${contactEmail}`}>{contactEmail}</a> · <a href={`tel:${contactPhoneHref}`}>{contactPhone}</a>
-          </p>
+      <div className="foot-card panel">
+        <div className="foot-inner">
+          <div className="foot-brand">
+            <span className="script">{brandName} · de Sutu Cha'Nu</span>
+            <p className="foot-lines">
+              {location}
+              <br />
+              <a href={`mailto:${contactEmail}`}>{contactEmail}</a> · <a href={`tel:${contactPhoneHref}`}>{contactPhone}</a>
+            </p>
+            <Link className="btn btn-solid foot-cta" to="/contacto">Escríbenos</Link>
+          </div>
+
+          <div className="foot-cols">
+            <div className="foot-col">
+              <h4>Tienda</h4>
+              <Link to="/tienda">Catálogo</Link>
+              <Link to="/precios">Descubre</Link>
+              <Link to="/carrito">Canasta</Link>
+            </div>
+            <div className="foot-col">
+              <h4>La finca</h4>
+              <Link to="/servicios">El proceso</Link>
+              <Link to="/nosotros">Nuestra raíz</Link>
+              <Link to="/clientes">Cafeterías</Link>
+            </div>
+            <div className="foot-col">
+              <h4>Legales</h4>
+              <Link to="/legal-notice">Aviso Legal</Link>
+              <Link to="/privacy-policy">Aviso de Privacidad</Link>
+              <Link to="/contacto">Contacto</Link>
+            </div>
+          </div>
         </div>
 
-        <div className="foot-cols">
-          <div className="foot-col">
-            <h4>Tienda</h4>
-            <Link to="/tienda">Catálogo</Link>
-            <Link to="/precios">Descubre</Link>
-            <Link to="/carrito">Canasta</Link>
+        {socialEntries.length > 0 && (
+          <div className="foot-social">
+            {socialEntries.map(([key, url]) => (
+              <a key={key} href={url} target="_blank" rel="noopener noreferrer" aria-label={key}>
+                <i className={SOCIAL_ICONS[key]} aria-hidden="true" />
+              </a>
+            ))}
           </div>
-          <div className="foot-col">
-            <h4>La finca</h4>
-            <Link to="/servicios">El proceso</Link>
-            <Link to="/nosotros">Nuestra raíz</Link>
-            <Link to="/clientes">Cafeterías</Link>
-          </div>
-          <div className="foot-col">
-            <h4>Legales</h4>
-            <Link to="/legal-notice">Aviso Legal</Link>
-            <Link to="/privacy-policy">Aviso de Privacidad</Link>
-            <Link to="/contacto">Contacto</Link>
-          </div>
-        </div>
-      </div>
+        )}
 
-      {socialEntries.length > 0 && (
-        <div className="foot-social">
-          {socialEntries.map(([key, url]) => (
-            <a key={key} href={url} target="_blank" rel="noopener noreferrer" aria-label={key}>
-              <i className={SOCIAL_ICONS[key]} aria-hidden="true" />
-            </a>
-          ))}
+        <div className="foot-bottom">
+          <span>© {currentYear} {brandName} — Xicotepec de Juárez, Puebla</span>
         </div>
-      )}
-
-      <div className="foot-bottom">
-        <span>© {currentYear} {brandName} — Xicotepec de Juárez, Puebla</span>
       </div>
     </footer>
   );

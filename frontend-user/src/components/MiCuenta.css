@@ -28,7 +28,7 @@
 .account-sidebar nav {
   border: 1px solid var(--line);
   background: var(--panel);
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   overflow: hidden;
 }
 .account-nav-item {
@@ -73,7 +73,7 @@
 .account-nav-logout {
   border: 1px solid var(--line);
   background: var(--panel);
-  border-radius: 16px;
+  border-radius: var(--radius-card);
 }
 .account-nav-logout:hover {
   border-color: var(--signal);
@@ -88,7 +88,7 @@
 .account-panel {
   border: 1px solid var(--line);
   background: var(--panel);
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   padding: 24px;
 }
 .account-panel h2 {
@@ -136,7 +136,7 @@
 .account-danger-confirm {
   background: rgba(255, 107, 107, 0.08);
   border: 1px solid rgba(255, 107, 107, 0.3);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   padding: 16px;
 }
 .account-danger-actions {
@@ -170,11 +170,14 @@
   letter-spacing: normal;
   background: var(--ink);
   border: 1px solid var(--text);
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   padding: 10px 12px;
   color: var(--text);
   width: 100%;
   resize: vertical;
+}
+.account-form input {
+  border-radius: var(--radius-pill);
 }
 
 .account-hint {
@@ -194,13 +197,13 @@
 }
 .account-address-edit {
   border: 1px solid var(--signal);
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   padding: 14px;
   margin: 0;
 }
 .account-address {
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   padding: 12px 14px;
   display: flex;
   justify-content: space-between;
@@ -287,7 +290,7 @@
 }
 .account-order {
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
@@ -312,7 +315,7 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding: 3px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid currentColor;
 }
 .status-pending { color: var(--gold); }
@@ -443,7 +446,7 @@
 }
 .account-fav-card {
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   padding: 14px;
   display: flex;
   flex-direction: column;

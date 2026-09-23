@@ -16,8 +16,8 @@
   position: relative;
   border: 1px solid var(--line);
   background: var(--panel);
-  border-radius: 16px;
-  padding: 26px 22px;
+  border-radius: var(--radius-card);
+  padding: 28px 24px;
 }
 .proc-n {
   position: absolute;

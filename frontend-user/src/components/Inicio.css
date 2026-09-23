@@ -6,13 +6,19 @@
   width: 100%;
 }
 
-/* ---- Hero ---- */
+/* ---- Hero ----
+   .hero es ahora el panel completo (borde + fondo aged-paper, ver .panel en
+   shared.css); .hero-top es la grilla foto+texto de siempre, y .hero-stats
+   pasa a ser una franja de ancho completo debajo, dentro del mismo panel. */
 .hero {
+  margin-top: 8px;
+  padding: 40px 36px 28px;
+}
+.hero-top {
   display: grid;
   grid-template-columns: 1.15fr 0.85fr;
   gap: 40px;
   align-items: center;
-  padding-top: 12px;
 }
 .hero-title {
   font-size: clamp(2.3rem, 6vw, 4.2rem);
@@ -57,8 +63,8 @@
 .hero-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin-top: 30px;
-  padding-top: 20px;
+  margin-top: 28px;
+  padding-top: 24px;
   border-top: 1px solid var(--line);
 }
 .hero-stat {
@@ -183,7 +189,7 @@
   position: relative;
   border: 1px solid var(--line);
   background: var(--panel);
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   padding: 22px 20px 20px;
 }
 .tl-n {
@@ -333,6 +339,58 @@
   font-weight: 700;
 }
 
+/* ---- Catálogo por categoría (grid real, ver useProducts#groupByCategory) ---- */
+.cat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.cat-cell {
+  padding: 28px 24px;
+  min-height: 190px;
+}
+.cat-cell h3 {
+  font-size: 1.3rem;
+  line-height: 1.15;
+}
+.cat-cell .count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-label);
+  font-size: 0.72rem;
+  color: var(--signal);
+  margin-top: 10px;
+}
+.cat-cell ul {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  font-size: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--text-dim);
+}
+.cat-cell ul li.more {
+  color: var(--text-mute);
+}
+.cat-cell.highlight {
+  background: var(--ink);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.cat-cell.highlight h3 {
+  font-style: italic;
+  color: var(--signal);
+  font-weight: 300;
+}
+.cat-cell.highlight .btn {
+  margin-top: 16px;
+  align-self: flex-start;
+}
+
 /* ---- Cafeterías aliadas (marquee continuo, mismos datos que /clientes) ---- */
 .allies-marquee {
   overflow: hidden;
@@ -396,11 +454,29 @@
 
 @media (max-width: 860px) {
   .hero {
+    padding: 28px 20px 22px;
+  }
+  .hero-top {
     grid-template-columns: 1fr;
   }
   .hero-figure {
-    max-width: 300px;
+    max-width: 240px;
     margin: 0 auto;
+  }
+  .hero-stats {
+    grid-template-columns: 1fr;
+  }
+  .hero-stat {
+    border-left: none;
+    border-top: 1px solid var(--line);
+    padding: 14px 0 0;
+  }
+  .hero-stat:first-child {
+    border-top: none;
+    padding-top: 0;
+  }
+  .cat-grid {
+    grid-template-columns: 1fr;
   }
   .origin {
     grid-template-columns: repeat(2, 1fr);

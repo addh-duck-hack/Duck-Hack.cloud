@@ -51,6 +51,7 @@ const Customers = () => {
 
   const { config } = useStoreConfig();
   const clients = useMemo(() => pickList(config?.testimonials, FALLBACK_CLIENTS), [config]);
+  const featured = clients[0];
 
   return (
     <section className="clients-view">
@@ -59,6 +60,14 @@ const Customers = () => {
       <p className="section-sub">
         Lugares que ya sirven o venden Café Tacita. Si tienes una cafetería y quieres sumarte, escríbenos.
       </p>
+
+      {featured && (
+        <div className="client-featured panel">
+          <RichText className="client-featured-quote" html={featured.description} />
+          <span className="client-featured-name">{featured.name}</span>
+          <span className="client-featured-rubro">{featured.rubro}</span>
+        </div>
+      )}
 
       <div className="client-grid">
         {clients.map((c) => {

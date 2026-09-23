@@ -59,6 +59,41 @@
 
   --shell-max: 1120px;
   --measure: 62ch;
+
+  /* Radios (Function Health: cards 24px, botones 40px, tags/pills 9999px —
+     ver DESIGN.md "Border Radius"). */
+  --radius-card: 24px;
+  --radius-btn: 40px;
+  --radius-pill: 9999px;
+
+  /* Sombras (DESIGN.md "Shadows") — usar en vez de box-shadow sueltas por
+     componente para tarjetas/paneles flotantes. */
+  --shadow-lg: rgba(0, 0, 0, 0.15) 0px 0px 20px 0px;
+  --shadow-xl: rgba(42, 43, 47, 0.1) 12px 32px 80px 0px;
+
+  /* Escala tipográfica (DESIGN.md "Type Scale") — para h1/h2 de hero y
+     encabezados de sección en vez de tamaños sueltos por componente. */
+  --text-eyebrow: 12px;
+  --text-body-sm: 14px;
+  --text-body: 16px;
+  --text-body-lg: 18px;
+  --text-subheading: 20px;
+  --text-heading: 34px;
+  --text-heading-lg: 45px;
+  --text-display: 64px;
+  --text-hero: 80px;
+  --text-display-xl: 88px;
+
+  /* Escala de espaciado (base 8px, DESIGN.md "Spacing Scale"). */
+  --space-8: 8px;
+  --space-16: 16px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-40: 40px;
+  --space-48: 48px;
+  --space-56: 56px;
+  --space-64: 64px;
+  --space-80: 80px;
 }
 
 html {

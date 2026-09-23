@@ -6,6 +6,34 @@
   width: 100%;
 }
 
+.client-featured {
+  text-align: center;
+  padding: 34px 32px;
+  margin-bottom: 32px;
+}
+.client-featured-quote {
+  font-family: var(--font-mono);
+  font-style: italic;
+  font-size: 1.3rem;
+  color: var(--text);
+  max-width: 52ch;
+  margin: 0 auto;
+}
+.client-featured-name {
+  display: block;
+  margin-top: 16px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+.client-featured-rubro {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.8rem;
+  color: var(--text-mute);
+}
+
 .client-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -15,7 +43,7 @@
 .client-card {
   border: 1px solid var(--line);
   background: var(--panel);
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   overflow: hidden;
   text-decoration: none;
   color: var(--text);

@@ -40,12 +40,41 @@
   font-size: 1.05rem;
 }
 
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+}
+
+.panel-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  padding: var(--space-24) var(--space-24) var(--space-24);
+}
+
+.pill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--ink);
+  border: 1px solid var(--line);
+  color: var(--signal);
+  font-family: var(--font-label);
+  font-weight: 600;
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+}
+
 .btn {
   font-family: var(--font-body);
   font-weight: 600;
   font-size: 0.95rem;
   letter-spacing: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-btn);
   padding: 0.72rem 1.4rem;
   text-decoration: none;
   display: inline-flex;

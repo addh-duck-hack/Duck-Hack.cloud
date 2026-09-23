@@ -8,10 +8,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { useStoreConfig, resolveStoreImageUrl } from '../hooks/useStoreConfig';
+import { useProducts, groupByCategory } from '../hooks/useProducts';
 import { pickList } from '../utils/storeConfigLists';
 import RichText from './RichText';
 import { BrandSeal } from './BrandMarks';
-import RandomProducts from './RandomProducts';
 import './Inicio.css';
 
 const SLIDES = [
@@ -90,6 +90,18 @@ const getSlideDuration = (slide) => {
 const Inicio = () => {
   usePageMeta();
   const { config } = useStoreConfig();
+  const { products } = useProducts();
+
+  const catalogPreview = useMemo(() => {
+    return groupByCategory(products)
+      .slice(0, 5)
+      .map(({ category, items }) => ({
+        category,
+        count: items.length,
+        sample: items.slice(0, 2).map((p) => p.name),
+        more: Math.max(0, items.length - 2),
+      }));
+  }, [products]);
 
   const slides = useMemo(
     () => pickList(config?.heroSlides, SLIDES).map((s, i) => ({ id: s.id ?? i, title: s.title, description: s.description })),
@@ -124,9 +136,10 @@ const Inicio = () => {
   return (
     <div className="home-view">
       {/* ---- Hero ---- */}
-      <section className="hero">
+      <section className="hero panel">
+        <div className="hero-top">
         <div className="hero-copy">
-          <span className="eyebrow">de Sutu Cha'Nu</span>
+          <span className="pill-badge">de Sutu Cha'Nu · Origen certificado</span>
           <div className="hero-rotate" key={slide?.id}>
             <h1 className="hero-title">{slide?.title}</h1>
             <RichText className="hero-lead" html={slide?.description} />
@@ -147,16 +160,6 @@ const Inicio = () => {
               ))}
             </div>
           )}
-          {metrics.length > 0 && (
-            <div className="hero-stats">
-              {metrics.slice(0, 3).map((m) => (
-                <div className="hero-stat" key={m.label}>
-                  <b>{m.value}</b>
-                  <span>{m.label}</span>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
         <div className="hero-figure">
           <div className="hero-disc">
@@ -173,9 +176,18 @@ const Inicio = () => {
           </div>
           <span className="hero-cap">Xicotepec · Sierra Norte de Puebla</span>
         </div>
+        </div>
+        {metrics.length > 0 && (
+          <div className="hero-stats">
+            {metrics.slice(0, 3).map((m) => (
+              <div className="hero-stat" key={m.label}>
+                <b>{m.value}</b>
+                <span>{m.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
-
-      <hr className="rule" />
 
       {/* ---- Manifiesto ---- */}
       <div className="manifesto">
@@ -226,13 +238,30 @@ const Inicio = () => {
 
       <hr className="rule" />
 
-      {/* ---- Descubre: productos al azar ---- */}
+      {/* ---- Catálogo: categorías reales de la tienda ---- */}
       <div className="section-head">
-        <span className="kicker">Descubre</span>
-        <h2>Prueba algo distinto</h2>
+        <span className="kicker">La tienda</span>
+        <h2>Catálogo por categoría</h2>
       </div>
-      <RandomProducts count={4} />
-      <Link className="btn" to="/tienda" style={{ marginTop: '18px' }}>Ver toda la carta →</Link>
+      <div className="cat-grid">
+        {catalogPreview.map((c) => (
+          <div className="cat-cell panel" key={c.category}>
+            <h3>{c.category}</h3>
+            <span className="count">◆ {c.count} {c.count === 1 ? 'referencia' : 'referencias'}</span>
+            <ul>
+              {c.sample.map((name) => (
+                <li key={name}>{name}</li>
+              ))}
+              {c.more > 0 && <li className="more">+ {c.more} más</li>}
+            </ul>
+          </div>
+        ))}
+        <div className="cat-cell highlight panel">
+          <h3>+Más</h3>
+          <p>Catálogo completo, grano por grano.</p>
+          <Link className="btn btn-solid" to="/tienda">Ver todo</Link>
+        </div>
+      </div>
 
       <hr className="rule" />
 
