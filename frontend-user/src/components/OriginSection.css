@@ -97,9 +97,10 @@
 
 .origin-command-icon {
   display: block;
-  font-size: 1.5rem;
+  font-size: 2.5rem;
+  text-align: center;
   color: var(--color-accent);
-  margin-bottom: 14px;
+  margin: 4px 0 18px;
 }
 
 .origin-command-title {
