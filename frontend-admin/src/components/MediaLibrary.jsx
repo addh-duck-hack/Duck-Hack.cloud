@@ -7,50 +7,19 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatBytes } from "../utils/formatBytes";
+import {
+  MEDIA_KIND_LABELS as KIND_LABELS,
+  acceptForKinds,
+  fetchMediaItems,
+  getMediaAuthHeaders as getAuthHeaders,
+  getMediaErrorMessage as getErrorMessage,
+  mediaSrc,
+  uploadMediaFile,
+} from "../utils/mediaApi";
+import MediaPreview from "./MediaPreview";
 import "./MediaLibrary.css";
 
-const ACCEPTED_TYPES = "image/jpeg,image/png,image/gif,video/mp4,video/webm";
-
-const KIND_LABELS = { image: "Imagen", gif: "GIF", video: "Video" };
-
-const getAuthHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem("token")}` });
-const getErrorMessage = (err, fallback) => err.response?.data?.error?.message || fallback;
-
-// Vista del medio. `controls` solo en pantalla completa: en la cuadrícula el
-// video es una miniatura muda. El texto alternativo cubre los dos casos en que
-// el medio no se puede mostrar: alt de <img> y contenido de respaldo de <video>.
-const MediaPreview = ({ item, src, controls = false }) => {
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => setFailed(false), [src]);
-
-  if (failed) {
-    return (
-      <div className="media-fallback" role="img" aria-label={item.altText || item.title}>
-        <i className="fas fa-image" aria-hidden="true" />
-        <span>{item.altText || "Sin texto alternativo"}</span>
-      </div>
-    );
-  }
-
-  if (item.kind === "video") {
-    return (
-      <video
-        src={src}
-        controls={controls}
-        muted={!controls}
-        preload="metadata"
-        playsInline
-        aria-label={item.altText || item.title}
-        onError={() => setFailed(true)}
-      >
-        {item.altText}
-      </video>
-    );
-  }
-
-  return <img src={src} alt={item.altText} loading="lazy" onError={() => setFailed(true)} />;
-};
+const ACCEPTED_TYPES = acceptForKinds(["image", "gif", "video"]);
 
 const MediaViewer = ({ item, src, onClose, onPrev, onNext, onSaved, onDeleted }) => {
   const [title, setTitle] = useState(item.title);
@@ -252,21 +221,19 @@ const MediaLibrary = () => {
   const [selectedFileName, setSelectedFileName] = useState(null);
   const fileInputRef = useRef(null);
 
-  const baseUrl = getApiBaseUrl();
-  const srcFor = (item) => `${baseUrl}/${item.path}`;
+  const srcFor = (item) => mediaSrc(item.path);
 
   const loadMedia = useCallback(async () => {
     setIsLoading(true);
     setError("");
     try {
-      const response = await axios.get(`${baseUrl}/api/media`, { headers: getAuthHeaders() });
-      setItems(response.data?.items || []);
+      setItems(await fetchMediaItems());
     } catch (err) {
       setError(getErrorMessage(err, "No fue posible cargar los medios."));
     } finally {
       setIsLoading(false);
     }
-  }, [baseUrl]);
+  }, []);
 
   useEffect(() => {
     loadMedia();
@@ -284,13 +251,8 @@ const MediaLibrary = () => {
     const uploaded = [];
     const failures = [];
     for (const file of files) {
-      const formData = new FormData();
-      formData.append("media", file);
       try {
-        const response = await axios.post(`${baseUrl}/api/media`, formData, {
-          headers: { ...getAuthHeaders(), "Content-Type": "multipart/form-data" },
-        });
-        uploaded.push(response.data.item);
+        uploaded.push(await uploadMediaFile(file));
       } catch (err) {
         failures.push(`${file.name}: ${getErrorMessage(err, "no se pudo subir.")}`);
       }

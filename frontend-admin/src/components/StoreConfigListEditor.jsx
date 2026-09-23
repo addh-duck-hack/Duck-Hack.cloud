@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import ImageUploadField from "./ImageUploadField";
+import MediaField from "./MediaField";
 import { FA_ICON_DATALIST_ID, FA_ICON_SUGGESTIONS } from "../utils/faIconSuggestions";
 
 // Chips add/remove para un campo de tipo "stringList" (ej. extraFeatures de
@@ -155,14 +155,41 @@ const renderField = (field, item, onItemChange) => {
   if (field.type === "image") {
     return (
       <div key={field.name} style={{ gridColumn: field.fullWidth ? "1 / span 2" : undefined }}>
-        <ImageUploadField
+        <MediaField
           label={field.label}
           value={value}
-          onChange={(imagePath) => onItemChange(field.name, imagePath)}
-          uploadUrl={field.uploadUrl}
-          fieldName={field.fieldName}
-          accept={field.accept}
+          onChange={(mediaPath) => onItemChange(field.name, mediaPath)}
+          kinds={field.mediaKinds}
         />
+      </div>
+    );
+  }
+
+  // URL que también se puede elegir de la biblioteca de medios (ej. video
+  // directo del hero): se guarda la URL absoluta porque el backend la valida
+  // como URL, pero sigue editable a mano para enlaces externos.
+  if (field.type === "url" && field.mediaKinds) {
+    return (
+      <div key={field.name} style={{ gridColumn: field.fullWidth ? "1 / span 2" : undefined }}>
+        <label>
+          {field.label}
+          <input
+            type="url"
+            value={value ?? ""}
+            maxLength={field.maxLength}
+            placeholder={field.placeholder}
+            onChange={(e) => onItemChange(field.name, e.target.value)}
+          />
+        </label>
+        <div style={{ marginTop: "-0.75rem", marginBottom: "1rem" }}>
+          <MediaField
+            value={value}
+            onChange={(url) => onItemChange(field.name, url)}
+            kinds={field.mediaKinds}
+            valueFormat="url"
+            pickerTitle={`Elegir: ${field.label}`}
+          />
+        </div>
       </div>
     );
   }
