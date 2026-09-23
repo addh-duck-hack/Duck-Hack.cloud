@@ -1,0 +1,220 @@
+/* src/components/Hero.css — hero de Inicio (ver Hero.jsx). */
+
+.hero {
+  /* Alineado con el contenido de la barra flotante: 10px de margen + 24px de padding. */
+  --hero-gutter: 34px;
+  position: relative;
+  height: 100vh;
+  height: 100svh;
+  min-height: 560px;
+  overflow: hidden;
+  background-color: #262626;
+  color: #ffffff;
+}
+
+.hero-slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+.hero-slide.is-active {
+  opacity: 1;
+  z-index: 1;
+}
+
+/* ---- Media ---- */
+.hero-media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hero .hero-media.img-placeholder {
+  min-height: 0;
+  border: 0;
+  background-color: #3a3a3a;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* Iframe de YouTube recortado para cubrir todo el hero (16:9). */
+.hero-media--youtube {
+  overflow: hidden;
+}
+
+.hero-media--youtube iframe {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(100%, 177.78svh);
+  height: max(100%, 56.25vw);
+  border: 0;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+/* Oscurece abajo a la izquierda para que el texto siempre se lea. */
+.hero-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to top, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.15) 45%, rgba(0, 0, 0, 0) 70%),
+    linear-gradient(to right, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0) 60%);
+  pointer-events: none;
+}
+
+/* ---- Texto ---- */
+.hero-content {
+  position: absolute;
+  left: var(--hero-gutter);
+  right: var(--hero-gutter);
+  bottom: 72px;
+  max-width: 640px;
+  /* El texto saliente se va rápido y el entrante aparece al final del
+     fundido de la media, para que los títulos no se encimen. */
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.hero-slide.is-active .hero-content {
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.5s ease 0.35s, transform 0.5s ease 0.35s;
+}
+
+.hero-title {
+  font-family: var(--font-heading);
+  font-size: clamp(2.5rem, 5.5vw, 4.75rem);
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  margin: 0 0 16px;
+}
+
+.hero-description {
+  font-size: clamp(1rem, 1.3vw, 1.2rem);
+  line-height: 1.45;
+  max-width: 34em;
+  margin: 0 0 36px;
+  opacity: 0.95;
+}
+
+.hero-cta {
+  display: inline-flex;
+  align-items: center;
+  height: 50px;
+  padding: 0 28px;
+  border-radius: 999px;
+  background-color: #ffffff;
+  color: var(--color-accent);
+  font-weight: 700;
+  text-decoration: none;
+  transition: filter 0.2s ease;
+}
+
+.hero-cta:hover {
+  filter: brightness(0.95);
+}
+
+/* ---- Controles: carrusel y pausa ---- */
+.hero-controls {
+  position: absolute;
+  z-index: 2;
+  right: var(--hero-gutter);
+  bottom: 32px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.hero-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hero-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.22);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  color: #ffffff;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.hero-btn:hover {
+  background-color: rgba(255, 255, 255, 0.35);
+}
+
+.hero-dots {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hero-dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.hero-dot.is-active {
+  width: 24px;
+  background-color: #ffffff;
+}
+
+.hero-cta:focus-visible,
+.hero-btn:focus-visible,
+.hero-dot:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 3px;
+}
+
+@media (max-width: 600px) {
+  .hero {
+    --hero-gutter: 26px;
+  }
+
+  /* Deja espacio abajo para los controles. */
+  .hero-content {
+    bottom: 96px;
+  }
+
+  .hero-controls {
+    left: var(--hero-gutter);
+    bottom: 28px;
+    justify-content: space-between;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-slide,
+  .hero-content,
+  .hero-slide.is-active .hero-content,
+  .hero-dot,
+  .hero-cta {
+    transition: none;
+  }
+
+  .hero-content {
+    transform: none;
+  }
+}
