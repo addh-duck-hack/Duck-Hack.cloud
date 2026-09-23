@@ -182,7 +182,7 @@ const Hero = () => {
 
             <div className="hero-content">
               {slide.title ? (i === 0 ? <h1 className="hero-title">{slide.title}</h1> : <h2 className="hero-title">{slide.title}</h2>) : null}
-              {slide.description ? <p className="hero-description">{slide.description}</p> : null}
+              {slide.description ? <p className="hero-description text-justify">{slide.description}</p> : null}
               <Link to="/tienda" className="hero-cta">
                 Ir a la tienda
               </Link>

@@ -74,6 +74,15 @@ textarea {
   font: inherit;
 }
 
+/* Párrafos de contenido justificados. hyphens: auto (con lang="es-MX" en
+ * index.html) parte palabras con guion para no dejar huecos grandes entre
+ * palabras en columnas angostas. */
+.text-justify {
+  text-align: justify;
+  -webkit-hyphens: auto;
+  hyphens: auto;
+}
+
 /* Recuadro que marca dónde va una imagen que llega desde el admin — ver
  * components/StoreImage.jsx. */
 .img-placeholder {

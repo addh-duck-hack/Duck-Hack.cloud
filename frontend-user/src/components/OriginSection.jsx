@@ -25,13 +25,13 @@ const OriginSection = () => {
           Xicotepec,
           <em>tierra de café y tradición</em>
         </h2>
-        <p>
+        <p className="text-justify">
           Enclavado entre las montañas de la Sierra Norte de Puebla, Xicotepec es un lugar donde la riqueza de
           la tierra, el clima y la tradición cafetalera se encuentran. Sus paisajes verdes y tierras de altura
           crean un entorno ideal para el cultivo del café, una actividad que forma parte de la identidad y el
           patrimonio de su gente.
         </p>
-        <p>
+        <p className="text-justify">
           Cada grano que nace en esta región lleva consigo la esencia de sus montañas, el trabajo de sus
           productores y una historia que se disfruta en cada taza.
         </p>
@@ -54,7 +54,7 @@ const OriginSection = () => {
                 <li className="origin-card origin-command" key={`${i}-${command.cmd}`}>
                   {icon ? <i className={`${icon} origin-command-icon`} aria-hidden="true" /> : null}
                   <h3 className="origin-command-title">{command.cmd}</h3>
-                  {command.note ? <p className="origin-command-note">{command.note}</p> : null}
+                  {command.note ? <p className="origin-command-note text-justify">{command.note}</p> : null}
                 </li>
               );
             })}
