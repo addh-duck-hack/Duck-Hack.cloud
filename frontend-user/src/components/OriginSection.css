@@ -63,9 +63,13 @@
 
 .origin-map-caption {
   position: absolute;
-  right: 28px;
-  bottom: 24px;
+  right: 0;
+  bottom: 0;
   margin: 0;
+  /* Desvanecido al fondo detrás del texto: si la tarjeta se estrecha y la
+     silueta llega hasta aquí, los puntos no compiten con el nombre. */
+  padding: 32px 28px 24px 72px;
+  background: radial-gradient(ellipse at 100% 100%, var(--color-bg) 55%, transparent 75%);
   text-align: right;
   color: var(--color-muted);
   font-size: 0.95rem;

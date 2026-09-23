@@ -37,11 +37,12 @@ const TOWN = {
   maxY: Math.max(...ys),
 };
 
-// Lienzo apaisado (≈2.4:1). El municipio queda a la izquierda del centro; el
-// hueco que deja abajo a la derecha es donde va el texto de la tarjeta.
+// Lienzo apaisado (≈2.4:1). El municipio va pegado a la izquierda: su hueco
+// de abajo a la derecha más el espacio libre del lienzo dejan lugar para el
+// texto de la tarjeta sin taparlo.
 const VIEW_H = TOWN.maxY - TOWN.minY + PAD * 2;
 const VIEW_W = VIEW_H * 2.4;
-const VIEW_X = TOWN.minX - (VIEW_W - (TOWN.maxX - TOWN.minX)) * 0.25;
+const VIEW_X = TOWN.minX - PAD;
 const VIEW_Y = TOWN.minY - PAD;
 // Centro de la trama exterior: el centro de la silueta.
 const FADE_CENTER = [(TOWN.minX + TOWN.maxX) / 2, (TOWN.minY + TOWN.maxY) / 2];
