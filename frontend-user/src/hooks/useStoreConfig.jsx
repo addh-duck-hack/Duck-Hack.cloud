@@ -24,11 +24,11 @@ export const resolveStoreImageUrl = (relativePath) => {
   return `${getApiBaseUrl()}/${relativePath}`;
 };
 
-// Mapeo theme -> tokens CSS (ver src/index.css): color de acento y las dos
-// familias tipográficas. Las fuentes que el admin configure reemplazan a las
+// Mapeo theme -> tokens CSS (ver src/index.css): color primario (fondo de la
+// barra superior fija), color de acento (+ su color de texto legible) y las
+// dos familias tipográficas. Las fuentes que el admin configure reemplazan a las
 // temporales de diseño (Roboto / Roboto Condensed, cargadas en index.html).
-// primaryColor/secondaryColor todavía no se mapean: tocan fondos completos y
-// requieren validar contraste.
+// secondaryColor todavía no se mapea.
 
 // Familias que ya vienen embebidas vía index.html o que son genéricas de CSS
 // — no hay que pedirlas a Google Fonts.
@@ -83,10 +83,36 @@ const syncStoreFontLink = (families) => {
   document.head.appendChild(link);
 };
 
+// Luminancia relativa WCAG de un color HEX (#rgb o #rrggbb); null si no es válido.
+const hexLuminance = (hex) => {
+  const raw = String(hex || '').replace('#', '');
+  const full = raw.length === 3 ? raw.split('').map((c) => c + c).join('') : raw;
+  if (!/^[0-9a-f]{6}$/i.test(full)) return null;
+  const [r, g, b] = [0, 2, 4].map((i) => {
+    const c = parseInt(full.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+
+// Texto legible sobre un fondo dado: blanco o casi negro, el que dé más
+// contraste. Se usa para el texto de los botones con fondo de acento.
+export const readableTextOn = (hex) => {
+  const lum = hexLuminance(hex);
+  if (lum === null) return '#ffffff';
+  const contrastWithWhite = 1.05 / (lum + 0.05);
+  const contrastWithDark = (lum + 0.05) / 0.06;
+  return contrastWithWhite >= contrastWithDark ? '#ffffff' : '#1a1a1a';
+};
+
 const applyStoreTheme = (theme) => {
   if (!theme) return;
   const root = document.documentElement;
-  if (theme.accentColor) root.style.setProperty('--color-accent', theme.accentColor);
+  if (theme.primaryColor) root.style.setProperty('--color-primary', theme.primaryColor);
+  if (theme.accentColor) {
+    root.style.setProperty('--color-accent', theme.accentColor);
+    root.style.setProperty('--color-on-accent', readableTextOn(theme.accentColor));
+  }
   if (theme.fontFamilyHeading) {
     root.style.setProperty('--font-heading', withFallback(theme.fontFamilyHeading, 'sans-serif'));
   }

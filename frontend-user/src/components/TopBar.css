@@ -1,0 +1,265 @@
+/* src/components/TopBar.css — barra superior. Ver TopBar.jsx para los modos. */
+
+.topbar {
+  --topbar-gap: 10px;
+  --topbar-fg: #ffffff;
+  position: fixed;
+  z-index: 100;
+  top: var(--topbar-gap);
+  left: var(--topbar-gap);
+  right: var(--topbar-gap);
+  color: var(--topbar-fg);
+  border-radius: 12px;
+  transition:
+    top 0.3s ease,
+    left 0.3s ease,
+    right 0.3s ease,
+    border-radius 0.3s ease,
+    background-color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+/* Sobre el hero: flota con margen y fondo translúcido. */
+.topbar--floating {
+  background-color: rgba(20, 20, 20, 0.28);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+/* Al bajar del hero / páginas sin hero: 100% de ancho, color primario. */
+.topbar--solid {
+  --topbar-gap: 0px;
+  --topbar-fg: var(--color-accent);
+  background-color: var(--color-primary);
+  border-radius: 0;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
+}
+
+.topbar-inner {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 24px;
+  height: var(--topbar-height);
+  padding: 0 24px;
+}
+
+/* ---- Marca ---- */
+.topbar-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+}
+
+.topbar-logo {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.topbar-logo.img-placeholder {
+  min-height: 0;
+  padding: 0;
+  font-size: 0.55rem;
+  border-radius: 8px;
+}
+
+.topbar-name {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- Mapa del sitio ---- */
+.topbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.topbar-link {
+  color: inherit;
+  text-decoration: none;
+  font-size: 0.95rem;
+  opacity: 0.85;
+  white-space: nowrap;
+  text-underline-offset: 6px;
+  transition: opacity 0.2s ease;
+}
+
+.topbar-link:hover,
+.topbar-link.is-active {
+  opacity: 1;
+}
+
+.topbar-link.is-active {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+}
+
+/* ---- Acciones ---- */
+.topbar-actions {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.topbar-account {
+  display: inline-flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 24px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.3s ease, color 0.3s ease, filter 0.2s ease;
+}
+
+.topbar--floating .topbar-account {
+  background-color: #ffffff;
+  color: var(--color-accent);
+}
+
+.topbar--solid .topbar-account {
+  background-color: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.topbar-account:hover {
+  filter: brightness(0.95);
+}
+
+.topbar-cart,
+.topbar-menu-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  color: inherit;
+  font-size: 1.25rem;
+  text-decoration: none;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+}
+
+.topbar-cart-badge {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background-color: var(--color-accent);
+  color: var(--color-on-accent);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+}
+
+/* Sobre el hero el badge no puede fundirse con un fondo del mismo tono. */
+.topbar--floating .topbar-cart-badge {
+  box-shadow: 0 0 0 2px #ffffff;
+}
+
+.topbar-link:focus-visible,
+.topbar-brand:focus-visible,
+.topbar-account:focus-visible,
+.topbar-cart:focus-visible,
+.topbar-menu-toggle:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
+/* ---- Menú desplegable (solo pantallas chicas) ---- */
+.topbar-menu-toggle {
+  display: none;
+}
+
+.topbar-menu {
+  display: none;
+}
+
+@media (max-width: 1100px) {
+  .topbar-inner {
+    grid-template-columns: 1fr auto;
+  }
+
+  .topbar-nav {
+    display: none;
+  }
+
+  .topbar-menu-toggle {
+    display: inline-flex;
+  }
+
+  .topbar-menu:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 24px 20px;
+  }
+
+  .topbar-menu .topbar-link {
+    padding: 10px 0;
+    font-size: 1.05rem;
+  }
+
+  /* Entre 601 y 1100px el botón de cuenta sigue en la barra. */
+  .topbar-menu-account {
+    display: none;
+  }
+
+  .topbar--floating.is-menu-open {
+    background-color: rgba(20, 20, 20, 0.85);
+  }
+}
+
+@media (max-width: 600px) {
+  .topbar-inner {
+    padding: 0 16px;
+    gap: 12px;
+  }
+
+  .topbar-name {
+    font-size: 1.2rem;
+  }
+
+  /* El botón de cuenta se mueve dentro del menú. */
+  .topbar-actions > .topbar-account {
+    display: none;
+  }
+
+  .topbar-actions {
+    gap: 4px;
+  }
+
+  .topbar-menu-account {
+    display: inline-flex;
+    align-self: flex-start;
+    margin-top: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topbar,
+  .topbar-account,
+  .topbar-link {
+    transition: none;
+  }
+}

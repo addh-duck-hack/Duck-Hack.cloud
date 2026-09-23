@@ -3,18 +3,24 @@
  * Tokens mínimos para arrancar el rediseño sección por sección. Las familias
  * tipográficas son temporales (Roboto / Roboto Condensed): en producción las
  * sobrescribe useStoreConfig.jsx#applyStoreTheme con las fuentes configuradas
- * en el admin (--font-heading / --font-body), igual que --color-accent.
+ * en el admin (--font-heading / --font-body), igual que --color-primary,
+ * --color-accent y --color-on-accent.
  */
 :root {
   --font-heading: 'Roboto Condensed', 'Roboto', sans-serif;
   --font-body: 'Roboto', sans-serif;
 
+  --color-primary: #ffffff;
   --color-accent: #333333;
+  --color-on-accent: #ffffff;
   --color-text: #1a1a1a;
   --color-muted: #6b6b6b;
   --color-bg: #ffffff;
   --color-border: #d9d9d9;
   --color-placeholder: #ececec;
+
+  /* Alto de la barra superior (components/TopBar.css). */
+  --topbar-height: 72px;
 }
 
 *,

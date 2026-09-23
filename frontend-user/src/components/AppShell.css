@@ -1,0 +1,6 @@
+/* src/components/AppShell.css */
+
+/* Páginas sin hero: el contenido empieza debajo de la barra fija. */
+.app-main--offset {
+  padding-top: var(--topbar-height);
+}

@@ -1,18 +1,23 @@
 // src/components/AppShell.jsx
 //
-// Layout común de todas las rutas públicas (header + contenido + footer).
-// Pendiente de diseño: por ahora solo pinta la página actual. Datos que usaba
-// el shell anterior y que el nuevo seguirá necesitando:
-//   - useStoreConfig(): config.storeName, config.logoUrl (vía StoreImage),
-//     config.contactEmail/contactPhone, config.socialLinks,
-//     config.legalIdentity.legalAddress (footer).
-//   - useCart().count (badge de la canasta) y useAuth().isAuthenticated
-//     (enlace a "Mi cuenta" vs. "Iniciar sesión").
+// Layout común de todas las rutas públicas: barra superior + página actual
+// (footer pendiente). La barra flota sobre el hero de la página mientras está
+// a la vista y pasa a sólida al bajar; ver hooks/useHero.jsx.
+//
+// Datos que el footer seguirá necesitando: useStoreConfig() — contactEmail,
+// contactPhone, socialLinks, legalIdentity.legalAddress.
 import React, { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
+import { HeroProvider, useHeroTracking } from '../hooks/useHero';
+import TopBar from './TopBar';
+import './AppShell.css';
+
+// Alto de la barra (--topbar-height en index.css) + su margen flotante.
+const TOPBAR_OFFSET = 82;
 
 const AppShell = () => {
   const { pathname } = useLocation();
+  const { heroRef, hasHero, isOverHero } = useHeroTracking(TOPBAR_OFFSET);
 
   // Cada cambio de ruta empieza arriba.
   useEffect(() => {
@@ -20,11 +25,16 @@ const AppShell = () => {
   }, [pathname]);
 
   return (
-    <div className="app-shell">
-      <main>
-        <Outlet />
-      </main>
-    </div>
+    <HeroProvider heroRef={heroRef}>
+      <div className="app-shell">
+        <TopBar mode={hasHero && isOverHero ? 'floating' : 'solid'} />
+        {/* Con hero, éste queda debajo de la barra (a sangre); sin hero, el
+            contenido empieza después de la barra. */}
+        <main className={hasHero ? 'app-main' : 'app-main app-main--offset'}>
+          <Outlet />
+        </main>
+      </div>
+    </HeroProvider>
   );
 };
 
