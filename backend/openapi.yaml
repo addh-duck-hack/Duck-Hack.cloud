@@ -15,6 +15,7 @@ tags:
   - name: Users
   - name: Mail
   - name: Uploads
+  - name: Media
   - name: AgencyClients
   - name: Accounting
   - name: Invoices
@@ -550,6 +551,216 @@ paths:
           description: Archivo servido por Express static
         "404":
           $ref: "#/components/responses/RouteNotFound"
+
+  /api/media:
+    get:
+      tags: [Media]
+      summary: Listar medios de la carpeta uploads/
+      description: >
+        Roles `super_admin`, `store_admin`, `collaborator`. Lee el directorio de uploads (fuente de verdad)
+        y le cruza los metadatos guardados en la colección `Media`. Archivos sin metadatos usan su nombre
+        de archivo como `title`. Ordenado del más reciente al más antiguo.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Lista de medios
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MediaItem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      tags: [Media]
+      summary: Subir un medio
+      description: >
+        JPG/PNG (re-encodeados, máx. 10MB), GIF (guardado tal cual, máx. 10MB) o MP4/WebM (validados por
+        firma binaria, máx. 50MB). El tipo se decide por contenido, no por el Content-Type declarado.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                media:
+                  type: string
+                  format: binary
+                title:
+                  type: string
+                  maxLength: 200
+                  description: Si se omite, se usa el nombre original del archivo sin extensión.
+                altText:
+                  type: string
+                  maxLength: 500
+              required: [media]
+      responses:
+        "201":
+          description: Medio subido
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  item:
+                    $ref: "#/components/schemas/MediaItem"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          description: Archivo demasiado grande (`FILE_TOO_LARGE`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/media/{fileName}:
+    parameters:
+      - in: path
+        name: fileName
+        required: true
+        schema:
+          type: string
+          example: media-1718282784-uuid.jpg
+    put:
+      tags: [Media]
+      summary: Editar título y texto alternativo de un medio
+      description: No renombra el archivo físico — solo actualiza los metadatos (upsert en `Media`).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                altText:
+                  type: string
+                  maxLength: 500
+      responses:
+        "200":
+          description: Medio actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  item:
+                    $ref: "#/components/schemas/MediaItem"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Medio no encontrado (`MEDIA_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    delete:
+      tags: [Media]
+      summary: Eliminar un medio
+      description: >
+        Si el archivo está referenciado por un producto, una foto de perfil o la configuración de la tienda,
+        responde 409 `MEDIA_IN_USE` con los usos en `error.details`. Reintentar con `?force=true` para
+        eliminarlo de todas formas (las referencias quedan apuntando a un archivo inexistente).
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: force
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Medio eliminado
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Medio no encontrado (`MEDIA_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: El medio está en uso (`MEDIA_IN_USE`); `error.details` es un arreglo de MediaUsage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/media/{fileName}/usage:
+    get:
+      tags: [Media]
+      summary: Dónde se usa un medio
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: fileName
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Usos del medio (vacío si no se usa)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MediaUsage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Medio no encontrado (`MEDIA_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/agency-clients:
     get:
@@ -2850,6 +3061,46 @@ components:
           type: string
           example: uploads/productImage-1718282784-uuid.jpg
       required: [message, imagePath]
+
+    MediaItem:
+      type: object
+      properties:
+        fileName:
+          type: string
+          example: media-1718282784-uuid.jpg
+        path:
+          type: string
+          example: uploads/media-1718282784-uuid.jpg
+        kind:
+          type: string
+          enum: [image, gif, video]
+        size:
+          type: integer
+          description: Bytes
+        uploadedAt:
+          type: string
+          format: date-time
+        title:
+          type: string
+        altText:
+          type: string
+      required: [fileName, path, kind, size, uploadedAt, title, altText]
+
+    MediaUsage:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [product, user, storeConfig]
+        id:
+          type: string
+          description: Solo para product/user
+        field:
+          type: string
+          description: Solo para storeConfig, ej. heroSlides[0].mediaPath
+        label:
+          type: string
+      required: [type, label]
 
     ErrorResponse:
       type: object
