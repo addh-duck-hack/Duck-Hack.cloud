@@ -499,43 +499,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /api/uploads/products-image:
-    post:
-      tags: [Uploads]
-      summary: Subir imagen de producto
-      description: >
-        Requiere autenticación y rol administrativo (`super_admin`, `store_admin`, `collaborator`).
-        El archivo se valida por contenido real y se acepta únicamente JPG/PNG (máx. 5MB).
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                productImage:
-                  type: string
-                  format: binary
-                  description: Imagen del producto en JPG o PNG
-              required: [productImage]
-      responses:
-        "201":
-          description: Imagen de producto subida correctamente
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ProductImageUploadResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
   /uploads/{fileName}:
     get:
       tags: [Uploads]
@@ -2465,82 +2428,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /api/store-config/upload-image:
-    post:
-      tags: [StoreConfig]
-      summary: Subir imagen de store-config (logo, foto de equipo, foto de testimonio)
-      description: >
-        Requiere autenticación y rol `super_admin` o `store_admin`.
-        El archivo se valida por contenido real y se acepta únicamente JPG/PNG (máx. 5MB).
-        Endpoint genérico: el cliente decide a qué campo asigna el `imagePath` devuelto.
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                image:
-                  type: string
-                  format: binary
-                  description: Imagen en JPG o PNG
-              required: [image]
-      responses:
-        "201":
-          description: Imagen subida correctamente
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StoreImageUploadResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
-  /api/store-config/upload-hero-image:
-    post:
-      tags: [StoreConfig]
-      summary: Subir imagen o GIF para el media del hero
-      description: >
-        Requiere autenticación y rol `super_admin` o `store_admin`.
-        Igual que /upload-image, pero además acepta GIF real (máx. 10MB) sin
-        aplanar la animación — solo pensado para heroSlides[].mediaPath.
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                heroImage:
-                  type: string
-                  format: binary
-                  description: Imagen en JPG, PNG o GIF
-              required: [heroImage]
-      responses:
-        "201":
-          description: Imagen subida correctamente
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StoreImageUploadResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
 components:
   securitySchemes:
     bearerAuth:
@@ -3051,16 +2938,6 @@ components:
         message:
           type: string
       required: [message]
-
-    ProductImageUploadResponse:
-      type: object
-      properties:
-        message:
-          type: string
-        imagePath:
-          type: string
-          example: uploads/productImage-1718282784-uuid.jpg
-      required: [message, imagePath]
 
     MediaItem:
       type: object
@@ -3643,7 +3520,7 @@ components:
           type: array
           items:
             type: string
-          description: Paths devueltos por POST /api/uploads/products-image.
+          description: Rutas de uploads/ elegidas o subidas vía POST /api/media.
         isActive:
           type: boolean
       required: [name, sku, price]
@@ -3938,12 +3815,12 @@ components:
           default: none
           description: >
             Tipo de media del header. "image"/"gif" leen mediaPath (subido vía
-            POST /api/store-config/upload-hero-image); "video_direct" (enlace a
+            POST /api/media); "video_direct" (enlace a
             .mp4/.webm) y "video_youtube" (enlace de YouTube) leen mediaUrl.
         mediaPath:
           type: string
           maxLength: 300
-          description: Ruta relativa devuelta por upload-hero-image (solo image/gif).
+          description: Ruta relativa de uploads/ (de POST /api/media; solo image/gif).
         mediaUrl:
           type: string
           maxLength: 500

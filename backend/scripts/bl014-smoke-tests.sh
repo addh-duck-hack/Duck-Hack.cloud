@@ -98,19 +98,19 @@ run_status_test \
 
 # 7) Upload sin token
 run_status_test \
-  "Upload producto sin token retorna 401" \
+  "Upload de medio sin token retorna 401" \
   "401" \
-  -F "productImage=@/etc/hosts" \
-  "$BASE_URL/api/uploads/products-image"
+  -F "media=@/etc/hosts" \
+  "$BASE_URL/api/media"
 
 # 8) Upload con token customer debe negar (403)
 if [[ -n "$CUSTOMER_TOKEN" ]]; then
   run_status_test \
-    "Upload producto con customer retorna 403" \
+    "Upload de medio con customer retorna 403" \
     "403" \
     -H "Authorization: Bearer $CUSTOMER_TOKEN" \
-    -F "productImage=@/etc/hosts" \
-    "$BASE_URL/api/uploads/products-image"
+    -F "media=@/etc/hosts" \
+    "$BASE_URL/api/media"
 else
   echo "[SKIP] Upload con customer token (CUSTOMER_TOKEN no definido)"
 fi

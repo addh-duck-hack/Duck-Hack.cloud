@@ -20,7 +20,6 @@ const {
   asFiniteNumber,
   getOrCreateModel,
 } = require("../lib/moduleHelpers");
-const { createSingleImageUploadMiddlewares, createHeroImageUploadMiddlewares } = require("../lib/uploads");
 
 const HEX_COLOR_REGEX = /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/;
 const SLUG_REGEX = /^[a-z0-9-]+$/;
@@ -123,9 +122,9 @@ const heroSlideSchema = new mongoose.Schema(
     description: { type: String, trim: true, maxlength: 300 },
     sortOrder: { type: Number, default: 0, min: 0 },
     isActive: { type: Boolean, default: true },
-    // Media rica del header: imagen/gif subidos (mediaPath) o video por
-    // enlace (mediaUrl) — nunca los dos a la vez, mediaType decide cuál lee
-    // el frontend. Ver packages/core-api/lib/uploads.js#createHeroImageUploadMiddlewares.
+    // Media rica del header: imagen/gif de uploads/ (mediaPath, se sube por
+    // /api/media — ver modules/media.js) o video por enlace (mediaUrl) —
+    // nunca los dos a la vez, mediaType decide cuál lee el frontend.
     mediaType: { type: String, enum: HERO_MEDIA_TYPES, default: "none" },
     mediaPath: { type: String, trim: true, maxlength: 300 },
     mediaUrl: { type: String, trim: true, maxlength: 500 },
@@ -786,41 +785,6 @@ function registerRoutes(app, ctx) {
       }
       return handleMongooseError(sendError, res, error, "Error al actualizar configuración de tienda.");
     }
-  });
-
-  const { uploadMiddleware: uploadStoreImage, sanitizeAndStoreMiddleware: sanitizeStoreImage } =
-    createSingleImageUploadMiddlewares({
-      fieldName: "image",
-      filePrefix: "store-config",
-      maxFileSizeMB: 5,
-      sendError,
-    });
-
-  // Endpoint genérico de subida de imagen para store-config: sirve tanto
-  // para el logo como para las fotos de equipo/testimonios. El frontend
-  // decide a qué campo asigna el imagePath devuelto.
-  router.post("/upload-image", verifyToken, canManage, uploadStoreImage, sanitizeStoreImage, (req, res) => {
-    if (!req.savedImagePath) {
-      return sendError(res, 400, "FILE_REQUIRED", "Se requiere un archivo en el campo image.");
-    }
-    return res.status(201).json({ message: "Imagen subida correctamente.", imagePath: req.savedImagePath });
-  });
-
-  const { uploadMiddleware: uploadHeroImage, sanitizeAndStoreMiddleware: sanitizeHeroImage } =
-    createHeroImageUploadMiddlewares({
-      fieldName: "heroImage",
-      filePrefix: "hero-media",
-      maxFileSizeMB: 10,
-      sendError,
-    });
-
-  // Igual que /upload-image, pero acepta también GIF (sin aplanar la
-  // animación) — solo para el media del hero, ver heroSlideSchema.mediaPath.
-  router.post("/upload-hero-image", verifyToken, canManage, uploadHeroImage, sanitizeHeroImage, (req, res) => {
-    if (!req.savedImagePath) {
-      return sendError(res, 400, "FILE_REQUIRED", "Se requiere un archivo en el campo heroImage.");
-    }
-    return res.status(201).json({ message: "Imagen subida correctamente.", imagePath: req.savedImagePath });
   });
 
   app.use("/api/store-config", router);

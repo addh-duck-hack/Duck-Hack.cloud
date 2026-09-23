@@ -1,7 +1,8 @@
 // Ex-copia de backend/utils/uploads.js + backend/middleware/imageUploadMiddleware.js
-// — desde que Auth/StoreConfig se movieron a core-api, este es el ÚNICO
-// lugar donde vive `createSingleImageUploadMiddlewares` (perfil, store-config
-// y productos ya la consumen de acá). `backend/utils/uploads.js` sigue
+// — el ÚNICO lugar donde viven los pipelines de subida:
+// `createSingleImageUploadMiddlewares` (foto de perfil, modules/auth.js) y
+// `createMediaUploadMiddlewares` (biblioteca de medios, modules/media.js —
+// logo, equipo/testimonios, hero y productos se suben por ahí desde el admin). `backend/utils/uploads.js` sigue
 // existiendo, pero solo para que server.js sirva /uploads como estático
 // (`resolveUploadsDir()`) — ya no para el pipeline de subida en sí.
 // `sendError` se recibe por parámetro en vez de importarse (mismo criterio
@@ -114,79 +115,9 @@ const createSingleImageUploadMiddlewares = ({ fieldName, filePrefix, maxFileSize
   return { uploadMiddleware, sanitizeAndStoreMiddleware };
 };
 
-const ALLOWED_HERO_IMAGE_FORMATS = new Set(["jpeg", "png", "gif"]);
-
-// Variante de createSingleImageUploadMiddlewares para el media del hero:
-// jpeg/png siguen re-encodeándose con sharp (mismo camino de siempre), pero
-// un gif real se escribe TAL CUAL (sin pasar por sharp) — sharp aplanaría la
-// animación a un solo frame si se le pidiera .toFile() sobre un gif.
-const createHeroImageUploadMiddlewares = ({ fieldName, filePrefix, maxFileSizeMB = 10, sendError }) => {
-  const uploadMiddleware = multer({
-    storage: multer.memoryStorage(),
-    limits: { fileSize: maxFileSizeMB * 1024 * 1024 },
-  }).single(fieldName);
-
-  const sanitizeAndStoreMiddleware = async (req, res, next) => {
-    if (!req.file) {
-      return next();
-    }
-
-    try {
-      const uploadsDir = resolveUploadsDir();
-      if (!uploadsDir) {
-        return sendError(
-          res,
-          500,
-          "UPLOAD_STORAGE_UNAVAILABLE",
-          "No hay un directorio de uploads con permisos de escritura."
-        );
-      }
-
-      const metadata = await sharp(req.file.buffer).metadata();
-      if (!metadata?.format || !ALLOWED_HERO_IMAGE_FORMATS.has(metadata.format)) {
-        return sendError(
-          res,
-          400,
-          "INVALID_FILE_TYPE",
-          "Solo se permiten imágenes reales en formato JPG, PNG o GIF."
-        );
-      }
-
-      const uniqueSuffix = `${Date.now()}-${crypto.randomUUID()}`;
-
-      if (metadata.format === "gif") {
-        const outputFileName = `${filePrefix}-${uniqueSuffix}.gif`;
-        const outputPath = path.join(uploadsDir, outputFileName);
-        await fs.promises.writeFile(outputPath, req.file.buffer);
-        req.savedImagePath = `uploads/${outputFileName}`;
-        return next();
-      }
-
-      const extension = metadata.format === "png" ? "png" : "jpg";
-      const outputFileName = `${filePrefix}-${uniqueSuffix}.${extension}`;
-      const outputPath = path.join(uploadsDir, outputFileName);
-
-      const imagePipeline = sharp(req.file.buffer).rotate();
-      if (extension === "png") {
-        await imagePipeline.png({ compressionLevel: 9 }).toFile(outputPath);
-      } else {
-        await imagePipeline.jpeg({ quality: 85, mozjpeg: true }).toFile(outputPath);
-      }
-
-      req.savedImagePath = `uploads/${outputFileName}`;
-      return next();
-    } catch (error) {
-      return sendError(
-        res,
-        400,
-        "INVALID_IMAGE_CONTENT",
-        "El archivo no es válido o está corrupto."
-      );
-    }
-  };
-
-  return { uploadMiddleware, sanitizeAndStoreMiddleware };
-};
+// Formatos de imagen que acepta la biblioteca de medios (el gif se guarda tal
+// cual: sharp aplanaría la animación a un solo frame con .toFile()).
+const ALLOWED_MEDIA_IMAGE_FORMATS = new Set(["jpeg", "png", "gif"]);
 
 // Firma binaria de los videos aceptados por la biblioteca de medios — sharp
 // no entiende video, así que el tipo se decide por los primeros bytes del
@@ -223,7 +154,7 @@ const MEDIA_KIND_BY_EXTENSION = {
 
 // Variante para la biblioteca de medios del admin (modules/media.js):
 // jpeg/png se re-encodean con sharp (igual que el resto), gif se guarda tal
-// cual (ver createHeroImageUploadMiddlewares) y mp4/webm se validan por firma
+// cual (ver ALLOWED_MEDIA_IMAGE_FORMATS) y mp4/webm se validan por firma
 // binaria y se escriben sin tocar. Deja en req.savedMedia
 // { fileName, path, kind, mimeType, size }.
 const createMediaUploadMiddlewares = ({
@@ -296,7 +227,7 @@ const createMediaUploadMiddlewares = ({
       }
 
       const metadata = await sharp(buffer).metadata();
-      if (!metadata?.format || !ALLOWED_HERO_IMAGE_FORMATS.has(metadata.format)) {
+      if (!metadata?.format || !ALLOWED_MEDIA_IMAGE_FORMATS.has(metadata.format)) {
         return sendError(
           res,
           400,
@@ -339,7 +270,6 @@ const createMediaUploadMiddlewares = ({
 module.exports = {
   resolveUploadsDir,
   createSingleImageUploadMiddlewares,
-  createHeroImageUploadMiddlewares,
   createMediaUploadMiddlewares,
   MEDIA_KIND_BY_EXTENSION,
 };
