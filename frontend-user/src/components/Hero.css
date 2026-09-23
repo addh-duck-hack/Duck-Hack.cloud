@@ -1,8 +1,9 @@
 /* src/components/Hero.css — hero de Inicio (ver Hero.jsx). */
 
 .hero {
-  /* Alineado con el contenido de la barra flotante: 10px de margen + 24px de padding. */
-  --hero-gutter: 34px;
+  /* Alineado con el contenido de la barra flotante (centrada, ancho
+     --topbar-floating-width, padding --topbar-padding). */
+  --hero-gutter: calc((100% - var(--topbar-floating-width)) / 2 + var(--topbar-padding));
   position: relative;
   height: 100vh;
   height: 100svh;
@@ -190,7 +191,7 @@
 
 @media (max-width: 600px) {
   .hero {
-    --hero-gutter: 26px;
+    --topbar-padding: 16px;
   }
 
   /* Deja espacio abajo para los controles. */

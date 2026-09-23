@@ -10,7 +10,10 @@ const Home = () => {
   return (
     <>
       <Hero />
-      <SectionPlaceholder title="Inicio" hooks="useStoreConfig, useRandomProducts" />
+      {/* TEMPORAL: 10000px de alto para probar el scroll de la barra superior. Quitar al diseñar la siguiente sección. */}
+      <div style={{ height: 10000 }}>
+        <SectionPlaceholder title="Inicio" hooks="useStoreConfig, useRandomProducts" />
+      </div>
     </>
   );
 };

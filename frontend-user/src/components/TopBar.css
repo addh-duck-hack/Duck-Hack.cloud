@@ -6,20 +6,20 @@
   position: fixed;
   z-index: 100;
   top: var(--topbar-gap);
-  left: var(--topbar-gap);
-  right: var(--topbar-gap);
+  left: 50%;
+  width: var(--topbar-floating-width);
+  transform: translateX(-50%);
   color: var(--topbar-fg);
   border-radius: 12px;
   transition:
     top 0.3s ease,
-    left 0.3s ease,
-    right 0.3s ease,
+    width 0.3s ease,
     border-radius 0.3s ease,
     background-color 0.3s ease,
     box-shadow 0.3s ease;
 }
 
-/* Sobre el hero: flota con margen y fondo translúcido. */
+/* Sobre el hero: flota centrada (máx. 1440px / 80%) con fondo translúcido. */
 .topbar--floating {
   background-color: rgba(20, 20, 20, 0.28);
   -webkit-backdrop-filter: blur(14px);
@@ -29,6 +29,7 @@
 /* Al bajar del hero / páginas sin hero: 100% de ancho, color primario. */
 .topbar--solid {
   --topbar-gap: 0px;
+  width: 100%;
   --topbar-fg: var(--color-accent);
   background-color: var(--color-primary);
   border-radius: 0;
@@ -41,7 +42,7 @@
   align-items: center;
   gap: 24px;
   height: var(--topbar-height);
-  padding: 0 24px;
+  padding: 0 var(--topbar-padding);
 }
 
 /* ---- Marca ---- */
@@ -231,8 +232,11 @@
 }
 
 @media (max-width: 600px) {
+  .topbar {
+    --topbar-padding: 16px;
+  }
+
   .topbar-inner {
-    padding: 0 16px;
     gap: 12px;
   }
 

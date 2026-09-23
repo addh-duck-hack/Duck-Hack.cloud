@@ -19,8 +19,12 @@
   --color-border: #d9d9d9;
   --color-placeholder: #ececec;
 
-  /* Alto de la barra superior (components/TopBar.css). */
+  /* Barra superior (components/TopBar.css): alto y ancho en modo flotante
+     (máximo 1440px, o el 80% del ancho en pantallas más chicas). El % se
+     resuelve contra el contenedor donde se usa. */
   --topbar-height: 72px;
+  --topbar-floating-width: min(1440px, 80%);
+  --topbar-padding: 24px;
 }
 
 *,
