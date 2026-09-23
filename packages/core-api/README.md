@@ -14,7 +14,6 @@ vault, not in this repo).
   `validateJwtEnvConfig`) — `index.js` re-exports this at the top level. It's
   the *source* of RBAC for the whole app now, not a consumer of it.
 - `modules/mail.js` — contact-form email (`POST /api/mail/send-email`).
-- `modules/uploads.js` — product image upload (`POST /api/uploads/products-image`).
 - `modules/storeConfig.js` — store branding/content, singleton per deployment
   (`/api/store-config/*`, including the public `GET /public` the storefront
   reads).

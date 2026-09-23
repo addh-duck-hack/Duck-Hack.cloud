@@ -1,6 +1,5 @@
 const auth = require("./modules/auth");
 const mail = require("./modules/mail");
-const uploads = require("./modules/uploads");
 const storeConfig = require("./modules/storeConfig");
 const products = require("./modules/products");
 const inventory = require("./modules/inventory");
@@ -17,7 +16,7 @@ const media = require("./modules/media");
 // — no es estrictamente necesario ya que todos los módulos se montan de
 // forma síncrona antes de que el server empiece a aceptar requests, pero
 // mantiene el orden legible.
-const modules = [auth, mail, uploads, storeConfig, products, inventory, orders, media];
+const modules = [auth, mail, storeConfig, products, inventory, orders, media];
 
 module.exports = {
   modules,

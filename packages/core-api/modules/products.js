@@ -1,7 +1,7 @@
 // Catálogo de productos. Roadmap eCommerce (backend/frontend-admin/src/components/AdminMenu.jsx).
-// Las imágenes se suben aparte, vía el endpoint ya existente
-// POST /api/uploads/products-image (packages/core-api/modules/uploads.js) — este
-// módulo solo guarda los `imagePath` resultantes en `images`.
+// Las imágenes se suben aparte, vía la biblioteca de medios
+// (POST /api/media, packages/core-api/modules/media.js) — este módulo solo
+// guarda las rutas resultantes ("uploads/...") en `images`.
 //
 // GET /public y GET /public/:id son las únicas rutas sin auth: las consume el
 // storefront (frontend-user) para la tienda pública. Van montadas ANTES de

@@ -80,7 +80,7 @@ app.use("/api/infra", infraRoutes);
 app.use("/api/accounting", accountingRoutes);
 app.use("/api/invoices", invoicesRoutes);
 
-// Módulos de @duck-hack/core-api (auth, mail, uploads, store-config,
+// Módulos de @duck-hack/core-api (auth, mail, store-config,
 // productos, inventario, pedidos, medios — ver packages/core-api/README.md) —
 // código compartido entre tiendas, montado acá con las piezas de esta
 // instancia (conexión Mongo, auth, formato de error).
