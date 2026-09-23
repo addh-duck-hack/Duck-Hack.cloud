@@ -5,6 +5,7 @@ const storeConfig = require("./modules/storeConfig");
 const products = require("./modules/products");
 const inventory = require("./modules/inventory");
 const orders = require("./modules/orders");
+const media = require("./modules/media");
 
 // Cada app's backend (ver backend/server.js) monta los módulos de esta
 // lista. Agrega uno nuevo requiriéndolo aquí y añadiéndolo al arreglo — nada
@@ -16,7 +17,7 @@ const orders = require("./modules/orders");
 // — no es estrictamente necesario ya que todos los módulos se montan de
 // forma síncrona antes de que el server empiece a aceptar requests, pero
 // mantiene el orden legible.
-const modules = [auth, mail, uploads, storeConfig, products, inventory, orders];
+const modules = [auth, mail, uploads, storeConfig, products, inventory, orders, media];
 
 module.exports = {
   modules,
