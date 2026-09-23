@@ -1,0 +1,164 @@
+/* src/components/MetricsTimeline.css — ver MetricsTimeline.jsx.
+ *
+ * Base: línea vertical (móvil y .is-vertical). A partir de 761px, sin
+ * .is-vertical, pasa a horizontal con una columna por métrica.
+ */
+
+.metrics {
+  --metric-dot-size: 44px;
+  --metric-step-gap: 36px;
+  --metric-line: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  width: var(--topbar-floating-width);
+  margin: 0 auto;
+  padding: 64px 0;
+}
+
+.metrics-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.metric {
+  display: grid;
+  grid-template-columns: var(--metric-dot-size) 1fr;
+  grid-template-areas:
+    'track value'
+    'track label';
+  column-gap: 20px;
+  row-gap: 4px;
+  padding-bottom: var(--metric-step-gap);
+}
+
+.metric:last-child {
+  padding-bottom: 0;
+}
+
+.metric-value {
+  grid-area: value;
+  display: flex;
+  align-items: center;
+  min-height: var(--metric-dot-size);
+  font-family: var(--font-heading);
+  font-size: clamp(1.75rem, 3vw, 2.75rem);
+  line-height: 1.1;
+  color: var(--color-text);
+}
+
+.metric-label {
+  grid-area: label;
+  color: var(--color-muted);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.metric-track {
+  grid-area: track;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.metric-dot {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--metric-dot-size);
+  height: var(--metric-dot-size);
+  border: 1px solid var(--color-accent);
+  border-radius: 50%;
+  background-color: var(--color-bg);
+  color: var(--color-accent);
+  font-family: var(--font-heading);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+/* Línea vertical: del punto hasta el siguiente (cruza el padding-bottom). */
+.metric-track::before {
+  content: '';
+  position: absolute;
+  top: var(--metric-dot-size);
+  bottom: calc(-1 * var(--metric-step-gap));
+  left: 50%;
+  width: 1px;
+  background-color: var(--metric-line);
+}
+
+.metric:last-child .metric-track::before {
+  display: none;
+}
+
+/* ---- Horizontal ---- */
+@media (min-width: 761px) {
+  .metrics {
+    padding: 96px 0;
+  }
+
+  .metrics-timeline:not(.is-vertical) {
+    display: grid;
+    grid-template-columns: repeat(var(--metric-count), minmax(0, 1fr));
+    /* Filas compartidas (valor / punto / etiqueta): todos los puntos quedan a
+       la misma altura aunque algún valor ocupe dos líneas. */
+    grid-template-rows: auto auto auto;
+  }
+
+  .metrics-timeline:not(.is-vertical) .metric {
+    grid-row: span 3;
+    grid-template-rows: subgrid;
+    grid-template-columns: none;
+    grid-template-areas: none;
+    justify-items: center;
+    row-gap: 20px;
+    padding: 0 16px;
+    text-align: center;
+  }
+
+  .metrics-timeline:not(.is-vertical) .metric-value,
+  .metrics-timeline:not(.is-vertical) .metric-label,
+  .metrics-timeline:not(.is-vertical) .metric-track {
+    grid-area: auto;
+  }
+
+  .metrics-timeline:not(.is-vertical) .metric-value {
+    display: block;
+    min-height: 0;
+    align-self: end;
+  }
+
+  .metrics-timeline:not(.is-vertical) .metric-label {
+    max-width: 18em;
+  }
+
+  .metrics-timeline:not(.is-vertical) .metric-track {
+    flex-direction: row;
+    justify-content: center;
+    width: calc(100% + 32px); /* cubre el padding de la columna: la línea no se corta */
+  }
+
+  /* Tramo de línea por columna; el primero empieza y el último termina en el
+     centro de su punto. */
+  .metrics-timeline:not(.is-vertical) .metric-track::before,
+  .metrics-timeline:not(.is-vertical) .metric:last-child .metric-track::before {
+    display: block;
+    top: 50%;
+    bottom: auto;
+    left: 0;
+    right: 0;
+    width: auto;
+    height: 1px;
+  }
+
+  .metrics-timeline:not(.is-vertical) .metric:first-child .metric-track::before {
+    left: 50%;
+  }
+
+  .metrics-timeline:not(.is-vertical) .metric:last-child .metric-track::before {
+    right: 50%;
+  }
+}
