@@ -1,0 +1,147 @@
+/* src/components/OriginSection.css — ver OriginSection.jsx. */
+
+.origin {
+  width: var(--topbar-floating-width);
+  margin: 0 auto;
+  padding: 96px 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  gap: 56px;
+  align-items: center;
+}
+
+/* ---- Texto ---- */
+.origin-title {
+  font-family: var(--font-heading);
+  font-size: clamp(2.25rem, 4.2vw, 3.75rem);
+  font-weight: 400;
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+  color: var(--color-text);
+  margin: 0 0 24px;
+}
+
+.origin-title em {
+  display: block;
+  font-style: italic;
+  color: var(--color-accent);
+}
+
+.origin-text p {
+  font-size: 1.1rem;
+  line-height: 1.6;
+  color: var(--color-text);
+  margin: 0 0 16px;
+  max-width: 36em;
+}
+
+/* ---- Tarjetas ---- */
+.origin-cards {
+  display: grid;
+  gap: 16px;
+}
+
+.origin-card {
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background-color: var(--color-bg);
+}
+
+.origin-map-card {
+  position: relative;
+  overflow: hidden;
+  height: 300px;
+}
+
+/* El mapa llena la tarjeta; el texto va encima, abajo a la derecha, donde
+   la trama exterior ya es casi invisible. */
+.origin-map {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.origin-map-caption {
+  position: absolute;
+  right: 28px;
+  bottom: 24px;
+  margin: 0;
+  text-align: right;
+  color: var(--color-muted);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.origin-map-caption strong {
+  display: block;
+  font-family: var(--font-heading);
+  font-size: clamp(1.5rem, 2.4vw, 2.25rem);
+  font-weight: 400;
+  line-height: 1.1;
+  color: var(--color-text);
+  margin-bottom: 6px;
+}
+
+.origin-commands {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.origin-command {
+  padding: 20px;
+}
+
+.origin-command-icon {
+  display: block;
+  font-size: 1.5rem;
+  color: var(--color-accent);
+  margin-bottom: 14px;
+}
+
+.origin-command-title {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--color-accent);
+  margin: 0 0 6px;
+}
+
+.origin-command-note {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--color-muted);
+}
+
+@media (max-width: 1000px) {
+  .origin {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 40px;
+    padding: 64px 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .origin-commands {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* En móvil el texto va debajo del mapa para no taparlo. */
+  .origin-map-card {
+    height: auto;
+  }
+
+  .origin-map {
+    height: 220px;
+  }
+
+  .origin-map-caption {
+    position: static;
+    padding: 0 20px 20px;
+  }
+}
