@@ -192,6 +192,17 @@ const Hero = () => {
       })}
 
       <div className="hero-controls">
+        {isVideo(current) ? (
+          <button
+            type="button"
+            className="hero-btn hero-pause"
+            aria-label={isPaused ? 'Reproducir video' : 'Pausar video'}
+            onClick={() => setIsPaused((p) => !p)}
+          >
+            <i className={`fas ${isPaused ? 'fa-play' : 'fa-pause'}`} aria-hidden="true" />
+          </button>
+        ) : null}
+
         {count > 1 ? (
           <div className="hero-nav">
             <button type="button" className="hero-btn" aria-label="Anterior" onClick={() => goTo(active - 1)}>
@@ -213,17 +224,6 @@ const Hero = () => {
               <i className="fas fa-chevron-right" aria-hidden="true" />
             </button>
           </div>
-        ) : null}
-
-        {isVideo(current) ? (
-          <button
-            type="button"
-            className="hero-btn hero-pause"
-            aria-label={isPaused ? 'Reproducir video' : 'Pausar video'}
-            onClick={() => setIsPaused((p) => !p)}
-          >
-            <i className={`fas ${isPaused ? 'fa-play' : 'fa-pause'}`} aria-hidden="true" />
-          </button>
         ) : null}
       </div>
     </section>

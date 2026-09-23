@@ -199,9 +199,7 @@
   }
 
   .hero-controls {
-    left: var(--hero-gutter);
     bottom: 28px;
-    justify-content: space-between;
   }
 }
 
