@@ -1,9 +1,10 @@
 // src/components/FeaturedProducts.jsx
 //
 // "Descubre nuestros productos" en Inicio: 6 productos al azar del catálogo
-// público. El primero va destacado (dos columnas, imagen de fondo, ahorro si
-// tiene compareAtPrice); los demás en tarjetas con nombre, una línea de
-// descripción, precio e imagen. La última tarjeta, "Todos los productos",
+// público. El primero va destacado (dos columnas, imagen de fondo); los demás
+// en tarjetas con nombre, una línea de descripción, precio e imagen cuadrada.
+// Si un producto tiene compareAtPrice mayor al precio, muestra "Ahorra $X" y
+// el precio anterior tachado. La última tarjeta, "Todos los productos",
 // lleva a /tienda con un collage de imágenes del resto del catálogo.
 //
 // Toma el catálogo una sola vez con useProducts y sortea aquí (pickRandom):
@@ -29,10 +30,15 @@ const plainText = (html) => {
   return div.textContent.trim();
 };
 
-const PriceTag = ({ product }) => {
-  const hasDiscount = product.compareAtPrice > product.price;
+const savingOf = (product) =>
+  product.compareAtPrice > product.price ? product.compareAtPrice - product.price : 0;
+
+// `stacked`: el precio anterior va debajo del actual (tarjetas normales, donde
+// comparte la fila con la imagen); en la destacada va al lado.
+const PriceTag = ({ product, stacked = false }) => {
+  const hasDiscount = savingOf(product) > 0;
   return (
-    <p className="fp-price">
+    <p className={`fp-price${stacked ? ' fp-price--stacked' : ''}`}>
       <strong>{formatMxn(product.price)}</strong>
       {hasDiscount ? <s>{formatMxn(product.compareAtPrice)}</s> : null}
     </p>
@@ -40,7 +46,7 @@ const PriceTag = ({ product }) => {
 };
 
 const FeaturedCard = ({ product }) => {
-  const saving = product.compareAtPrice > product.price ? product.compareAtPrice - product.price : 0;
+  const saving = savingOf(product);
   return (
     <Link to={`/tienda/${product.id}`} className="fp-card fp-card--featured">
       <StoreImage src={product.image} alt="" label="Imagen del producto" className="fp-featured-img" />
@@ -56,12 +62,16 @@ const FeaturedCard = ({ product }) => {
 
 const ProductCard = ({ product }) => {
   const description = plainText(product.description);
+  const saving = savingOf(product);
   return (
     <Link to={`/tienda/${product.id}`} className="fp-card">
       <h3 className="fp-name">{product.name}</h3>
       {description ? <p className="fp-desc">{description}</p> : null}
-      <StoreImage src={product.image} alt="" label="Imagen del producto" className="fp-img" />
-      <PriceTag product={product} />
+      {saving ? <span className="fp-badge fp-badge--soft">Ahorra {formatMxn(saving)}</span> : null}
+      <div className="fp-bottom">
+        <PriceTag product={product} stacked />
+        <StoreImage src={product.image} alt="" label="Imagen del producto" className="fp-img" />
+      </div>
     </Link>
   );
 };
