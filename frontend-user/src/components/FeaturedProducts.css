@@ -1,0 +1,238 @@
+/* src/components/FeaturedProducts.css — ver FeaturedProducts.jsx. */
+
+.fp {
+  width: var(--topbar-floating-width);
+  margin: 0 auto;
+  padding: 96px 0;
+}
+
+.fp-title {
+  font-family: var(--font-heading);
+  font-size: clamp(2rem, 3.6vw, 3rem);
+  font-weight: 400;
+  text-align: center;
+  color: var(--color-text);
+  margin: 0 0 40px;
+}
+
+.fp-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: 340px;
+  gap: 20px;
+}
+
+/* ---- Tarjeta base ---- */
+.fp-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 28px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  text-decoration: none;
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.fp-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.08);
+}
+
+.fp-card:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+.fp-name {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-heading);
+  font-size: 1.35rem;
+  font-weight: 500;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.fp-desc {
+  position: relative;
+  z-index: 1;
+  margin: 8px 0 0;
+  font-size: 0.9rem;
+  color: var(--color-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Imagen abajo a la derecha, junto al precio. */
+.fp-img {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  width: 55%;
+  height: 55%;
+  object-fit: contain;
+}
+
+.fp-img.img-placeholder {
+  min-height: 0;
+  border-radius: 10px;
+}
+
+.fp-price {
+  position: relative;
+  z-index: 1;
+  margin: auto 0 0;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.fp-price strong {
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.fp-price s {
+  font-size: 0.95rem;
+  opacity: 0.7;
+}
+
+/* ---- Destacado ---- */
+.fp-card--featured {
+  grid-column: span 2;
+  border: 0;
+  background-color: #262626;
+  color: #ffffff;
+}
+
+.fp-featured-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.fp-card--featured .fp-featured-img.img-placeholder {
+  min-height: 0;
+  border: 0;
+  background-color: #3a3a3a;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.fp-featured-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 40%),
+    linear-gradient(to top, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0) 45%);
+}
+
+.fp-featured-top {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.fp-card--featured .fp-name {
+  font-size: clamp(1.5rem, 2.4vw, 2rem);
+}
+
+.fp-card--featured .fp-price strong {
+  font-size: clamp(1.5rem, 2.4vw, 2rem);
+}
+
+.fp-badge {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background-color: var(--color-primary);
+  color: var(--color-accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* ---- Todos los productos ---- */
+.fp-card--all {
+  border: 0;
+  background-color: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg));
+  align-items: center;
+}
+
+.fp-all-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-heading);
+  font-size: 1.35rem;
+  font-weight: 500;
+}
+
+.fp-collage {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+/* Como en la referencia: dos chicas apiladas a la izquierda y una grande a
+   la derecha (la primera imagen). */
+.fp-collage-img {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.fp-collage-img:first-child {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.fp-collage-img.img-placeholder {
+  min-height: 0;
+  font-size: 0.6rem;
+}
+
+@media (max-width: 1000px) {
+  .fp-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .fp {
+    padding: 64px 0;
+  }
+
+  .fp-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: 300px;
+  }
+
+  .fp-card--featured {
+    grid-column: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fp-card {
+    transition: none;
+  }
+
+  .fp-card:hover {
+    transform: none;
+  }
+}
