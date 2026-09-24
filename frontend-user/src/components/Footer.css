@@ -33,7 +33,6 @@
   gap: 14px;
   color: inherit;
   text-decoration: none;
-  margin-bottom: 48px;
 }
 
 .footer-logo {
@@ -57,8 +56,41 @@
   line-height: 1.1;
 }
 
+/* ---- Contacto ---- */
+.footer-contact {
+  list-style: none;
+  margin: 20px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+}
+
+.footer-contact a {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: inherit;
+  font-size: 0.95rem;
+  text-decoration: none;
+  opacity: 0.85;
+  transition: opacity 0.2s ease;
+  overflow-wrap: anywhere;
+}
+
+.footer-contact a:hover {
+  opacity: 1;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.footer-contact i {
+  font-size: 0.9rem;
+}
+
 /* ---- Columnas de enlaces ---- */
 .footer-cols {
+  margin-top: 48px;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, max-content));
   gap: 40px 72px;
@@ -104,9 +136,17 @@
 }
 
 /* ---- Mapa ---- */
-.footer-map {
+.footer-aside {
   grid-area: map;
   align-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+}
+
+.footer-map {
+  width: 100%;
 }
 
 .footer-map-svg {
@@ -114,6 +154,36 @@
   width: 100%;
   height: auto;
   max-height: 320px;
+}
+
+/* ---- Redes sociales ---- */
+.footer-social {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
+.footer-social a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--color-accent);
+  border-radius: 50%;
+  color: var(--color-accent);
+  font-size: 1.15rem;
+  text-decoration: none;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.footer-social a:hover {
+  background-color: var(--color-accent);
+  color: var(--color-on-accent);
 }
 
 /* ---- Pie ---- */
@@ -160,12 +230,17 @@
       'bottom';
   }
 
-  .footer-map {
+  .footer-aside {
     margin-top: 40px;
+    align-items: flex-start;
   }
 
   .footer-map-svg {
     max-width: 420px;
+  }
+
+  .footer-social {
+    justify-content: flex-start;
   }
 }
 

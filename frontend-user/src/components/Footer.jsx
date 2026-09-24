@@ -2,9 +2,10 @@
 //
 // Footer del sitio, dentro de AppShell. Fondo en el color primario del admin
 // y texto en el acento (igual que la barra superior sólida). A la izquierda:
-// logo + nombre de la tienda y tres columnas de enlaces (mapa del sitio,
-// cuenta, legal); a la derecha, el mismo mapa de puntos de la sección de
-// origen. Abajo: © año tienda y el crédito de Duck-Hack.
+// logo + nombre de la tienda, correo y teléfono de contacto (StoreConfig) y
+// tres columnas de enlaces (mapa del sitio, cuenta, legal); a la derecha, el mismo mapa de puntos de la sección de
+// origen, y debajo las redes sociales configuradas (StoreConfig.socialLinks).
+// Abajo: © año tienda y el crédito de Duck-Hack.
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useStoreConfig } from '../hooks/useStoreConfig';
@@ -19,6 +20,34 @@ const LEGAL_LINKS = [
   { to: '/legal-notice', label: 'Aviso legal' },
 ];
 
+// Orden y ícono de cada red; solo se muestran las que el admin llenó.
+const SOCIAL_NETWORKS = [
+  { key: 'instagram', label: 'Instagram', icon: 'fa-instagram' },
+  { key: 'facebook', label: 'Facebook', icon: 'fa-facebook-f' },
+  { key: 'threads', label: 'Threads', icon: 'fa-threads' },
+  { key: 'whatsapp', label: 'WhatsApp', icon: 'fa-whatsapp' },
+];
+
+// El admin pide el enlace completo, pero se toleran valores a medias: un
+// WhatsApp escrito solo como número pasa a wa.me, y un dominio sin protocolo
+// recibe https://. Cualquier otro esquema (javascript:, etc.) se descarta.
+const socialHref = (key, value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (key === 'whatsapp' && /^[+\d\s()-]+$/.test(raw)) {
+    const digits = raw.replace(/\D/g, '');
+    return digits ? `https://wa.me/${digits}` : '';
+  }
+  const url = /^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`;
+  return /^https?:\/\//i.test(url) ? url : '';
+};
+
+// tel: solo con dígitos y "+" (el admin puede escribir "55 1234 5678").
+const telHref = (phone) => {
+  const digits = String(phone || '').replace(/[^\d+]/g, '');
+  return digits ? `tel:${digits}` : '';
+};
+
 const FooterColumn = ({ title, children }) => (
   <nav className="footer-col" aria-label={title}>
     <h2 className="footer-col-title">{title}</h2>
@@ -30,7 +59,13 @@ const Footer = () => {
   const { config } = useStoreConfig();
   const { isAuthenticated, logout } = useAuth();
   const storeName = config?.storeName || '';
+  const email = (config?.contactEmail || '').trim();
+  const phone = (config?.contactPhone || '').trim();
+  const phoneHref = telHref(phone);
   const year = new Date().getFullYear();
+  const socials = SOCIAL_NETWORKS.map((net) => ({ ...net, href: socialHref(net.key, config?.socialLinks?.[net.key]) })).filter(
+    (net) => net.href
+  );
 
   return (
     <footer className="footer">
@@ -40,6 +75,27 @@ const Footer = () => {
             <StoreImage src={config?.logoUrl} alt={storeName} label="Logo" className="footer-logo" />
             {storeName ? <span className="footer-name">{storeName}</span> : null}
           </Link>
+
+          {email || phoneHref ? (
+            <ul className="footer-contact" aria-label="Contacto">
+              {email ? (
+                <li>
+                  <a href={`mailto:${email}`}>
+                    <i className="fa-solid fa-envelope" aria-hidden="true" />
+                    {email}
+                  </a>
+                </li>
+              ) : null}
+              {phoneHref ? (
+                <li>
+                  <a href={phoneHref}>
+                    <i className="fa-solid fa-phone" aria-hidden="true" />
+                    {phone}
+                  </a>
+                </li>
+              ) : null}
+            </ul>
+          ) : null}
 
           <div className="footer-cols">
             <FooterColumn title="Sitio">
@@ -87,8 +143,22 @@ const Footer = () => {
           </div>
         </div>
 
-        <div className="footer-map" aria-hidden="true">
-          <OriginMap className="footer-map-svg" variant="standalone" />
+        <div className="footer-aside">
+          <div className="footer-map" aria-hidden="true">
+            <OriginMap className="footer-map-svg" variant="standalone" />
+          </div>
+
+          {socials.length > 0 ? (
+            <ul className="footer-social" aria-label="Redes sociales">
+              {socials.map((net) => (
+                <li key={net.key}>
+                  <a href={net.href} target="_blank" rel="noopener noreferrer" aria-label={net.label} title={net.label}>
+                    <i className={`fa-brands ${net.icon}`} aria-hidden="true" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
 
         <div className="footer-bottom">
