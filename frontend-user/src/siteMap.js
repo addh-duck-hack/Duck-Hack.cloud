@@ -6,8 +6,6 @@
 export const SITE_LINKS = [
   { to: '/', label: 'Inicio' },
   { to: '/nosotros', label: 'Nosotros' },
-  { to: '/servicios', label: 'Servicios' },
-  { to: '/precios', label: 'Precios' },
   { to: '/clientes', label: 'Clientes' },
   { to: '/tienda', label: 'Tienda' },
   { to: '/contacto', label: 'Contacto' },

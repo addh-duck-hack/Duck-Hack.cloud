@@ -1,6 +1,6 @@
-/* src/components/AboutIntro.css — ver AboutIntro.jsx. */
+/* src/components/PageIntro.css — ver PageIntro.jsx. */
 
-.about-intro {
+.page-intro {
   width: var(--topbar-floating-width);
   margin: 0 auto;
   padding: 96px 0;
@@ -13,12 +13,12 @@
 
 /* El texto de la derecha es largo: el título se queda a la vista mientras se
    lee (debajo de la barra superior). */
-.about-intro-heading {
+.page-intro-heading {
   position: sticky;
   top: calc(var(--topbar-height) + 32px);
 }
 
-.about-intro-title {
+.page-intro-title {
   font-family: var(--font-heading);
   font-size: clamp(2.5rem, 4.8vw, 4.25rem);
   font-weight: 400;
@@ -28,21 +28,21 @@
   margin: 0;
 }
 
-.about-intro-title em {
+.page-intro-title em {
   display: block;
   margin-top: 8px;
   font-style: italic;
   color: var(--color-accent);
 }
 
-.about-intro-body p {
+.page-intro-body p {
   margin: 0 0 20px;
   font-size: 1.1rem;
   line-height: 1.65;
   color: var(--color-text);
 }
 
-.about-intro-cta {
+.page-intro-cta {
   display: inline-flex;
   align-items: center;
   height: 50px;
@@ -56,23 +56,23 @@
   transition: filter 0.2s ease;
 }
 
-.about-intro-cta:hover {
+.page-intro-cta:hover {
   filter: brightness(0.93);
 }
 
-.about-intro-cta:focus-visible {
+.page-intro-cta:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 3px;
 }
 
 @media (max-width: 1000px) {
-  .about-intro {
+  .page-intro {
     grid-template-columns: minmax(0, 1fr);
     gap: 40px;
     padding: 64px 0;
   }
 
-  .about-intro-heading {
+  .page-intro-heading {
     position: static;
   }
 }

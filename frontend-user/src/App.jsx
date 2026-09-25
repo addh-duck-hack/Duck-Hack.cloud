@@ -5,12 +5,10 @@
 // solo pintan. El sitio se está rediseñando sección por sección: las rutas
 // que todavía no se construyen muestran SectionPlaceholder.
 import React from 'react';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
 import AppShell from './components/AppShell';
 import Home from './pages/Home';
 import AboutUs from './pages/AboutUs';
-import OurServices from './pages/OurServices';
-import Services from './pages/Services';
 import Customers from './pages/Customers';
 import ContactUs from './pages/ContactUs';
 import Shop from './pages/Shop';
@@ -36,8 +34,9 @@ const App = () => (
             <Route element={<AppShell />}>
               <Route path="/" element={<Home />} />
               <Route path="/nosotros" element={<AboutUs />} />
-              <Route path="/servicios" element={<OurServices />} />
-              <Route path="/precios" element={<Services />} />
+              {/* Páginas retiradas: los enlaces viejos no quedan en blanco. */}
+              <Route path="/servicios" element={<Navigate to="/nosotros" replace />} />
+              <Route path="/precios" element={<Navigate to="/tienda" replace />} />
               <Route path="/clientes" element={<Customers />} />
               <Route path="/contacto" element={<ContactUs />} />
               <Route path="/tienda" element={<Shop />} />
