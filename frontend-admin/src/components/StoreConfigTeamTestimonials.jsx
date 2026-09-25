@@ -7,9 +7,10 @@ import StoreConfigTabs from "./StoreConfigTabs";
 const TEAM_MEMBER_FIELDS = [
   { name: "name", label: "Nombre", type: "text", required: true, maxLength: 100 },
   { name: "role", label: "Rol / puesto", type: "text", maxLength: 160 },
-  { name: "bio", label: "Bio", type: "textarea", maxLength: 500, fullWidth: true },
+  // Sin límite de caracteres: admite HTML básico (<p>, <b>, <h1>...).
+  { name: "bio", label: "Bio (admite HTML básico)", type: "textarea", rows: 8, fullWidth: true },
   { name: "email", label: "Email", type: "email", maxLength: 160 },
-  { name: "phone", label: "Teléfono", type: "tel", maxLength: 30 },
+  { name: "phone", label: "Teléfono (10 dígitos)", type: "tel", maxLength: 10, digitsOnly: true, placeholder: "5512345678" },
   { name: "photoUrl", label: "Foto", type: "image", fullWidth: true },
   { name: "isActive", label: "Activo", type: "boolean" },
 ];
