@@ -3,6 +3,7 @@ import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import ProductImageGallery from "./ProductImageGallery";
+import ProductAttributesEditor from "./ProductAttributesEditor";
 
 const initialState = {
   name: "",
@@ -12,6 +13,7 @@ const initialState = {
   compareAtPrice: "",
   category: "",
   images: [],
+  attributes: [],
   isActive: true,
 };
 
@@ -44,6 +46,7 @@ const ProductForm = () => {
           compareAtPrice: p.compareAtPrice !== undefined && p.compareAtPrice !== null ? String(p.compareAtPrice) : "",
           category: p.category || "",
           images: p.images || [],
+          attributes: (p.attributes || []).map((a) => ({ name: a.name || "", value: a.value || "" })),
           isActive: p.isActive !== false,
         });
       } catch (err) {
@@ -65,6 +68,10 @@ const ProductForm = () => {
     setForm((prev) => ({ ...prev, images }));
   };
 
+  const handleAttributesChange = (attributes) => {
+    setForm((prev) => ({ ...prev, attributes }));
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setIsSaving(true);
@@ -78,6 +85,10 @@ const ProductForm = () => {
         compareAtPrice: form.compareAtPrice === "" ? undefined : Number(form.compareAtPrice),
         category: form.category,
         images: form.images,
+        // Filas vacías fuera; el resto se manda recortado (el backend valida).
+        attributes: form.attributes
+          .map((a) => ({ name: a.name.trim(), value: a.value.trim() }))
+          .filter((a) => a.name || a.value),
         isActive: form.isActive,
       };
 
@@ -139,6 +150,8 @@ const ProductForm = () => {
         </label>
 
         <ProductImageGallery value={form.images} onChange={handleImagesChange} />
+
+        <ProductAttributesEditor value={form.attributes} onChange={handleAttributesChange} />
 
         <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.75rem" }}>
           <input type="checkbox" name="isActive" checked={form.isActive} onChange={handleChange} style={{ width: "auto" }} />

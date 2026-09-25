@@ -10,6 +10,11 @@
 // además, solo devuelven productos con inventario cargado y quantity > 0 (ver
 // filterInStock) — un producto sin registro de inventario se trata como sin
 // existencias, no como "ilimitado".
+//
+// `attributes`: especificaciones libres "Nombre: valor" en el orden en que se
+// muestran (Notas de cata: cacao, panela · Tueste: medio · Material: barro ·
+// Talla: M). Genérico a propósito: cada tienda define los suyos sin agregar un
+// campo al esquema por giro.
 const express = require("express");
 const mongoose = require("mongoose");
 const {
@@ -20,6 +25,18 @@ const {
   isValidObjectId,
   getOrCreateModel,
 } = require("../lib/moduleHelpers");
+
+const MAX_ATTRIBUTES = 30;
+const MAX_ATTRIBUTE_NAME = 60;
+const MAX_ATTRIBUTE_VALUE = 300;
+
+const productAttributeSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true, maxlength: MAX_ATTRIBUTE_NAME },
+    value: { type: String, required: true, trim: true, maxlength: MAX_ATTRIBUTE_VALUE },
+  },
+  { _id: false }
+);
 
 const productSchema = new mongoose.Schema(
   {
@@ -32,6 +49,7 @@ const productSchema = new mongoose.Schema(
     // agrega en esta entrega para no sobre-alcanzar el roadmap pedido.
     category: { type: String, trim: true, maxlength: 100 },
     images: { type: [String], default: [] },
+    attributes: { type: [productAttributeSchema], default: [] },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }
@@ -77,6 +95,31 @@ const validatePayload = (sendError) => (req, res, next) => {
   if (payload.category !== undefined) req.body.category = asTrimmedString(payload.category);
   if (payload.images !== undefined) {
     req.body.images = Array.isArray(payload.images) ? payload.images.filter((i) => typeof i === "string") : [];
+  }
+  if (payload.attributes !== undefined) {
+    if (!Array.isArray(payload.attributes)) {
+      return sendError(res, 400, "VALIDATION_ERROR", "attributes debe ser un arreglo.");
+    }
+    const attributes = [];
+    for (const [index, item] of payload.attributes.entries()) {
+      const name = asTrimmedString(item?.name);
+      const value = asTrimmedString(item?.value);
+      if (!name && !value) continue; // fila vacía: se descarta sin error
+      if (!name || !value) {
+        return sendError(res, 400, "VALIDATION_ERROR", `attributes[${index}] necesita nombre y valor.`);
+      }
+      if (name.length > MAX_ATTRIBUTE_NAME) {
+        return sendError(res, 400, "VALIDATION_ERROR", `attributes[${index}].name excede ${MAX_ATTRIBUTE_NAME} caracteres.`);
+      }
+      if (value.length > MAX_ATTRIBUTE_VALUE) {
+        return sendError(res, 400, "VALIDATION_ERROR", `attributes[${index}].value excede ${MAX_ATTRIBUTE_VALUE} caracteres.`);
+      }
+      attributes.push({ name, value });
+    }
+    if (attributes.length > MAX_ATTRIBUTES) {
+      return sendError(res, 400, "VALIDATION_ERROR", `attributes admite máximo ${MAX_ATTRIBUTES} elementos.`);
+    }
+    req.body.attributes = attributes;
   }
   if (payload.isActive !== undefined) req.body.isActive = Boolean(payload.isActive);
 
@@ -193,7 +236,7 @@ function registerRoutes(app, ctx) {
     validatePayload(sendError),
     async (req, res) => {
       try {
-        const allowedFields = ["name", "sku", "description", "price", "compareAtPrice", "category", "images", "isActive"];
+        const allowedFields = ["name", "sku", "description", "price", "compareAtPrice", "category", "images", "attributes", "isActive"];
         for (const key of allowedFields) {
           if (req.body[key] !== undefined) req.product[key] = req.body[key];
         }
