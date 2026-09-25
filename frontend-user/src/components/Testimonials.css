@@ -30,6 +30,8 @@
 
 .tm-slide {
   position: relative;
+  /* Las capas internas (comillas / texto) no compiten con los controles. */
+  isolation: isolate;
   grid-area: 1 / 1;
   margin: 0;
   padding-top: 44px;
@@ -131,6 +133,7 @@ a.tm-name:hover {
 /* ---- Controles ---- */
 .tm-nav {
   position: absolute;
+  z-index: 2;
   right: 72px;
   bottom: 56px;
   display: flex;
