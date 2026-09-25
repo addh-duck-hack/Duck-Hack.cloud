@@ -29,8 +29,10 @@
 }
 
 .tm-slide {
+  position: relative;
   grid-area: 1 / 1;
   margin: 0;
+  padding-top: 44px;
   opacity: 0;
   visibility: hidden;
   transform: translateY(8px);
@@ -44,15 +46,23 @@
   transition: opacity 0.45s ease, transform 0.45s ease, visibility 0s;
 }
 
+/* Comillas grandes y tenues detrás de la cita: el texto (encima) las cubre
+   en parte. */
 .tm-quote-mark {
-  display: block;
-  font-size: 2rem;
+  position: absolute;
+  top: 0;
+  left: -8px;
+  z-index: 0;
+  font-size: 7.5rem;
+  line-height: 1;
   color: var(--color-accent);
-  opacity: 0.35;
-  margin-bottom: 16px;
+  opacity: 0.16;
+  pointer-events: none;
 }
 
 .tm-quote {
+  position: relative;
+  z-index: 1;
   margin: 0;
 }
 
@@ -67,6 +77,8 @@
 }
 
 .tm-author {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -74,8 +86,8 @@
 }
 
 .tm-avatar {
-  width: 56px;
-  height: 56px;
+  width: 80px;
+  height: 80px;
   flex-shrink: 0;
   border-radius: 50%;
   object-fit: cover;
@@ -88,7 +100,7 @@
   background-color: var(--color-accent);
   color: var(--color-on-accent);
   font-family: var(--font-heading);
-  font-size: 1.4rem;
+  font-size: 2rem;
   font-weight: 500;
 }
 
@@ -183,6 +195,19 @@ a.tm-name:hover {
 
   .tm-panel {
     padding: 40px 28px 28px;
+  }
+
+  .tm-slide {
+    padding-top: 32px;
+  }
+
+  .tm-quote-mark {
+    font-size: 5.5rem;
+  }
+
+  .tm-avatar {
+    width: 64px;
+    height: 64px;
   }
 
   /* Los controles bajan debajo del autor en lugar de ir a su derecha. */
