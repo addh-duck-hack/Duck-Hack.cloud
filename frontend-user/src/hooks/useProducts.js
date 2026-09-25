@@ -122,6 +122,13 @@ const normalizeApiProduct = (p) => {
     category: p.category || 'Café en grano',
     image: images[0] || '',
     images,
+    // Especificaciones "Nombre: valor" del admin (Product.attributes), en su
+    // orden. Se descartan entradas incompletas por si llega algo a medias.
+    attributes: Array.isArray(p.attributes)
+      ? p.attributes
+          .map((a) => ({ name: String(a?.name || '').trim(), value: String(a?.value || '').trim() }))
+          .filter((a) => a.name && a.value)
+      : [],
     meta: p.meta,
     origin: p.origin,
     roast: p.roast,

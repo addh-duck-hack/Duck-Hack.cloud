@@ -5,9 +5,9 @@
 // hay descuento, nombre, línea de atributos, precio y botón "Agregar" que se
 // vuelve selector − n + cuando el producto ya está en la canasta.
 //
-// Línea de atributos: por ahora un extracto de la descripción. Cuando el
-// producto tenga notas de cata / tueste (paso posterior en core-api + admin),
-// se reemplaza aquí por "NOTA • NOTA • NOTA" sin tocar el resto de la tarjeta.
+// Atributos: los primeros CARD_ATTRIBUTES de Product.attributes (el orden del
+// admin decide cuáles), cada uno "NOMBRE valor" en una línea. Sin atributos,
+// se muestra un extracto de la descripción.
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useCart, formatMxn } from '../hooks/useCart';
@@ -16,11 +16,14 @@ import { savingOf } from '../utils/price';
 import StoreImage from './StoreImage';
 import './ProductCard.css';
 
+const CARD_ATTRIBUTES = 2;
+
 const ProductCard = ({ product }) => {
   const { qtyOf, setProductQty } = useCart();
   const href = `/tienda/${product.id}`;
   const saving = savingOf(product);
-  const summary = htmlToText(product.description);
+  const attributes = (product.attributes || []).slice(0, CARD_ATTRIBUTES);
+  const summary = attributes.length ? '' : htmlToText(product.description);
   const hoverImage = product.images?.[1];
   // Solo el catálogo de muestra trae opciones (presentación, molienda): esos
   // se eligen en la ficha, no se agregan "a ciegas" desde la tarjeta.
@@ -39,7 +42,18 @@ const ProductCard = ({ product }) => {
         <h3 className="product-card-name">
           <Link to={href}>{product.name}</Link>
         </h3>
-        {summary ? <p className="product-card-attrs">{summary}</p> : null}
+        {attributes.length ? (
+          <dl className="product-card-specs">
+            {attributes.map((attr, i) => (
+              <div key={`${i}-${attr.name}`}>
+                <dt>{attr.name}</dt>
+                <dd title={attr.value}>{attr.value}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : summary ? (
+          <p className="product-card-attrs">{summary}</p>
+        ) : null}
 
         <div className="product-card-footer">
           <p className="product-card-price">

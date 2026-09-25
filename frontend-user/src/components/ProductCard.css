@@ -81,7 +81,40 @@
   color: var(--color-accent);
 }
 
-/* Hoy: extracto de la descripción. Después: notas de cata. */
+/* Atributos del admin: "NOMBRE valor", uno por línea, cortado con "…". */
+.product-card-specs {
+  margin: 8px 0 0;
+  display: grid;
+  gap: 4px;
+}
+
+.product-card-specs div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.product-card-specs dt {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+
+.product-card-specs dd {
+  margin: 0;
+  min-width: 0;
+  font-size: 0.9rem;
+  color: var(--color-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Sin atributos: extracto de 2 líneas de la descripción. */
 .product-card-attrs {
   margin: 6px 0 0;
   font-size: 0.9rem;
@@ -186,8 +219,19 @@
     font-size: 1.05rem;
   }
 
-  .product-card-attrs {
+  .product-card-attrs,
+  .product-card-specs dd {
     font-size: 0.8rem;
+  }
+
+  /* Tarjeta angosta: nombre del atributo arriba del valor. */
+  .product-card-specs div {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .product-card-specs dd {
+    width: 100%;
   }
 
   .product-card-footer {
