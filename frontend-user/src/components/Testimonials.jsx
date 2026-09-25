@@ -98,7 +98,7 @@ const Testimonials = () => {
               >
                 <i className="fa-solid fa-quote-left tm-quote-mark" aria-hidden="true" />
                 <blockquote className="tm-quote">
-                  <p>{t.text}</p>
+                  <p className="text-justify">{t.text}</p>
                 </blockquote>
                 <figcaption className="tm-author">
                   <Avatar name={t.name} photoUrl={t.photoUrl} />

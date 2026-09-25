@@ -13,7 +13,7 @@ import { useAuth } from '../hooks/useAuth';
 import { SITE_LINKS } from '../siteMap';
 import StoreImage from './StoreImage';
 import OriginMap from './OriginMap';
-import { externalHref } from '../utils/links';
+import { externalHref, telHref } from '../utils/links';
 import './Footer.css';
 
 const LEGAL_LINKS = [
@@ -38,12 +38,6 @@ const socialHref = (key, value) => {
     return digits ? `https://wa.me/${digits}` : '';
   }
   return externalHref(raw);
-};
-
-// tel: solo con dígitos y "+" (el admin puede escribir "55 1234 5678").
-const telHref = (phone) => {
-  const digits = String(phone || '').replace(/[^\d+]/g, '');
-  return digits ? `tel:${digits}` : '';
 };
 
 const FooterColumn = ({ title, children }) => (
