@@ -32,12 +32,8 @@ const AppShell = () => {
         <main className={hasHero ? 'app-main' : 'app-main app-main--offset'}>
           <Outlet />
         </main>
-        {/* Franja final con fondo tintado: el llamado a la acción y, flotando
-            encima, la tarjeta del footer. */}
-        <div className="app-end">
-          <CtaBanner />
-          <Footer />
-        </div>
+        <CtaBanner />
+        <Footer />
       </div>
     </HeroProvider>
   );

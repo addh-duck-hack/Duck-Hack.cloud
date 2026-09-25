@@ -4,10 +4,3 @@
 .app-main--offset {
   padding-top: var(--topbar-height);
 }
-
-/* Cierre de todas las páginas: CtaBanner + Footer sobre un fondo tintado
-   (el margen de 10px del footer deja ver este fondo alrededor de la tarjeta). */
-.app-end {
-  background-color: color-mix(in srgb, var(--color-accent) 6%, var(--color-bg));
-  padding-bottom: 1px;
-}
