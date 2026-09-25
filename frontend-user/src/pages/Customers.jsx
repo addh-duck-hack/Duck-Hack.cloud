@@ -1,8 +1,9 @@
 // src/pages/Customers.jsx — ruta /clientes: cafeterías aliadas. En rediseño:
-// bloque de apertura listo, resto de secciones pendientes.
+// apertura y servicios listos, resto de secciones pendientes.
 import React from 'react';
 import { usePageMeta } from '../hooks/usePageMeta';
 import PageIntro from '../components/PageIntro';
+import ServicesGrid from '../components/ServicesGrid';
 
 const INTRO_PARAGRAPHS = [
   'Nuestro café llega a cafeterías que buscan ofrecer a sus clientes una experiencia auténtica, respaldada por un producto de origen, un proceso cuidado y una tradición familiar que comenzó en 1973. Trabajamos de cerca con cada establecimiento para conocer sus necesidades y ofrecer diferentes perfiles y presentaciones que puedan integrarse a su propuesta.',
@@ -16,13 +17,16 @@ const Customers = () => {
     'Cafeterías que sirven café de origen de Xicotepec, Puebla: perfiles y presentaciones para cada establecimiento, con una tradición familiar desde 1973.'
   );
   return (
-    <PageIntro
-      id="customers-intro"
-      title="El café también se disfruta en buena compañía"
-      highlight="Cafeterías que comparten nuestra pasión por el buen café"
-      paragraphs={INTRO_PARAGRAPHS}
-      cta={{ to: '/contacto', label: 'Quiero ser cafetería aliada' }}
-    />
+    <>
+      <PageIntro
+        id="customers-intro"
+        title="El café también se disfruta en buena compañía"
+        highlight="Cafeterías que comparten nuestra pasión por el buen café"
+        paragraphs={INTRO_PARAGRAPHS}
+        cta={{ to: '/contacto', label: 'Quiero ser cafetería aliada' }}
+      />
+      <ServicesGrid />
+    </>
   );
 };
 

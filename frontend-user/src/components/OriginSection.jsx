@@ -8,11 +8,8 @@ import React from 'react';
 import { useStoreConfig } from '../hooks/useStoreConfig';
 import { sortActive } from '../utils/storeConfigLists';
 import OriginMap from './OriginMap';
+import { safeIconClass } from '../utils/icons';
 import './OriginSection.css';
-
-// Solo clases tipo "fa-solid fa-mug-hot": el ícono viene del admin y se usa
-// como className.
-const safeIconClass = (icon) => (/^[a-z0-9 -]+$/i.test(icon || '') ? icon : '');
 
 const OriginSection = () => {
   const { config } = useStoreConfig();
