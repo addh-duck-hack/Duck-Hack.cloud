@@ -3492,6 +3492,15 @@ components:
           type: array
           items:
             type: string
+        attributes:
+          type: array
+          maxItems: 30
+          description: >-
+            Especificaciones libres "Nombre: valor" en orden de visualización
+            (p. ej. Notas de cata, Tueste, Material, Talla). Genéricas para
+            cualquier giro de tienda.
+          items:
+            $ref: '#/components/schemas/ProductAttribute'
         isActive:
           type: boolean
         createdAt:
@@ -3521,9 +3530,31 @@ components:
           items:
             type: string
           description: Rutas de uploads/ elegidas o subidas vía POST /api/media.
+        attributes:
+          type: array
+          maxItems: 30
+          description: >-
+            Especificaciones libres "Nombre: valor" en orden de visualización. Las filas con nombre y valor vacíos se descartan; una fila a medias es VALIDATION_ERROR
+            (p. ej. Notas de cata, Tueste, Material, Talla). Genéricas para
+            cualquier giro de tienda.
+          items:
+            $ref: '#/components/schemas/ProductAttribute'
         isActive:
           type: boolean
       required: [name, sku, price]
+
+    ProductAttribute:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 60
+          example: Notas de cata
+        value:
+          type: string
+          maxLength: 300
+          example: Cacao, panela, naranja
+      required: [name, value]
 
     Inventory:
       type: object
