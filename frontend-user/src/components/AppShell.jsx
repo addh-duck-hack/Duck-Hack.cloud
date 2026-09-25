@@ -1,13 +1,14 @@
 // src/components/AppShell.jsx
 //
 // Layout común de todas las rutas públicas: barra superior + página actual +
-// footer. La barra flota sobre el hero de la página mientras está a la vista
+// llamado a la acción (CtaBanner) + footer. La barra flota sobre el hero de la página mientras está a la vista
 // y pasa a sólida al bajar; ver hooks/useHero.jsx.
 import React, { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { HeroProvider, useHeroTracking } from '../hooks/useHero';
 import TopBar from './TopBar';
 import Footer from './Footer';
+import CtaBanner from './CtaBanner';
 import './AppShell.css';
 
 // Alto de la barra (--topbar-height en index.css) + su margen flotante.
@@ -31,7 +32,12 @@ const AppShell = () => {
         <main className={hasHero ? 'app-main' : 'app-main app-main--offset'}>
           <Outlet />
         </main>
-        <Footer />
+        {/* Franja final con fondo tintado: el llamado a la acción y, flotando
+            encima, la tarjeta del footer. */}
+        <div className="app-end">
+          <CtaBanner />
+          <Footer />
+        </div>
       </div>
     </HeroProvider>
   );
