@@ -84,7 +84,7 @@ const renderField = (field, item, onItemChange) => {
           value={value || ""}
           maxLength={field.maxLength}
           onChange={(e) => onItemChange(field.name, e.target.value)}
-          rows={3}
+          rows={field.rows || 3}
         />
       </label>
     );
@@ -194,7 +194,14 @@ const renderField = (field, item, onItemChange) => {
     );
   }
 
-  // text | number | tel | email | url (default)
+  // text | number | tel | email | url (default). `digitsOnly`: descarta todo
+  // lo que no sea dígito mientras se escribe/pega y corta a `maxLength`.
+  const toValue = (raw) => {
+    if (field.type === "number") return raw === "" ? null : Number(raw);
+    if (field.digitsOnly) return raw.replace(/\D/g, "").slice(0, field.maxLength || undefined);
+    return raw;
+  };
+
   return (
     <label key={field.name} style={{ gridColumn: field.fullWidth ? "1 / span 2" : undefined }}>
       {field.label}
@@ -204,9 +211,9 @@ const renderField = (field, item, onItemChange) => {
         maxLength={field.maxLength}
         required={field.required}
         placeholder={field.placeholder}
-        onChange={(e) =>
-          onItemChange(field.name, field.type === "number" ? (e.target.value === "" ? null : Number(e.target.value)) : e.target.value)
-        }
+        inputMode={field.digitsOnly ? "numeric" : undefined}
+        pattern={field.digitsOnly ? "[0-9]*" : undefined}
+        onChange={(e) => onItemChange(field.name, toValue(e.target.value))}
       />
     </label>
   );
