@@ -13,6 +13,7 @@ import { useAuth } from '../hooks/useAuth';
 import { SITE_LINKS } from '../siteMap';
 import StoreImage from './StoreImage';
 import OriginMap from './OriginMap';
+import { externalHref } from '../utils/links';
 import './Footer.css';
 
 const LEGAL_LINKS = [
@@ -28,18 +29,15 @@ const SOCIAL_NETWORKS = [
   { key: 'whatsapp', label: 'WhatsApp', icon: 'fa-whatsapp' },
 ];
 
-// El admin pide el enlace completo, pero se toleran valores a medias: un
-// WhatsApp escrito solo como número pasa a wa.me, y un dominio sin protocolo
-// recibe https://. Cualquier otro esquema (javascript:, etc.) se descarta.
+// Un WhatsApp escrito solo como número pasa a wa.me; el resto va por
+// externalHref (completa https:// y descarta esquemas que no sean http(s)).
 const socialHref = (key, value) => {
   const raw = String(value || '').trim();
-  if (!raw) return '';
   if (key === 'whatsapp' && /^[+\d\s()-]+$/.test(raw)) {
     const digits = raw.replace(/\D/g, '');
     return digits ? `https://wa.me/${digits}` : '';
   }
-  const url = /^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`;
-  return /^https?:\/\//i.test(url) ? url : '';
+  return externalHref(raw);
 };
 
 // tel: solo con dígitos y "+" (el admin puede escribir "55 1234 5678").

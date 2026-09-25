@@ -1,0 +1,207 @@
+/* src/components/Testimonials.css — ver Testimonials.jsx. */
+
+.tm {
+  width: var(--topbar-floating-width);
+  margin: 0 auto;
+  padding: 32px 0 96px;
+}
+
+.tm-panel {
+  position: relative;
+  padding: 64px 72px 56px;
+  border-radius: 24px;
+  background-color: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg));
+}
+
+.tm-title {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  margin: 0 0 32px;
+}
+
+/* ---- Citas (todas en la misma celda) ---- */
+.tm-slides {
+  display: grid;
+}
+
+.tm-slide {
+  grid-area: 1 / 1;
+  margin: 0;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+  transition: opacity 0.45s ease, transform 0.45s ease, visibility 0s linear 0.45s;
+}
+
+.tm-slide.is-active {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition: opacity 0.45s ease, transform 0.45s ease, visibility 0s;
+}
+
+.tm-quote-mark {
+  display: block;
+  font-size: 2rem;
+  color: var(--color-accent);
+  opacity: 0.35;
+  margin-bottom: 16px;
+}
+
+.tm-quote {
+  margin: 0;
+}
+
+.tm-quote p {
+  margin: 0;
+  max-width: 34em;
+  font-family: var(--font-heading);
+  font-size: clamp(1.5rem, 2.8vw, 2.4rem);
+  font-weight: 400;
+  line-height: 1.25;
+  color: var(--color-text);
+}
+
+.tm-author {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 36px;
+}
+
+.tm-avatar {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.tm-avatar--initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-accent);
+  color: var(--color-on-accent);
+  font-family: var(--font-heading);
+  font-size: 1.4rem;
+  font-weight: 500;
+}
+
+.tm-author-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tm-name {
+  font-weight: 700;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+a.tm-name:hover {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.tm-rubro {
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}
+
+/* ---- Controles ---- */
+.tm-nav {
+  position: absolute;
+  right: 72px;
+  bottom: 56px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--color-accent);
+  border-radius: 50%;
+  background: none;
+  color: var(--color-accent);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.tm-btn:hover {
+  background-color: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.tm-dots {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tm-dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  cursor: pointer;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.tm-dot.is-active {
+  width: 24px;
+  background-color: var(--color-accent);
+}
+
+.tm a:focus-visible,
+.tm-btn:focus-visible,
+.tm-dot:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+@media (max-width: 760px) {
+  .tm {
+    padding-bottom: 64px;
+  }
+
+  .tm-panel {
+    padding: 40px 28px 28px;
+  }
+
+  /* Los controles bajan debajo del autor en lugar de ir a su derecha. */
+  .tm-nav {
+    position: static;
+    margin-top: 28px;
+    justify-content: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tm-slide,
+  .tm-slide.is-active,
+  .tm-dot,
+  .tm-btn {
+    transition: none;
+  }
+
+  .tm-slide {
+    transform: none;
+  }
+}

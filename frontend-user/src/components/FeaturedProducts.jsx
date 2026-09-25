@@ -15,20 +15,12 @@ import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useProducts, pickRandom } from '../hooks/useProducts';
 import { formatMxn } from '../hooks/useCart';
-import { sanitize } from './RichText';
+import { htmlToText } from '../utils/htmlExcerpt';
 import StoreImage from './StoreImage';
 import './FeaturedProducts.css';
 
 const PICK_COUNT = 6;
 const COLLAGE_COUNT = 3;
-
-// La descripción puede traer HTML básico; aquí solo se quiere su texto.
-const plainText = (html) => {
-  if (!html) return '';
-  const div = document.createElement('div');
-  div.innerHTML = sanitize(html);
-  return div.textContent.trim();
-};
 
 const savingOf = (product) =>
   product.compareAtPrice > product.price ? product.compareAtPrice - product.price : 0;
@@ -61,7 +53,7 @@ const FeaturedCard = ({ product }) => {
 };
 
 const ProductCard = ({ product }) => {
-  const description = plainText(product.description);
+  const description = htmlToText(product.description);
   const saving = savingOf(product);
   return (
     <Link to={`/tienda/${product.id}`} className="fp-card">

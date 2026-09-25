@@ -61,3 +61,12 @@ export const htmlExcerpt = (html, maxLength = 140) => {
   truncateNode(container, { remaining: maxLength, done: false });
   return `${container.innerHTML}…`;
 };
+
+// Solo el texto visible de un campo con HTML básico (sanitizado igual que
+// RichText): para subtítulos de una línea o citas, donde no se quiere formato.
+export const htmlToText = (html) => {
+  if (!html) return '';
+  const container = document.createElement('div');
+  container.innerHTML = sanitize(html);
+  return container.textContent.trim();
+};
