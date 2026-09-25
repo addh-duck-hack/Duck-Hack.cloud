@@ -93,6 +93,23 @@ export const CartProvider = ({ children }) => {
 
   const clear = useCallback(() => setLines([]), []);
 
+  // Cantidad y ajuste de la línea SIN opciones de un producto — para el
+  // selector +/− de las tarjetas de la tienda (ProductCard). Un producto con
+  // opciones se agrega desde su ficha, con su propia línea por combinación.
+  const qtyOf = useCallback(
+    (productId) => lines.find((l) => l.key === lineKey(productId, {}))?.qty || 0,
+    [lines]
+  );
+
+  const setProductQty = useCallback(
+    (product, qty) => {
+      const key = lineKey(product.id, {});
+      if (lines.some((l) => l.key === key)) setQty(key, qty);
+      else if (qty > 0) addItem(product, qty, {});
+    },
+    [lines, setQty, addItem]
+  );
+
   // Envía el pedido real al storefront público. `items` es uno por renglón
   // del carrito (no se agrupan por producto): dos líneas del mismo café con
   // distinta presentación/opción llegan como dos entradas con el mismo
@@ -155,9 +172,11 @@ export const CartProvider = ({ children }) => {
       setQty,
       removeItem,
       clear,
+      qtyOf,
+      setProductQty,
       submitOrder,
     };
-  }, [lines, addItem, setQty, removeItem, clear, submitOrder]);
+  }, [lines, addItem, setQty, removeItem, clear, qtyOf, setProductQty, submitOrder]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };

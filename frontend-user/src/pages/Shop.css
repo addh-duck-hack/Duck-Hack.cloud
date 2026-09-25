@@ -1,0 +1,208 @@
+/* src/pages/Shop.css — ver Shop.jsx. */
+
+.shop {
+  width: var(--topbar-floating-width);
+  margin: 0 auto;
+  padding: 72px 0 96px;
+}
+
+/* ---- Encabezado ---- */
+.shop-header {
+  text-align: center;
+  max-width: 720px;
+  margin: 0 auto 40px;
+}
+
+.shop-title {
+  font-family: var(--font-heading);
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  font-weight: 400;
+  line-height: 1.05;
+  color: var(--color-text);
+  margin: 0 0 14px;
+}
+
+.shop-title em {
+  font-style: italic;
+  color: var(--color-accent);
+}
+
+.shop-lead {
+  margin: 0 0 18px;
+  font-size: 1.15rem;
+  color: var(--color-text);
+}
+
+.shop-shipping {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 6px 16px;
+  border-radius: 999px;
+  background-color: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg));
+  color: var(--color-accent);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+/* ---- Pastillas de categoría ---- */
+.shop-filters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 48px;
+}
+
+.shop-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 18px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: none;
+  color: var(--color-text);
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+.shop-chip span {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+
+.shop-chip:hover {
+  border-color: var(--color-accent);
+}
+
+.shop-chip.is-active {
+  border-color: var(--color-accent);
+  background-color: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.shop-chip.is-active span {
+  color: inherit;
+  opacity: 0.8;
+}
+
+.shop-chip:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+/* ---- Cuadrícula ---- */
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 48px 28px;
+}
+
+@media (max-width: 1200px) {
+  .shop-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .shop-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 40px 20px;
+  }
+}
+
+@media (max-width: 600px) {
+  .shop {
+    padding: 48px 0 64px;
+  }
+
+  /* Pastillas en una sola fila deslizable en lugar de varios renglones. */
+  .shop-filters {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    margin-bottom: 32px;
+    scrollbar-width: none;
+  }
+
+  .shop-filters::-webkit-scrollbar {
+    display: none;
+  }
+
+  .shop-chip {
+    flex-shrink: 0;
+  }
+
+  /* Dos productos por fila, como en las tiendas móviles habituales. */
+  .shop-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 32px 14px;
+  }
+}
+
+/* ---- Estados ---- */
+.shop-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.shop-skeleton-img,
+.shop-skeleton-line {
+  display: block;
+  border-radius: 12px;
+  background: linear-gradient(90deg, var(--color-placeholder) 25%, #f6f6f6 50%, var(--color-placeholder) 75%);
+  background-size: 200% 100%;
+  animation: shop-shimmer 1.4s ease-in-out infinite;
+}
+
+.shop-skeleton-img {
+  aspect-ratio: 1 / 1;
+  border-radius: 16px;
+}
+
+.shop-skeleton-line {
+  height: 16px;
+  width: 80%;
+}
+
+.shop-skeleton-line--short {
+  width: 45%;
+}
+
+@keyframes shop-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+.shop-empty {
+  text-align: center;
+  padding: 48px 0;
+  color: var(--color-muted);
+}
+
+.shop-empty p {
+  margin: 0 0 12px;
+  font-size: 1.1rem;
+}
+
+.shop-empty a {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shop-skeleton-img,
+  .shop-skeleton-line {
+    animation: none;
+  }
+}

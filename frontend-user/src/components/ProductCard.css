@@ -1,0 +1,228 @@
+/* src/components/ProductCard.css — ver ProductCard.jsx. */
+
+.product-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* ---- Imagen ---- */
+.product-card-media {
+  position: relative;
+  display: block;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border-radius: 16px;
+  background-color: var(--color-placeholder);
+}
+
+.product-card-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease, opacity 0.4s ease;
+}
+
+.product-card-img.img-placeholder {
+  min-height: 0;
+  border-radius: 16px;
+}
+
+/* Segunda imagen: aparece al pasar el mouse sobre la tarjeta. */
+.product-card-img--hover {
+  opacity: 0;
+}
+
+.product-card:hover .product-card-img--hover {
+  opacity: 1;
+}
+
+.product-card:hover .product-card-img {
+  transform: scale(1.03);
+}
+
+.product-card-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 1;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background-color: var(--color-primary);
+  color: var(--color-accent);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+/* ---- Texto ---- */
+.product-card-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding-top: 16px;
+}
+
+.product-card-name {
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  font-weight: 500;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.product-card-name a {
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.product-card-name a:hover {
+  color: var(--color-accent);
+}
+
+/* Hoy: extracto de la descripción. Después: notas de cata. */
+.product-card-attrs {
+  margin: 6px 0 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--color-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ---- Precio + botón ---- */
+.product-card-footer {
+  margin-top: auto;
+  padding-top: 16px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.product-card-price {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.product-card-price strong {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.product-card-price s {
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+
+.product-card-add {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  height: 42px;
+  padding: 0 20px;
+  border: 1px solid var(--color-accent);
+  border-radius: 999px;
+  background-color: var(--color-accent);
+  color: var(--color-on-accent);
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-decoration: none;
+  cursor: pointer;
+  transition: filter 0.2s ease;
+}
+
+.product-card-add:hover {
+  filter: brightness(0.93);
+}
+
+.product-card-stepper {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  height: 42px;
+  border: 1px solid var(--color-accent);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.product-card-stepper button {
+  width: 40px;
+  height: 100%;
+  border: 0;
+  background: none;
+  color: var(--color-accent);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.product-card-stepper button:hover {
+  background-color: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.product-card-stepper span {
+  min-width: 28px;
+  text-align: center;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.product-card a:focus-visible,
+.product-card button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+/* Tarjeta angosta (2 columnas en móvil): precio arriba y botón a lo ancho. */
+@media (max-width: 600px) {
+  .product-card-name {
+    font-size: 1.05rem;
+  }
+
+  .product-card-attrs {
+    font-size: 0.8rem;
+  }
+
+  .product-card-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .product-card-add,
+  .product-card-stepper {
+    justify-content: center;
+    width: 100%;
+    height: 38px;
+    padding: 0 12px;
+  }
+
+  .product-card-stepper {
+    padding: 0;
+    justify-content: space-between;
+  }
+
+  .product-card-badge {
+    top: 8px;
+    left: 8px;
+    padding: 3px 9px;
+    font-size: 0.7rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-card-img {
+    transition: none;
+  }
+
+  .product-card:hover .product-card-img {
+    transform: none;
+  }
+}

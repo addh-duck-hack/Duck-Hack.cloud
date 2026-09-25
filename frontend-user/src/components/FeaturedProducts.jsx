@@ -16,14 +16,12 @@ import { Link } from 'react-router-dom';
 import { useProducts, pickRandom } from '../hooks/useProducts';
 import { formatMxn } from '../hooks/useCart';
 import { htmlToText } from '../utils/htmlExcerpt';
+import { savingOf } from '../utils/price';
 import StoreImage from './StoreImage';
 import './FeaturedProducts.css';
 
 const PICK_COUNT = 6;
 const COLLAGE_COUNT = 3;
-
-const savingOf = (product) =>
-  product.compareAtPrice > product.price ? product.compareAtPrice - product.price : 0;
 
 // `stacked`: el precio anterior va debajo del actual (tarjetas normales, donde
 // comparte la fila con la imagen); en la destacada va al lado.
