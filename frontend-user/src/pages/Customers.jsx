@@ -1,9 +1,10 @@
-// src/pages/Customers.jsx — ruta /clientes: cafeterías aliadas. En rediseño:
-// apertura y servicios listos, resto de secciones pendientes.
+// src/pages/Customers.jsx — ruta /clientes (cafeterías aliadas): apertura,
+// servicios y testimonios.
 import React from 'react';
 import { usePageMeta } from '../hooks/usePageMeta';
 import PageIntro from '../components/PageIntro';
 import ServicesGrid from '../components/ServicesGrid';
+import Testimonials from '../components/Testimonials';
 
 const INTRO_PARAGRAPHS = [
   'Nuestro café llega a cafeterías que buscan ofrecer a sus clientes una experiencia auténtica, respaldada por un producto de origen, un proceso cuidado y una tradición familiar que comenzó en 1973. Trabajamos de cerca con cada establecimiento para conocer sus necesidades y ofrecer diferentes perfiles y presentaciones que puedan integrarse a su propuesta.',
@@ -26,6 +27,7 @@ const Customers = () => {
         cta={{ to: '/contacto', label: 'Quiero ser cafetería aliada' }}
       />
       <ServicesGrid />
+      <Testimonials />
     </>
   );
 };

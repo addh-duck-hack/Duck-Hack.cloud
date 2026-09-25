@@ -51,9 +51,11 @@
   text-align: center;
 }
 
+/* Tono suave: el acento mezclado con el fondo, para que el ícono acompañe
+   sin pesar más que el título. */
 .services-icon {
   font-size: 3.25rem;
-  color: var(--color-accent);
+  color: color-mix(in srgb, var(--color-accent) 50%, var(--color-bg));
   margin-bottom: 24px;
 }
 
