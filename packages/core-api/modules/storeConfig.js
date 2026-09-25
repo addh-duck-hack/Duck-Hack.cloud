@@ -203,9 +203,12 @@ const teamMemberSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 100 },
     role: { type: String, trim: true, maxlength: 160 },
-    bio: { type: String, trim: true, maxlength: 500 },
+    // Sin límite propio: admite HTML básico (el storefront lo sanitiza). En la
+    // práctica lo acota el límite de body de express.json() (100 KB).
+    bio: { type: String, trim: true },
     email: { type: String, trim: true, lowercase: true, maxlength: 160 },
-    phone: { type: String, trim: true, maxlength: 30 },
+    // Solo dígitos, máximo 10 (ver validateTeamMemberItem).
+    phone: { type: String, trim: true, maxlength: 10, match: [/^\d*$/, "phone solo admite números."] },
     photoUrl: { type: String, trim: true, maxlength: 300 },
     sortOrder: { type: Number, default: 0, min: 0 },
     isActive: { type: Boolean, default: true },
@@ -474,9 +477,7 @@ const validateTeamMemberItem = (item, index) => {
     item.role = role;
   }
   if (item.bio !== undefined) {
-    const bio = asTrimmedString(item.bio);
-    if (bio.length > 500) return `teamMembers[${index}].bio excede 500 caracteres.`;
-    item.bio = bio;
+    item.bio = asTrimmedString(item.bio);
   }
   if (item.email !== undefined) {
     const email = asTrimmedString(item.email).toLowerCase();
@@ -484,8 +485,12 @@ const validateTeamMemberItem = (item, index) => {
     item.email = email;
   }
   if (item.phone !== undefined) {
-    const phone = asTrimmedString(item.phone);
-    if (phone.length > 30) return `teamMembers[${index}].phone excede 30 caracteres.`;
+    // Se quitan separadores de formato (espacios, guiones, puntos, paréntesis)
+    // para no rechazar teléfonos ya guardados como "55 1234 5678"; lo que
+    // queda debe ser solo dígitos, máximo 10.
+    const phone = asTrimmedString(item.phone).replace(/[\s().-]/g, "");
+    if (!/^\d*$/.test(phone)) return `teamMembers[${index}].phone solo admite números.`;
+    if (phone.length > 10) return `teamMembers[${index}].phone admite máximo 10 dígitos.`;
     item.phone = phone;
   }
   if (item.photoUrl !== undefined) {
