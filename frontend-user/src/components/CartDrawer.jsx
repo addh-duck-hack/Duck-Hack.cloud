@@ -13,6 +13,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useCart, formatMxn, formatOptions, lineSavingOf } from '../hooks/useCart';
 import { useProducts, pickRandom } from '../hooks/useProducts';
 import StoreImage from './StoreImage';
+import QtyLimitNote from './QtyLimitNote';
 import './CartDrawer.css';
 
 const MAX_SUGGESTIONS = 8;
@@ -98,6 +99,7 @@ const CartDrawer = () => {
     freeShippingFrom,
     setQty,
     removeItem,
+    limitOf,
     isCartOpen,
     closeCart,
   } = useCart();
@@ -191,6 +193,8 @@ const CartDrawer = () => {
               {lines.map((line) => {
                 const optionsText = formatOptions(line.options);
                 const lineSaving = lineSavingOf(line);
+                const limit = limitOf(line);
+                const atLimit = limit.remaining === 0;
                 return (
                   <li key={line.key} className="cart-line">
                     <Link to={`/tienda/${line.id}`} className="cart-line-thumb" tabIndex={-1} aria-hidden="true">
@@ -208,7 +212,12 @@ const CartDrawer = () => {
                             <i className="fas fa-minus" aria-hidden="true" />
                           </button>
                           <span aria-live="polite">{line.qty}</span>
-                          <button type="button" aria-label="Agregar uno" onClick={() => setQty(line.key, line.qty + 1)}>
+                          <button
+                            type="button"
+                            aria-label={atLimit ? 'Llegaste al máximo' : 'Agregar uno'}
+                            onClick={() => setQty(line.key, line.qty + 1)}
+                            disabled={atLimit}
+                          >
                             <i className="fas fa-plus" aria-hidden="true" />
                           </button>
                         </div>
@@ -216,6 +225,7 @@ const CartDrawer = () => {
                           <i className="fa-regular fa-trash-can" aria-hidden="true" />
                         </button>
                       </div>
+                      {atLimit ? <QtyLimitNote limit={limit} className="cart-line-limit" /> : null}
                     </div>
                     <div className="cart-line-prices">
                       {lineSaving ? <s>{formatMxn(line.compareAtPrice * line.qty)}</s> : null}

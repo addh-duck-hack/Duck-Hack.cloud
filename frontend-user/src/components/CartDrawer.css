@@ -214,6 +214,16 @@
   background-color: var(--color-placeholder);
 }
 
+.cart-line-stepper button:disabled {
+  opacity: 0.35;
+  cursor: default;
+  background: none;
+}
+
+.cart-line-limit {
+  margin-top: 4px;
+}
+
 .cart-line-stepper span {
   min-width: 24px;
   text-align: center;

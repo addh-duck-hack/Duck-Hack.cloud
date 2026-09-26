@@ -1,0 +1,27 @@
+/* src/components/QtyLimitNote.css — ver QtyLimitNote.jsx. */
+
+.qty-limit-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--color-muted);
+}
+
+.qty-limit-note i {
+  margin-top: 0.2em;
+  color: var(--color-accent);
+}
+
+.qty-limit-note a {
+  color: var(--color-accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.qty-limit-note--stock {
+  color: var(--color-text);
+}

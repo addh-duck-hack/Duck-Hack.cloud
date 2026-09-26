@@ -1,7 +1,9 @@
 // src/hooks/useProductDetail.js
 //
 // Estado de la ficha de producto (/tienda/:id): opciones elegidas, cantidad,
-// galería, "agregar a la canasta" y favoritos. Sin UI.
+// galería, "agregar a la canasta" y favoritos. Sin UI. La cantidad nunca
+// pasa de lo que aún cabe en la canasta (`limit.remaining`, ver
+// useCart().limitOf: existencias y tope por pedido).
 import { useEffect, useState } from 'react';
 import { useProduct } from './useProducts';
 import { useCart } from './useCart';
@@ -23,7 +25,7 @@ const defaultOptionValues = (product) => {
 
 export const useProductDetail = (id) => {
   const { product, products: catalog, isLoading } = useProduct(id);
-  const { addItem } = useCart();
+  const { addItem, limitOf } = useCart();
   const auth = useAuth();
 
   const [qty, setQty] = useState(1);
@@ -46,6 +48,15 @@ export const useProductDetail = (id) => {
     return () => clearTimeout(timer);
   }, [added]);
 
+  const limit = product ? limitOf(product) : null;
+  const remaining = limit ? limit.remaining : 0;
+
+  // Si lo que cabe baja (se agregó a la canasta, cambió el producto), la
+  // cantidad elegida se recorta — nunca por debajo de 1.
+  useEffect(() => {
+    setQty((q) => Math.min(q, Math.max(1, remaining)));
+  }, [remaining]);
+
   const optionGroups = product?.options || [];
   // Todas las imágenes; si el producto solo trae una miniatura se usa esa.
   const images = product?.images?.length ? product.images : product?.image ? [product.image] : [];
@@ -55,8 +66,8 @@ export const useProductDetail = (id) => {
   };
 
   const addToCart = () => {
-    if (!product) return;
-    addItem(product, qty, selectedOptions);
+    if (!product || remaining === 0) return;
+    addItem(product, Math.min(qty, remaining), selectedOptions);
     setAdded(true);
   };
 
@@ -112,7 +123,9 @@ export const useProductDetail = (id) => {
     selectedOptions,
     setOption,
     qty,
-    setQty: (n) => setQty(Math.max(1, n)),
+    setQty: (n) => setQty(Math.max(1, Math.min(n, remaining))),
+    limit,
+    remaining,
     addToCart,
     added,
     isFavorite,

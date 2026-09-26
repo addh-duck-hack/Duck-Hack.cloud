@@ -108,6 +108,11 @@ export const FALLBACK_PRODUCTS = [
 ];
 
 const normalizeApiProduct = (p) => {
+  // Tope de compra que calcula el backend (GET /api/products/public):
+  // maxQty = min(existencias, purchaseLimit). Sin esos campos (backend
+  // anterior) quedan undefined y useCart aplica el tope por default.
+  const purchaseLimit = Number(p.purchaseLimit) > 0 ? Number(p.purchaseLimit) : undefined;
+  const maxQty = Number.isFinite(Number(p.maxQty)) && p.maxQty !== null ? Number(p.maxQty) : undefined;
   // images[] completo para la galería de ProductDetail.jsx; `image` (la
   // primera) se conserva para todo lo que solo necesita una miniatura
   // (Shop.jsx, líneas del carrito).
@@ -129,6 +134,8 @@ const normalizeApiProduct = (p) => {
           .map((a) => ({ name: String(a?.name || '').trim(), value: String(a?.value || '').trim() }))
           .filter((a) => a.name && a.value)
       : [],
+    maxQty,
+    purchaseLimit,
     meta: p.meta,
     origin: p.origin,
     roast: p.roast,

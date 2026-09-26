@@ -16,6 +16,7 @@ import { savingOf } from '../utils/price';
 import StoreImage from '../components/StoreImage';
 import RichText from '../components/RichText';
 import ProductCard from '../components/ProductCard';
+import QtyLimitNote from '../components/QtyLimitNote';
 import './ProductDetail.css';
 
 const TRUST_BADGES = [
@@ -64,6 +65,11 @@ const ProductDetail = () => {
   const hasDescription = Boolean(summary);
   const hasSpecs = attributes.length > 0;
   const mainImage = images[activeImage] || images[0];
+  // Aviso de tope: pocas existencias se anuncian siempre; el tope por pedido
+  // (mayoreo) solo cuando la cantidad ya no puede subir.
+  const { limit, remaining } = detail;
+  const atLimit = detail.qty >= remaining;
+  const showLimit = limit.reason === 'stock' || atLimit;
 
   // Envío gratis: mientras el producto no está en la canasta se proyecta con
   // la cantidad elegida; ya agregado, se muestra el estado real de la canasta
@@ -163,7 +169,7 @@ const ProductDetail = () => {
                 <i className="fas fa-minus" aria-hidden="true" />
               </button>
               <span aria-live="polite">{detail.qty}</span>
-              <button type="button" aria-label="Agregar uno" onClick={() => detail.setQty(detail.qty + 1)}>
+              <button type="button" aria-label="Agregar uno" onClick={() => detail.setQty(detail.qty + 1)} disabled={atLimit}>
                 <i className="fas fa-plus" aria-hidden="true" />
               </button>
             </div>
@@ -171,6 +177,7 @@ const ProductDetail = () => {
             <button
               type="button"
               className={`pd-btn pd-add${detail.added ? ' is-added' : ''}`}
+              disabled={remaining === 0 && !detail.added}
               onClick={() => {
                 detail.addToCart();
                 openCart();
@@ -180,6 +187,8 @@ const ProductDetail = () => {
                 <>
                   <i className="fas fa-check" aria-hidden="true" /> Agregado
                 </>
+              ) : remaining === 0 ? (
+                'Ya tienes el máximo'
               ) : (
                 'Agregar a la canasta'
               )}
@@ -196,6 +205,8 @@ const ProductDetail = () => {
               <i className={`${detail.isFavorite ? 'fa-solid' : 'fa-regular'} fa-heart`} aria-hidden="true" />
             </button>
           </div>
+
+          {showLimit ? <QtyLimitNote limit={limit} className="pd-limit" /> : null}
 
           <p className="pd-after-add" aria-live="polite">
             {detail.added ? (

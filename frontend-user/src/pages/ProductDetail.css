@@ -291,6 +291,17 @@
   border-color: var(--color-accent);
 }
 
+.pd-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+  filter: none;
+}
+
+.pd-limit {
+  margin-top: 12px;
+  font-size: 0.9rem;
+}
+
 .pd-after-add {
   min-height: 1.5em;
   margin: 10px 0 0;

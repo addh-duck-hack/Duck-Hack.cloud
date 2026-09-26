@@ -12,6 +12,10 @@ import { getAuthHeader } from './useAuth';
 const STORAGE_KEY = 'tacita.cart.v1';
 const FREE_SHIPPING_FROM = 600;
 const FLAT_SHIPPING = 99;
+// Tope de unidades por producto si el catálogo no trae el suyo (backend
+// anterior o catálogo de muestra). El real viene de
+// packages/core-api/lib/purchaseLimits.js vía GET /api/products/public.
+const DEFAULT_PURCHASE_LIMIT = 10;
 
 const CartContext = createContext(null);
 
@@ -39,6 +43,22 @@ const compareAtOf = (product) => {
   const compare = Number(product?.compareAtPrice);
   return compare > Number(product?.price) ? compare : undefined;
 };
+
+// Límites de compra de un producto o de una línea de la canasta:
+// `purchaseLimit` = tope por pedido (más que eso es mayoreo, por contacto) y
+// `maxQty` = min(existencias, purchaseLimit), ambos calculados por el backend.
+export const purchaseLimitOf = (item) => Number(item?.purchaseLimit) || DEFAULT_PURCHASE_LIMIT;
+export const maxQtyOf = (item) => {
+  const max = Number(item?.maxQty);
+  return item?.maxQty != null && Number.isFinite(max) ? Math.max(0, Math.min(max, purchaseLimitOf(item))) : purchaseLimitOf(item);
+};
+
+// Unidades de un producto en la canasta, sumando todas sus líneas (el mismo
+// café en dos presentaciones cuenta junto, igual que en el backend).
+const unitsIn = (lines, productId, exceptKey) =>
+  lines
+    .filter((l) => String(l.id) === String(productId) && l.key !== exceptKey)
+    .reduce((sum, l) => sum + l.qty, 0);
 
 // Ahorro de una línea de la canasta (precio anterior − actual) × cantidad.
 export const lineSavingOf = (line) =>
@@ -70,14 +90,29 @@ export const CartProvider = ({ children }) => {
     }
   }, [lines]);
 
+  // Nunca deja pasar del tope del producto (maxQtyOf) sumando sus líneas:
+  // lo que no cabe simplemente no se agrega.
   const addItem = useCallback((product, qty = 1, options = {}) => {
     const key = lineKey(product.id, options);
     setLines((prev) => {
+      const room = Math.max(0, maxQtyOf(product) - unitsIn(prev, product.id));
+      const toAdd = Math.min(qty, room);
+      if (toAdd <= 0) return prev;
       const existing = prev.find((l) => l.key === key);
       if (existing) {
-        // Se refresca el precio anterior por si la línea venía de antes de
-        // guardarlo (o cambió el descuento).
-        return prev.map((l) => (l.key === key ? { ...l, qty: l.qty + qty, compareAtPrice: compareAtOf(product) } : l));
+        // Se refrescan el precio anterior y los topes por si la línea venía
+        // de antes de guardarlos (o cambiaron el descuento o el inventario).
+        return prev.map((l) =>
+          l.key === key
+            ? {
+                ...l,
+                qty: l.qty + toAdd,
+                compareAtPrice: compareAtOf(product),
+                maxQty: product.maxQty,
+                purchaseLimit: product.purchaseLimit,
+              }
+            : l
+        );
       }
       return [
         ...prev,
@@ -90,8 +125,10 @@ export const CartProvider = ({ children }) => {
           image: product.image || '',
           price: Number(product.price),
           compareAtPrice: compareAtOf(product),
+          maxQty: product.maxQty,
+          purchaseLimit: product.purchaseLimit,
           options,
-          qty,
+          qty: toAdd,
         },
       ];
     });
@@ -100,10 +137,33 @@ export const CartProvider = ({ children }) => {
   const setQty = useCallback((key, qty) => {
     setLines((prev) =>
       prev
-        .map((l) => (l.key === key ? { ...l, qty: Math.max(0, qty) } : l))
+        .map((l) =>
+          l.key === key
+            ? { ...l, qty: Math.max(0, Math.min(qty, maxQtyOf(l) - unitsIn(prev, l.id, l.key))) }
+            : l
+        )
         .filter((l) => l.qty > 0)
     );
   }, []);
+
+  // Cuánto más se puede agregar de un producto (o línea) y por qué se topa:
+  // `reason` es 'stock' si lo limita el inventario y 'wholesale' si llegó al
+  // tope por pedido (la UI ofrece contacto como cliente mayorista).
+  const limitOf = useCallback(
+    (item) => {
+      const max = maxQtyOf(item);
+      const purchaseLimit = purchaseLimitOf(item);
+      const units = unitsIn(lines, item.id);
+      return {
+        max,
+        purchaseLimit,
+        units,
+        remaining: Math.max(0, max - units),
+        reason: max < purchaseLimit ? 'stock' : 'wholesale',
+      };
+    },
+    [lines]
+  );
 
   const removeItem = useCallback((key) => {
     setLines((prev) => prev.filter((l) => l.key !== key));
@@ -197,12 +257,13 @@ export const CartProvider = ({ children }) => {
       clear,
       qtyOf,
       setProductQty,
+      limitOf,
       submitOrder,
       isCartOpen,
       openCart,
       closeCart,
     };
-  }, [lines, addItem, setQty, removeItem, clear, qtyOf, setProductQty, submitOrder, isCartOpen, openCart, closeCart]);
+  }, [lines, addItem, setQty, removeItem, clear, qtyOf, setProductQty, limitOf, submitOrder, isCartOpen, openCart, closeCart]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };

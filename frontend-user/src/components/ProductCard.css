@@ -200,11 +200,21 @@
   background-color: color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
 
+.product-card-stepper button:disabled {
+  opacity: 0.35;
+  cursor: default;
+  background: none;
+}
+
 .product-card-stepper span {
   min-width: 28px;
   text-align: center;
   font-weight: 700;
   color: var(--color-text);
+}
+
+.product-card-limit {
+  margin-top: 10px;
 }
 
 .product-card a:focus-visible,

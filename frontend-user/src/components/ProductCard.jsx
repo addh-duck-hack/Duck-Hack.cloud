@@ -3,7 +3,8 @@
 // Tarjeta de producto de la tienda (reutilizable en otras listas): imagen
 // cuadrada (con cruce a la segunda imagen al pasar el mouse), "Ahorra $X" si
 // hay descuento, nombre, línea de atributos, precio y botón "Agregar" que se
-// vuelve selector − n + cuando el producto ya está en la canasta.
+// vuelve selector − n + cuando el producto ya está en la canasta. El + se
+// detiene en el tope de compra (useCart().limitOf) y abajo aparece el aviso.
 //
 // Atributos: los primeros CARD_ATTRIBUTES de Product.attributes (el orden del
 // admin decide cuáles), cada uno "NOMBRE valor" en una línea. Sin atributos,
@@ -14,12 +15,13 @@ import { useCart, formatMxn } from '../hooks/useCart';
 import { htmlToText } from '../utils/htmlExcerpt';
 import { savingOf } from '../utils/price';
 import StoreImage from './StoreImage';
+import QtyLimitNote from './QtyLimitNote';
 import './ProductCard.css';
 
 const CARD_ATTRIBUTES = 2;
 
 const ProductCard = ({ product }) => {
-  const { qtyOf, setProductQty, openCart } = useCart();
+  const { qtyOf, setProductQty, openCart, limitOf } = useCart();
   const href = `/tienda/${product.id}`;
   const saving = savingOf(product);
   const attributes = (product.attributes || []).slice(0, CARD_ATTRIBUTES);
@@ -29,6 +31,8 @@ const ProductCard = ({ product }) => {
   // se eligen en la ficha, no se agregan "a ciegas" desde la tarjeta.
   const needsOptions = (product.options || []).length > 0;
   const qty = needsOptions ? 0 : qtyOf(product.id);
+  const limit = limitOf(product);
+  const atLimit = qty > 0 && limit.remaining === 0;
 
   return (
     <article className="product-card">
@@ -71,7 +75,12 @@ const ProductCard = ({ product }) => {
                 <i className="fas fa-minus" aria-hidden="true" />
               </button>
               <span aria-live="polite">{qty}</span>
-              <button type="button" aria-label="Agregar uno" onClick={() => setProductQty(product, qty + 1)}>
+              <button
+                type="button"
+                aria-label={atLimit ? 'Llegaste al máximo' : 'Agregar uno'}
+                onClick={() => setProductQty(product, qty + 1)}
+                disabled={atLimit}
+              >
                 <i className="fas fa-plus" aria-hidden="true" />
               </button>
             </div>
@@ -88,6 +97,7 @@ const ProductCard = ({ product }) => {
             </button>
           )}
         </div>
+        {atLimit ? <QtyLimitNote limit={limit} className="product-card-limit" /> : null}
       </div>
     </article>
   );
