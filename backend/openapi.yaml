@@ -1645,7 +1645,8 @@ paths:
         Sin autenticación. Solo productos con `isActive: true` Y con inventario
         cargado con quantity > 0 — un producto sin registro de inventario se
         considera sin existencias, no se muestra. Filtro opcional `?category=`.
-        Consumido por frontend-user para la tienda pública.
+        Consumido por frontend-user para la tienda pública. Cada producto trae
+        `maxQty`/`purchaseLimit` (ver PublicProduct).
       parameters:
         - in: query
           name: category
@@ -1662,7 +1663,7 @@ paths:
                   items:
                     type: array
                     items:
-                      $ref: "#/components/schemas/Product"
+                      $ref: "#/components/schemas/PublicProduct"
         "500":
           $ref: "#/components/responses/InternalServerError"
 
@@ -1682,7 +1683,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Product"
+                $ref: "#/components/schemas/PublicProduct"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
@@ -2054,7 +2055,12 @@ paths:
         pago/entrega a mano según `paymentMethod`. Los precios se recalculan
         server-side desde el catálogo (nunca del payload) y solo se aceptan
         productos con `isActive: true` — `400 PRODUCT_UNAVAILABLE` si alguno
-        no lo está. Envía correo de confirmación al cliente y aviso a la
+        no lo está. Por producto (sumando sus renglones) no se aceptan más
+        unidades que `StoreConfig.maxUnitsPerProduct` — `400
+        PURCHASE_LIMIT_EXCEEDED`, arriba de eso es venta de mayoreo por
+        contacto; vacío o 0 = sin tope — ni más de las que hay en inventario —
+        `409 INSUFFICIENT_STOCK`. El inventario solo se consulta; se descuenta
+        al confirmar el pedido. Envía correo de confirmación al cliente y aviso a la
         tienda (best-effort; un fallo de correo no impide crear el pedido).
       security:
         - bearerAuth: []
@@ -2078,13 +2084,22 @@ paths:
                   order:
                     $ref: "#/components/schemas/Order"
         "400":
-          description: Validación fallida, o producto inexistente/no disponible
+          description: >-
+            Validación fallida, producto no disponible (PRODUCT_UNAVAILABLE) o
+            más unidades de un producto que StoreConfig.maxUnitsPerProduct
+            (PURCHASE_LIMIT_EXCEEDED)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Alguno de los productos referenciados no existe
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Se piden más unidades de las que hay en inventario (INSUFFICIENT_STOCK)
           content:
             application/json:
               schema:
@@ -3508,6 +3523,28 @@ components:
           format: date-time
       required: [_id, name, sku, price]
 
+    PublicProduct:
+      description: Producto tal como lo expone el catálogo público del storefront.
+      allOf:
+        - $ref: "#/components/schemas/Product"
+        - type: object
+          properties:
+            purchaseLimit:
+              type: integer
+              nullable: true
+              example: 10
+              description: >-
+                Tope de unidades por pedido en el checkout público
+                (StoreConfig.maxUnitsPerProduct); null = sin tope.
+            maxQty:
+              type: integer
+              minimum: 1
+              description: >-
+                min(existencias, purchaseLimit) — lo máximo que se puede
+                agregar. Sin tope son las existencias; con tope, arriba de él
+                el inventario real no se expone.
+          required: [purchaseLimit, maxQty]
+
     ProductCreateRequest:
       type: object
       properties:
@@ -4088,6 +4125,16 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Testimonial"
+        maxUnitsPerProduct:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 9999
+          example: 10
+          description: >-
+            Tope de piezas de un mismo producto por pedido en el storefront
+            (POST /api/orders/public). null, vacío o 0 = sin tope; solo limita
+            el inventario.
         isActive:
           type: boolean
       required: [storeName, storeSlug]
