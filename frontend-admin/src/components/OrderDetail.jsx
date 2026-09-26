@@ -3,7 +3,7 @@ import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatCalendarDate } from "../utils/formatCalendarDate";
-import { ORDER_STATUSES, ORDER_STATUS_LABELS, PAYMENT_METHOD_LABELS } from "../utils/orderStatusLabels";
+import { ORDER_STATUSES, ORDER_STATUS_LABELS, paymentLabelOf, deliveryLabelOf } from "../utils/orderStatusLabels";
 
 const formatMxn = (value) => Number(value || 0).toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 const formatDate = (value) => formatCalendarDate(value) || "—";
@@ -96,7 +96,19 @@ const OrderDetail = () => {
             "Invitado"
           )}
         </p>
-        <p>Pago: {PAYMENT_METHOD_LABELS[order.paymentMethod] || order.paymentMethod || "—"}</p>
+        <p>Entrega: {deliveryLabelOf(order)}</p>
+        {order.deliveryMethod === "pickup" && order.pickupPoint?.name ? (
+          <p style={{ marginTop: 0, paddingLeft: "1rem" }}>
+            {order.pickupPoint.address}
+            {order.pickupPoint.schedule ? (
+              <>
+                <br />
+                Horario: {order.pickupPoint.schedule}
+              </>
+            ) : null}
+          </p>
+        ) : null}
+        <p>Pago: {paymentLabelOf(order)}</p>
         {order.shippingAddress ? (
           <div>
             <p style={{ marginBottom: "0.25rem" }}>Dirección de envío:</p>

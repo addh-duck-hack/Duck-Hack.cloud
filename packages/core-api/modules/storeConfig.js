@@ -18,8 +18,10 @@ const {
   handleMongooseError,
   asTrimmedString,
   asFiniteNumber,
+  isValidObjectId,
   getOrCreateModel,
 } = require("../lib/moduleHelpers");
+const { PAYMENT_METHOD_TYPES, publicCheckoutOptions } = require("../lib/checkoutOptions");
 
 const HEX_COLOR_REGEX = /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/;
 const SLUG_REGEX = /^[a-z0-9-]+$/;
@@ -251,6 +253,35 @@ const shippingSchema = new mongoose.Schema(
   { _id: false }
 );
 
+// Puntos de venta donde el cliente puede recoger su pedido (checkout, paso
+// "Entrega"). lat/lng son opcionales, para pintarlos en un mapa más adelante.
+// Con _id: el pedido referencia el punto elegido por id (y guarda una copia,
+// ver lib/checkoutOptions.js#resolveCheckout).
+const pickupPointSchema = new mongoose.Schema({
+  name: { type: String, required: true, trim: true, maxlength: 120 },
+  address: { type: String, trim: true, maxlength: 400 },
+  schedule: { type: String, trim: true, maxlength: 200 },
+  instructions: { type: String, trim: true, maxlength: 500 },
+  lat: { type: Number, min: -90, max: 90, default: null },
+  lng: { type: Number, min: -180, max: 180, default: null },
+  sortOrder: { type: Number, default: 0, min: 0 },
+  isActive: { type: Boolean, default: true },
+});
+
+// Métodos de pago del checkout (paso "Pago"). `type` decide cómo se cobra
+// (ver lib/checkoutOptions.js): "spei" usa speiPayment, "manual" solo las
+// instrucciones. forShipping / forPickup: con qué forma de entrega se ofrece.
+const paymentMethodSchema = new mongoose.Schema({
+  type: { type: String, enum: PAYMENT_METHOD_TYPES, default: "manual" },
+  label: { type: String, required: true, trim: true, maxlength: 80 },
+  description: { type: String, trim: true, maxlength: 200 },
+  instructions: { type: String, trim: true, maxlength: 1000 },
+  forShipping: { type: Boolean, default: true },
+  forPickup: { type: Boolean, default: true },
+  sortOrder: { type: Number, default: 0, min: 0 },
+  isActive: { type: Boolean, default: true },
+});
+
 const storeConfigSchema = new mongoose.Schema(
   {
     // Garantiza configuración única por instancia (single-tenant por despliegue).
@@ -277,6 +308,9 @@ const storeConfigSchema = new mongoose.Schema(
     // lib/purchaseLimits.js). null o 0 = sin tope (solo limita el inventario).
     maxUnitsPerProduct: { type: Number, min: 0, max: 9999, default: null },
     shipping: { type: shippingSchema, default: () => ({}) },
+    homeDeliveryEnabled: { type: Boolean, default: true },
+    pickupPoints: { type: [pickupPointSchema], default: [] },
+    paymentMethods: { type: [paymentMethodSchema], default: [] },
     heroSlides: { type: [heroSlideSchema], default: [] },
     metrics: { type: [metricSchema], default: [] },
     commands: { type: [commandSchema], default: [] },
@@ -520,6 +554,80 @@ const validateTeamMemberItem = (item, index) => {
   return null;
 };
 
+// Texto opcional recortado con tope; devuelve el mensaje de error o null.
+const trimOptional = (item, field, max, path) => {
+  if (item[field] === undefined || item[field] === null) return null;
+  const value = asTrimmedString(item[field]);
+  if (value.length > max) return `${path}.${field} excede ${max} caracteres.`;
+  item[field] = value;
+  return null;
+};
+
+// _id de un elemento existente (se conserva para que los pedidos lo sigan
+// encontrando); uno nuevo llega sin _id y Mongoose le asigna uno.
+const checkItemId = (item, path) => {
+  if (item._id === undefined || item._id === null || item._id === "") {
+    delete item._id;
+    return null;
+  }
+  return isValidObjectId(item._id) ? null : `${path}._id no es válido.`;
+};
+
+const validateSortAndActive = (item, path) => {
+  if (item.sortOrder !== undefined && (!Number.isInteger(item.sortOrder) || item.sortOrder < 0)) {
+    return `${path}.sortOrder debe ser entero >= 0.`;
+  }
+  if (item.isActive !== undefined && typeof item.isActive !== "boolean") return `${path}.isActive debe ser boolean.`;
+  return null;
+};
+
+const validatePickupPointItem = (item, index) => {
+  const path = `pickupPoints[${index}]`;
+  if (!isPlainObject(item)) return `${path} debe ser un objeto.`;
+  const idError = checkItemId(item, path);
+  if (idError) return idError;
+  const name = asTrimmedString(item.name);
+  if (!name || name.length > 120) return `${path}.name es requerido (máx. 120 caracteres).`;
+  item.name = name;
+  const textError =
+    trimOptional(item, "address", 400, path) ||
+    trimOptional(item, "schedule", 200, path) ||
+    trimOptional(item, "instructions", 500, path);
+  if (textError) return textError;
+  for (const [field, limit] of [["lat", 90], ["lng", 180]]) {
+    if (item[field] === undefined || item[field] === null || item[field] === "") {
+      item[field] = null;
+      continue;
+    }
+    const num = asFiniteNumber(item[field]);
+    if (num === null || num < -limit || num > limit) return `${path}.${field} debe ser un número entre -${limit} y ${limit}.`;
+    item[field] = num;
+  }
+  return validateSortAndActive(item, path);
+};
+
+const validatePaymentMethodItem = (item, index) => {
+  const path = `paymentMethods[${index}]`;
+  if (!isPlainObject(item)) return `${path} debe ser un objeto.`;
+  const idError = checkItemId(item, path);
+  if (idError) return idError;
+  const label = asTrimmedString(item.label);
+  if (!label || label.length > 80) return `${path}.label es requerido (máx. 80 caracteres).`;
+  item.label = label;
+  const type = item.type === undefined ? "manual" : asTrimmedString(item.type);
+  if (!PAYMENT_METHOD_TYPES.includes(type)) return `${path}.type debe ser uno de: ${PAYMENT_METHOD_TYPES.join(", ")}.`;
+  item.type = type;
+  const textError = trimOptional(item, "description", 200, path) || trimOptional(item, "instructions", 1000, path);
+  if (textError) return textError;
+  for (const field of ["forShipping", "forPickup"]) {
+    if (item[field] !== undefined && typeof item[field] !== "boolean") return `${path}.${field} debe ser boolean.`;
+  }
+  if (item.forShipping === false && item.forPickup === false) {
+    return `${path} debe aplicar al menos a envío a domicilio o a recoger en punto de venta.`;
+  }
+  return validateSortAndActive(item, path);
+};
+
 const validateTestimonialItem = (item, index) => {
   if (!isPlainObject(item)) return `testimonials[${index}] debe ser un objeto.`;
   const name = asTrimmedString(item.name);
@@ -737,9 +845,15 @@ const validateStoreConfigPayload = (sendError) => (req, res, next) => {
     validateStoreConfigArrayField(payload, "commonPlanChecks", validateStringListItem) ||
     validateStoreConfigArrayField(payload, "faqs", validateFaqItem) ||
     validateStoreConfigArrayField(payload, "teamMembers", validateTeamMemberItem) ||
-    validateStoreConfigArrayField(payload, "testimonials", validateTestimonialItem);
+    validateStoreConfigArrayField(payload, "testimonials", validateTestimonialItem) ||
+    validateStoreConfigArrayField(payload, "pickupPoints", validatePickupPointItem) ||
+    validateStoreConfigArrayField(payload, "paymentMethods", validatePaymentMethodItem);
   if (arrayFieldError) {
     return sendError(res, 400, "VALIDATION_ERROR", arrayFieldError);
+  }
+
+  if (payload.homeDeliveryEnabled !== undefined && typeof payload.homeDeliveryEnabled !== "boolean") {
+    return sendError(res, 400, "VALIDATION_ERROR", "homeDeliveryEnabled debe ser boolean.");
   }
 
   return next();
@@ -792,6 +906,9 @@ function registerRoutes(app, ctx) {
       // diferencia de legalIdentity. Se envían al comprador por correo desde
       // el servidor (ver modules/orders.js), no vía este endpoint.
       delete config.speiPayment;
+      // Entrega y pago: solo lo activo (y los métodos por default si la
+      // tienda no ha configurado ninguno), con la forma que usa el checkout.
+      Object.assign(config, publicCheckoutOptions(config));
       return res.status(200).json(sanitizeDoc(config));
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al consultar configuración de tienda.");
@@ -814,7 +931,8 @@ function registerRoutes(app, ctx) {
     try {
       const allowedFields = [
         "storeName", "storeSlug", "contactEmail", "contactPhone", "logoUrl", "theme", "homeBlocks",
-        "isActive", "socialLinks", "legalIdentity", "speiPayment", "maxUnitsPerProduct", "shipping", "heroSlides", "metrics", "commands", "services",
+        "isActive", "socialLinks", "legalIdentity", "speiPayment", "maxUnitsPerProduct", "shipping", "homeDeliveryEnabled", "pickupPoints",
+        "paymentMethods", "heroSlides", "metrics", "commands", "services",
         "pricingPlans", "commonPlanChecks", "faqs", "teamMembers", "testimonials",
       ];
 
