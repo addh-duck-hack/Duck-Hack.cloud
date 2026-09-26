@@ -1,9 +1,44 @@
 /* src/pages/Shop.css — ver Shop.jsx. */
 
+/* ---- Imagen de cabecera ---- */
+/* A todo lo ancho, detrás de la barra flotante; se funde con el fondo de la
+   página hacia abajo, justo donde empieza el encabezado. */
+.shop-banner {
+  position: relative;
+  height: clamp(320px, 52vh, 560px);
+  overflow: hidden;
+}
+
+.shop-banner img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 60%;
+}
+
+.shop-banner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.25) 0%,
+    rgba(0, 0, 0, 0) 28%,
+    color-mix(in srgb, var(--color-bg) 0%, transparent) 45%,
+    color-mix(in srgb, var(--color-bg) 70%, transparent) 78%,
+    var(--color-bg) 100%
+  );
+  pointer-events: none;
+}
+
 .shop {
+  position: relative;
   width: var(--topbar-floating-width);
-  margin: 0 auto;
-  padding: 72px 0 96px;
+  /* El encabezado sube sobre el final del degradado para que la imagen
+     "termine" en el texto. */
+  margin: -96px auto 0;
+  padding: 0 0 96px;
 }
 
 /* ---- Encabezado ---- */
@@ -116,8 +151,13 @@
 }
 
 @media (max-width: 600px) {
+  .shop-banner {
+    height: 260px;
+  }
+
   .shop {
-    padding: 48px 0 64px;
+    margin-top: -56px;
+    padding: 0 0 64px;
   }
 
   /* Pastillas en una sola fila deslizable en lugar de varios renglones. */
