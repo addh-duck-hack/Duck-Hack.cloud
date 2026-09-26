@@ -9,6 +9,7 @@ import { useAuth } from './useAuth';
 import { apiFetch } from '../utils/apiClient';
 
 const ADDED_FEEDBACK_MS = 1600;
+const HIGHLIGHT_COUNT = 2;
 
 // Selección por default: el primer valor de cada grupo de opciones del
 // producto (ver useProducts.js — options: [{ name, values }]).
@@ -21,7 +22,7 @@ const defaultOptionValues = (product) => {
 };
 
 export const useProductDetail = (id) => {
-  const { product, isLoading } = useProduct(id);
+  const { product, products: catalog, isLoading } = useProduct(id);
   const { addItem } = useCart();
   const auth = useAuth();
 
@@ -95,18 +96,14 @@ export const useProductDetail = (id) => {
     return true;
   };
 
-  // Filas de ficha técnica; se omiten las vacías.
-  const specs = product
-    ? [
-        ['Presentación', product.meta],
-        ['Origen', product.origin],
-        ['Tueste', product.roast],
-        ['SKU', product.sku],
-      ].filter(([, v]) => v)
-    : [];
+  // Atributos del admin (Product.attributes) para la ficha completa, y los
+  // primeros para destacar junto al nombre (el orden del admin decide cuáles).
+  const attributes = product?.attributes || [];
+  const highlights = attributes.slice(0, HIGHLIGHT_COUNT);
 
   return {
     product,
+    catalog,
     isLoading,
     images,
     activeImage,
@@ -122,6 +119,7 @@ export const useProductDetail = (id) => {
     toggleFavorite,
     isTogglingFavorite,
     favoriteError,
-    specs,
+    attributes,
+    highlights,
   };
 };

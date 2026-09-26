@@ -194,8 +194,25 @@ export const useRandomProducts = (count = 4, excludeId = null) => {
   return { products: picks, isLoading };
 };
 
+// Relacionados de un producto: primero de su misma categoría (sin él mismo) y,
+// si no alcanzan, se completa al azar con otros. Recibe el catálogo ya cargado
+// (no vuelve a pedirlo) y sortea una vez por producto/catálogo para que no
+// "salten" al re-renderizar.
+export const useRelatedProducts = (products, product, count = 4) => {
+  const related = useMemo(() => {
+    if (!product) return [];
+    const others = products.filter((p) => String(p.id) !== String(product.id));
+    const sameCategory = pickRandom(others.filter((p) => p.category === product.category), count);
+    if (sameCategory.length >= count) return sameCategory;
+    const pickedIds = new Set(sameCategory.map((p) => String(p.id)));
+    const filler = pickRandom(others.filter((p) => !pickedIds.has(String(p.id))), count - sameCategory.length);
+    return [...sameCategory, ...filler];
+  }, [products, product, count]);
+  return related;
+};
+
 export const useProduct = (id) => {
   const { products, isLoading, isFallback } = useProducts();
   const product = useMemo(() => products.find((p) => String(p.id) === String(id)) || null, [products, id]);
-  return { product, isLoading, isFallback };
+  return { product, products, isLoading, isFallback };
 };
