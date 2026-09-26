@@ -19,7 +19,7 @@ import './ProductCard.css';
 const CARD_ATTRIBUTES = 2;
 
 const ProductCard = ({ product }) => {
-  const { qtyOf, setProductQty } = useCart();
+  const { qtyOf, setProductQty, openCart } = useCart();
   const href = `/tienda/${product.id}`;
   const saving = savingOf(product);
   const attributes = (product.attributes || []).slice(0, CARD_ATTRIBUTES);
@@ -76,7 +76,14 @@ const ProductCard = ({ product }) => {
               </button>
             </div>
           ) : (
-            <button type="button" className="product-card-add" onClick={() => setProductQty(product, 1)}>
+            <button
+              type="button"
+              className="product-card-add"
+              onClick={() => {
+                setProductQty(product, 1);
+                openCart();
+              }}
+            >
               Agregar
             </button>
           )}

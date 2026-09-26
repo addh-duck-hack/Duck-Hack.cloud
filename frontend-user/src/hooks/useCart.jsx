@@ -46,6 +46,11 @@ const readStored = () => {
 
 export const CartProvider = ({ children }) => {
   const [lines, setLines] = useState(readStored);
+  // Panel lateral de la canasta (CartDrawer): estado de UI compartido para que
+  // la barra, las tarjetas y la ficha lo abran.
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const openCart = useCallback(() => setIsCartOpen(true), []);
+  const closeCart = useCallback(() => setIsCartOpen(false), []);
 
   useEffect(() => {
     try {
@@ -175,8 +180,11 @@ export const CartProvider = ({ children }) => {
       qtyOf,
       setProductQty,
       submitOrder,
+      isCartOpen,
+      openCart,
+      closeCart,
     };
-  }, [lines, addItem, setQty, removeItem, clear, qtyOf, setProductQty, submitOrder]);
+  }, [lines, addItem, setQty, removeItem, clear, qtyOf, setProductQty, submitOrder, isCartOpen, openCart, closeCart]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };

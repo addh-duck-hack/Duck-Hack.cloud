@@ -18,7 +18,7 @@ import './TopBar.css';
 
 const TopBar = ({ mode }) => {
   const { config } = useStoreConfig();
-  const { count } = useCart();
+  const { count, openCart } = useCart();
   const { isAuthenticated } = useAuth();
   const { pathname } = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -60,14 +60,16 @@ const TopBar = ({ mode }) => {
             {account.label}
           </Link>
 
-          <Link
-            to="/carrito"
+          <button
+            type="button"
             className="topbar-cart"
-            aria-label={`Cesta, ${count} ${count === 1 ? 'producto' : 'productos'}`}
+            aria-label={`Abrir canasta, ${count} ${count === 1 ? 'producto' : 'productos'}`}
+            aria-haspopup="dialog"
+            onClick={openCart}
           >
             <i className="fas fa-basket-shopping" aria-hidden="true" />
             {count > 0 ? <span className="topbar-cart-badge">{count > 99 ? '99+' : count}</span> : null}
-          </Link>
+          </button>
 
           <button
             type="button"

@@ -29,7 +29,7 @@ const ProductDetail = () => {
   const navigate = useNavigate();
   const detail = useProductDetail(id);
   const { product, catalog, isLoading, images, activeImage, setActiveImage, highlights, attributes } = detail;
-  const { lines, subtotal, freeShippingFrom } = useCart();
+  const { lines, subtotal, freeShippingFrom, openCart } = useCart();
   const related = useRelatedProducts(catalog, product);
 
   const summary = htmlToText(product?.description);
@@ -168,7 +168,14 @@ const ProductDetail = () => {
               </button>
             </div>
 
-            <button type="button" className={`pd-btn pd-add${detail.added ? ' is-added' : ''}`} onClick={detail.addToCart}>
+            <button
+              type="button"
+              className={`pd-btn pd-add${detail.added ? ' is-added' : ''}`}
+              onClick={() => {
+                detail.addToCart();
+                openCart();
+              }}
+            >
               {detail.added ? (
                 <>
                   <i className="fas fa-check" aria-hidden="true" /> Agregado
