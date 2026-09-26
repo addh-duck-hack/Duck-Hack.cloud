@@ -196,6 +196,8 @@ const renderField = (field, item, onItemChange) => {
 
   // text | number | tel | email | url (default). `digitsOnly`: descarta todo
   // lo que no sea dígito mientras se escribe/pega y corta a `maxLength`.
+  // `step`/`min`/`max` pasan tal cual al input (p. ej. step "any" para
+  // coordenadas con decimales).
   const toValue = (raw) => {
     if (field.type === "number") return raw === "" ? null : Number(raw);
     if (field.digitsOnly) return raw.replace(/\D/g, "").slice(0, field.maxLength || undefined);
@@ -211,6 +213,9 @@ const renderField = (field, item, onItemChange) => {
         maxLength={field.maxLength}
         required={field.required}
         placeholder={field.placeholder}
+        step={field.step}
+        min={field.min}
+        max={field.max}
         inputMode={field.digitsOnly ? "numeric" : undefined}
         pattern={field.digitsOnly ? "[0-9]*" : undefined}
         onChange={(e) => onItemChange(field.name, toValue(e.target.value))}

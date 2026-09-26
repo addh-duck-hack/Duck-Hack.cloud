@@ -3734,10 +3734,28 @@ components:
           $ref: "#/components/schemas/ShippingAddress"
         notes:
           type: string
+        deliveryMethod:
+          type: string
+          enum: [shipping, pickup]
+          description: Envío a domicilio (con shippingAddress) o recoger en punto de venta (pickupPoint).
+        pickupPoint:
+          $ref: "#/components/schemas/PickupPointSnapshot"
         paymentMethod:
           type: string
-          enum: [transfer, pickup]
-          description: Sin pasarela — el pedido siempre entra "pending" y la tienda confirma el pago/entrega a mano.
+          description: >-
+            Id del método de StoreConfig.paymentMethods elegido. Pedidos
+            anteriores: "transfer" | "pickup". Sin pasarela — el pedido siempre
+            entra "pending" y la tienda confirma el pago a mano.
+        paymentMethodType:
+          type: string
+          enum: [spei, manual]
+          description: Copia del tipo del método al momento del pedido.
+        paymentMethodLabel:
+          type: string
+          description: Copia del nombre del método al momento del pedido.
+        paymentInstructions:
+          type: string
+          description: Copia de las instrucciones del método (tipo manual).
         orderNumber:
           type: integer
           readOnly: true
@@ -3781,11 +3799,14 @@ components:
     PublicCheckoutRequest:
       type: object
       description: >
-        Igual que OrderCreateRequest más `paymentMethod`. Un `customer` en
-        este body siempre se ignora — la única forma de vincular el pedido a
-        una cuenta es un header `Authorization: Bearer <token>` opcional (ver
-        el endpoint POST /api/orders/public). `shippingAddress` es
-        obligatorio cuando `paymentMethod` es "transfer".
+        Igual que OrderCreateRequest más la entrega y el pago elegidos. Un
+        `customer` en este body siempre se ignora — la única forma de vincular
+        el pedido a una cuenta es un header `Authorization: Bearer <token>`
+        opcional (ver el endpoint POST /api/orders/public). Se valida contra
+        StoreConfig (homeDeliveryEnabled, pickupPoints, paymentMethods):
+        `400 DELIVERY_METHOD_UNAVAILABLE`, `400 PICKUP_POINT_UNAVAILABLE`,
+        `400 PAYMENT_METHOD_UNAVAILABLE`. Compatibilidad: sin
+        `deliveryMethod`, `paymentMethod: pickup` significa recoger.
       properties:
         customerName:
           type: string
@@ -3805,14 +3826,25 @@ components:
                 type: integer
                 minimum: 1
             required: [product, quantity]
+        deliveryMethod:
+          type: string
+          enum: [shipping, pickup]
+          default: shipping
+        pickupPointId:
+          type: string
+          description: >-
+            Id de StoreConfig.pickupPoints; requerido con deliveryMethod pickup
+            si la tienda tiene puntos de venta activos.
         paymentMethod:
           type: string
-          enum: [transfer, pickup]
           default: transfer
+          description: >-
+            Id de un método activo de StoreConfig.paymentMethods que aplique a
+            la entrega elegida (los de GET /api/store-config/public).
         shippingAddress:
           allOf:
             - $ref: "#/components/schemas/ShippingAddress"
-          description: Todos los campos (menos interiorNumber) son requeridos si paymentMethod es "transfer".
+          description: Todos los campos (menos interiorNumber) son requeridos con deliveryMethod shipping.
         notes:
           type: string
       required: [customerName, customerEmail, items]
@@ -4159,6 +4191,25 @@ components:
               description: >-
                 Subtotal de productos (con descuentos) desde el que el envío
                 es gratis. null, vacío o 0 = nunca es gratis.
+        homeDeliveryEnabled:
+          type: boolean
+          default: true
+          description: Si el checkout ofrece envío a domicilio.
+        pickupPoints:
+          type: array
+          description: >-
+            Puntos de venta para recoger. En GET /api/store-config/public solo
+            vienen los activos.
+          items:
+            $ref: "#/components/schemas/PickupPoint"
+        paymentMethods:
+          type: array
+          description: >-
+            Métodos de pago del checkout. En GET /api/store-config/public solo
+            vienen los activos; si la tienda no ha configurado ninguno, vienen
+            los de default (ids "transfer" y "pickup").
+          items:
+            $ref: "#/components/schemas/PaymentMethod"
         maxUnitsPerProduct:
           type: integer
           nullable: true
@@ -4172,6 +4223,90 @@ components:
         isActive:
           type: boolean
       required: [storeName, storeSlug]
+
+    PickupPoint:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+          maxLength: 120
+        address:
+          type: string
+          maxLength: 400
+        schedule:
+          type: string
+          maxLength: 200
+        instructions:
+          type: string
+          maxLength: 500
+        lat:
+          type: number
+          nullable: true
+          minimum: -90
+          maximum: 90
+        lng:
+          type: number
+          nullable: true
+          minimum: -180
+          maximum: 180
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+      required: [name]
+
+    PickupPointSnapshot:
+      type: object
+      description: Copia del punto de venta elegido, tal como estaba al hacer el pedido.
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+        schedule:
+          type: string
+        instructions:
+          type: string
+        lat:
+          type: number
+          nullable: true
+        lng:
+          type: number
+          nullable: true
+
+    PaymentMethod:
+      type: object
+      properties:
+        _id:
+          type: string
+        type:
+          type: string
+          enum: [spei, manual]
+          description: >-
+            spei = manda los datos de speiPayment por correo; manual = solo las
+            instrucciones. Una pasarela se agregaría como un tipo nuevo.
+        label:
+          type: string
+          maxLength: 80
+        description:
+          type: string
+          maxLength: 200
+        instructions:
+          type: string
+          maxLength: 1000
+        forShipping:
+          type: boolean
+          default: true
+        forPickup:
+          type: boolean
+          default: true
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+      required: [label]
 
     StoreConfigUpdateRequest:
       description: Todos los campos son opcionales — solo se actualizan los presentes en el body.

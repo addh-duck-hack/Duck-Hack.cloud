@@ -3,7 +3,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatCalendarDate } from "../utils/formatCalendarDate";
-import { ORDER_STATUSES, ORDER_STATUS_LABELS, PAYMENT_METHOD_LABELS } from "../utils/orderStatusLabels";
+import { ORDER_STATUSES, ORDER_STATUS_LABELS, paymentLabelOf } from "../utils/orderStatusLabels";
 
 const formatMxn = (value) => Number(value || 0).toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 const formatDate = (value) => formatCalendarDate(value) || "—";
@@ -97,7 +97,7 @@ const OrderList = () => {
                   )}
                 </td>
                 <td>{order.items?.length || 0}</td>
-                <td>{PAYMENT_METHOD_LABELS[order.paymentMethod] || "—"}</td>
+                <td>{paymentLabelOf(order)}</td>
                 <td>{formatMxn(order.total)}</td>
                 <td>
                   <span className={`badge badge-${statusInfo.color}`}>{statusInfo.label}</span>
