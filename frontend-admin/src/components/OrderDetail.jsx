@@ -136,6 +136,9 @@ const OrderDetail = () => {
           ))}
         </tbody>
       </table>
+      {order.shippingCost > 0 ? (
+        <p style={{ marginTop: "0.75rem", marginBottom: 0 }}>Envío: {formatMxn(order.shippingCost)}</p>
+      ) : null}
       <p style={{ marginTop: "0.75rem" }}>
         <strong>Total: {formatMxn(order.total)}</strong>
       </p>

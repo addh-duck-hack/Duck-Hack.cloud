@@ -2060,7 +2060,10 @@ paths:
         PURCHASE_LIMIT_EXCEEDED`, arriba de eso es venta de mayoreo por
         contacto; vacío o 0 = sin tope — ni más de las que hay en inventario —
         `409 INSUFFICIENT_STOCK`. El inventario solo se consulta; se descuenta
-        al confirmar el pedido. Envía correo de confirmación al cliente y aviso a la
+        al confirmar el pedido. El envío (`shippingCost`) se calcula con
+        `StoreConfig.shipping`: se cobra `cost` salvo que la tienda no cobre
+        envío, que el subtotal de productos llegue a `freeFrom`, o que el
+        pedido sea `pickup`; se suma al `total`. Envía correo de confirmación al cliente y aviso a la
         tienda (best-effort; un fallo de correo no impide crear el pedido).
       security:
         - bearerAuth: []
@@ -3716,9 +3719,17 @@ components:
         status:
           type: string
           enum: [pending, confirmed, processing, shipped, delivered, cancelled]
+        shippingCost:
+          type: number
+          readOnly: true
+          description: >-
+            Envío cobrado, calculado server-side en POST /api/orders/public con
+            StoreConfig.shipping. 0 si la tienda no cobra envío, si se alcanzó
+            el envío gratis, en `pickup` y en ventas manuales de staff.
         total:
           type: number
           readOnly: true
+          description: Suma de items[].subtotal + shippingCost.
         shippingAddress:
           $ref: "#/components/schemas/ShippingAddress"
         notes:
@@ -4125,6 +4136,29 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Testimonial"
+        shipping:
+          type: object
+          description: >-
+            Envío del storefront. Se expone en GET /api/store-config/public para
+            que la canasta muestre lo mismo que cobra POST /api/orders/public.
+          properties:
+            enabled:
+              type: boolean
+              description: Si los productos cobran envío.
+            cost:
+              type: number
+              nullable: true
+              minimum: 0
+              example: 99
+              description: Costo de envío; requerido (> 0) si enabled es true.
+            freeFrom:
+              type: number
+              nullable: true
+              minimum: 0
+              example: 600
+              description: >-
+                Subtotal de productos (con descuentos) desde el que el envío
+                es gratis. null, vacío o 0 = nunca es gratis.
         maxUnitsPerProduct:
           type: integer
           nullable: true
