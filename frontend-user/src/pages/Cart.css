@@ -631,6 +631,13 @@
   text-align: right;
 }
 
+.co-summary-rows dd small {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.78rem;
+  color: var(--color-muted);
+}
+
 .co-summary-rows .co-summary-discount {
   color: var(--color-accent);
   font-weight: 600;

@@ -13,12 +13,13 @@ const CheckoutSummary = ({ co }) => {
   const { cart, step, shipping, total, deliveryMethod } = co;
   const { lines, count, subtotal, savings, regularSubtotal, shippingEnabled, freeShippingFrom } = cart;
 
-  // Envío: con la entrega elegida es exacto; antes, si la tienda no cobra
-  // envío (o ya se alcanzó el mínimo) es gratis, y si no, se calcula después.
-  let shippingText;
-  if (shipping !== null) shippingText = shipping === 0 ? 'Gratis' : formatMxn(shipping);
-  else if (cart.shipping === 0) shippingText = 'Gratis';
-  else shippingText = 'Se calcula en Entrega';
+  // Envío: con la entrega elegida, el de esa entrega; antes de elegir, el
+  // costo fijo del envío a domicilio (o gratis si la tienda solo entrega en
+  // punto de venta), ya sumado al total.
+  const estimatedShipping = shipping !== null ? shipping : co.options.homeDeliveryEnabled ? cart.shipping : 0;
+  const shownTotal = shipping !== null ? total : subtotal + estimatedShipping;
+  const shippingText = estimatedShipping === 0 ? 'Gratis' : formatMxn(estimatedShipping);
+  const showPickupHint = shipping === null && estimatedShipping > 0 && co.hasPickup;
 
   const showGoal = shippingEnabled && freeShippingFrom && deliveryMethod !== 'pickup';
   const missing = showGoal ? Math.max(0, freeShippingFrom - subtotal) : 0;
@@ -61,12 +62,15 @@ const CheckoutSummary = ({ co }) => {
           </div>
         ) : null}
         <div>
-          <dt>Envío</dt>
-          <dd>{shippingText}</dd>
+          <dt>{shipping === null && co.options.homeDeliveryEnabled ? 'Envío a domicilio' : 'Envío'}</dt>
+          <dd>
+            {shippingText}
+            {showPickupHint ? <small>Gratis si recoges en un punto de venta</small> : null}
+          </dd>
         </div>
         <div className="co-summary-total">
           <dt>Total</dt>
-          <dd>{formatMxn(total)}</dd>
+          <dd>{formatMxn(shownTotal)}</dd>
         </div>
       </dl>
 
