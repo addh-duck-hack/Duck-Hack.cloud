@@ -240,6 +240,17 @@ const storeThemeSchema = new mongoose.Schema(
   { _id: false }
 );
 
+// Envío del storefront (ver lib/shipping.js): si los productos cobran envío,
+// cuánto, y desde qué subtotal es gratis (null = nunca).
+const shippingSchema = new mongoose.Schema(
+  {
+    enabled: { type: Boolean, default: false },
+    cost: { type: Number, min: 0, max: 1000000, default: null },
+    freeFrom: { type: Number, min: 0, max: 1000000, default: null },
+  },
+  { _id: false }
+);
+
 const storeConfigSchema = new mongoose.Schema(
   {
     // Garantiza configuración única por instancia (single-tenant por despliegue).
@@ -265,6 +276,7 @@ const storeConfigSchema = new mongoose.Schema(
     // Tope de piezas de un mismo producto por pedido en el storefront (ver
     // lib/purchaseLimits.js). null o 0 = sin tope (solo limita el inventario).
     maxUnitsPerProduct: { type: Number, min: 0, max: 9999, default: null },
+    shipping: { type: shippingSchema, default: () => ({}) },
     heroSlides: { type: [heroSlideSchema], default: [] },
     metrics: { type: [metricSchema], default: [] },
     commands: { type: [commandSchema], default: [] },
@@ -672,6 +684,31 @@ const validateStoreConfigPayload = (sendError) => (req, res, next) => {
     }
   }
 
+  if (payload.shipping !== undefined) {
+    const shipping = payload.shipping;
+    if (typeof shipping !== "object" || shipping === null || Array.isArray(shipping)) {
+      return sendError(res, 400, "VALIDATION_ERROR", "shipping debe ser un objeto.");
+    }
+    // Montos opcionales: null o "" = sin valor; si no, número de 0 a 1,000,000.
+    const amount = (value, label) => {
+      if (value === undefined || value === null || (typeof value === "string" && value.trim() === "")) return { value: null };
+      const num = asFiniteNumber(value);
+      if (num === null || num < 0 || num > 1000000) {
+        return { error: `shipping.${label} debe ser un monto entre 0 y 1,000,000.` };
+      }
+      return { value: Math.round(num * 100) / 100 };
+    };
+    const cost = amount(shipping.cost, "cost");
+    if (cost.error) return sendError(res, 400, "VALIDATION_ERROR", cost.error);
+    const freeFrom = amount(shipping.freeFrom, "freeFrom");
+    if (freeFrom.error) return sendError(res, 400, "VALIDATION_ERROR", freeFrom.error);
+    const enabled = Boolean(shipping.enabled);
+    if (enabled && !(cost.value > 0)) {
+      return sendError(res, 400, "VALIDATION_ERROR", "shipping.cost es requerido (mayor a 0) cuando los productos cobran envío.");
+    }
+    req.body.shipping = { enabled, cost: cost.value, freeFrom: freeFrom.value };
+  }
+
   if (payload.speiPayment !== undefined) {
     if (typeof payload.speiPayment !== "object" || payload.speiPayment === null || Array.isArray(payload.speiPayment)) {
       return sendError(res, 400, "VALIDATION_ERROR", "speiPayment debe ser un objeto.");
@@ -777,7 +814,7 @@ function registerRoutes(app, ctx) {
     try {
       const allowedFields = [
         "storeName", "storeSlug", "contactEmail", "contactPhone", "logoUrl", "theme", "homeBlocks",
-        "isActive", "socialLinks", "legalIdentity", "speiPayment", "maxUnitsPerProduct", "heroSlides", "metrics", "commands", "services",
+        "isActive", "socialLinks", "legalIdentity", "speiPayment", "maxUnitsPerProduct", "shipping", "heroSlides", "metrics", "commands", "services",
         "pricingPlans", "commonPlanChecks", "faqs", "teamMembers", "testimonials",
       ];
 
