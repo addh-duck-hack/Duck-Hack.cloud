@@ -26,6 +26,7 @@ const {
 } = require("../lib/moduleHelpers");
 const { createRateLimiter } = require("../lib/rateLimit");
 const { getPurchaseLimit } = require("../lib/purchaseLimits");
+const { getShippingSettings, computeShippingCost } = require("../lib/shipping");
 const { sendMail } = require("../lib/mailer");
 const { verifyAccessToken } = require("../lib/jwt");
 const { extractBearerToken, ROLES: AUTH_ROLES } = require("../lib/authMiddleware");
@@ -119,8 +120,13 @@ const orderSchema = new mongoose.Schema(
       },
     },
     status: { type: String, enum: ORDER_STATUSES, default: "pending" },
-    // Calculado server-side = suma de items[].subtotal, nunca aceptado del
-    // cliente — mismo criterio que Invoice.amount (backend/routes/invoices.routes.js).
+    // Envío cobrado, calculado server-side en POST /public con
+    // StoreConfig.shipping (lib/shipping.js) — 0 si la tienda no cobra envío,
+    // si se alcanzó el envío gratis, en "pickup" y en ventas manuales de staff.
+    shippingCost: { type: Number, min: 0, default: 0 },
+    // Calculado server-side = suma de items[].subtotal + shippingCost, nunca
+    // aceptado del cliente — mismo criterio que Invoice.amount
+    // (backend/routes/invoices.routes.js).
     total: { type: Number, required: true, min: 0 },
     shippingAddress: { type: shippingAddressSchema },
     notes: { type: String, trim: true, maxlength: 1000 },
@@ -182,10 +188,11 @@ const validateCreatePayload = (sendError) => (req, res, next) => {
   }
   req.body.items = normalizedItems;
 
-  // status/total/productName/unitPrice/subtotal se calculan en el handler,
-  // nunca se aceptan del cliente.
+  // status/total/shippingCost/productName/unitPrice/subtotal se calculan en
+  // el handler, nunca se aceptan del cliente.
   delete req.body.status;
   delete req.body.total;
+  delete req.body.shippingCost;
 
   return next();
 };
@@ -203,9 +210,10 @@ const validateUpdatePayload = (sendError) => (req, res, next) => {
   if (payload.shippingAddress !== undefined) req.body.shippingAddress = normalizeShippingAddress(payload.shippingAddress);
   if (payload.notes !== undefined) req.body.notes = asTrimmedString(payload.notes);
 
-  // items/customer/total no se reabren después de creado — ver plan.
+  // items/customer/total/shippingCost no se reabren después de creado — ver plan.
   delete req.body.items;
   delete req.body.total;
+  delete req.body.shippingCost;
   delete req.body.customer;
   delete req.body.customerName;
   delete req.body.customerEmail;
@@ -509,11 +517,20 @@ function registerRoutes(app, ctx) {
           return sendError(res, quantityError.status, quantityError.code, quantityError.message);
         }
 
+        // El envío gratis se mide contra el subtotal de productos (ya con
+        // descuentos), igual que en la canasta del storefront.
+        const shippingCost = computeShippingCost(
+          await getShippingSettings(mongooseConnection),
+          built.total,
+          req.body.paymentMethod
+        );
+
         const orderNumber = await nextOrderNumber(Order);
         const order = new Order({
           ...req.body,
           items: built.items,
-          total: built.total,
+          shippingCost,
+          total: built.total + shippingCost,
           orderNumber,
           status: "pending",
           // Derivado del JWT verificado en attachOptionalCustomer, nunca de
