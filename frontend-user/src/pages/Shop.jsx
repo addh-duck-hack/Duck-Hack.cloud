@@ -26,7 +26,7 @@ const Shop = () => {
   );
 
   const { products, isLoading } = useProducts();
-  const { freeShippingFrom } = useCart();
+  const { shippingEnabled, freeShippingFrom } = useCart();
   const [searchParams, setSearchParams] = useSearchParams();
   const heroRef = useHeroRef();
 
@@ -55,10 +55,14 @@ const Shop = () => {
             Nuestra <em>tienda</em>
           </h1>
           <p className="shop-lead">Café de altura de Xicotepec, tostado artesanalmente y listo para tu taza.</p>
-          <p className="shop-shipping">
-            <i className="fa-solid fa-truck-fast" aria-hidden="true" />
-            Envío gratis a partir de {formatMxn(freeShippingFrom)}
-          </p>
+          {/* Según el envío que configura el admin: sin costo → siempre gratis;
+              con mínimo → desde cuánto; con costo y sin mínimo no se anuncia. */}
+          {!shippingEnabled || freeShippingFrom ? (
+            <p className="shop-shipping">
+              <i className="fa-solid fa-truck-fast" aria-hidden="true" />
+              {shippingEnabled ? `Envío gratis a partir de ${formatMxn(freeShippingFrom)}` : 'Envío gratis en todos tus pedidos'}
+            </p>
+          ) : null}
         </header>
 
         {!isLoading && chapters.length > 1 ? (

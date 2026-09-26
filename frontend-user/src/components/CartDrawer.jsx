@@ -96,6 +96,7 @@ const CartDrawer = () => {
     total,
     savings,
     regularSubtotal,
+    shippingEnabled,
     freeShippingFrom,
     setQty,
     removeItem,
@@ -140,8 +141,10 @@ const CartDrawer = () => {
     };
   }, [isCartOpen, closeCart]);
 
-  const missing = Math.max(0, freeShippingFrom - subtotal);
-  const progress = Math.min(100, Math.round((subtotal / freeShippingFrom) * 100));
+  // Meta de envío gratis: solo si la tienda cobra envío y tiene un mínimo.
+  const hasGoal = shippingEnabled && Boolean(freeShippingFrom);
+  const missing = hasGoal ? Math.max(0, freeShippingFrom - subtotal) : 0;
+  const progress = hasGoal ? Math.min(100, Math.round((subtotal / freeShippingFrom) * 100)) : 0;
 
   const goToCheckout = () => {
     closeCart();
@@ -163,7 +166,7 @@ const CartDrawer = () => {
         </header>
 
         <div className="cart-drawer-body">
-          {lines.length > 0 ? (
+          {lines.length > 0 && hasGoal ? (
             <div className="cart-drawer-goal">
               <p>
                 {missing > 0 ? (

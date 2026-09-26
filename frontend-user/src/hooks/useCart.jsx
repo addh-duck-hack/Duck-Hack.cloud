@@ -8,10 +8,26 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../utils/apiClient';
 import { getAuthHeader } from './useAuth';
+import { useStoreConfig } from './useStoreConfig';
 
 const STORAGE_KEY = 'tacita.cart.v1';
-const FREE_SHIPPING_FROM = 600;
-const FLAT_SHIPPING = 99;
+
+// Envío según StoreConfig.shipping (lo configura el admin en "Pagos y
+// ventas"), mismo cálculo que packages/core-api/lib/shipping.js: si la tienda
+// cobra envío se cobra `cost`, salvo que el subtotal (ya con descuentos)
+// llegue a `freeFrom`. Sin configuración (o mientras carga) no se cobra, igual
+// que el backend. Aquí se asume entrega a domicilio; "recoger en tienda" (sin
+// envío) se elige en el checkout y el backend recalcula.
+const shippingSettingsOf = (config) => {
+  const shipping = config?.shipping || {};
+  const cost = Number(shipping.cost);
+  const freeFrom = Number(shipping.freeFrom);
+  return {
+    shippingEnabled: Boolean(shipping.enabled) && cost > 0,
+    shippingCost: cost > 0 ? cost : 0,
+    freeShippingFrom: freeFrom > 0 ? freeFrom : null,
+  };
+};
 
 const CartContext = createContext(null);
 
@@ -75,6 +91,8 @@ const readStored = () => {
 
 export const CartProvider = ({ children }) => {
   const [lines, setLines] = useState(readStored);
+  const { config } = useStoreConfig();
+  const { shippingEnabled, shippingCost, freeShippingFrom } = shippingSettingsOf(config);
   // Panel lateral de la canasta (CartDrawer): estado de UI compartido para que
   // la barra, las tarjetas y la ficha lo abran.
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -241,7 +259,8 @@ export const CartProvider = ({ children }) => {
     // Ahorro por descuentos (precio anterior − actual) y el subtotal a precio
     // regular, para mostrarlos en la canasta y el checkout.
     const savings = lines.reduce((sum, l) => sum + lineSavingOf(l), 0);
-    const shipping = subtotal === 0 || subtotal >= FREE_SHIPPING_FROM ? 0 : FLAT_SHIPPING;
+    const shipping =
+      !shippingEnabled || subtotal === 0 || (freeShippingFrom && subtotal >= freeShippingFrom) ? 0 : shippingCost;
     return {
       lines,
       count,
@@ -250,7 +269,11 @@ export const CartProvider = ({ children }) => {
       total: subtotal + shipping,
       savings,
       regularSubtotal: subtotal + savings,
-      freeShippingFrom: FREE_SHIPPING_FROM,
+      // Config de envío: `freeShippingFrom` es null si nunca es gratis; la meta
+      // "te faltan $X" solo tiene sentido con shippingEnabled && freeShippingFrom.
+      shippingEnabled,
+      shippingCost,
+      freeShippingFrom,
       addItem,
       setQty,
       removeItem,
@@ -263,7 +286,7 @@ export const CartProvider = ({ children }) => {
       openCart,
       closeCart,
     };
-  }, [lines, addItem, setQty, removeItem, clear, qtyOf, setProductQty, limitOf, submitOrder, isCartOpen, openCart, closeCart]);
+  }, [lines, shippingEnabled, shippingCost, freeShippingFrom, addItem, setQty, removeItem, clear, qtyOf, setProductQty, limitOf, submitOrder, isCartOpen, openCart, closeCart]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };

@@ -32,7 +32,7 @@ const ProductDetail = () => {
   const navigate = useNavigate();
   const detail = useProductDetail(id);
   const { product, catalog, isLoading, images, activeImage, setActiveImage, highlights, attributes } = detail;
-  const { lines, subtotal, freeShippingFrom, openCart } = useCart();
+  const { lines, subtotal, shippingEnabled, freeShippingFrom, openCart } = useCart();
   const related = useRelatedProducts(catalog, product);
 
   const summary = htmlToText(product?.description);
@@ -77,10 +77,12 @@ const ProductDetail = () => {
   // Envío gratis: mientras el producto no está en la canasta se proyecta con
   // la cantidad elegida; ya agregado, se muestra el estado real de la canasta
   // (sumarlo otra vez lo contaría doble).
+  // Solo aplica si la tienda cobra envío y tiene un mínimo para que sea gratis.
+  const hasShippingGoal = shippingEnabled && Boolean(freeShippingFrom);
   const inCart = lines.some((l) => String(l.id) === String(product.id));
   const projected = subtotal + (inCart ? 0 : product.price * detail.qty);
-  const missing = Math.max(0, freeShippingFrom - projected);
-  const progress = Math.min(100, Math.round((projected / freeShippingFrom) * 100));
+  const missing = hasShippingGoal ? Math.max(0, freeShippingFrom - projected) : 0;
+  const progress = hasShippingGoal ? Math.min(100, Math.round((projected / freeShippingFrom) * 100)) : 0;
 
   const onFavorite = async () => {
     const done = await detail.toggleFavorite();
@@ -220,21 +222,23 @@ const ProductDetail = () => {
           </p>
           {detail.favoriteError ? <p className="pd-error">{detail.favoriteError}</p> : null}
 
-          <div className="pd-shipping">
-            <p>
-              <i className="fa-solid fa-truck-fast" aria-hidden="true" />
-              {missing > 0 ? (
-                <span>
-                  Te faltan <strong>{formatMxn(missing)}</strong> para envío gratis
-                </span>
-              ) : (
-                <strong>¡Tu pedido tiene envío gratis!</strong>
-              )}
-            </p>
-            <span className="pd-shipping-bar" aria-hidden="true">
-              <span style={{ width: `${progress}%` }} />
-            </span>
-          </div>
+          {hasShippingGoal ? (
+            <div className="pd-shipping">
+              <p>
+                <i className="fa-solid fa-truck-fast" aria-hidden="true" />
+                {missing > 0 ? (
+                  <span>
+                    Te faltan <strong>{formatMxn(missing)}</strong> para envío gratis
+                  </span>
+                ) : (
+                  <strong>¡Tu pedido tiene envío gratis!</strong>
+                )}
+              </p>
+              <span className="pd-shipping-bar" aria-hidden="true">
+                <span style={{ width: `${progress}%` }} />
+              </span>
+            </div>
+          ) : null}
 
           <ul className="pd-trust">
             {TRUST_BADGES.map((badge) => (
