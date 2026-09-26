@@ -25,6 +25,7 @@ const {
   getOrCreateModel,
 } = require("../lib/moduleHelpers");
 const { createRateLimiter } = require("../lib/rateLimit");
+const { getPurchaseLimit } = require("../lib/purchaseLimits");
 const { sendMail } = require("../lib/mailer");
 const { verifyAccessToken } = require("../lib/jwt");
 const { extractBearerToken, ROLES: AUTH_ROLES } = require("../lib/authMiddleware");
@@ -310,6 +311,52 @@ const buildOrderItems = async (Product, requestedItems, { requireActive }) => {
   return { items, total };
 };
 
+// Checkout público: por producto (sumando sus renglones — el mismo café en
+// dos presentaciones cuenta junto) no se pueden pedir más unidades que el tope
+// de la tienda (`purchaseLimit`, lib/purchaseLimits.js; null = sin tope) ni más
+// de las que hay en inventario.
+// Mismo criterio que GET /api/products/public#maxQty, que es lo que el
+// storefront ya limita; esto es la red por si llega un payload a mano o el
+// inventario bajó mientras el cliente tenía la canasta abierta. Solo lee el
+// inventario — se descuenta hasta confirmar el pedido (adjustInventoryForOrder).
+const checkPublicQuantities = async (Inventory, items, purchaseLimit) => {
+  const units = new Map();
+  for (const item of items) {
+    const id = String(item.product);
+    const current = units.get(id) || { name: item.productName, quantity: 0 };
+    current.quantity += item.quantity;
+    units.set(id, current);
+  }
+
+  for (const { name, quantity } of units.values()) {
+    if (purchaseLimit && quantity > purchaseLimit) {
+      return {
+        status: 400,
+        code: "PURCHASE_LIMIT_EXCEEDED",
+        message: `Máximo ${purchaseLimit} unidades de "${name}" por pedido. Para cantidades mayores contáctanos como cliente mayorista.`,
+      };
+    }
+  }
+
+  const stock = Inventory
+    ? await Inventory.find({ product: { $in: [...units.keys()] } }).select("product quantity").lean()
+    : [];
+  const stockById = new Map(stock.map((i) => [String(i.product), i.quantity]));
+  for (const [id, { name, quantity }] of units) {
+    const available = stockById.get(id) || 0;
+    if (quantity > available) {
+      return {
+        status: 409,
+        code: "INSUFFICIENT_STOCK",
+        message: available > 0
+          ? `Solo quedan ${available} unidades de "${name}".`
+          : `"${name}" se agotó.`,
+      };
+    }
+  }
+  return null;
+};
+
 // Folio legible siguiente — mismo criterio "leer el máximo + 1" que
 // backend/utils/accountingHooks.js#getNextInvoiceFolio (ver nota en el schema
 // sobre por qué no hace falta un contador atómico aquí).
@@ -452,6 +499,14 @@ function registerRoutes(app, ctx) {
         const built = await buildOrderItems(Product, req.body.items, { requireActive: true });
         if (built.error) {
           return sendError(res, built.error.status, built.error.code, built.error.message);
+        }
+        const quantityError = await checkPublicQuantities(
+          mongooseConnection.models.Inventory,
+          built.items,
+          await getPurchaseLimit(mongooseConnection)
+        );
+        if (quantityError) {
+          return sendError(res, quantityError.status, quantityError.code, quantityError.message);
         }
 
         const orderNumber = await nextOrderNumber(Order);

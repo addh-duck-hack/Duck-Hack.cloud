@@ -262,6 +262,9 @@ const storeConfigSchema = new mongoose.Schema(
     socialLinks: { type: socialLinksSchema, default: () => ({}) },
     legalIdentity: { type: legalIdentitySchema, default: () => ({}) },
     speiPayment: { type: speiPaymentSchema, default: () => ({}) },
+    // Tope de piezas de un mismo producto por pedido en el storefront (ver
+    // lib/purchaseLimits.js). null o 0 = sin tope (solo limita el inventario).
+    maxUnitsPerProduct: { type: Number, min: 0, max: 9999, default: null },
     heroSlides: { type: [heroSlideSchema], default: [] },
     metrics: { type: [metricSchema], default: [] },
     commands: { type: [commandSchema], default: [] },
@@ -656,6 +659,19 @@ const validateStoreConfigPayload = (sendError) => (req, res, next) => {
     }
   }
 
+  if (payload.maxUnitsPerProduct !== undefined) {
+    const raw = payload.maxUnitsPerProduct;
+    if (raw === null || (typeof raw === "string" && raw.trim() === "")) {
+      req.body.maxUnitsPerProduct = null;
+    } else {
+      const max = asFiniteNumber(raw);
+      if (max === null || !Number.isInteger(max) || max < 0 || max > 9999) {
+        return sendError(res, 400, "VALIDATION_ERROR", "maxUnitsPerProduct debe ser un entero entre 0 y 9999 (0 o vacío = sin límite).");
+      }
+      req.body.maxUnitsPerProduct = max;
+    }
+  }
+
   if (payload.speiPayment !== undefined) {
     if (typeof payload.speiPayment !== "object" || payload.speiPayment === null || Array.isArray(payload.speiPayment)) {
       return sendError(res, 400, "VALIDATION_ERROR", "speiPayment debe ser un objeto.");
@@ -761,7 +777,7 @@ function registerRoutes(app, ctx) {
     try {
       const allowedFields = [
         "storeName", "storeSlug", "contactEmail", "contactPhone", "logoUrl", "theme", "homeBlocks",
-        "isActive", "socialLinks", "legalIdentity", "speiPayment", "heroSlides", "metrics", "commands", "services",
+        "isActive", "socialLinks", "legalIdentity", "speiPayment", "maxUnitsPerProduct", "heroSlides", "metrics", "commands", "services",
         "pricingPlans", "commonPlanChecks", "faqs", "teamMembers", "testimonials",
       ];
 
