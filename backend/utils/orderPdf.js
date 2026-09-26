@@ -181,6 +181,17 @@ const generateOrderPdf = (order, storeConfig, outputStream) => {
     rowY += rowHeight + 10;
   }
 
+  // Envío cobrado (Order.shippingCost) como un renglón más, antes del total.
+  if (order.shippingCost > 0) {
+    doc
+      .fillColor(BRAND_TEXT_DIM)
+      .font("Helvetica")
+      .fontSize(10)
+      .text("Envío", 50, rowY, { width: 280 })
+      .text(formatCurrency(order.shippingCost), 482, rowY, { width: 80, align: "right" });
+    rowY += 24;
+  }
+
   doc.moveTo(50, rowY).lineTo(562, rowY).strokeColor(BRAND_LINE).lineWidth(1).stroke();
 
   doc
