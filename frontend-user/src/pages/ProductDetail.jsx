@@ -19,6 +19,8 @@ import ProductCard from '../components/ProductCard';
 import QtyLimitNote from '../components/QtyLimitNote';
 import './ProductDetail.css';
 
+const LOW_STOCK_NOTICE = 10;
+
 const TRUST_BADGES = [
   { icon: 'fa-solid fa-fire-burner', label: 'Tostado bajo pedido' },
   { icon: 'fa-solid fa-truck-fast', label: 'Envío a todo México' },
@@ -65,11 +67,12 @@ const ProductDetail = () => {
   const hasDescription = Boolean(summary);
   const hasSpecs = attributes.length > 0;
   const mainImage = images[activeImage] || images[0];
-  // Aviso de tope: pocas existencias se anuncian siempre; el tope por pedido
-  // (mayoreo) solo cuando la cantidad ya no puede subir.
+  // Aviso de tope: pocas existencias (≤ LOW_STOCK_NOTICE) se anuncian
+  // siempre; el resto (tope por pedido o existencias) cuando la cantidad ya
+  // no puede subir.
   const { limit, remaining } = detail;
   const atLimit = detail.qty >= remaining;
-  const showLimit = limit.reason === 'stock' || atLimit;
+  const showLimit = atLimit || (limit.reason === 'stock' && limit.max <= LOW_STOCK_NOTICE);
 
   // Envío gratis: mientras el producto no está en la canasta se proyecta con
   // la cantidad elegida; ya agregado, se muestra el estado real de la canasta

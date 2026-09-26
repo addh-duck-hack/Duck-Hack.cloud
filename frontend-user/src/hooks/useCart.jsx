@@ -12,10 +12,6 @@ import { getAuthHeader } from './useAuth';
 const STORAGE_KEY = 'tacita.cart.v1';
 const FREE_SHIPPING_FROM = 600;
 const FLAT_SHIPPING = 99;
-// Tope de unidades por producto si el catálogo no trae el suyo (backend
-// anterior o catálogo de muestra). El real viene de
-// packages/core-api/lib/purchaseLimits.js vía GET /api/products/public.
-const DEFAULT_PURCHASE_LIMIT = 10;
 
 const CartContext = createContext(null);
 
@@ -44,13 +40,16 @@ const compareAtOf = (product) => {
   return compare > Number(product?.price) ? compare : undefined;
 };
 
-// Límites de compra de un producto o de una línea de la canasta:
-// `purchaseLimit` = tope por pedido (más que eso es mayoreo, por contacto) y
-// `maxQty` = min(existencias, purchaseLimit), ambos calculados por el backend.
-export const purchaseLimitOf = (item) => Number(item?.purchaseLimit) || DEFAULT_PURCHASE_LIMIT;
+// Límites de compra de un producto o de una línea de la canasta, calculados
+// por el backend (GET /api/products/public): `purchaseLimit` = tope por pedido
+// que configura el admin (más que eso es mayoreo, por contacto; null = sin
+// tope) y `maxQty` = min(existencias, purchaseLimit). Sin datos (catálogo de
+// muestra, líneas viejas) no se limita — el checkout vuelve a validar.
+export const purchaseLimitOf = (item) => (Number(item?.purchaseLimit) > 0 ? Number(item.purchaseLimit) : null);
 export const maxQtyOf = (item) => {
+  const limit = purchaseLimitOf(item) ?? Infinity;
   const max = Number(item?.maxQty);
-  return item?.maxQty != null && Number.isFinite(max) ? Math.max(0, Math.min(max, purchaseLimitOf(item))) : purchaseLimitOf(item);
+  return item?.maxQty != null && Number.isFinite(max) ? Math.max(0, Math.min(max, limit)) : limit;
 };
 
 // Unidades de un producto en la canasta, sumando todas sus líneas (el mismo
@@ -148,7 +147,8 @@ export const CartProvider = ({ children }) => {
 
   // Cuánto más se puede agregar de un producto (o línea) y por qué se topa:
   // `reason` es 'stock' si lo limita el inventario y 'wholesale' si llegó al
-  // tope por pedido (la UI ofrece contacto como cliente mayorista).
+  // tope por pedido (la UI ofrece contacto como cliente mayorista). Sin tope
+  // ni existencias conocidas, `max`/`remaining` son Infinity.
   const limitOf = useCallback(
     (item) => {
       const max = maxQtyOf(item);
@@ -159,7 +159,7 @@ export const CartProvider = ({ children }) => {
         purchaseLimit,
         units,
         remaining: Math.max(0, max - units),
-        reason: max < purchaseLimit ? 'stock' : 'wholesale',
+        reason: purchaseLimit && max >= purchaseLimit ? 'wholesale' : 'stock',
       };
     },
     [lines]

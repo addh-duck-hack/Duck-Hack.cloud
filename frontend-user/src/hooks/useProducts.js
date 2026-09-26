@@ -109,8 +109,8 @@ export const FALLBACK_PRODUCTS = [
 
 const normalizeApiProduct = (p) => {
   // Tope de compra que calcula el backend (GET /api/products/public):
-  // maxQty = min(existencias, purchaseLimit). Sin esos campos (backend
-  // anterior) quedan undefined y useCart aplica el tope por default.
+  // maxQty = min(existencias, purchaseLimit); purchaseLimit null = la tienda
+  // no puso tope. Sin esos campos quedan undefined y useCart no limita.
   const purchaseLimit = Number(p.purchaseLimit) > 0 ? Number(p.purchaseLimit) : undefined;
   const maxQty = Number.isFinite(Number(p.maxQty)) && p.maxQty !== null ? Number(p.maxQty) : undefined;
   // images[] completo para la galería de ProductDetail.jsx; `image` (la
