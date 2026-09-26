@@ -10,7 +10,7 @@
 // bloquea el scroll de la página y devuelve el foco a quien lo abrió.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useCart, formatMxn, formatOptions } from '../hooks/useCart';
+import { useCart, formatMxn, formatOptions, lineSavingOf } from '../hooks/useCart';
 import { useProducts, pickRandom } from '../hooks/useProducts';
 import StoreImage from './StoreImage';
 import './CartDrawer.css';
@@ -93,6 +93,8 @@ const CartDrawer = () => {
     subtotal,
     shipping,
     total,
+    savings,
+    regularSubtotal,
     freeShippingFrom,
     setQty,
     removeItem,
@@ -188,6 +190,7 @@ const CartDrawer = () => {
             <ul className="cart-drawer-lines">
               {lines.map((line) => {
                 const optionsText = formatOptions(line.options);
+                const lineSaving = lineSavingOf(line);
                 return (
                   <li key={line.key} className="cart-line">
                     <Link to={`/tienda/${line.id}`} className="cart-line-thumb" tabIndex={-1} aria-hidden="true">
@@ -198,6 +201,7 @@ const CartDrawer = () => {
                         {line.name}
                       </Link>
                       {optionsText ? <span className="cart-line-options">{optionsText}</span> : null}
+                      {lineSaving ? <span className="cart-line-saving">Ahorras {formatMxn(lineSaving)}</span> : null}
                       <div className="cart-line-controls">
                         <div className="cart-line-stepper" role="group" aria-label={`Cantidad de ${line.name}`}>
                           <button type="button" aria-label="Quitar uno" onClick={() => setQty(line.key, line.qty - 1)}>
@@ -213,7 +217,12 @@ const CartDrawer = () => {
                         </button>
                       </div>
                     </div>
-                    <strong className="cart-line-total">{formatMxn(line.price * line.qty)}</strong>
+                    <div className="cart-line-prices">
+                      {lineSaving ? <s>{formatMxn(line.compareAtPrice * line.qty)}</s> : null}
+                      <strong className={`cart-line-total${lineSaving ? ' is-discounted' : ''}`}>
+                        {formatMxn(line.price * line.qty)}
+                      </strong>
+                    </div>
                   </li>
                 );
               })}
@@ -228,8 +237,14 @@ const CartDrawer = () => {
             <dl>
               <div>
                 <dt>Subtotal</dt>
-                <dd>{formatMxn(subtotal)}</dd>
+                <dd>{formatMxn(savings ? regularSubtotal : subtotal)}</dd>
               </div>
+              {savings ? (
+                <div className="cart-drawer-discount">
+                  <dt>Descuentos</dt>
+                  <dd>−{formatMxn(savings)}</dd>
+                </div>
+              ) : null}
               <div>
                 <dt>Envío</dt>
                 <dd>{shipping === 0 ? 'Gratis' : formatMxn(shipping)}</dd>
@@ -239,6 +254,14 @@ const CartDrawer = () => {
                 <dd>{formatMxn(total)}</dd>
               </div>
             </dl>
+            {savings ? (
+              <p className="cart-drawer-savings">
+                <i className="fa-solid fa-tag" aria-hidden="true" />
+                <span>
+                  ¡Ahorras <strong>{formatMxn(savings)}</strong> en este pedido!
+                </span>
+              </p>
+            ) : null}
             <button type="button" className="cart-drawer-btn cart-drawer-btn--solid" onClick={goToCheckout}>
               Finalizar compra
             </button>

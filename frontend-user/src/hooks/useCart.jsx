@@ -34,6 +34,16 @@ export const formatOptions = (options) =>
     .map(([name, value]) => `${name}: ${value}`)
     .join(' · ');
 
+// Precio anterior de un producto, solo si de verdad es mayor al actual.
+const compareAtOf = (product) => {
+  const compare = Number(product?.compareAtPrice);
+  return compare > Number(product?.price) ? compare : undefined;
+};
+
+// Ahorro de una línea de la canasta (precio anterior − actual) × cantidad.
+export const lineSavingOf = (line) =>
+  line?.compareAtPrice > line?.price ? (line.compareAtPrice - line.price) * line.qty : 0;
+
 const readStored = () => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -65,7 +75,9 @@ export const CartProvider = ({ children }) => {
     setLines((prev) => {
       const existing = prev.find((l) => l.key === key);
       if (existing) {
-        return prev.map((l) => (l.key === key ? { ...l, qty: l.qty + qty } : l));
+        // Se refresca el precio anterior por si la línea venía de antes de
+        // guardarlo (o cambió el descuento).
+        return prev.map((l) => (l.key === key ? { ...l, qty: l.qty + qty, compareAtPrice: compareAtOf(product) } : l));
       }
       return [
         ...prev,
@@ -77,6 +89,7 @@ export const CartProvider = ({ children }) => {
           category: product.category,
           image: product.image || '',
           price: Number(product.price),
+          compareAtPrice: compareAtOf(product),
           options,
           qty,
         },
@@ -165,6 +178,9 @@ export const CartProvider = ({ children }) => {
   const value = useMemo(() => {
     const count = lines.reduce((sum, l) => sum + l.qty, 0);
     const subtotal = lines.reduce((sum, l) => sum + l.price * l.qty, 0);
+    // Ahorro por descuentos (precio anterior − actual) y el subtotal a precio
+    // regular, para mostrarlos en la canasta y el checkout.
+    const savings = lines.reduce((sum, l) => sum + lineSavingOf(l), 0);
     const shipping = subtotal === 0 || subtotal >= FREE_SHIPPING_FROM ? 0 : FLAT_SHIPPING;
     return {
       lines,
@@ -172,6 +188,8 @@ export const CartProvider = ({ children }) => {
       subtotal,
       shipping,
       total: subtotal + shipping,
+      savings,
+      regularSubtotal: subtotal + savings,
       freeShippingFrom: FREE_SHIPPING_FROM,
       addItem,
       setQty,

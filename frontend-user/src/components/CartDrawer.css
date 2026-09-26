@@ -236,10 +236,38 @@
   background-color: var(--color-placeholder);
 }
 
+/* Precio de la línea: el regular tachado encima si hay descuento. */
+.cart-line-prices {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.cart-line-prices s {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
 .cart-line-total {
   font-weight: 700;
   color: var(--color-text);
   white-space: nowrap;
+}
+
+.cart-line-total.is-discounted {
+  color: var(--color-accent);
+}
+
+.cart-line-saving {
+  align-self: flex-start;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background-color: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg));
+  color: var(--color-accent);
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 /* Vacía */
@@ -415,6 +443,24 @@
 
 .cart-drawer-footer dd {
   margin: 0;
+}
+
+.cart-drawer-footer .cart-drawer-discount {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.cart-drawer-savings {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background-color: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg));
+  color: var(--color-accent);
+  font-size: 0.9rem;
 }
 
 .cart-drawer-footer .cart-drawer-total {
