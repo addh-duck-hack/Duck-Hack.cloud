@@ -9,7 +9,10 @@
 // siempre filtran isActive:true — nunca exponen un producto dado de baja — y,
 // además, solo devuelven productos con inventario cargado y quantity > 0 (ver
 // filterInStock) — un producto sin registro de inventario se trata como sin
-// existencias, no como "ilimitado".
+// existencias, no como "ilimitado". Cada producto público lleva además
+// `purchaseLimit` (tope por pedido configurable, lib/purchaseLimits.js; null
+// = sin tope) y `maxQty` = min(existencias, purchaseLimit): lo máximo que el
+// storefront deja agregar. Con tope, arriba de él no se ve el inventario real.
 //
 // `attributes`: especificaciones libres "Nombre: valor" en el orden en que se
 // muestran (Notas de cata: cacao, panela · Tueste: medio · Material: barro ·
@@ -25,6 +28,7 @@ const {
   isValidObjectId,
   getOrCreateModel,
 } = require("../lib/moduleHelpers");
+const { getPurchaseLimit } = require("../lib/purchaseLimits");
 
 const MAX_ATTRIBUTES = 30;
 const MAX_ATTRIBUTE_NAME = 60;
@@ -131,14 +135,24 @@ const validatePayload = (sendError) => (req, res, next) => {
 // considera sin existencias, no "ilimitado" (decisión explícita del
 // negocio). Usado únicamente por GET /public y GET /public/:id — las rutas
 // de staff siguen viendo el catálogo completo para poder gestionarlo.
-const filterInStock = async (Inventory, products) => {
+// Devuelve los productos ya sanitizados y con `maxQty`/`purchaseLimit`.
+const filterInStock = async (Inventory, products, purchaseLimit) => {
   if (!Inventory || products.length === 0) return [];
   const ids = products.map((p) => p._id);
   const stocked = await Inventory.find({ product: { $in: ids }, quantity: { $gt: 0 } })
-    .select("product")
+    .select("product quantity")
     .lean();
-  const stockedIds = new Set(stocked.map((i) => String(i.product)));
-  return products.filter((p) => stockedIds.has(String(p._id)));
+  const stockById = new Map(stocked.map((i) => [String(i.product), i.quantity]));
+  return products
+    .filter((p) => stockById.has(String(p._id)))
+    .map((p) => {
+      const stock = Math.floor(stockById.get(String(p._id)));
+      return {
+        ...sanitizeDoc(p),
+        maxQty: purchaseLimit ? Math.min(stock, purchaseLimit) : stock,
+        purchaseLimit,
+      };
+    });
 };
 
 function registerRoutes(app, ctx) {
@@ -174,8 +188,8 @@ function registerRoutes(app, ctx) {
       const products = await Product.find(filter).sort({ name: 1 }).lean();
 
       const Inventory = mongooseConnection.models.Inventory;
-      const inStock = await filterInStock(Inventory, products);
-      return res.status(200).json({ items: inStock.map(sanitizeDoc) });
+      const inStock = await filterInStock(Inventory, products, await getPurchaseLimit(mongooseConnection));
+      return res.status(200).json({ items: inStock });
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al listar productos.");
     }
@@ -187,10 +201,10 @@ function registerRoutes(app, ctx) {
       if (!product) return sendError(res, 404, "PRODUCT_NOT_FOUND", "Producto no encontrado.");
 
       const Inventory = mongooseConnection.models.Inventory;
-      const [inStock] = await filterInStock(Inventory, [product]);
+      const [inStock] = await filterInStock(Inventory, [product], await getPurchaseLimit(mongooseConnection));
       if (!inStock) return sendError(res, 404, "PRODUCT_NOT_FOUND", "Producto no encontrado.");
 
-      return res.status(200).json(sanitizeDoc(inStock));
+      return res.status(200).json(inStock);
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al consultar el producto.");
     }

@@ -9,6 +9,7 @@ const initialState = {
   clabe: "",
   phone: "",
   bank: "",
+  maxUnitsPerProduct: "",
 };
 
 const StoreConfigPayments = () => {
@@ -25,6 +26,8 @@ const StoreConfigPayments = () => {
     clabe: data?.speiPayment?.clabe || "",
     phone: data?.speiPayment?.phone || "",
     bank: data?.speiPayment?.bank || "",
+    // null/0 = sin límite; se muestra vacío para que se lea así.
+    maxUnitsPerProduct: data?.maxUnitsPerProduct ? String(data.maxUnitsPerProduct) : "",
   });
 
   const loadConfig = async () => {
@@ -60,7 +63,15 @@ const StoreConfigPayments = () => {
     try {
       const response = await axios.put(
         `${baseUrl}/api/store-config`,
-        { speiPayment: { ...form } },
+        {
+          speiPayment: {
+            accountHolderName: form.accountHolderName,
+            clabe: form.clabe,
+            phone: form.phone,
+            bank: form.bank,
+          },
+          maxUnitsPerProduct: form.maxUnitsPerProduct === "" ? null : Number(form.maxUnitsPerProduct),
+        },
         { headers: { ...getAuthHeaders(), "Content-Type": "application/json" } }
       );
       setForm(mapApiToForm(response.data?.storeConfig));
@@ -125,6 +136,27 @@ const StoreConfigPayments = () => {
             <input type="tel" name="phone" value={form.phone} onChange={handleChange} maxLength={20} />
           </label>
         </div>
+
+        <h3 style={{ marginTop: "2rem" }}>Límite de compra</h3>
+        <p>
+          Máximo de piezas de un mismo producto que un cliente puede llevar en un pedido de la tienda.
+          Para cantidades mayores, la tienda le ofrece contactarlos como cliente mayorista. Déjalo vacío
+          o en 0 para no poner límite (solo se limita a las existencias del inventario).
+        </p>
+        <label style={{ maxWidth: 320 }}>
+          Piezas máximas por producto
+          <input
+            type="number"
+            name="maxUnitsPerProduct"
+            value={form.maxUnitsPerProduct}
+            onChange={handleChange}
+            min={0}
+            max={9999}
+            step={1}
+            inputMode="numeric"
+            placeholder="Sin límite"
+          />
+        </label>
 
         <div style={{ marginTop: "1.5rem", display: "flex", gap: "0.75rem" }}>
           <button type="submit" disabled={isLoading} style={{ width: "auto" }}>
