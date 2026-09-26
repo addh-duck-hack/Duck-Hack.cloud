@@ -1,0 +1,142 @@
+/* src/components/CartSuggestions.css — ver CartSuggestions.jsx. */
+
+.cart-suggestions {
+  --suggest-cols: 3;
+  margin-top: 28px;
+}
+
+.cart-suggestions-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.cart-suggestions-head h3 {
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  font-weight: 500;
+  margin: 0;
+  color: var(--color-text);
+}
+
+.cart-suggestions-head div {
+  display: flex;
+  gap: 6px;
+}
+
+.cart-suggestions-head button {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: none;
+  color: var(--color-text);
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
+.cart-suggestions-head button:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.cart-suggestions-rail {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 6px;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: calc((100% - (var(--suggest-cols) - 1) * 12px) / var(--suggest-cols));
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.cart-suggestions-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.cart-suggest {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  scroll-snap-align: start;
+}
+
+.cart-suggest-media {
+  position: relative;
+  display: block;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border-radius: 12px;
+  background-color: var(--color-placeholder);
+}
+
+.cart-suggest-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cart-suggest-name {
+  font-size: 0.85rem;
+  line-height: 1.25;
+  color: var(--color-text);
+  text-decoration: none;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cart-suggest-name:hover {
+  color: var(--color-accent);
+}
+
+.cart-suggest-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+}
+
+.cart-suggest-foot span {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.cart-suggest-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background-color: var(--color-accent);
+  color: var(--color-on-accent);
+  font-size: 0.7rem;
+  text-decoration: none;
+  cursor: pointer;
+  transition: filter 0.2s ease;
+}
+
+.cart-suggest-add:hover {
+  filter: brightness(0.93);
+}
+
+.cart-suggest-img.img-placeholder {
+  min-height: 0;
+  font-size: 0.55rem;
+}
+
+.cart-suggestions button:focus-visible,
+.cart-suggestions a:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}

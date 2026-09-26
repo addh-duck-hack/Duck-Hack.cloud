@@ -2,90 +2,18 @@
 //
 // Canasta en panel lateral (montado en AppShell, abierto con useCart().openCart
 // desde la barra, las tarjetas y la ficha). De arriba abajo: meta de envío
-// gratis con barra, líneas con − n + y quitar, carrusel "Completa tu pedido"
-// con productos que no están en la canasta, y pie fijo con subtotal / envío /
-// total + "Finalizar compra" (→ /carrito, donde siguen cuenta y envío).
+// gratis con barra, líneas (CartLineItem), carrusel "Completa tu pedido"
+// (CartSuggestions) y pie fijo con subtotal / envío / total + "Finalizar
+// compra" (→ /carrito, el checkout en 4 pasos).
 //
 // Diálogo modal: se cierra con ×, Esc, clic en el fondo y al cambiar de ruta;
 // bloquea el scroll de la página y devuelve el foco a quien lo abrió.
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useCart, formatMxn, formatOptions, lineSavingOf } from '../hooks/useCart';
-import { useProducts, pickRandom } from '../hooks/useProducts';
-import StoreImage from './StoreImage';
-import QtyLimitNote from './QtyLimitNote';
+import { useCart, formatMxn } from '../hooks/useCart';
+import CartLineItem from './CartLineItem';
+import CartSuggestions from './CartSuggestions';
 import './CartDrawer.css';
-
-const MAX_SUGGESTIONS = 8;
-
-// "Completa tu pedido": catálogo barajado una vez (no en cada cambio de la
-// canasta, para que el carrusel no "salte") sin lo que ya está agregado.
-const CartSuggestions = () => {
-  const { lines, setProductQty } = useCart();
-  const { products, isLoading } = useProducts();
-  const railRef = useRef(null);
-
-  const shuffled = useMemo(() => pickRandom(products, products.length), [products]);
-  const inCartIds = useMemo(() => new Set(lines.map((l) => String(l.id))), [lines]);
-  const suggestions = isLoading
-    ? []
-    : shuffled.filter((p) => !inCartIds.has(String(p.id))).slice(0, MAX_SUGGESTIONS);
-
-  if (suggestions.length === 0) return null;
-
-  const scrollRail = (direction) => {
-    const rail = railRef.current;
-    if (rail) rail.scrollBy({ left: direction * rail.clientWidth * 0.8, behavior: 'smooth' });
-  };
-
-  return (
-    <section className="cart-drawer-suggest" aria-labelledby="cart-suggest-title">
-      <div className="cart-drawer-suggest-head">
-        <h3 id="cart-suggest-title">Completa tu pedido</h3>
-        <div>
-          <button type="button" aria-label="Anteriores" onClick={() => scrollRail(-1)}>
-            <i className="fas fa-chevron-left" aria-hidden="true" />
-          </button>
-          <button type="button" aria-label="Siguientes" onClick={() => scrollRail(1)}>
-            <i className="fas fa-chevron-right" aria-hidden="true" />
-          </button>
-        </div>
-      </div>
-      <ul ref={railRef} className="cart-drawer-rail">
-        {suggestions.map((product) => {
-          const needsOptions = (product.options || []).length > 0;
-          return (
-            <li key={product.id} className="cart-suggest">
-              <Link to={`/tienda/${product.id}`} className="cart-suggest-media" tabIndex={-1} aria-hidden="true">
-                <StoreImage src={product.image} alt="" label="Producto" className="cart-suggest-img" />
-              </Link>
-              <Link to={`/tienda/${product.id}`} className="cart-suggest-name">
-                {product.name}
-              </Link>
-              <div className="cart-suggest-foot">
-                <span>{formatMxn(product.price)}</span>
-                {needsOptions ? (
-                  <Link to={`/tienda/${product.id}`} className="cart-suggest-add" aria-label={`Elegir opciones de ${product.name}`}>
-                    <i className="fas fa-arrow-right" aria-hidden="true" />
-                  </Link>
-                ) : (
-                  <button
-                    type="button"
-                    className="cart-suggest-add"
-                    aria-label={`Agregar ${product.name}`}
-                    onClick={() => setProductQty(product, 1)}
-                  >
-                    <i className="fas fa-plus" aria-hidden="true" />
-                  </button>
-                )}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
-};
 
 const CartDrawer = () => {
   const {
@@ -98,9 +26,6 @@ const CartDrawer = () => {
     regularSubtotal,
     shippingEnabled,
     freeShippingFrom,
-    setQty,
-    removeItem,
-    limitOf,
     isCartOpen,
     closeCart,
   } = useCart();
@@ -193,52 +118,9 @@ const CartDrawer = () => {
             </div>
           ) : (
             <ul className="cart-drawer-lines">
-              {lines.map((line) => {
-                const optionsText = formatOptions(line.options);
-                const lineSaving = lineSavingOf(line);
-                const limit = limitOf(line);
-                const atLimit = limit.remaining === 0;
-                return (
-                  <li key={line.key} className="cart-line">
-                    <Link to={`/tienda/${line.id}`} className="cart-line-thumb" tabIndex={-1} aria-hidden="true">
-                      <StoreImage src={line.image} alt="" label="Producto" className="cart-line-img" />
-                    </Link>
-                    <div className="cart-line-info">
-                      <Link to={`/tienda/${line.id}`} className="cart-line-name">
-                        {line.name}
-                      </Link>
-                      {optionsText ? <span className="cart-line-options">{optionsText}</span> : null}
-                      {lineSaving ? <span className="cart-line-saving">Ahorras {formatMxn(lineSaving)}</span> : null}
-                      <div className="cart-line-controls">
-                        <div className="cart-line-stepper" role="group" aria-label={`Cantidad de ${line.name}`}>
-                          <button type="button" aria-label="Quitar uno" onClick={() => setQty(line.key, line.qty - 1)}>
-                            <i className="fas fa-minus" aria-hidden="true" />
-                          </button>
-                          <span aria-live="polite">{line.qty}</span>
-                          <button
-                            type="button"
-                            aria-label={atLimit ? 'Llegaste al máximo' : 'Agregar uno'}
-                            onClick={() => setQty(line.key, line.qty + 1)}
-                            disabled={atLimit}
-                          >
-                            <i className="fas fa-plus" aria-hidden="true" />
-                          </button>
-                        </div>
-                        <button type="button" className="cart-line-remove" aria-label={`Quitar ${line.name}`} onClick={() => removeItem(line.key)}>
-                          <i className="fa-regular fa-trash-can" aria-hidden="true" />
-                        </button>
-                      </div>
-                      {atLimit ? <QtyLimitNote limit={limit} className="cart-line-limit" /> : null}
-                    </div>
-                    <div className="cart-line-prices">
-                      {lineSaving ? <s>{formatMxn(line.compareAtPrice * line.qty)}</s> : null}
-                      <strong className={`cart-line-total${lineSaving ? ' is-discounted' : ''}`}>
-                        {formatMxn(line.price * line.qty)}
-                      </strong>
-                    </div>
-                  </li>
-                );
-              })}
+              {lines.map((line) => (
+                <CartLineItem key={line.key} line={line} />
+              ))}
             </ul>
           )}
 

@@ -214,8 +214,21 @@ export const CartProvider = ({ children }) => {
   // propio en Order.items (ver orders.js) porque Product tampoco lo tiene
   // todavía (ver useProducts.js), así que van resumidas en `notes` para que
   // la tienda sepa qué preparar de cada línea.
+  // `deliveryMethod` ("shipping" | "pickup"), `pickupPointId` y
+  // `paymentMethod` (id de StoreConfig.paymentMethods) los elige el checkout
+  // (useCheckout.js); el backend los valida contra la configuración de la
+  // tienda y recalcula envío y total.
   const submitOrder = useCallback(
-    async ({ customerName, customerEmail, customerPhone, shippingAddress, paymentMethod }) => {
+    async ({
+      customerName,
+      customerEmail,
+      customerPhone,
+      shippingAddress,
+      deliveryMethod,
+      pickupPointId,
+      paymentMethod,
+      notes,
+    }) => {
       const linesWithOptions = lines.filter((l) => optionsKey(l.options));
       const optionsNote = linesWithOptions.length
         ? `Detalle por producto — ${linesWithOptions
@@ -226,16 +239,18 @@ export const CartProvider = ({ children }) => {
       const payload = {
         customerName,
         customerEmail,
+        deliveryMethod,
         paymentMethod,
         items: lines.map((l) => ({ product: l.id, quantity: l.qty })),
       };
       if (customerPhone) payload.customerPhone = customerPhone;
-      // shippingAddress ahora es un objeto (recipientName/phone/street/...,
-      // ver useCheckout.js) — solo se manda si de verdad se llenó algo, para no
-      // guardar un objeto de puros campos vacíos en pedidos de "pickup".
-      const hasShippingAddress = shippingAddress && Object.values(shippingAddress).some(Boolean);
-      if (hasShippingAddress) payload.shippingAddress = shippingAddress;
-      if (optionsNote) payload.notes = optionsNote;
+      if (deliveryMethod === 'pickup' && pickupPointId) payload.pickupPointId = pickupPointId;
+      // La dirección solo va con envío a domicilio.
+      if (deliveryMethod !== 'pickup' && shippingAddress) payload.shippingAddress = shippingAddress;
+      // Notas del cliente + el detalle de opciones por producto (Order.items
+      // no tiene campo para las opciones, ver arriba).
+      const allNotes = [String(notes || '').trim(), optionsNote].filter(Boolean).join('\n\n');
+      if (allNotes) payload.notes = allNotes.slice(0, 1000);
 
       // Bearer opcional: si hay sesión, el backend vincula el pedido a la
       // cuenta (packages/core-api/modules/orders.js#attachOptionalCustomer);
@@ -259,6 +274,8 @@ export const CartProvider = ({ children }) => {
     // Ahorro por descuentos (precio anterior − actual) y el subtotal a precio
     // regular, para mostrarlos en la canasta y el checkout.
     const savings = lines.reduce((sum, l) => sum + lineSavingOf(l), 0);
+    // Envío asumiendo entrega a domicilio; recoger en punto de venta es 0
+    // (ver shippingFor).
     const shipping =
       !shippingEnabled || subtotal === 0 || (freeShippingFrom && subtotal >= freeShippingFrom) ? 0 : shippingCost;
     return {
@@ -267,6 +284,7 @@ export const CartProvider = ({ children }) => {
       subtotal,
       shipping,
       total: subtotal + shipping,
+      shippingFor: (deliveryMethod) => (deliveryMethod === 'pickup' ? 0 : shipping),
       savings,
       regularSubtotal: subtotal + savings,
       // Config de envío: `freeShippingFrom` es null si nunca es gratis; la meta
