@@ -7,7 +7,7 @@
 //     (frontend-user). Mismo patrón que modules/mail.js: router público +
 //     createRateLimiter importado directo (no viene por ctx). Sin pasarela de
 //     pago: el pedido entra "pending" y la tienda confirma el pago a mano
-//     (ver paymentMethod). Envía correo de confirmación al cliente y aviso a
+//     (ver deliveryMethod / paymentMethod y lib/checkoutOptions.js). Envía correo de confirmación al cliente y aviso a
 //     la tienda — best-effort, un fallo de correo no tumba el pedido ya creado.
 //     Sigue sin EXIGIR sesión (el invitado sigue pudiendo comprar), pero si el
 //     comprador inició sesión/se registró durante el checkout y el frontend
@@ -26,7 +26,8 @@ const {
 } = require("../lib/moduleHelpers");
 const { createRateLimiter } = require("../lib/rateLimit");
 const { getPurchaseLimit } = require("../lib/purchaseLimits");
-const { getShippingSettings, computeShippingCost } = require("../lib/shipping");
+const { shippingSettingsOf, computeShippingCost } = require("../lib/shipping");
+const { DELIVERY_METHODS, resolveCheckout } = require("../lib/checkoutOptions");
 const { sendMail } = require("../lib/mailer");
 const { verifyAccessToken } = require("../lib/jwt");
 const { extractBearerToken, ROLES: AUTH_ROLES } = require("../lib/authMiddleware");
@@ -35,12 +36,11 @@ const { recalculateStatus } = require("./inventory");
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ORDER_STATUSES = ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"];
-const PAYMENT_METHODS = ["transfer", "pickup"];
 
 // Mismo set de campos que User.addresses en modules/auth.js — así una
 // dirección de la libreta se copia tal cual al pedido (ver Cart.jsx en
 // frontend-user). `interiorNumber` es el único opcional; los demás solo se
-// exigen cuando paymentMethod es "transfer" (ver validateCheckoutExtras).
+// exigen con envío a domicilio (deliveryMethod "shipping", ver POST /public).
 const SHIPPING_ADDRESS_REQUIRED_FIELDS = [
   "recipientName",
   "phone",
@@ -52,6 +52,20 @@ const SHIPPING_ADDRESS_REQUIRED_FIELDS = [
   "state",
 ];
 const SHIPPING_ADDRESS_FIELDS = [...SHIPPING_ADDRESS_REQUIRED_FIELDS, "interiorNumber"];
+
+// Copia del punto de venta elegido para recoger (StoreConfig.pickupPoints),
+// tal como estaba al hacer el pedido.
+const pickupPointSnapshotSchema = new mongoose.Schema(
+  {
+    name: { type: String, trim: true, maxlength: 120 },
+    address: { type: String, trim: true, maxlength: 400 },
+    schedule: { type: String, trim: true, maxlength: 200 },
+    instructions: { type: String, trim: true, maxlength: 500 },
+    lat: { type: Number, default: null },
+    lng: { type: Number, default: null },
+  },
+  { _id: false }
+);
 
 const shippingAddressSchema = new mongoose.Schema(
   {
@@ -130,11 +144,21 @@ const orderSchema = new mongoose.Schema(
     total: { type: Number, required: true, min: 0 },
     shippingAddress: { type: shippingAddressSchema },
     notes: { type: String, trim: true, maxlength: 1000 },
-    // Sin pasarela de pago (decisión del cliente): el pedido siempre entra
-    // "pending" y la tienda confirma el pago/entrega a mano. "transfer" =
-    // transferencia/SPEI (requiere shippingAddress, ver validateCheckoutExtras),
-    // "pickup" = paga y recoge en la finca.
-    paymentMethod: { type: String, enum: PAYMENT_METHODS, default: "transfer" },
+    // Entrega: "shipping" (a domicilio, con shippingAddress) o "pickup"
+    // (recoge en pickupPoint, copia del punto elegido; puede faltar en pedidos
+    // de antes de configurar puntos de venta).
+    deliveryMethod: { type: String, enum: DELIVERY_METHODS, default: "shipping" },
+    pickupPoint: { type: pickupPointSnapshotSchema },
+    // Método de pago elegido (id de StoreConfig.paymentMethods, ver
+    // lib/checkoutOptions.js) + copia de su tipo, nombre e instrucciones al
+    // momento del pedido. Sin pasarela todavía: el pedido entra "pending" y
+    // la tienda confirma el pago a mano. Pedidos anteriores guardan
+    // "transfer" / "pickup" sin copia (las etiquetas salen de
+    // PAYMENT_METHOD_LABELS en correos, PDF y admin).
+    paymentMethod: { type: String, trim: true, maxlength: 64, default: "transfer" },
+    paymentMethodType: { type: String, trim: true, maxlength: 40 },
+    paymentMethodLabel: { type: String, trim: true, maxlength: 80 },
+    paymentInstructions: { type: String, trim: true, maxlength: 1000 },
     // Folio legible para soporte/correos — no confundir con _id. Sin `unique`
     // a propósito: con el volumen de pedidos de esta tienda un choque por
     // concurrencia es despreciable (ver nextOrderNumber más abajo) y un
@@ -222,9 +246,9 @@ const validateUpdatePayload = (sendError) => (req, res, next) => {
   return next();
 };
 
-// Solo para POST /public, encadenado DESPUÉS de validateCreatePayload. Valida
-// paymentMethod y exige los campos de shippingAddress (ver
-// SHIPPING_ADDRESS_REQUIRED_FIELDS) cuando es "transfer". También bloquea
+// Solo para POST /public, encadenado DESPUÉS de validateCreatePayload.
+// Normaliza deliveryMethod / pickupPointId / paymentMethod (se validan contra
+// StoreConfig en el handler, ver resolveCheckout). También bloquea
 // que un checkout anónimo se adjudique un
 // `customer` o un `orderNumber` arbitrarios enviados en el payload —
 // orderNumber siempre lo pone el servidor, y `customer` SOLO puede venir de
@@ -234,25 +258,15 @@ const validateUpdatePayload = (sendError) => (req, res, next) => {
 const validateCheckoutExtras = (sendError) => (req, res, next) => {
   const payload = req.body || {};
 
-  const paymentMethod = payload.paymentMethod ? asTrimmedString(payload.paymentMethod) : "transfer";
-  if (!PAYMENT_METHODS.includes(paymentMethod)) {
-    return sendError(res, 400, "VALIDATION_ERROR", `paymentMethod debe ser uno de: ${PAYMENT_METHODS.join(", ")}.`);
-  }
-  req.body.paymentMethod = paymentMethod;
+  req.body.paymentMethod = payload.paymentMethod ? asTrimmedString(payload.paymentMethod).slice(0, 64) : "transfer";
+  req.body.deliveryMethod = payload.deliveryMethod ? asTrimmedString(payload.deliveryMethod) : undefined;
+  req.body.pickupPointId = payload.pickupPointId ? asTrimmedString(payload.pickupPointId) : undefined;
 
-  if (paymentMethod === "transfer") {
-    const addr = req.body.shippingAddress || {};
-    const missing = SHIPPING_ADDRESS_REQUIRED_FIELDS.filter((field) => !addr[field]);
-    if (missing.length > 0) {
-      return sendError(
-        res,
-        400,
-        "VALIDATION_ERROR",
-        `La dirección de envío está incompleta para pago por transferencia/envío (falta: ${missing.join(", ")}).`
-      );
-    }
-  }
-
+  // Siempre los calcula el servidor (resolveCheckout).
+  delete req.body.pickupPoint;
+  delete req.body.paymentMethodType;
+  delete req.body.paymentMethodLabel;
+  delete req.body.paymentInstructions;
   delete req.body.customer;
   delete req.body.orderNumber;
 
@@ -517,17 +531,38 @@ function registerRoutes(app, ctx) {
           return sendError(res, quantityError.status, quantityError.code, quantityError.message);
         }
 
+        // Entrega y pago contra la configuración de la tienda.
+        const StoreConfig = mongooseConnection.models.StoreConfig;
+        const storeConfig = StoreConfig ? await StoreConfig.findOne({ singletonKey: "default" }).lean() : null;
+        const checkout = resolveCheckout(storeConfig, req.body);
+        if (checkout.error) {
+          return sendError(res, checkout.error.status, checkout.error.code, checkout.error.message);
+        }
+
+        const { pickupPointId, ...orderData } = req.body;
+        if (checkout.deliveryMethod === "shipping") {
+          const addr = orderData.shippingAddress || {};
+          const missing = SHIPPING_ADDRESS_REQUIRED_FIELDS.filter((field) => !addr[field]);
+          if (missing.length > 0) {
+            return sendError(
+              res,
+              400,
+              "VALIDATION_ERROR",
+              `La dirección de envío está incompleta (falta: ${missing.join(", ")}).`
+            );
+          }
+        } else {
+          delete orderData.shippingAddress;
+        }
+
         // El envío gratis se mide contra el subtotal de productos (ya con
         // descuentos), igual que en la canasta del storefront.
-        const shippingCost = computeShippingCost(
-          await getShippingSettings(mongooseConnection),
-          built.total,
-          req.body.paymentMethod
-        );
+        const shippingCost = computeShippingCost(shippingSettingsOf(storeConfig), built.total, checkout.deliveryMethod);
 
         const orderNumber = await nextOrderNumber(Order);
         const order = new Order({
-          ...req.body,
+          ...orderData,
+          ...checkout,
           items: built.items,
           shippingCost,
           total: built.total + shippingCost,

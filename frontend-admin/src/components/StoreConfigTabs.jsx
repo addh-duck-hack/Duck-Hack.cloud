@@ -8,6 +8,7 @@ const TABS = [
   { path: "/admin/store-config/equipo-testimonios", label: "Equipo y testimonios" },
   { path: "/admin/store-config/legal", label: "Identidad legal" },
   { path: "/admin/store-config/pagos", label: "Pagos y ventas" },
+  { path: "/admin/store-config/entrega-pago", label: "Entrega y pago" },
 ];
 
 // Sub-navegación de las 5 pantallas de configuración de tienda. Se muestra

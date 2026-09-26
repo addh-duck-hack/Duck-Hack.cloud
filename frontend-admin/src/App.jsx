@@ -10,6 +10,7 @@ import StoreConfigServicesPricing from "./components/StoreConfigServicesPricing"
 import StoreConfigTeamTestimonials from "./components/StoreConfigTeamTestimonials";
 import StoreConfigLegal from "./components/StoreConfigLegal";
 import StoreConfigPayments from "./components/StoreConfigPayments";
+import StoreConfigDelivery from "./components/StoreConfigDelivery";
 import AgencyClientList from "./components/AgencyClientList";
 import AgencyClientForm from "./components/AgencyClientForm";
 import AgencyClientDetail from "./components/AgencyClientDetail";
@@ -92,6 +93,10 @@ const App = () => {
             <Route
               path="store-config/pagos"
               element={canManageStoreConfig ? <StoreConfigPayments /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="store-config/entrega-pago"
+              element={canManageStoreConfig ? <StoreConfigDelivery /> : <Navigate to="/admin" />}
             />
             <Route
               path="agency-clients"

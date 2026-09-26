@@ -121,7 +121,20 @@ const generateOrderPdf = (order, storeConfig, outputStream) => {
   clientLine(order.customerEmail);
   if (order.customerPhone) clientLine(order.customerPhone);
 
-  const addr = order.shippingAddress;
+  // Recoger en punto de venta: el punto elegido en lugar de la dirección.
+  const point = order.deliveryMethod === "pickup" ? order.pickupPoint : null;
+  if (point?.name) {
+    doc.fillColor(BRAND_NAVY).font("Helvetica-Bold").fontSize(11).text("Recoger en", 320, 240);
+    doc.fillColor(BRAND_TEXT_DIM).font("Helvetica").fontSize(10);
+    let pointY = 258;
+    [point.name, point.address, point.schedule ? `Horario: ${point.schedule}` : ""].filter(Boolean).forEach((text) => {
+      doc.text(text, 320, pointY, { width: 240 });
+      pointY += doc.heightOfString(text, { width: 240 }) + 3;
+    });
+    y = Math.max(y, pointY);
+  }
+
+  const addr = order.deliveryMethod === "pickup" ? null : order.shippingAddress;
   if (addr && addr.street) {
     doc.fillColor(BRAND_NAVY).font("Helvetica-Bold").fontSize(11).text("Dirección de envío", 320, 240);
     doc.fillColor(BRAND_TEXT_DIM).font("Helvetica").fontSize(10);
@@ -205,7 +218,11 @@ const generateOrderPdf = (order, storeConfig, outputStream) => {
     .fillColor(BRAND_TEXT_DIM)
     .font("Helvetica")
     .fontSize(9)
-    .text(`Método de pago: ${PAYMENT_METHOD_LABELS[order.paymentMethod] || order.paymentMethod}`, 50, rowY + 45);
+    .text(
+      `Método de pago: ${order.paymentMethodLabel || PAYMENT_METHOD_LABELS[order.paymentMethod] || order.paymentMethod}`,
+      50,
+      rowY + 45
+    );
 
   doc
     .fillColor("#999999")

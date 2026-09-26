@@ -142,16 +142,45 @@ const renderOrderItemLineText = (item) => {
   return `- ${item.productName} ×${item.quantity} — ${priceText} c/u — ${formatCurrency(item.subtotal)}`;
 };
 
-// Bloque de instrucciones de pago — SPEI usa storeConfig.speiPayment (ver
-// modules/storeConfig.js) si la tienda ya lo configuró; si falta algún dato
-// clave (CLABE), cae al texto genérico anterior en vez de mostrar un bloque
-// a medias. "pickup" no depende de StoreConfig, es texto fijo.
+// Etiquetas de entrega y pago: los pedidos nuevos traen la copia del método
+// (paymentMethodLabel, ver lib/checkoutOptions.js); los anteriores, solo el
+// id "transfer" / "pickup".
+const paymentLabelOf = (order) =>
+  order.paymentMethodLabel || PAYMENT_METHOD_LABELS[order.paymentMethod] || order.paymentMethod || "—";
+
+const deliveryLabelOf = (order) => {
+  if (order.deliveryMethod !== "pickup") return "Envío a domicilio";
+  return order.pickupPoint?.name ? `Recoger en ${order.pickupPoint.name}` : "Recoger en tienda";
+};
+
+// Datos del punto de venta elegido, una línea por dato.
+const pickupPointLines = (order) => {
+  const point = order.deliveryMethod === "pickup" ? order.pickupPoint : null;
+  if (!point?.name) return [];
+  return [
+    point.name,
+    point.address,
+    point.schedule ? `Horario: ${point.schedule}` : "",
+    point.instructions,
+  ].filter(Boolean);
+};
+
+const paragraphHtml = (text) =>
+  `<p style="margin:0; font-family:${bodyFont}; font-size:14px; line-height:1.6; color:${BRAND.textDim};">${escapeHtml(text).replace(/\n/g, "<br/>")}</p>`;
+
+// Bloque de instrucciones de pago según el tipo de método (ver
+// lib/checkoutOptions.js): "spei" usa storeConfig.speiPayment si la tienda ya
+// lo configuró — si falta la CLABE, cae al texto genérico en vez de mostrar
+// un bloque a medias —; "manual" usa las instrucciones que escribió la
+// tienda. Pedidos anteriores: "transfer" = SPEI, "pickup" = texto fijo.
 const buildPaymentInstructions = (order, storeConfig) => {
-  if (order.paymentMethod === "pickup") {
-    return {
-      html: `<p style="margin:0; font-family:${bodyFont}; font-size:14px; line-height:1.6; color:${BRAND.textDim};">Puedes pasar a recoger y pagar en la finca; te escribimos para coordinar.</p>`,
-      text: "Puedes pasar a recoger y pagar en la finca; te escribimos para coordinar.",
-    };
+  const type = order.paymentMethodType || (order.paymentMethod === "pickup" ? "manual" : "spei");
+  if (type === "manual") {
+    const text = order.paymentInstructions ||
+      (order.paymentMethod === "pickup"
+        ? "Puedes pasar a recoger y pagar en la finca; te escribimos para coordinar."
+        : "Te contactaremos para coordinar el pago de tu pedido.");
+    return { html: paragraphHtml(text), text };
   }
 
   const spei = storeConfig?.speiPayment;
@@ -214,6 +243,7 @@ const buildPaymentInstructions = (order, storeConfig) => {
  * @returns {{ html: string, text: string }}
  */
 const orderConfirmationEmailTemplate = ({ order, storeConfig, logoAbsoluteUrl }) => {
+  const pickup = pickupPointLines(order);
   const storeName = storeConfig?.storeName || "Tienda";
   const accent = (storeConfig?.theme?.accentColor && /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/.test(storeConfig.theme.accentColor))
     ? storeConfig.theme.accentColor
@@ -246,6 +276,13 @@ const orderConfirmationEmailTemplate = ({ order, storeConfig, logoAbsoluteUrl })
 
                 ${renderOrderItemsTableHtml(order, accent)}
 
+                ${pickup.length
+                  ? `<h2 style="margin:0 0 12px; font-family:${monoFont}; font-size:15px; color:${BRAND.white}; font-weight:700;">
+                  Recoge tu pedido
+                </h2>
+                <div style="margin-bottom:20px;">${paragraphHtml(pickup.join("\n"))}</div>`
+                  : ""}
+
                 <h2 style="margin:0 0 12px; font-family:${monoFont}; font-size:15px; color:${BRAND.white}; font-weight:700;">
                   ¿Cómo pagar?
                 </h2>
@@ -268,7 +305,7 @@ const orderConfirmationEmailTemplate = ({ order, storeConfig, logoAbsoluteUrl })
 Pedido #${order.orderNumber} por un total de ${formatCurrency(order.total)}.
 
 ${order.items.map(renderOrderItemLineText).join("\n")}${renderShippingLineText(order)}
-
+${pickup.length ? `\nRecoge tu pedido:\n${pickup.join("\n")}\n` : ""}
 ¿Cómo pagar?
 ${payment.text}
 
@@ -322,11 +359,10 @@ const orderNotificationEmailTemplate = ({ order, storeConfig, logoAbsoluteUrl })
     ? storeConfig.theme.accentColor
     : BRAND.action;
 
-  const paymentLabel = PAYMENT_METHOD_LABELS[order.paymentMethod] || order.paymentMethod;
-
   const infoRows = [
     ["Cliente", `${order.customerName} <${order.customerEmail}>${order.customerPhone ? ` · ${order.customerPhone}` : ""}`],
-    ["Método de pago", paymentLabel],
+    ["Entrega", deliveryLabelOf(order)],
+    ["Método de pago", paymentLabelOf(order)],
   ];
   if (order.notes) infoRows.push(["Notas", order.notes]);
 

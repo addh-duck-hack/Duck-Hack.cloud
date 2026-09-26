@@ -10,9 +10,6 @@ const initialState = {
   phone: "",
   bank: "",
   maxUnitsPerProduct: "",
-  shippingEnabled: false,
-  shippingCost: "",
-  freeShippingFrom: "",
 };
 
 const StoreConfigPayments = () => {
@@ -31,9 +28,6 @@ const StoreConfigPayments = () => {
     bank: data?.speiPayment?.bank || "",
     // null/0 = sin límite; se muestra vacío para que se lea así.
     maxUnitsPerProduct: data?.maxUnitsPerProduct ? String(data.maxUnitsPerProduct) : "",
-    shippingEnabled: Boolean(data?.shipping?.enabled),
-    shippingCost: data?.shipping?.cost != null ? String(data.shipping.cost) : "",
-    freeShippingFrom: data?.shipping?.freeFrom ? String(data.shipping.freeFrom) : "",
   });
 
   const loadConfig = async () => {
@@ -57,8 +51,8 @@ const StoreConfigPayments = () => {
   }, []);
 
   const handleChange = (event) => {
-    const { name, value, type, checked } = event.target;
-    setForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+    const { name, value } = event.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (event) => {
@@ -77,11 +71,6 @@ const StoreConfigPayments = () => {
             bank: form.bank,
           },
           maxUnitsPerProduct: form.maxUnitsPerProduct === "" ? null : Number(form.maxUnitsPerProduct),
-          shipping: {
-            enabled: form.shippingEnabled,
-            cost: form.shippingCost === "" ? null : Number(form.shippingCost),
-            freeFrom: form.freeShippingFrom === "" ? null : Number(form.freeShippingFrom),
-          },
         },
         { headers: { ...getAuthHeaders(), "Content-Type": "application/json" } }
       );
@@ -168,59 +157,6 @@ const StoreConfigPayments = () => {
             placeholder="Sin límite"
           />
         </label>
-
-        <h3 style={{ marginTop: "2rem" }}>Envío</h3>
-        <p>
-          Si los productos cobran envío, el costo se suma al pedido en la tienda (en la canasta, el total, el
-          correo y el comprobante PDF). Los pedidos que se recogen en tienda nunca pagan envío.
-        </p>
-        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <input
-            type="checkbox"
-            name="shippingEnabled"
-            checked={form.shippingEnabled}
-            onChange={handleChange}
-            style={{ width: "auto" }}
-          />
-          Los productos tienen costo de envío
-        </label>
-        {form.shippingEnabled ? (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginTop: "0.75rem" }}>
-            <label>
-              Costo de envío (MXN)
-              <input
-                type="number"
-                name="shippingCost"
-                value={form.shippingCost}
-                onChange={handleChange}
-                min={1}
-                step="0.01"
-                inputMode="decimal"
-                required
-                placeholder="Ej. 99"
-              />
-            </label>
-            <label>
-              Envío gratis a partir de (MXN)
-              <input
-                type="number"
-                name="freeShippingFrom"
-                value={form.freeShippingFrom}
-                onChange={handleChange}
-                min={0}
-                step="0.01"
-                inputMode="decimal"
-                placeholder="Sin envío gratis"
-              />
-            </label>
-          </div>
-        ) : null}
-        {form.shippingEnabled ? (
-          <p style={{ marginTop: "0.5rem", fontSize: "0.9rem" }}>
-            El mínimo se compara con el subtotal de productos (ya con descuentos). Déjalo vacío si el envío
-            nunca es gratis.
-          </p>
-        ) : null}
 
         <div style={{ marginTop: "1.5rem", display: "flex", gap: "0.75rem" }}>
           <button type="submit" disabled={isLoading} style={{ width: "auto" }}>
