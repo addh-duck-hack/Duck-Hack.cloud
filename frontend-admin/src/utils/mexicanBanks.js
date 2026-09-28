@@ -1,5 +1,5 @@
 // Catálogo de bancos para el dropdown de "Banco receptor" en Configurar
-// tienda > Pagos (SPEI). Debe mantenerse sincronizado a mano con
+// tienda > Ventas y pagos (métodos de pago SPEI). Debe mantenerse sincronizado a mano con
 // packages/core-api/modules/storeConfig.js#MEXICAN_BANKS (mismo criterio de
 // duplicación que utils/hostingPlans.js — no hay paquete compartido entre
 // backend y frontend-admin). "Otro" es la válvula de escape para un banco no
