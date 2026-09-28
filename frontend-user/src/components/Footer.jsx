@@ -13,7 +13,7 @@ import { useAuth } from '../hooks/useAuth';
 import { SITE_LINKS } from '../siteMap';
 import StoreImage from './StoreImage';
 import OriginMap from './OriginMap';
-import { externalHref, telHref } from '../utils/links';
+import { socialHref, telHref } from '../utils/links';
 import './Footer.css';
 
 const LEGAL_LINKS = [
@@ -28,17 +28,6 @@ const SOCIAL_NETWORKS = [
   { key: 'threads', label: 'Threads', icon: 'fa-threads' },
   { key: 'whatsapp', label: 'WhatsApp', icon: 'fa-whatsapp' },
 ];
-
-// Un WhatsApp escrito solo como número pasa a wa.me; el resto va por
-// externalHref (completa https:// y descarta esquemas que no sean http(s)).
-const socialHref = (key, value) => {
-  const raw = String(value || '').trim();
-  if (key === 'whatsapp' && /^[+\d\s()-]+$/.test(raw)) {
-    const digits = raw.replace(/\D/g, '');
-    return digits ? `https://wa.me/${digits}` : '';
-  }
-  return externalHref(raw);
-};
 
 const FooterColumn = ({ title, children }) => (
   <nav className="footer-col" aria-label={title}>

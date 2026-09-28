@@ -24,7 +24,7 @@ const Customers = () => {
         title="El café también se disfruta en buena compañía"
         highlight="Cafeterías que comparten nuestra pasión por el buen café"
         paragraphs={INTRO_PARAGRAPHS}
-        cta={{ to: '/contacto', label: 'Quiero ser cafetería aliada' }}
+        cta={{ to: '/contacto?motivo=mayoreo', label: 'Quiero ser cafetería aliada' }}
       />
       <ServicesGrid />
       <Testimonials />

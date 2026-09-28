@@ -16,3 +16,14 @@ export const telHref = (phone) => {
   const digits = String(phone || '').replace(/[^\d+]/g, '');
   return digits ? `tel:${digits}` : '';
 };
+
+// Enlace de una red social del admin (StoreConfig.socialLinks). Un WhatsApp
+// escrito solo como número pasa a wa.me; el resto va por externalHref.
+export const socialHref = (key, value) => {
+  const raw = String(value || '').trim();
+  if (key === 'whatsapp' && /^[+\d\s()-]+$/.test(raw)) {
+    const digits = raw.replace(/\D/g, '');
+    return digits ? `https://wa.me/${digits}` : '';
+  }
+  return externalHref(raw);
+};

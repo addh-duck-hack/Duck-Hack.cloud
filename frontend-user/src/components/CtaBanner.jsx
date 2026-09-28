@@ -3,9 +3,10 @@
 // Llamado a la acción común a todas las páginas, justo antes del footer
 // (montado en AppShell): frase con la segunda parte en cursiva y acento,
 // subtítulo con el nombre de la tienda (StoreConfig) y dos botones (tienda y
-// contacto). El resto del texto es fijo.
+// contacto; este se oculta en la propia página de contacto). El resto del
+// texto es fijo.
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useStoreConfig } from '../hooks/useStoreConfig';
 import './CtaBanner.css';
 
@@ -14,6 +15,7 @@ const TAGLINE = 'el sabor de un café de altura';
 const CtaBanner = () => {
   const { config } = useStoreConfig();
   const storeName = (config?.storeName || '').trim();
+  const onContactPage = useLocation().pathname === '/contacto';
 
   return (
     <section className="cta-banner" aria-labelledby="cta-banner-title">
@@ -25,9 +27,11 @@ const CtaBanner = () => {
         <Link to="/tienda" className="cta-banner-btn cta-banner-btn--solid">
           Visita nuestra tienda
         </Link>
-        <Link to="/contacto" className="cta-banner-btn cta-banner-btn--outline">
-          Contáctanos
-        </Link>
+        {onContactPage ? null : (
+          <Link to="/contacto" className="cta-banner-btn cta-banner-btn--outline">
+            Contáctanos
+          </Link>
+        )}
       </div>
     </section>
   );

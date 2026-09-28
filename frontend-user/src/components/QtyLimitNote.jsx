@@ -26,7 +26,7 @@ const QtyLimitNote = ({ limit, className = '' }) => {
     <p className={classes}>
       <i className="fa-solid fa-boxes-stacked" aria-hidden="true" />
       <span>
-        Máximo {limit.purchaseLimit} por pedido. ¿Necesitas más? <Link to="/contacto">Hazte cliente mayorista</Link>
+        Máximo {limit.purchaseLimit} por pedido. ¿Necesitas más? <Link to="/contacto?motivo=mayoreo">Hazte cliente mayorista</Link>
       </span>
     </p>
   );
