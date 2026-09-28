@@ -4285,8 +4285,27 @@ components:
           type: string
           enum: [spei, manual]
           description: >-
-            spei = manda los datos de speiPayment por correo; manual = solo las
-            instrucciones. Una pasarela se agregaría como un tipo nuevo.
+            spei = manda por correo los datos de `spei` (o, sin CLABE propia,
+            los de StoreConfig.speiPayment); manual = solo las instrucciones.
+            Una pasarela se agregaría como un tipo nuevo.
+        spei:
+          type: object
+          description: >-
+            Cuenta a la que se transfiere (solo con type spei). Nunca se
+            expone en GET /api/store-config/public.
+          properties:
+            accountHolderName:
+              type: string
+              maxLength: 160
+            bank:
+              type: string
+              description: Uno de los bancos de MEXICAN_BANKS.
+            clabe:
+              type: string
+              pattern: '^\d{18}$'
+            phone:
+              type: string
+              maxLength: 20
         label:
           type: string
           maxLength: 80

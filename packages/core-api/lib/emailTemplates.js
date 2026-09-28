@@ -183,7 +183,10 @@ const buildPaymentInstructions = (order, storeConfig) => {
     return { html: paragraphHtml(text), text };
   }
 
-  const spei = storeConfig?.speiPayment;
+  // Cuenta del método SPEI elegido; si no tiene CLABE propia (o el pedido es
+  // de antes de los métodos configurables), la cuenta general speiPayment.
+  const method = (storeConfig?.paymentMethods || []).find((m) => String(m._id) === String(order.paymentMethod));
+  const spei = method?.spei?.clabe ? method.spei : storeConfig?.speiPayment;
   if (spei?.clabe) {
     const rows = [
       spei.accountHolderName ? ["Beneficiario", spei.accountHolderName] : null,

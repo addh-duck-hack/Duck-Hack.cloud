@@ -2,18 +2,139 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { MEXICAN_BANKS } from "../utils/mexicanBanks";
+import StoreConfigListEditor from "./StoreConfigListEditor";
 import StoreConfigTabs from "./StoreConfigTabs";
 
-const initialState = {
-  accountHolderName: "",
-  clabe: "",
-  phone: "",
-  bank: "",
-  maxUnitsPerProduct: "",
+// Pestaña "Ventas y pagos": límite de compra y lo que el cliente elige en el
+// checkout de la tienda (pasos "Entrega" y "Pago"). Ver
+// packages/core-api/lib/checkoutOptions.js, lib/shipping.js y
+// lib/purchaseLimits.js.
+
+const PICKUP_POINT_FIELDS = [
+  { name: "name", label: "Nombre", type: "text", required: true, maxLength: 120, placeholder: "Finca Tacita" },
+  { name: "schedule", label: "Horario", type: "text", maxLength: 200, placeholder: "Lun a sáb, 9:00 a 18:00" },
+  { name: "address", label: "Dirección", type: "textarea", maxLength: 400, fullWidth: true },
+  { name: "instructions", label: "Indicaciones para recoger", type: "textarea", maxLength: 500, fullWidth: true },
+  { name: "lat", label: "Latitud (opcional)", type: "number", step: "any", min: -90, max: 90, placeholder: "20.2764" },
+  { name: "lng", label: "Longitud (opcional)", type: "number", step: "any", min: -180, max: 180, placeholder: "-97.9577" },
+  { name: "isActive", label: "Activo", type: "boolean" },
+];
+
+// `type` decide cómo se cobra; una pasarela de pago se agregaría aquí como
+// otra opción cuando exista en el backend (PAYMENT_METHOD_TYPES).
+const PAYMENT_METHOD_TYPE_OPTIONS = [
+  { value: "spei", label: "Transferencia SPEI" },
+  { value: "manual", label: "Manual (instrucciones propias)" },
+];
+
+const isSpei = (item) => item.type === "spei";
+const isManual = (item) => item.type !== "spei";
+
+const BANK_OPTIONS = [{ value: "", label: "Selecciona un banco" }, ...MEXICAN_BANKS.map((bank) => ({ value: bank, label: bank }))];
+
+// Los datos de la cuenta SPEI viven en `spei` del método; en el formulario se
+// aplanan (speiClabe, ...) porque el editor de listas maneja campos planos.
+const PAYMENT_METHOD_FIELDS = [
+  { name: "label", label: "Nombre", type: "text", required: true, maxLength: 80, placeholder: "Transferencia SPEI" },
+  { name: "type", label: "Tipo", type: "select", options: PAYMENT_METHOD_TYPE_OPTIONS },
+  { name: "description", label: "Descripción corta (se ve al elegirlo)", type: "text", maxLength: 200, fullWidth: true },
+  { name: "speiAccountHolderName", label: "Titular de la cuenta", type: "text", maxLength: 160, showIf: isSpei },
+  { name: "speiBank", label: "Banco receptor", type: "select", options: BANK_OPTIONS, required: true, showIf: isSpei },
+  {
+    name: "speiClabe",
+    label: "CLABE interbancaria",
+    type: "text",
+    maxLength: 18,
+    digitsOnly: true,
+    required: true,
+    placeholder: "18 dígitos",
+    showIf: isSpei,
+  },
+  { name: "speiPhone", label: "Número de celular (opcional)", type: "tel", maxLength: 20, showIf: isSpei },
+  {
+    name: "instructions",
+    label: "Instrucciones (se muestran al confirmar y en el correo del pedido)",
+    type: "textarea",
+    maxLength: 1000,
+    fullWidth: true,
+    showIf: isManual,
+  },
+  { name: "forShipping", label: "Disponible con envío a domicilio", type: "boolean" },
+  { name: "forPickup", label: "Disponible al recoger en punto de venta", type: "boolean" },
+  { name: "isActive", label: "Activo", type: "boolean" },
+];
+
+const emptyPickupPoint = () => ({ name: "", schedule: "", address: "", instructions: "", lat: null, lng: null, isActive: true });
+
+const emptyPaymentMethod = () => ({
+  label: "",
+  type: "spei",
+  description: "",
+  instructions: "",
+  speiAccountHolderName: "",
+  speiBank: "",
+  speiClabe: "",
+  speiPhone: "",
+  forShipping: true,
+  forPickup: true,
+  isActive: true,
+});
+
+// Método del API → fila del formulario. Un SPEI sin cuenta propia muestra la
+// cuenta general (speiPayment, de antes de que SPEI fuera un método), así al
+// guardar queda en el método.
+const methodToForm = (method, fallbackSpei) => {
+  const { spei, ...rest } = method;
+  const account = spei?.clabe ? spei : method.type === "spei" ? fallbackSpei : null;
+  return {
+    ...rest,
+    speiAccountHolderName: account?.accountHolderName || "",
+    speiBank: account?.bank || "",
+    speiClabe: account?.clabe || "",
+    speiPhone: account?.phone || "",
+  };
 };
 
+const formToMethod = ({ speiAccountHolderName, speiBank, speiClabe, speiPhone, ...method }) =>
+  method.type === "spei"
+    ? { ...method, spei: { accountHolderName: speiAccountHolderName, bank: speiBank, clabe: speiClabe, phone: speiPhone } }
+    : method;
+
+// Lo que la tienda ofrece mientras no haya métodos guardados (mismo default
+// que el backend, lib/checkoutOptions.js#DEFAULT_PAYMENT_METHODS).
+const defaultPaymentMethods = (fallbackSpei) => [
+  methodToForm(
+    {
+      type: "spei",
+      label: "Transferencia / SPEI",
+      description: "Te enviamos los datos por correo y confirmamos al recibir el pago.",
+      instructions: "",
+      forShipping: true,
+      forPickup: true,
+      isActive: true,
+    },
+    fallbackSpei
+  ),
+  methodToForm({
+    type: "manual",
+    label: "Pago al recoger",
+    description: "Pagas al recoger tu pedido.",
+    instructions: "Puedes pasar a recoger y pagar tu pedido; te escribimos para coordinar.",
+    forShipping: false,
+    forPickup: true,
+    isActive: true,
+  }),
+];
+
+const initialShipping = { enabled: false, cost: "", freeFrom: "" };
+
 const StoreConfigPayments = () => {
-  const [form, setForm] = useState(initialState);
+  const [maxUnitsPerProduct, setMaxUnitsPerProduct] = useState("");
+  const [homeDeliveryEnabled, setHomeDeliveryEnabled] = useState(true);
+  const [shipping, setShipping] = useState(initialShipping);
+  const [pickupPoints, setPickupPoints] = useState([]);
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [usingDefaultMethods, setUsingDefaultMethods] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -21,14 +142,22 @@ const StoreConfigPayments = () => {
   const baseUrl = getApiBaseUrl();
   const getAuthHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem("token")}` });
 
-  const mapApiToForm = (data) => ({
-    accountHolderName: data?.speiPayment?.accountHolderName || "",
-    clabe: data?.speiPayment?.clabe || "",
-    phone: data?.speiPayment?.phone || "",
-    bank: data?.speiPayment?.bank || "",
+  const applyConfig = (data) => {
     // null/0 = sin límite; se muestra vacío para que se lea así.
-    maxUnitsPerProduct: data?.maxUnitsPerProduct ? String(data.maxUnitsPerProduct) : "",
-  });
+    setMaxUnitsPerProduct(data?.maxUnitsPerProduct ? String(data.maxUnitsPerProduct) : "");
+    setHomeDeliveryEnabled(data?.homeDeliveryEnabled !== false);
+    setShipping({
+      enabled: Boolean(data?.shipping?.enabled),
+      cost: data?.shipping?.cost != null ? String(data.shipping.cost) : "",
+      freeFrom: data?.shipping?.freeFrom ? String(data.shipping.freeFrom) : "",
+    });
+    setPickupPoints(data?.pickupPoints || []);
+    const saved = data?.paymentMethods || [];
+    setUsingDefaultMethods(saved.length === 0);
+    setPaymentMethods(
+      saved.length ? saved.map((m) => methodToForm(m, data?.speiPayment)) : defaultPaymentMethods(data?.speiPayment)
+    );
+  };
 
   const loadConfig = async () => {
     setIsLoading(true);
@@ -36,7 +165,7 @@ const StoreConfigPayments = () => {
     setMessage("");
     try {
       const response = await axios.get(`${baseUrl}/api/store-config`, { headers: getAuthHeaders() });
-      setForm(mapApiToForm(response.data));
+      applyConfig(response.data);
       setMessage("Configuración cargada.");
     } catch (err) {
       setError(err.response?.data?.error?.message || "No fue posible cargar la configuración.");
@@ -50,10 +179,15 @@ const StoreConfigPayments = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+  const handleShippingChange = (event) => {
+    const { name, value, type, checked } = event.target;
+    setShipping((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   };
+
+  const hasActivePickupPoint = pickupPoints.some((p) => p.isActive !== false);
+  const noDeliveryOption = !homeDeliveryEnabled && !hasActivePickupPoint;
+  const noPaymentMethod = !paymentMethods.some((m) => m.isActive !== false);
+  const speiWithoutClabe = paymentMethods.filter((m) => m.type === "spei" && m.isActive !== false && m.speiClabe.length !== 18);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -64,17 +198,19 @@ const StoreConfigPayments = () => {
       const response = await axios.put(
         `${baseUrl}/api/store-config`,
         {
-          speiPayment: {
-            accountHolderName: form.accountHolderName,
-            clabe: form.clabe,
-            phone: form.phone,
-            bank: form.bank,
+          maxUnitsPerProduct: maxUnitsPerProduct === "" ? null : Number(maxUnitsPerProduct),
+          homeDeliveryEnabled,
+          shipping: {
+            enabled: shipping.enabled,
+            cost: shipping.cost === "" ? null : Number(shipping.cost),
+            freeFrom: shipping.freeFrom === "" ? null : Number(shipping.freeFrom),
           },
-          maxUnitsPerProduct: form.maxUnitsPerProduct === "" ? null : Number(form.maxUnitsPerProduct),
+          pickupPoints,
+          paymentMethods: paymentMethods.map(formToMethod),
         },
         { headers: { ...getAuthHeaders(), "Content-Type": "application/json" } }
       );
-      setForm(mapApiToForm(response.data?.storeConfig));
+      applyConfig(response.data?.storeConfig);
       setMessage(response.data?.message || "Configuración guardada.");
     } catch (err) {
       setError(err.response?.data?.error?.message || "No fue posible guardar la configuración.");
@@ -86,70 +222,42 @@ const StoreConfigPayments = () => {
   return (
     <section style={{ maxWidth: 1300 }}>
       <StoreConfigTabs />
-      <h3>Pagos (SPEI)</h3>
+      <h3>Ventas y pagos</h3>
       <p>
-        Cuenta a la que los clientes deben transferir por SPEI para pagar sus pedidos. Estos datos no se
-        muestran públicamente en la tienda — se usarán para incluirlos en el correo de confirmación de
-        pedido que recibe el comprador.
+        Cómo compran los clientes en la tienda: cuántas piezas pueden llevar, cómo reciben su pedido y cómo lo
+        pagan.
       </p>
 
       {message ? <div className="auth-success">{message}</div> : null}
       {error ? <div className="auth-error">{error}</div> : null}
+      {noDeliveryOption ? (
+        <div className="auth-error">
+          No hay ninguna forma de entrega disponible: activa el envío a domicilio o agrega un punto de venta activo.
+        </div>
+      ) : null}
+      {noPaymentMethod ? (
+        <div className="auth-error">No hay ningún método de pago activo: los clientes no podrán comprar.</div>
+      ) : null}
+      {speiWithoutClabe.length ? (
+        <div className="auth-error">
+          Falta la CLABE (18 dígitos) en: {speiWithoutClabe.map((m) => m.label || "método SPEI").join(", ")}. Sin ella, el
+          correo del pedido no incluye los datos para transferir.
+        </div>
+      ) : null}
 
       <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-          <label>
-            Nombre completo
-            <input
-              type="text"
-              name="accountHolderName"
-              value={form.accountHolderName}
-              onChange={handleChange}
-              maxLength={160}
-            />
-          </label>
-          <label>
-            Banco receptor
-            <select name="bank" value={form.bank} onChange={handleChange}>
-              <option value="">Selecciona un banco</option>
-              {MEXICAN_BANKS.map((bankName) => (
-                <option key={bankName} value={bankName}>
-                  {bankName}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            CLABE interbancaria
-            <input
-              type="text"
-              name="clabe"
-              value={form.clabe}
-              onChange={handleChange}
-              maxLength={18}
-              inputMode="numeric"
-              placeholder="18 dígitos"
-            />
-          </label>
-          <label>
-            Número de celular
-            <input type="tel" name="phone" value={form.phone} onChange={handleChange} maxLength={20} />
-          </label>
-        </div>
-
-        <h3 style={{ marginTop: "2rem" }}>Límite de compra</h3>
+        <h4>Límite de compra</h4>
         <p>
-          Máximo de piezas de un mismo producto que un cliente puede llevar en un pedido de la tienda.
-          Para cantidades mayores, la tienda le ofrece contactarlos como cliente mayorista. Déjalo vacío
-          o en 0 para no poner límite (solo se limita a las existencias del inventario).
+          Máximo de piezas de un mismo producto que un cliente puede llevar en un pedido de la tienda. Para
+          cantidades mayores, la tienda le ofrece contactarlos como cliente mayorista. Déjalo vacío o en 0 para no
+          poner límite (solo se limita a las existencias del inventario).
         </p>
         <label style={{ maxWidth: 320 }}>
           Piezas máximas por producto
           <input
             type="number"
-            name="maxUnitsPerProduct"
-            value={form.maxUnitsPerProduct}
-            onChange={handleChange}
+            value={maxUnitsPerProduct}
+            onChange={(e) => setMaxUnitsPerProduct(e.target.value)}
             min={0}
             max={9999}
             step={1}
@@ -157,6 +265,105 @@ const StoreConfigPayments = () => {
             placeholder="Sin límite"
           />
         </label>
+
+        <h4 style={{ marginTop: "2rem" }}>Envío a domicilio</h4>
+        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <input
+            type="checkbox"
+            checked={homeDeliveryEnabled}
+            onChange={(e) => setHomeDeliveryEnabled(e.target.checked)}
+            style={{ width: "auto" }}
+          />
+          Ofrecer envío a domicilio
+        </label>
+
+        {homeDeliveryEnabled ? (
+          <div style={{ marginTop: "0.75rem" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <input
+                type="checkbox"
+                name="enabled"
+                checked={shipping.enabled}
+                onChange={handleShippingChange}
+                style={{ width: "auto" }}
+              />
+              El envío tiene costo
+            </label>
+            {shipping.enabled ? (
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginTop: "0.75rem" }}>
+                  <label>
+                    Costo de envío (MXN)
+                    <input
+                      type="number"
+                      name="cost"
+                      value={shipping.cost}
+                      onChange={handleShippingChange}
+                      min={1}
+                      step="0.01"
+                      inputMode="decimal"
+                      required
+                      placeholder="Ej. 99"
+                    />
+                  </label>
+                  <label>
+                    Envío gratis a partir de (MXN)
+                    <input
+                      type="number"
+                      name="freeFrom"
+                      value={shipping.freeFrom}
+                      onChange={handleShippingChange}
+                      min={0}
+                      step="0.01"
+                      inputMode="decimal"
+                      placeholder="Sin envío gratis"
+                    />
+                  </label>
+                </div>
+                <p style={{ marginTop: "0.5rem", fontSize: "0.9rem" }}>
+                  El mínimo se compara con el subtotal de productos (ya con descuentos). Déjalo vacío si el envío
+                  nunca es gratis.
+                </p>
+              </>
+            ) : (
+              <p style={{ marginTop: "0.5rem", fontSize: "0.9rem" }}>El envío a domicilio es gratis en todos los pedidos.</p>
+            )}
+          </div>
+        ) : null}
+
+        <h4 style={{ marginTop: "2rem" }}>Puntos de venta (recoger en tienda)</h4>
+        <p>
+          Lugares donde el cliente puede recoger su pedido, sin costo de envío. La latitud y la longitud son
+          opcionales; sirven para mostrar los puntos en un mapa.
+        </p>
+        <StoreConfigListEditor
+          items={pickupPoints}
+          onChange={setPickupPoints}
+          itemLabel={(item) => item.name}
+          fields={PICKUP_POINT_FIELDS}
+          createEmptyItem={emptyPickupPoint}
+          addButtonLabel="+ Agregar punto de venta"
+        />
+
+        <h4 style={{ marginTop: "2rem" }}>Métodos de pago</h4>
+        <p>
+          Cómo puede pagar el cliente; la tienda confirma cada pago a mano desde Pedidos. En los de tipo
+          Transferencia SPEI captura la cuenta a la que se transfiere: se envía en el correo de confirmación del
+          pedido y nunca se muestra en la tienda.
+        </p>
+        {usingDefaultMethods ? (
+          <div className="auth-success">
+            La tienda ofrece estos métodos por default. Revísalos y guarda para confirmarlos o cambiarlos.
+          </div>
+        ) : null}
+        <StoreConfigListEditor
+          items={paymentMethods}
+          onChange={setPaymentMethods}
+          itemLabel={(item) => (item.isActive === false ? `${item.label} (inactivo)` : item.label)}
+          fields={PAYMENT_METHOD_FIELDS}
+          createEmptyItem={emptyPaymentMethod}
+          addButtonLabel="+ Agregar método de pago"
+        />
 
         <div style={{ marginTop: "1.5rem", display: "flex", gap: "0.75rem" }}>
           <button type="submit" disabled={isLoading} style={{ width: "auto" }}>
