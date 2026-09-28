@@ -103,7 +103,11 @@ const renderField = (field, item, onItemChange) => {
     return (
       <label key={field.name} style={{ gridColumn: field.fullWidth ? "1 / span 2" : undefined }}>
         {field.label}
-        <select value={value ?? field.options?.[0]?.value ?? ""} onChange={(e) => onItemChange(field.name, e.target.value)}>
+        <select
+          value={value ?? field.options?.[0]?.value ?? ""}
+          required={field.required}
+          onChange={(e) => onItemChange(field.name, e.target.value)}
+        >
           {(field.options || []).map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
@@ -229,6 +233,8 @@ const renderField = (field, item, onItemChange) => {
 // teamMembers y testimonials — solo cambia el `fields` que se le pasa.
 // No hace fetch ni PUT: es "tonto", el padre es dueño del array completo y
 // decide cuándo guardarlo (mismo patrón que StoreConfigManager con `theme`).
+// `showIf(item)` en un campo lo muestra solo cuando aplica (p. ej. los datos
+// de la cuenta de un método de pago SPEI).
 const StoreConfigListEditor = ({ items, onChange, itemLabel, fields, createEmptyItem, addButtonLabel = "+ Agregar" }) => {
   const [expandedIndex, setExpandedIndex] = useState(null);
 
@@ -312,7 +318,9 @@ const StoreConfigListEditor = ({ items, onChange, itemLabel, fields, createEmpty
 
             {isExpanded ? (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginTop: "0.75rem" }}>
-                {fields.map((field) => renderField(field, item, (name, value) => updateItem(index, { [name]: value })))}
+                {fields
+                  .filter((field) => !field.showIf || field.showIf(item))
+                  .map((field) => renderField(field, item, (name, value) => updateItem(index, { [name]: value })))}
               </div>
             ) : null}
           </div>

@@ -269,10 +269,13 @@ const pickupPointSchema = new mongoose.Schema({
 });
 
 // Métodos de pago del checkout (paso "Pago"). `type` decide cómo se cobra
-// (ver lib/checkoutOptions.js): "spei" usa speiPayment, "manual" solo las
-// instrucciones. forShipping / forPickup: con qué forma de entrega se ofrece.
+// (ver lib/checkoutOptions.js): "spei" manda por correo los datos de `spei`
+// (titular, banco, CLABE, celular; si no tiene CLABE, los de speiPayment),
+// "manual" solo las instrucciones. forShipping / forPickup: con qué forma de
+// entrega se ofrece. `spei` nunca sale en GET /public.
 const paymentMethodSchema = new mongoose.Schema({
   type: { type: String, enum: PAYMENT_METHOD_TYPES, default: "manual" },
+  spei: { type: speiPaymentSchema },
   label: { type: String, required: true, trim: true, maxlength: 80 },
   description: { type: String, trim: true, maxlength: 200 },
   instructions: { type: String, trim: true, maxlength: 1000 },
@@ -581,6 +584,31 @@ const validateSortAndActive = (item, path) => {
   return null;
 };
 
+// Datos de una cuenta SPEI (StoreConfig.speiPayment y paymentMethods[].spei):
+// devuelve el mensaje de error o null.
+const validateSpeiData = (spei, path) => {
+  if (!isPlainObject(spei)) return `${path} debe ser un objeto.`;
+  const { accountHolderName, clabe, phone, bank } = spei;
+  if (accountHolderName !== undefined && asTrimmedString(accountHolderName).length > 160) {
+    return `${path}.accountHolderName excede 160 caracteres.`;
+  }
+  if (clabe !== undefined && asTrimmedString(clabe) && !CLABE_REGEX.test(asTrimmedString(clabe))) {
+    return `${path}.clabe debe tener exactamente 18 dígitos numéricos.`;
+  }
+  if (phone !== undefined && asTrimmedString(phone).length > 20) return `${path}.phone excede 20 caracteres.`;
+  if (bank !== undefined && asTrimmedString(bank) && !MEXICAN_BANKS.includes(asTrimmedString(bank))) {
+    return `${path}.bank no es un banco válido.`;
+  }
+  return null;
+};
+
+const pickSpeiData = (spei) => ({
+  accountHolderName: asTrimmedString(spei.accountHolderName),
+  clabe: asTrimmedString(spei.clabe),
+  phone: asTrimmedString(spei.phone),
+  bank: asTrimmedString(spei.bank),
+});
+
 const validatePickupPointItem = (item, index) => {
   const path = `pickupPoints[${index}]`;
   if (!isPlainObject(item)) return `${path} debe ser un objeto.`;
@@ -624,6 +652,14 @@ const validatePaymentMethodItem = (item, index) => {
   }
   if (item.forShipping === false && item.forPickup === false) {
     return `${path} debe aplicar al menos a envío a domicilio o a recoger en punto de venta.`;
+  }
+  // Datos de la cuenta: solo aplican a SPEI; en otro tipo se descartan.
+  if (type !== "spei" || item.spei === undefined || item.spei === null) {
+    delete item.spei;
+  } else {
+    const speiError = validateSpeiData(item.spei, `${path}.spei`);
+    if (speiError) return speiError;
+    item.spei = pickSpeiData(item.spei);
   }
   return validateSortAndActive(item, path);
 };
@@ -817,23 +853,11 @@ const validateStoreConfigPayload = (sendError) => (req, res, next) => {
     req.body.shipping = { enabled, cost: cost.value, freeFrom: freeFrom.value };
   }
 
+  // Cuenta SPEI de antes de que SPEI fuera un método de pago: se sigue
+  // aceptando y es el respaldo de los métodos SPEI sin CLABE propia.
   if (payload.speiPayment !== undefined) {
-    if (typeof payload.speiPayment !== "object" || payload.speiPayment === null || Array.isArray(payload.speiPayment)) {
-      return sendError(res, 400, "VALIDATION_ERROR", "speiPayment debe ser un objeto.");
-    }
-    const { accountHolderName, clabe, phone, bank } = payload.speiPayment;
-    if (accountHolderName !== undefined && asTrimmedString(accountHolderName).length > 160) {
-      return sendError(res, 400, "VALIDATION_ERROR", "speiPayment.accountHolderName excede 160 caracteres.");
-    }
-    if (clabe !== undefined && asTrimmedString(clabe) && !CLABE_REGEX.test(asTrimmedString(clabe))) {
-      return sendError(res, 400, "VALIDATION_ERROR", "speiPayment.clabe debe tener exactamente 18 dígitos numéricos.");
-    }
-    if (phone !== undefined && asTrimmedString(phone).length > 20) {
-      return sendError(res, 400, "VALIDATION_ERROR", "speiPayment.phone excede 20 caracteres.");
-    }
-    if (bank !== undefined && asTrimmedString(bank) && !MEXICAN_BANKS.includes(asTrimmedString(bank))) {
-      return sendError(res, 400, "VALIDATION_ERROR", "speiPayment.bank no es un banco válido.");
-    }
+    const speiError = validateSpeiData(payload.speiPayment, "speiPayment");
+    if (speiError) return sendError(res, 400, "VALIDATION_ERROR", speiError);
   }
 
   const arrayFieldError =

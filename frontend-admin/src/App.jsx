@@ -10,7 +10,6 @@ import StoreConfigServicesPricing from "./components/StoreConfigServicesPricing"
 import StoreConfigTeamTestimonials from "./components/StoreConfigTeamTestimonials";
 import StoreConfigLegal from "./components/StoreConfigLegal";
 import StoreConfigPayments from "./components/StoreConfigPayments";
-import StoreConfigDelivery from "./components/StoreConfigDelivery";
 import AgencyClientList from "./components/AgencyClientList";
 import AgencyClientForm from "./components/AgencyClientForm";
 import AgencyClientDetail from "./components/AgencyClientDetail";
@@ -94,10 +93,8 @@ const App = () => {
               path="store-config/pagos"
               element={canManageStoreConfig ? <StoreConfigPayments /> : <Navigate to="/admin" />}
             />
-            <Route
-              path="store-config/entrega-pago"
-              element={canManageStoreConfig ? <StoreConfigDelivery /> : <Navigate to="/admin" />}
-            />
+            {/* "Entrega y pago" se juntó con "Pagos y ventas" (enlaces viejos). */}
+            <Route path="store-config/entrega-pago" element={<Navigate to="/admin/store-config/pagos" replace />} />
             <Route
               path="agency-clients"
               element={canManageAgencyClients ? <AgencyClientList /> : <Navigate to="/admin" />}
