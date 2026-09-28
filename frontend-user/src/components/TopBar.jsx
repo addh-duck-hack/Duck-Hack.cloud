@@ -24,9 +24,15 @@ const TopBar = ({ mode }) => {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const storeName = config?.storeName || '';
+  // Al iniciar sesión se regresa a la página donde estaba (?next=), salvo
+  // desde las propias páginas de cuenta o la de inicio.
+  const AUTH_PAGES = ['/', '/login', '/register', '/recuperar-contrasena'];
   const account = isAuthenticated
     ? { to: '/mi-cuenta', label: 'Mi cuenta' }
-    : { to: '/login', label: 'Iniciar sesión' };
+    : {
+        to: AUTH_PAGES.includes(pathname) ? '/login' : `/login?next=${encodeURIComponent(pathname)}`,
+        label: 'Iniciar sesión',
+      };
 
   // El menú se cierra al navegar y con Escape.
   useEffect(() => setMenuOpen(false), [pathname]);

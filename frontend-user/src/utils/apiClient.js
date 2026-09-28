@@ -17,9 +17,15 @@ export const apiFetch = async (path, options = {}) => {
     ? await response.json()
     : await response.text();
 
+  // El error lleva además el status HTTP y el `code` del backend
+  // ({ ok:false, error:{ status, code, message } }) por si la UI necesita
+  // distinguir casos (p. ej. ACCOUNT_NOT_VERIFIED o un endpoint que no existe).
   if (!response.ok) {
     const message = payload?.error?.message || payload?.message || "Error de solicitud";
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = response.status;
+    error.code = payload?.error?.code;
+    throw error;
   }
 
   return payload;
