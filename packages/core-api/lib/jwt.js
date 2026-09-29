@@ -6,6 +6,9 @@ const jwt = require("jsonwebtoken");
 const JWT_ALGORITHM = "HS256";
 const ACCESS_TOKEN_TYPE = "access";
 const EMAIL_VERIFICATION_TOKEN_TYPE = "email_verification";
+const PASSWORD_RESET_TOKEN_TYPE = "password_reset";
+// Opcional (no está en requiredVars para no romper .env existentes).
+const DEFAULT_PASSWORD_RESET_EXPIRES_IN = "1h";
 
 const readJwtConfig = () => {
   const requiredVars = [
@@ -32,6 +35,7 @@ const readJwtConfig = () => {
     audience: String(process.env.JWT_AUDIENCE).trim(),
     accessExpiresIn: String(process.env.JWT_ACCESS_EXPIRES_IN).trim(),
     emailVerifyExpiresIn: String(process.env.JWT_EMAIL_VERIFY_EXPIRES_IN).trim(),
+    passwordResetExpiresIn: String(process.env.JWT_PASSWORD_RESET_EXPIRES_IN || DEFAULT_PASSWORD_RESET_EXPIRES_IN).trim(),
   };
 };
 
@@ -107,10 +111,50 @@ const verifyEmailVerificationToken = (token) => {
   return decoded;
 };
 
+// Token para restablecer la contraseña (POST /api/users/reset-password).
+// `fingerprint` es una huella del hash de contraseña actual (ver
+// modules/auth.js#passwordFingerprint): al cambiar la contraseña deja de
+// coincidir, así que cada enlace sirve una sola vez aunque no haya vencido.
+const signPasswordResetToken = ({ id, fingerprint }) => {
+  const config = readJwtConfig();
+  const subject = String(id);
+
+  return jwt.sign(
+    { id: subject, tokenType: PASSWORD_RESET_TOKEN_TYPE, pwf: fingerprint },
+    config.secret,
+    {
+      algorithm: JWT_ALGORITHM,
+      issuer: config.issuer,
+      audience: config.audience,
+      subject,
+      expiresIn: config.passwordResetExpiresIn,
+    }
+  );
+};
+
+const verifyPasswordResetToken = (token) => {
+  const config = readJwtConfig();
+  const decoded = jwt.verify(token, config.secret, {
+    algorithms: [JWT_ALGORITHM],
+    issuer: config.issuer,
+    audience: config.audience,
+  });
+
+  if (decoded.tokenType !== PASSWORD_RESET_TOKEN_TYPE) {
+    const error = new Error("Tipo de token inválido para restablecer la contraseña.");
+    error.code = "JWT_INVALID_TOKEN_TYPE";
+    throw error;
+  }
+
+  return decoded;
+};
+
 module.exports = {
   signAccessToken,
   signEmailVerificationToken,
+  signPasswordResetToken,
   verifyAccessToken,
   verifyEmailVerificationToken,
+  verifyPasswordResetToken,
   validateJwtEnvConfig,
 };

@@ -16,11 +16,18 @@ const {
   getOrCreateModel,
 } = require("../lib/moduleHelpers");
 const { createAuthMiddleware, isValidRole, ROLES, STAFF_ROLES } = require("../lib/authMiddleware");
-const { validateJwtEnvConfig, signAccessToken, signEmailVerificationToken, verifyEmailVerificationToken } = require("../lib/jwt");
+const {
+  validateJwtEnvConfig,
+  signAccessToken,
+  signEmailVerificationToken,
+  verifyEmailVerificationToken,
+  signPasswordResetToken,
+  verifyPasswordResetToken,
+} = require("../lib/jwt");
 const { createRateLimiter } = require("../lib/rateLimit");
 const { createSingleImageUploadMiddlewares } = require("../lib/uploads");
 const { sendMail } = require("../lib/mailer");
-const { verificationEmailTemplate } = require("../lib/emailTemplates");
+const { verificationEmailTemplate, passwordResetEmailTemplate } = require("../lib/emailTemplates");
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const validateEmail = (email) => EMAIL_REGEX.test(asTrimmedString(email));
@@ -155,6 +162,14 @@ const sanitizeUser = (userDoc) => {
   delete user.password;
   return user;
 };
+
+// Huella del hash de contraseña actual para el token de restablecer (ver
+// lib/jwt.js#signPasswordResetToken): cambia en cuanto cambia la contraseña,
+// así un enlace ya usado (o uno viejo) deja de servir.
+const passwordFingerprint = (passwordHash) =>
+  crypto.createHash("sha256").update(String(passwordHash || "")).digest("hex").slice(0, 16);
+
+const MIN_PASSWORD_LENGTH = 6;
 
 // --- Validación (portada de backend/middleware/validationMiddleware.js) ---
 
@@ -315,6 +330,22 @@ function registerRoutes(app, ctx) {
     message: "Demasiados intentos de registro. Intenta nuevamente más tarde.",
     sendError,
   });
+  // Reenvío de verificación y recuperación de contraseña: mandan correos, así
+  // que el límite es más corto que el de login.
+  const accountEmailRateLimiter = createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    code: "RATE_LIMIT_ACCOUNT_EMAIL_EXCEEDED",
+    message: "Demasiadas solicitudes. Espera unos minutos antes de intentar de nuevo.",
+    sendError,
+  });
+  const resetPasswordRateLimiter = createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    code: "RATE_LIMIT_RESET_PASSWORD_EXCEEDED",
+    message: "Demasiados intentos. Espera unos minutos antes de intentar de nuevo.",
+    sendError,
+  });
   const loginRateLimiter = createRateLimiter({
     windowMs: 15 * 60 * 1000,
     max: 20,
@@ -331,6 +362,56 @@ function registerRoutes(app, ctx) {
       sendError,
     });
 
+  // Marca de la tienda para los correos de cuenta (nombre, logo absoluto vía
+  // BACKEND_PUBLIC_URL y color de acento), igual que los correos de pedido.
+  const loadEmailBranding = async () => {
+    const StoreConfig = mongooseConnection.models.StoreConfig;
+    const config = StoreConfig
+      ? await StoreConfig.findOne({ singletonKey: "default" }).select("storeName logoUrl theme").lean()
+      : null;
+    const backendPublicUrl = (process.env.BACKEND_PUBLIC_URL || "").replace(/\/+$/, "");
+    return {
+      storeName: config?.storeName || "Duck-Hack",
+      logoUrl: backendPublicUrl && config?.logoUrl ? `${backendPublicUrl}/${String(config.logoUrl).replace(/^\/+/, "")}` : undefined,
+      accent: config?.theme?.accentColor,
+    };
+  };
+
+  // Los enlaces de los correos apuntan al storefront (FRONTEND_URL).
+  const frontendUrl = (path) => `${(process.env.FRONTEND_URL || "").replace(/\/+$/, "")}${path}`;
+
+  const sendVerificationEmail = async (user) => {
+    const token = signEmailVerificationToken({ id: user._id });
+    const branding = await loadEmailBranding();
+    const { html, text } = verificationEmailTemplate({
+      ...branding,
+      name: user.name,
+      verifyUrl: frontendUrl(`/users/verify?token=${token}`),
+    });
+    await sendMail({ to: user.email, subject: `Verifica tu cuenta - ${branding.storeName}`, html, text });
+  };
+
+  const sendPasswordResetEmail = async (user) => {
+    const token = signPasswordResetToken({ id: user._id, fingerprint: passwordFingerprint(user.password) });
+    const branding = await loadEmailBranding();
+    const { html, text } = passwordResetEmailTemplate({
+      ...branding,
+      name: user.name,
+      resetUrl: frontendUrl(`/restablecer-contrasena?token=${token}`),
+      expiresIn: "1 hora",
+    });
+    await sendMail({ to: user.email, subject: `Restablece tu contraseña - ${branding.storeName}`, html, text });
+  };
+
+  // Correo solo (reenvío/recuperación): mismo formato que login.
+  const validateEmailOnlyPayload = (req, res, next) => {
+    const email = asTrimmedString(req.body?.email).toLowerCase();
+    if (!email) return sendError(res, 400, "VALIDATION_ERROR", "El correo electrónico es requerido.");
+    if (!validateEmail(email)) return sendError(res, 400, "VALIDATION_ERROR", "El correo electrónico no es válido.");
+    req.body = { email };
+    return next();
+  };
+
   router.post("/register", registerRateLimiter, validateRegisterPayload(sendError), async (req, res) => {
     try {
       const { name, email, password, phone } = req.body;
@@ -342,19 +423,10 @@ function registerRoutes(app, ctx) {
 
       const user = new User({ name, email, password, phone, role: ROLES.CUSTOMER });
       await user.save();
-      const token = signEmailVerificationToken({ id: user._id });
 
-      const backendBase = (process.env.FRONTEND_URL || "").replace(/\/+$/, "");
-      const verifyUrl = `${backendBase}/users/verify?token=${token}`;
-
-      const { html, text } = verificationEmailTemplate({
-        name: user.name,
-        verifyUrl,
-        logoUrl: backendBase ? `${backendBase}/logo192.png` : undefined,
-      });
-
-      // No bloquea el flujo de registro si falla el envío.
-      sendMail({ to: user.email, subject: "Verifica tu cuenta - Duck Hack", html, text }).catch((err) => {
+      // No bloquea el flujo de registro si falla el envío (se puede pedir
+      // otro con POST /resend-verification).
+      sendVerificationEmail(user).catch((err) => {
         console.error("Error enviando correo de verificación:", err);
       });
 
@@ -396,6 +468,73 @@ function registerRoutes(app, ctx) {
     } catch (err) {
       console.error("Error verificando token:", err);
       return sendError(res, 400, "VERIFICATION_TOKEN_INVALID_OR_EXPIRED", "Token inválido o expirado");
+    }
+  });
+
+  // Reenviar el correo de verificación. Respuesta siempre igual (exista o no
+  // la cuenta, o ya esté verificada) para no revelar qué correos están
+  // registrados; solo se manda si hay una cuenta pendiente de verificar.
+  router.post("/resend-verification", accountEmailRateLimiter, validateEmailOnlyPayload, async (req, res) => {
+    try {
+      const user = await User.findOne({ email: req.body.email, deletedAt: null });
+      if (user && !user.isVerified) {
+        await sendVerificationEmail(user);
+      }
+      return res.status(200).json({
+        message: "Si hay una cuenta pendiente de verificar con ese correo, te enviamos un nuevo enlace.",
+      });
+    } catch (error) {
+      console.error("Error reenviando verificación:", error);
+      return sendError(res, 500, "EMAIL_SEND_FAILED", "No fue posible enviar el correo. Intenta más tarde.");
+    }
+  });
+
+  // Recuperar contraseña: manda un enlace de un solo uso al storefront
+  // (/restablecer-contrasena?token=). Misma respuesta genérica que el reenvío.
+  router.post("/forgot-password", accountEmailRateLimiter, validateEmailOnlyPayload, async (req, res) => {
+    try {
+      const user = await User.findOne({ email: req.body.email, deletedAt: null });
+      if (user) {
+        await sendPasswordResetEmail(user);
+      }
+      return res.status(200).json({
+        message: "Si hay una cuenta con ese correo, te enviamos un enlace para restablecer tu contraseña.",
+      });
+    } catch (error) {
+      console.error("Error enviando recuperación de contraseña:", error);
+      return sendError(res, 500, "EMAIL_SEND_FAILED", "No fue posible enviar el correo. Intenta más tarde.");
+    }
+  });
+
+  // Restablecer la contraseña con el token del correo. El token deja de
+  // servir en cuanto la contraseña cambia (huella, ver passwordFingerprint).
+  // Restablecer también verifica la cuenta: el enlace llegó a su correo.
+  router.post("/reset-password", resetPasswordRateLimiter, async (req, res) => {
+    const token = asTrimmedString(req.body?.token);
+    const password = asTrimmedString(req.body?.password);
+    if (!token) return sendError(res, 400, "RESET_TOKEN_REQUIRED", "Falta el token para restablecer la contraseña.");
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      return sendError(res, 400, "VALIDATION_ERROR", `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`);
+    }
+
+    let decoded;
+    try {
+      decoded = verifyPasswordResetToken(token);
+    } catch {
+      return sendError(res, 400, "RESET_TOKEN_INVALID_OR_EXPIRED", "El enlace no es válido o ya venció. Pide uno nuevo.");
+    }
+
+    try {
+      const user = await User.findOne({ _id: decoded.id, deletedAt: null });
+      if (!user || decoded.pwf !== passwordFingerprint(user.password)) {
+        return sendError(res, 400, "RESET_TOKEN_INVALID_OR_EXPIRED", "El enlace no es válido o ya venció. Pide uno nuevo.");
+      }
+      user.password = password; // pre("save") la hashea
+      user.isVerified = true;
+      await user.save();
+      return res.status(200).json({ message: "Tu contraseña se actualizó. Ya puedes iniciar sesión." });
+    } catch (error) {
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "No fue posible actualizar la contraseña.");
     }
   });
 

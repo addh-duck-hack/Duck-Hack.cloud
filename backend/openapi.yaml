@@ -76,6 +76,135 @@ paths:
         "404":
           $ref: "#/components/responses/UserNotFound"
 
+  /api/users/resend-verification:
+    post:
+      tags: [Auth]
+      summary: Reenviar el correo de verificación
+      description: >
+        Rate-limited (5 cada 15 min por IP, `429 RATE_LIMIT_ACCOUNT_EMAIL_EXCEEDED`).
+        Responde siempre lo mismo, exista o no la cuenta o ya esté verificada,
+        para no revelar qué correos están registrados; solo manda el correo si
+        hay una cuenta pendiente de verificar. El enlace va al storefront
+        (`FRONTEND_URL/users/verify?token=`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+              required: [email]
+      responses:
+        "200":
+          description: Solicitud recibida (respuesta genérica)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          description: Demasiadas solicitudes desde la misma IP
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: No fue posible enviar el correo (EMAIL_SEND_FAILED)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/users/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Pedir un enlace para restablecer la contraseña
+      description: >
+        Rate-limited igual que resend-verification. Respuesta genérica; si la
+        cuenta existe, manda un enlace de un solo uso
+        (`FRONTEND_URL/restablecer-contrasena?token=`) que vence en
+        `JWT_PASSWORD_RESET_EXPIRES_IN` (default 1h).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+              required: [email]
+      responses:
+        "200":
+          description: Solicitud recibida (respuesta genérica)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          description: Demasiadas solicitudes desde la misma IP
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: No fue posible enviar el correo (EMAIL_SEND_FAILED)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/users/reset-password:
+    post:
+      tags: [Auth]
+      summary: Restablecer la contraseña con el token del correo
+      description: >
+        El token deja de servir en cuanto la contraseña cambia (lleva una
+        huella de la contraseña actual). Restablecer también marca la cuenta
+        como verificada.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                password:
+                  type: string
+                  minLength: 6
+              required: [token, password]
+      responses:
+        "200":
+          description: Contraseña actualizada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: >-
+            Falta el token (RESET_TOKEN_REQUIRED), contraseña corta
+            (VALIDATION_ERROR) o token inválido, vencido o ya usado
+            (RESET_TOKEN_INVALID_OR_EXPIRED)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Demasiados intentos desde la misma IP (10 cada 15 min, RATE_LIMIT_RESET_PASSWORD_EXCEEDED)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/users/login:
     post:
       tags: [Auth]

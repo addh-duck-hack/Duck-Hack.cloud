@@ -25,12 +25,13 @@ const escapeHtml = (value = "") =>
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 
-/**
- * Correo de verificación de cuenta.
- * @param {{ name?: string, verifyUrl: string, logoUrl?: string }} params
- * @returns {{ html: string, text: string }}
- */
-const verificationEmailTemplate = ({ name, verifyUrl, logoUrl }) => {
+// Correo de una acción de cuenta (verificar correo, restablecer contraseña):
+// encabezado con la marca de la tienda, saludo, párrafo, un botón y el enlace
+// en texto por si el botón no funciona. `accent` es theme.accentColor de la
+// tienda (si es un hex válido).
+const accountActionEmailTemplate = ({ storeName, logoUrl, accent, title, name, intro, ctaLabel, url, note, footnote }) => {
+  const brandName = storeName || "Duck-Hack";
+  const color = accent && /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/.test(accent) ? accent : BRAND.action;
   const safeName = escapeHtml(name || "");
   const greeting = safeName ? `Hola ${safeName},` : "Hola,";
 
@@ -39,51 +40,46 @@ const verificationEmailTemplate = ({ name, verifyUrl, logoUrl }) => {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Verifica tu cuenta - Duck-Hack</title>
+    <title>${escapeHtml(title)} - ${escapeHtml(brandName)}</title>
   </head>
   <body style="margin:0; padding:0; background-color:${BRAND.ink}; font-family:${bodyFont};">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${BRAND.ink};">
       <tr>
         <td align="center" style="padding:40px 16px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;">
-            <tr>
-              <td align="center" style="padding-bottom:24px;">
-                ${logoUrl ? `<img src="${logoUrl}" width="32" height="32" alt="Duck-Hack" style="display:inline-block; vertical-align:middle; border-radius:8px;" />` : ""}
-                <span style="display:inline-block; vertical-align:middle; margin-left:10px; font-family:${monoFont}; font-size:18px; color:${BRAND.white}; letter-spacing:0.02em;">Duck-Hack</span>
-              </td>
-            </tr>
+            ${renderOrderEmailHeader(brandName, logoUrl)}
             <tr>
               <td style="background-color:${BRAND.panel}; border-radius:12px; padding:32px;">
                 <h1 style="margin:0 0 16px; font-family:${monoFont}; font-size:20px; color:${BRAND.white}; font-weight:700;">
-                  Verifica tu cuenta
+                  ${escapeHtml(title)}
                 </h1>
                 <p style="margin:0 0 12px; font-family:${bodyFont}; font-size:15px; line-height:1.6; color:${BRAND.textDim};">
                   ${greeting}
                 </p>
                 <p style="margin:0 0 24px; font-family:${bodyFont}; font-size:15px; line-height:1.6; color:${BRAND.textDim};">
-                  Gracias por registrarte en Duck-Hack. Para activar tu cuenta, confirma tu correo electrónico
-                  haciendo clic en el siguiente botón:
+                  ${escapeHtml(intro)}
                 </p>
                 <table role="presentation" cellpadding="0" cellspacing="0">
                   <tr>
-                    <td align="center" bgcolor="${BRAND.action}" style="border-radius:8px;">
-                      <a href="${verifyUrl}"
+                    <td align="center" bgcolor="${color}" style="border-radius:8px;">
+                      <a href="${url}"
                          style="display:inline-block; padding:12px 24px; font-family:${monoFont}; font-size:13px; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; color:${BRAND.onAccent}; text-decoration:none; border-radius:8px;">
-                        Verificar mi correo
+                        ${escapeHtml(ctaLabel)}
                       </a>
                     </td>
                   </tr>
                 </table>
+                ${note ? `<p style="margin:20px 0 0; font-family:${bodyFont}; font-size:13px; line-height:1.5; color:${BRAND.textDim};">${escapeHtml(note)}</p>` : ""}
                 <p style="margin:24px 0 0; font-family:${bodyFont}; font-size:13px; line-height:1.5; color:${BRAND.textDim};">
                   Si el botón no funciona, copia y pega este enlace en tu navegador:<br />
-                  <a href="${verifyUrl}" style="color:${BRAND.action}; word-break:break-all;">${verifyUrl}</a>
+                  <a href="${url}" style="color:${color}; word-break:break-all;">${url}</a>
                 </p>
               </td>
             </tr>
             <tr>
               <td align="center" style="padding-top:24px;">
                 <p style="margin:0; font-family:${bodyFont}; font-size:12px; color:${BRAND.textDim};">
-                  Si no solicitaste este correo, puedes ignorarlo con confianza.
+                  ${escapeHtml(footnote)}
                 </p>
               </td>
             </tr>
@@ -96,13 +92,50 @@ const verificationEmailTemplate = ({ name, verifyUrl, logoUrl }) => {
 
   const text = `${greeting}
 
-Gracias por registrarte en Duck-Hack. Para activar tu cuenta, abre este enlace:
-${verifyUrl}
-
-Si no solicitaste este correo, ignóralo.`;
+${intro}
+${url}
+${note ? `\n${note}\n` : ""}
+${footnote}`;
 
   return { html, text };
 };
+
+/**
+ * Correo de verificación de cuenta (al registrarse y al pedir reenvío).
+ * @param {{ name?: string, verifyUrl: string, logoUrl?: string, storeName?: string, accent?: string }} params
+ * @returns {{ html: string, text: string }}
+ */
+const verificationEmailTemplate = ({ name, verifyUrl, logoUrl, storeName, accent }) =>
+  accountActionEmailTemplate({
+    storeName,
+    logoUrl,
+    accent,
+    title: "Verifica tu cuenta",
+    name,
+    intro: `Gracias por registrarte en ${storeName || "Duck-Hack"}. Para activar tu cuenta, confirma tu correo electrónico con el siguiente botón:`,
+    ctaLabel: "Verificar mi correo",
+    url: verifyUrl,
+    footnote: "Si no solicitaste este correo, puedes ignorarlo con confianza.",
+  });
+
+/**
+ * Correo para restablecer la contraseña (POST /api/users/forgot-password).
+ * @param {{ name?: string, resetUrl: string, expiresIn?: string, logoUrl?: string, storeName?: string, accent?: string }} params
+ * @returns {{ html: string, text: string }}
+ */
+const passwordResetEmailTemplate = ({ name, resetUrl, expiresIn, logoUrl, storeName, accent }) =>
+  accountActionEmailTemplate({
+    storeName,
+    logoUrl,
+    accent,
+    title: "Restablece tu contraseña",
+    name,
+    intro: `Recibimos una solicitud para restablecer la contraseña de tu cuenta en ${storeName || "Duck-Hack"}. Crea una nueva con el siguiente botón:`,
+    ctaLabel: "Crear contraseña nueva",
+    url: resetUrl,
+    note: `El enlace vence en ${expiresIn || "1 hora"} y solo funciona una vez.`,
+    footnote: "Si no pediste cambiar tu contraseña, ignora este correo: tu contraseña actual sigue funcionando.",
+  });
 
 const formatCurrency = (value) =>
   `$${Number(value || 0).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -448,4 +481,9 @@ const formatShippingAddressLine = (addr) => {
   return [addr.recipientName, line1, line2, line3, addr.phone ? `Tel: ${addr.phone}` : ""].filter(Boolean).join("\n");
 };
 
-module.exports = { verificationEmailTemplate, orderConfirmationEmailTemplate, orderNotificationEmailTemplate };
+module.exports = {
+  verificationEmailTemplate,
+  passwordResetEmailTemplate,
+  orderConfirmationEmailTemplate,
+  orderNotificationEmailTemplate,
+};
