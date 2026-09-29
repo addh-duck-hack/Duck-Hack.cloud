@@ -28,7 +28,7 @@ const {
   isValidObjectId,
   getOrCreateModel,
 } = require("../lib/moduleHelpers");
-const { getPurchaseLimit } = require("../lib/purchaseLimits");
+const { getPurchaseLimit, filterInStock } = require("../lib/purchaseLimits");
 
 const MAX_ATTRIBUTES = 30;
 const MAX_ATTRIBUTE_NAME = 60;
@@ -128,31 +128,6 @@ const validatePayload = (sendError) => (req, res, next) => {
   if (payload.isActive !== undefined) req.body.isActive = Boolean(payload.isActive);
 
   return next();
-};
-
-// Solo se muestran productos con inventario cargado y quantity > 0 — un
-// producto sin registro de inventario (nunca se le dio de alta stock) se
-// considera sin existencias, no "ilimitado" (decisión explícita del
-// negocio). Usado únicamente por GET /public y GET /public/:id — las rutas
-// de staff siguen viendo el catálogo completo para poder gestionarlo.
-// Devuelve los productos ya sanitizados y con `maxQty`/`purchaseLimit`.
-const filterInStock = async (Inventory, products, purchaseLimit) => {
-  if (!Inventory || products.length === 0) return [];
-  const ids = products.map((p) => p._id);
-  const stocked = await Inventory.find({ product: { $in: ids }, quantity: { $gt: 0 } })
-    .select("product quantity")
-    .lean();
-  const stockById = new Map(stocked.map((i) => [String(i.product), i.quantity]));
-  return products
-    .filter((p) => stockById.has(String(p._id)))
-    .map((p) => {
-      const stock = Math.floor(stockById.get(String(p._id)));
-      return {
-        ...sanitizeDoc(p),
-        maxQty: purchaseLimit ? Math.min(stock, purchaseLimit) : stock,
-        purchaseLimit,
-      };
-    });
 };
 
 function registerRoutes(app, ctx) {

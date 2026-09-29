@@ -1,3 +1,5 @@
+const { sanitizeDoc } = require("./moduleHelpers");
+
 // Tope de piezas de un mismo producto por pedido en el storefront público.
 // Lo configura el admin en StoreConfig.maxUnitsPerProduct (pestaña "Pagos y
 // ventas"); vacío o 0 = sin tope, y entonces solo limita el inventario. Arriba
@@ -16,4 +18,30 @@ const getPurchaseLimit = async (mongooseConnection) => {
   return Number.isInteger(limit) && limit > 0 ? limit : null;
 };
 
-module.exports = { getPurchaseLimit };
+// Solo se muestran productos con inventario cargado y quantity > 0 — un
+// producto sin registro de inventario (nunca se le dio de alta stock) se
+// considera sin existencias, no "ilimitado" (decisión explícita del
+// negocio). Usado por GET /api/products/public y /public/:id (modules/products.js) y
+// por los carruseles de GET /api/app-home/public (modules/appHome.js) — las rutas
+// de staff siguen viendo el catálogo completo para poder gestionarlo.
+// Devuelve los productos ya sanitizados y con `maxQty`/`purchaseLimit`.
+const filterInStock = async (Inventory, products, purchaseLimit) => {
+  if (!Inventory || products.length === 0) return [];
+  const ids = products.map((p) => p._id);
+  const stocked = await Inventory.find({ product: { $in: ids }, quantity: { $gt: 0 } })
+    .select("product quantity")
+    .lean();
+  const stockById = new Map(stocked.map((i) => [String(i.product), i.quantity]));
+  return products
+    .filter((p) => stockById.has(String(p._id)))
+    .map((p) => {
+      const stock = Math.floor(stockById.get(String(p._id)));
+      return {
+        ...sanitizeDoc(p),
+        maxQty: purchaseLimit ? Math.min(stock, purchaseLimit) : stock,
+        purchaseLimit,
+      };
+    });
+};
+
+module.exports = { getPurchaseLimit, filterInStock };
