@@ -25,6 +25,15 @@ vault, not in this repo).
   (`/api/media`): lists files from disk, uploads images/GIF/MP4/WebM, edits
   title + alt text (stored in the `Media` collection, the file itself is never
   renamed), and deletes with a usage check (Product/User/StoreConfig/AppHome).
+- `modules/permissions.js` — per-store permissions (`/api/permissions`):
+  which modules the store contracted and what `store_admin`/`collaborator`
+  may use; `super_admin` always sees everything. The logic lives in
+  `lib/permissions.js`, whose `createModuleAuthorizer({ mongooseConnection,
+  sendError })` every staff route uses (`authorizeModule`,
+  `authorizeModuleAccess`, `authorizeSelfOrModule`, `hasModule`); `index.js`
+  re-exports it as `permissions` for `backend/routes/*`. A new admin module
+  must be added to `PERMISSION_MODULES`/`DEFAULT_PERMISSIONS` and guard its
+  routes with the authorizer instead of `authorizeRoles`.
 - `modules/appHome.js` — the mobile app's home screen as server-driven JSON
   (`/api/app-home/*`), singleton per deployment like StoreConfig. Only
   `super_admin` reads/writes it (`GET`/`PUT /`); `GET /public` returns the

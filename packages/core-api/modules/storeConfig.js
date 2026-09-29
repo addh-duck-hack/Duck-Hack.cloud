@@ -23,6 +23,7 @@ const {
 } = require("../lib/moduleHelpers");
 const { PAYMENT_METHOD_TYPES, publicCheckoutOptions } = require("../lib/checkoutOptions");
 const { resolveLiveMetrics } = require("../lib/liveMetrics");
+const { createModuleAuthorizer } = require("../lib/permissions");
 
 const HEX_COLOR_REGEX = /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/;
 const SLUG_REGEX = /^[a-z0-9-]+$/;
@@ -885,11 +886,12 @@ const validateStoreConfigPayload = (sendError) => (req, res, next) => {
 };
 
 function registerRoutes(app, ctx) {
-  const { mongooseConnection, verifyToken, authorizeRoles, ROLES, sendError, resolveLiveMetricSources } = ctx;
+  const { mongooseConnection, verifyToken, sendError, resolveLiveMetricSources } = ctx;
   const StoreConfig = getOrCreateModel(mongooseConnection, "StoreConfig", storeConfigSchema);
 
   const router = express.Router();
-  const canManage = authorizeRoles(ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN);
+  // Permisos por tienda (lib/permissions.js).
+  const canManage = createModuleAuthorizer({ mongooseConnection, sendError }).authorizeModule("storeConfig");
 
   router.get("/public", async (req, res) => {
     try {

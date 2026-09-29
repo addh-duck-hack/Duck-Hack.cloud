@@ -30,6 +30,8 @@ tags:
   - name: Inventory
   - name: Orders
   - name: StoreConfig
+  - name: Permissions
+    description: Permisos por tienda — módulos contratados y qué puede usar cada rol (solo super_admin los configura)
   - name: AppHome
     description: Home de la app móvil armado por JSON desde el admin (solo super_admin lo edita)
 paths:
@@ -2765,6 +2767,103 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
+  /api/permissions/me:
+    get:
+      tags: [Permissions]
+      summary: Módulos que puede usar la sesión actual
+      operationId: getMyPermissions
+      description: >
+        Cualquier staff. `modules` = módulos contratados por la tienda y
+        permitidos para su rol (super_admin: todos). El panel arma su menú y
+        sus rutas con esto; el backend lo hace cumplir en cada endpoint
+        (`403 MODULE_NOT_ALLOWED`).
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Módulos permitidos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  role:
+                    type: string
+                  modules:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PermissionModuleKey"
+                required: [role, modules]
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/permissions:
+    get:
+      tags: [Permissions]
+      summary: Configuración de permisos de la tienda
+      operationId: getPermissions
+      description: Solo `super_admin`. Sin configuración guardada devuelve los defaults (`updatedAt` null).
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Configuración efectiva + catálogo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorePermissionsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    put:
+      tags: [Permissions]
+      summary: Guardar permisos de la tienda
+      operationId: updatePermissions
+      description: >
+        Solo `super_admin`. Reemplaza módulos contratados y permisos de
+        `store_admin` y `collaborator` (ambos obligatorios; super_admin no se
+        configura). Un módulo no contratado queda inaccesible para todos salvo
+        super_admin aunque el rol lo tenga; lo marcado por rol se conserva.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StorePermissions"
+      responses:
+        "200":
+          description: Guardado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/StorePermissionsResponse"
+                  - type: object
+                    properties:
+                      message:
+                        type: string
+        "400":
+          description: Módulo o rol desconocido, o falta un rol (VALIDATION_ERROR)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
   /api/app-home/public:
     get:
       tags: [AppHome]
@@ -3050,7 +3149,10 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
     Forbidden:
-      description: Sin permisos para la operación
+      description: >
+        Sin permisos para la operación: rol no autorizado (FORBIDDEN) o módulo
+        no contratado por la tienda / no permitido para el rol
+        (MODULE_NOT_ALLOWED, ver /api/permissions).
       content:
         application/json:
           schema:
@@ -3127,6 +3229,58 @@ components:
             $ref: "#/components/schemas/ErrorResponse"
 
   schemas:
+    PermissionModuleKey:
+      type: string
+      description: Módulo del panel sujeto a permisos por tienda
+      enum: [storeConfig, products, inventory, orders, media, users, agencyClients, accounting, invoices]
+
+    StorePermissions:
+      type: object
+      properties:
+        enabledModules:
+          type: array
+          description: Módulos contratados por la tienda
+          items:
+            $ref: "#/components/schemas/PermissionModuleKey"
+        roles:
+          type: object
+          properties:
+            store_admin:
+              type: array
+              items:
+                $ref: "#/components/schemas/PermissionModuleKey"
+            collaborator:
+              type: array
+              items:
+                $ref: "#/components/schemas/PermissionModuleKey"
+          required: [store_admin, collaborator]
+      required: [enabledModules, roles]
+
+    StorePermissionsResponse:
+      allOf:
+        - $ref: "#/components/schemas/StorePermissions"
+        - type: object
+          properties:
+            updatedAt:
+              type: string
+              format: date-time
+              nullable: true
+            catalog:
+              type: array
+              items:
+                type: object
+                properties:
+                  key:
+                    $ref: "#/components/schemas/PermissionModuleKey"
+                  label:
+                    type: string
+            configurableRoles:
+              type: array
+              items:
+                type: string
+            defaults:
+              $ref: "#/components/schemas/StorePermissions"
+
     AppHome:
       type: object
       properties:

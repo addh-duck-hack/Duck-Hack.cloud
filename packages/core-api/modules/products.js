@@ -29,6 +29,7 @@ const {
   getOrCreateModel,
 } = require("../lib/moduleHelpers");
 const { getPurchaseLimit, filterInStock } = require("../lib/purchaseLimits");
+const { createModuleAuthorizer } = require("../lib/permissions");
 
 const MAX_ATTRIBUTES = 30;
 const MAX_ATTRIBUTE_NAME = 60;
@@ -131,7 +132,7 @@ const validatePayload = (sendError) => (req, res, next) => {
 };
 
 function registerRoutes(app, ctx) {
-  const { mongooseConnection, verifyToken, authorizeRoles, ROLES, STAFF_ROLES, sendError } = ctx;
+  const { mongooseConnection, verifyToken, sendError } = ctx;
   const Product = getOrCreateModel(mongooseConnection, "Product", productSchema);
 
   const router = express.Router();
@@ -188,8 +189,12 @@ function registerRoutes(app, ctx) {
   // ---- de aquí en adelante, todo el router exige JWT de staff ----
   router.use(verifyToken);
 
-  const canRead = authorizeRoles(...STAFF_ROLES);
-  const canWrite = authorizeRoles(ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN, ROLES.COLLABORATOR);
+  // Permisos por tienda (lib/permissions.js): leer el catálogo también lo
+  // necesitan Inventario y Pedidos (selector de productos), aunque la tienda no
+  // haya contratado Productos (el catálogo ya es público); escribir, solo Productos.
+  const { authorizeModule } = createModuleAuthorizer({ mongooseConnection, sendError });
+  const canRead = authorizeModule("products", { alsoBy: ["inventory", "orders"], requireContract: false });
+  const canWrite = authorizeModule("products");
 
   router.get("/", canRead, async (req, res) => {
     try {

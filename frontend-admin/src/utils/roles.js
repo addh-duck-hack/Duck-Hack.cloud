@@ -14,25 +14,23 @@ export const ROLES = {
 // Cualquier rol de staff (todo menos customer) — quién puede loguear al panel.
 export const STAFF_ROLES = [ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN, ROLES.COLLABORATOR];
 
-// Grupos de permisos por sección del panel — un solo lugar que consumen tanto
-// App.jsx (qué ruta renderiza qué) como AdminShell.jsx (qué aparece en el riel).
-export const STORE_CONFIG_ROLES = [ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN];
-// Clientes / Contabilidad / Movimientos / Facturación — información
-// interna de Duck-Hack, confidencial; collaborator no entra.
-export const AGENCY_ROLES = [ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN];
-export const CATALOG_ROLES = [ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN, ROLES.COLLABORATOR];
-export const ORDER_ROLES = [ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN, ROLES.COLLABORATOR];
-// Biblioteca de medios (carpeta uploads/) — mismos roles que /api/media en
-// packages/core-api/modules/media.js.
-export const MEDIA_ROLES = [ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN, ROLES.COLLABORATOR];
-// Administrador de usuarios registrados (clientes + staff) — GET/PUT/DELETE
-// /api/users ya están restringidos a estos dos roles en el backend (ver
-// packages/core-api/modules/auth.js); collaborator no entra.
-export const USER_MANAGEMENT_ROLES = [ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN];
-// "Configurar App": configuración de la app móvil (hoy su Home, GET/PUT
-// /api/app-home en packages/core-api/modules/appHome.js) — solo super_admin,
-// igual que en el backend.
-export const APP_CONFIG_ROLES = [ROLES.SUPER_ADMIN];
+// Qué ve cada rol ya no se define aquí: son los permisos por tienda
+// (módulos contratados + por rol) que configura el super_admin, ver
+// utils/permissions.js y hooks/usePermissions.jsx.
+
+// Rango para Usuarios — mismo que roleRank en packages/core-api/lib/permissions.js:
+// salvo super_admin, nadie crea ni asigna un rol mayor al suyo.
+const ROLE_RANK = {
+  [ROLES.CUSTOMER]: 0,
+  [ROLES.COLLABORATOR]: 1,
+  [ROLES.STORE_ADMIN]: 2,
+  [ROLES.SUPER_ADMIN]: 3,
+};
+
+export const assignableRolesFor = (actorRole) =>
+  Object.values(ROLES).filter(
+    (role) => actorRole === ROLES.SUPER_ADMIN || (ROLE_RANK[role] ?? 99) <= (ROLE_RANK[actorRole] ?? -1)
+  );
 
 export const ROLE_LABELS = {
   [ROLES.SUPER_ADMIN]: "Super admin",
