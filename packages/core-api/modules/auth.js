@@ -25,6 +25,13 @@ const {
   verifyPasswordResetToken,
 } = require("../lib/jwt");
 const { createRateLimiter } = require("../lib/rateLimit");
+const {
+  REFRESH_REUSE_GRACE_MS,
+  readRefreshTtlMs,
+  generateRefreshToken,
+  hashRefreshToken,
+  newFamilyId,
+} = require("../lib/refreshTokens");
 const { createSingleImageUploadMiddlewares } = require("../lib/uploads");
 const { sendMail } = require("../lib/mailer");
 const { verificationEmailTemplate, passwordResetEmailTemplate } = require("../lib/emailTemplates");
@@ -155,6 +162,25 @@ userSchema.pre("save", async function (next) {
 userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
+
+// Refresh tokens (sesión larga para la app móvil, ver lib/refreshTokens.js).
+// Solo se guarda el hash; `family` agrupa las rotaciones de una misma sesión
+// (un login = una familia). Mongo borra los vencidos solo (índice TTL).
+const refreshTokenSchema = new mongoose.Schema(
+  {
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    tokenHash: { type: String, required: true, unique: true },
+    family: { type: String, required: true, index: true },
+    expiresAt: { type: Date, required: true },
+    // Rotado (sustituido por uno nuevo de la misma familia) — distinto de
+    // revokedAt a secas (logout, cambio de contraseña, robo detectado).
+    replacedAt: { type: Date, default: null },
+    revokedAt: { type: Date, default: null },
+    userAgent: { type: String, trim: true, maxlength: 300 },
+  },
+  { timestamps: true }
+);
+refreshTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 const sanitizeUser = (userDoc) => {
   if (!userDoc) return null;
@@ -312,6 +338,7 @@ const validatePasswordChangePayload = (sendError) => (req, res, next) => {
 function registerRoutes(app, ctx) {
   const { mongooseConnection, sendError } = ctx;
   const User = getOrCreateModel(mongooseConnection, "User", userSchema);
+  const RefreshToken = getOrCreateModel(mongooseConnection, "RefreshToken", refreshTokenSchema);
   const { verifyToken, authorizeRoles, authorizeSelfOrRoles, authorizeSelf } = createAuthMiddleware(sendError);
 
   const router = express.Router();
@@ -353,6 +380,54 @@ function registerRoutes(app, ctx) {
     message: "Demasiados intentos de inicio de sesión. Intenta nuevamente más tarde.",
     sendError,
   });
+  // Más holgado que login: un cliente legítimo renueva solo cada vez que
+  // vence el access token, pero muchos usuarios móviles comparten IP.
+  const refreshRateLimiter = createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    max: 120,
+    code: "RATE_LIMIT_REFRESH_EXCEEDED",
+    message: "Demasiadas solicitudes de sesión. Intenta nuevamente más tarde.",
+    sendError,
+  });
+
+  // --- Refresh tokens (ver lib/refreshTokens.js) ---
+
+  const issueRefreshToken = async (userId, req, family = newFamilyId()) => {
+    const token = generateRefreshToken();
+    await RefreshToken.create({
+      user: userId,
+      tokenHash: hashRefreshToken(token),
+      family,
+      expiresAt: new Date(Date.now() + readRefreshTtlMs()),
+      userAgent: asTrimmedString(req.get("User-Agent")).slice(0, 300) || undefined,
+    });
+    return token;
+  };
+
+  const revokeRefreshFamily = (family) =>
+    RefreshToken.updateMany({ family, revokedAt: null }, { $set: { revokedAt: new Date() } });
+
+  // Cierra todas las sesiones largas del usuario (cambio/restablecimiento de
+  // contraseña, cuenta eliminada). `exceptFamily` conserva la sesión desde la
+  // que se hizo el cambio, si el cliente mandó su refresh token.
+  const revokeUserRefreshTokens = (userId, exceptFamily) =>
+    RefreshToken.updateMany(
+      { user: userId, revokedAt: null, ...(exceptFamily ? { family: { $ne: exceptFamily } } : {}) },
+      { $set: { revokedAt: new Date() } }
+    );
+
+  // Familia de un refresh token vigente de `userId`, o null.
+  const findActiveRefreshFamily = async (rawToken, userId) => {
+    const token = asTrimmedString(rawToken);
+    if (!token) return null;
+    const doc = await RefreshToken.findOne({
+      tokenHash: hashRefreshToken(token),
+      user: userId,
+      revokedAt: null,
+      expiresAt: { $gt: new Date() },
+    }).select("family");
+    return doc?.family || null;
+  };
 
   const { uploadMiddleware: uploadProfileImage, sanitizeAndStoreMiddleware: sanitizeProfileImageUpload } =
     createSingleImageUploadMiddlewares({
@@ -532,6 +607,7 @@ function registerRoutes(app, ctx) {
       user.password = password; // pre("save") la hashea
       user.isVerified = true;
       await user.save();
+      await revokeUserRefreshTokens(user._id);
       return res.status(200).json({ message: "Tu contraseña se actualizó. Ya puedes iniciar sesión." });
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "No fue posible actualizar la contraseña.");
@@ -634,8 +710,13 @@ function registerRoutes(app, ctx) {
           return sendError(res, 400, "INVALID_CURRENT_PASSWORD", "La contraseña actual no es correcta.");
         }
 
+        // Opcional: el refresh token de la sesión actual, para no cerrarla
+        // junto con las demás.
+        const currentFamily = await findActiveRefreshFamily(req.body.refreshToken, user._id);
+
         user.password = newPassword;
         await user.save();
+        await revokeUserRefreshTokens(user._id, currentFamily);
 
         return res.status(200).json({ message: "Contraseña actualizada correctamente." });
       } catch (error) {
@@ -947,12 +1028,13 @@ function registerRoutes(app, ctx) {
       }
 
       const token = signAccessToken({ id: user._id, role: user.role });
+      const refreshToken = await issueRefreshToken(user._id, req);
 
       const userResponse = {
         ...sanitizeUser(user),
         role: user.role,
       };
-      res.status(200).json({ message: "Inicio de sesión exitoso", token, user: userResponse });
+      res.status(200).json({ message: "Inicio de sesión exitoso", token, refreshToken, user: userResponse });
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al iniciar sesión");
     }
@@ -1013,6 +1095,7 @@ function registerRoutes(app, ctx) {
         userToDelete.password = crypto.randomBytes(32).toString("hex");
         userToDelete.deletedAt = new Date();
         await userToDelete.save();
+        await revokeUserRefreshTokens(userToDelete._id);
 
         res.status(200).json({ message: "Usuario eliminado correctamente", user: sanitizeUser(userToDelete) });
       } catch (error) {
@@ -1021,13 +1104,83 @@ function registerRoutes(app, ctx) {
     }
   );
 
+  // Renueva la sesión: cambia un refresh token vigente por un access token
+  // nuevo + un refresh token nuevo (rotación, el anterior deja de servir).
+  // El rol se lee de la BD, no del token viejo, así que un cambio de rol
+  // aplica en la siguiente renovación.
+  router.post("/refresh", refreshRateLimiter, async (req, res) => {
+    const rawToken = asTrimmedString(req.body?.refreshToken);
+    if (!rawToken) {
+      return sendError(res, 400, "REFRESH_TOKEN_REQUIRED", "Falta el refresh token.");
+    }
+    const invalid = () =>
+      sendError(res, 401, "REFRESH_TOKEN_INVALID", "La sesión no es válida o ya expiró. Inicia sesión de nuevo.");
+
+    try {
+      const now = new Date();
+      const stored = await RefreshToken.findOne({ tokenHash: hashRefreshToken(rawToken) });
+      if (!stored || stored.expiresAt <= now) return invalid();
+
+      if (stored.revokedAt) {
+        // Rotado hace un instante: otra petición del mismo cliente ganó la
+        // carrera. No es robo; el cliente debe usar el token que recibió esa otra.
+        const recentlyRotated =
+          stored.replacedAt && now.getTime() - stored.replacedAt.getTime() < REFRESH_REUSE_GRACE_MS;
+        if (recentlyRotated) {
+          return sendError(res, 409, "REFRESH_TOKEN_ALREADY_ROTATED", "La sesión ya se renovó. Usa el token más reciente.");
+        }
+        // Reutilización de un token viejo → probablemente copiado. Se cierra la sesión entera.
+        if (stored.replacedAt) await revokeRefreshFamily(stored.family);
+        return invalid();
+      }
+
+      const user = await User.findOne({ _id: stored.user, deletedAt: null });
+      if (!user || !user.isVerified || !isValidRole(user.role)) {
+        await revokeRefreshFamily(stored.family);
+        return invalid();
+      }
+
+      // Condicional sobre revokedAt: si dos peticiones llegan a la vez solo
+      // una rota; la otra cae en el 409 de arriba en su siguiente intento.
+      const rotated = await RefreshToken.findOneAndUpdate(
+        { _id: stored._id, revokedAt: null },
+        { $set: { revokedAt: now, replacedAt: now } }
+      );
+      if (!rotated) {
+        return sendError(res, 409, "REFRESH_TOKEN_ALREADY_ROTATED", "La sesión ya se renovó. Usa el token más reciente.");
+      }
+
+      const token = signAccessToken({ id: user._id, role: user.role });
+      const refreshToken = await issueRefreshToken(user._id, req, stored.family);
+      return res.status(200).json({ token, refreshToken });
+    } catch (error) {
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al renovar la sesión.");
+    }
+  });
+
+  // Cierra la sesión del refresh token enviado (toda su familia). Siempre
+  // 204, exista o no el token, para no revelar nada. El access token sigue
+  // vigente hasta que venza (JWT sin estado) — el cliente debe descartarlo.
+  router.post("/logout", refreshRateLimiter, async (req, res) => {
+    const rawToken = asTrimmedString(req.body?.refreshToken);
+    try {
+      if (rawToken) {
+        const stored = await RefreshToken.findOne({ tokenHash: hashRefreshToken(rawToken) }).select("family");
+        if (stored) await revokeRefreshFamily(stored.family);
+      }
+      return res.status(204).end();
+    } catch (error) {
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al cerrar la sesión.");
+    }
+  });
+
   app.use("/api/users", router);
 }
 
 module.exports = {
   name: "auth",
   registerRoutes,
-  models: { User: userSchema },
+  models: { User: userSchema, RefreshToken: refreshTokenSchema },
   // Consumido por packages/core-api/index.js (re-exportado como `auth`) y,
   // a través de él, por backend/server.js (para armar `ctx`) y por los
   // archivos de backend/ que quedaron fuera de core-api (AgencyClient,
