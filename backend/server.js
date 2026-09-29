@@ -108,12 +108,18 @@ coreApiModules.forEach((mod) =>
   })
 );
 
-// Servir la carpeta uploads como estática
+// Servir la carpeta uploads como estática. Cada archivo subido tiene un
+// nombre único (`<prefijo>-<timestamp>-<uuid>`, ver
+// packages/core-api/lib/uploads.js) y nunca se sobrescribe — "renombrar" en
+// la biblioteca de medios solo cambia metadatos —, así que su contenido no
+// cambia: caché de un año + immutable. Sin esto (max-age=0) el navegador
+// revalidaba cada imagen y cada tramo de los videos del hero (que se piden
+// por rangos y en bucle) en cada visita.
 const uploadsDir = resolveUploadsDir();
 if (!uploadsDir) {
   throw new Error("No hay un directorio de uploads con permisos de escritura.");
 }
-app.use('/uploads', express.static(uploadsDir));
+app.use('/uploads', express.static(uploadsDir, { maxAge: '365d', immutable: true }));
 
 app.use((err, req, res, next) => {
   if (err?.message === "CORS_ORIGIN_NOT_ALLOWED") {
