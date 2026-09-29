@@ -26,6 +26,34 @@ export const SECTION_TYPES = {
   },
 };
 
+// Secciones que reutilizan el contenido de "Configurar tienda" (STORE_CONTENT
+// en appHome.js): no tienen campos propios además del título. `field` es el
+// arreglo de StoreConfig que muestran y `tab` dónde se edita.
+const STORE_HOME_TAB = { path: "/admin/store-config/home", label: "Configurar tienda → Home" };
+const STORE_SERVICES_TAB = { path: "/admin/store-config/servicios-precios", label: "Configurar tienda → Servicios y precios" };
+const STORE_TEAM_TAB = { path: "/admin/store-config/equipo-testimonios", label: "Configurar tienda → Equipo y testimonios" };
+
+export const STORE_SECTION_TYPES = {
+  storeHero: { label: "Tienda: Hero", icon: "fas fa-film", field: "heroSlides", tab: STORE_HOME_TAB },
+  storeMetrics: { label: "Tienda: Métricas", icon: "fas fa-chart-line", field: "metrics", tab: STORE_HOME_TAB },
+  storeCommands: { label: "Tienda: Comandos", icon: "fas fa-terminal", field: "commands", tab: STORE_HOME_TAB },
+  storeServices: { label: "Tienda: Servicios", icon: "fas fa-concierge-bell", field: "services", tab: STORE_SERVICES_TAB },
+  storePricingPlans: { label: "Tienda: Planes", icon: "fas fa-tags", field: "pricingPlans", tab: STORE_SERVICES_TAB },
+  storeFaqs: { label: "Tienda: Preguntas frecuentes", icon: "fas fa-question-circle", field: "faqs", tab: STORE_SERVICES_TAB },
+  storeTeam: { label: "Tienda: Equipo", icon: "fas fa-users", field: "teamMembers", tab: STORE_TEAM_TAB },
+  storeTestimonials: { label: "Tienda: Testimonios", icon: "fas fa-comment-dots", field: "testimonials", tab: STORE_TEAM_TAB },
+};
+Object.entries(STORE_SECTION_TYPES).forEach(([type, def]) => {
+  SECTION_TYPES[type] = { ...def, create: () => ({}) };
+});
+
+// Elementos que la app mostrará de una sección de tienda: los activos
+// (métricas no tienen isActive, cuentan todas). Mismo criterio que el backend.
+export const countActiveStoreItems = (storeConfig, type) => {
+  const items = storeConfig?.[STORE_SECTION_TYPES[type]?.field];
+  return Array.isArray(items) ? items.filter((item) => item && item.isActive !== false).length : 0;
+};
+
 export const PRODUCT_SOURCE_OPTIONS = [
   { value: "latest", label: "Los más recientes" },
   { value: "category", label: "De una categoría" },
@@ -55,7 +83,11 @@ const newId = () =>
 export const createSection = (type) => ({ id: newId(), type, visible: true, title: "", ...SECTION_TYPES[type].create() });
 
 // Resumen de una línea para la lista del editor.
-export const summarizeSection = (section, productsById) => {
+export const summarizeSection = (section, productsById, storeConfig) => {
+  if (STORE_SECTION_TYPES[section.type]) {
+    const count = countActiveStoreItems(storeConfig, section.type);
+    return count ? `${count} elemento(s) activo(s) en la tienda` : "Sin elementos activos en la tienda — no se mostrará";
+  }
   switch (section.type) {
     case "banner":
       return `${section.items?.length || 0} imagen(es)`;

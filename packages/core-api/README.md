@@ -30,7 +30,10 @@ vault, not in this repo).
   `super_admin` reads/writes it (`GET`/`PUT /`); `GET /public` returns the
   visible sections with product carousels already resolved (active + in stock,
   `lib/purchaseLimits.js#filterInStock`). Sections are validated against a
-  type catalog (banner, productCarousel, categoryGrid, notice).
+  type catalog: own content (banner, productCarousel, categoryGrid, notice)
+  or `store*` types that reuse StoreConfig's hero/metrics/commands/services/
+  plans/FAQs/team/testimonials (resolved in `/public`, live metrics via
+  `lib/liveMetrics.js`).
 
 Still in `backend/`, and **not** a candidate to move here — Duck-Hack's own
 internal agency-management tooling, not a per-store eCommerce feature:
