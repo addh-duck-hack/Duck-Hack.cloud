@@ -9,7 +9,7 @@ import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
-import { ROLES, ROLE_LABELS } from "../utils/roles";
+import { ROLES, ROLE_LABELS, assignableRolesFor } from "../utils/roles";
 
 const INITIAL_FORM = { name: "", email: "", password: "", phone: "", role: ROLES.COLLABORATOR };
 
@@ -23,11 +23,9 @@ const UserCreateForm = () => {
   const getAuthHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem("token")}` });
   const actorRole = localStorage.getItem("role");
 
-  // store_admin no puede darle de alta a nadie con role super_admin — mismo
-  // límite que ya aplica el backend en POST /api/users.
-  const assignableRoles = Object.values(ROLES).filter(
-    (r) => r !== ROLES.SUPER_ADMIN || actorRole === ROLES.SUPER_ADMIN
-  );
+  // Nadie (salvo super_admin) da de alta un rol mayor al suyo — mismo límite
+  // que aplica el backend en POST /api/users.
+  const assignableRoles = assignableRolesFor(actorRole);
 
   const handleChange = (event) => {
     const { name, value } = event.target;

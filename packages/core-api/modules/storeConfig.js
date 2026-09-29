@@ -22,6 +22,8 @@ const {
   getOrCreateModel,
 } = require("../lib/moduleHelpers");
 const { PAYMENT_METHOD_TYPES, publicCheckoutOptions } = require("../lib/checkoutOptions");
+const { resolveLiveMetrics } = require("../lib/liveMetrics");
+const { createModuleAuthorizer } = require("../lib/permissions");
 
 const HEX_COLOR_REGEX = /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/;
 const SLUG_REGEX = /^[a-z0-9-]+$/;
@@ -883,41 +885,13 @@ const validateStoreConfigPayload = (sendError) => (req, res, next) => {
   return next();
 };
 
-// Generaliza backend/routes/storeConfig.routes.js#resolveLiveMetrics: en vez
-// de llamar directo a AgencyClient/Portainer, resuelve cada `source` no
-// "manual" a través del mapa opcional resolveLiveMetricSources — nunca deja
-// que un fallo acá tumbe /public (mejor mostrar el placeholder guardado que
-// romper el storefront).
-const resolveLiveMetrics = async (metrics, resolveLiveMetricSources = {}) => {
-  if (!Array.isArray(metrics) || metrics.length === 0) return metrics;
-
-  const neededSources = [...new Set(metrics.map((m) => m.source).filter((s) => s && s !== "manual"))];
-  if (neededSources.length === 0) return metrics;
-
-  const resolved = {};
-  await Promise.allSettled(
-    neededSources.map(async (source) => {
-      const resolver = resolveLiveMetricSources[source];
-      if (!resolver) return;
-      resolved[source] = await resolver();
-    })
-  );
-
-  return metrics.map((m) => {
-    if (m.source !== "manual" && resolved[m.source] !== undefined && resolved[m.source] !== null) {
-      return { ...m, value: String(resolved[m.source]) };
-    }
-    return m; // fuente automática pero no se pudo calcular (o no se proveyó
-    // resolver para ella): se mantiene el placeholder guardado.
-  });
-};
-
 function registerRoutes(app, ctx) {
-  const { mongooseConnection, verifyToken, authorizeRoles, ROLES, sendError, resolveLiveMetricSources } = ctx;
+  const { mongooseConnection, verifyToken, sendError, resolveLiveMetricSources } = ctx;
   const StoreConfig = getOrCreateModel(mongooseConnection, "StoreConfig", storeConfigSchema);
 
   const router = express.Router();
-  const canManage = authorizeRoles(ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN);
+  // Permisos por tienda (lib/permissions.js).
+  const canManage = createModuleAuthorizer({ mongooseConnection, sendError }).authorizeModule("storeConfig");
 
   router.get("/public", async (req, res) => {
     try {

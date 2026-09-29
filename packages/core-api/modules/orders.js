@@ -32,6 +32,7 @@ const { sendMail } = require("../lib/mailer");
 const { verifyAccessToken } = require("../lib/jwt");
 const { extractBearerToken, ROLES: AUTH_ROLES } = require("../lib/authMiddleware");
 const { orderConfirmationEmailTemplate, orderNotificationEmailTemplate } = require("../lib/emailTemplates");
+const { createModuleAuthorizer } = require("../lib/permissions");
 const { recalculateStatus } = require("./inventory");
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -590,8 +591,10 @@ function registerRoutes(app, ctx) {
   // ---- de aquí en adelante, todo el router exige JWT de staff ----
   router.use(verifyToken);
 
-  const canRead = authorizeRoles(...STAFF_ROLES);
-  const canWrite = authorizeRoles(ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN, ROLES.COLLABORATOR);
+  // Permisos por tienda (lib/permissions.js).
+  const { authorizeModule, hasModule } = createModuleAuthorizer({ mongooseConnection, sendError });
+  const canRead = authorizeModule("orders");
+  const canWrite = authorizeModule("orders");
 
   const validateObjectIdParam = (paramName) => (req, res, next) => {
     if (!isValidObjectId(req.params?.[paramName])) {
@@ -721,7 +724,7 @@ function registerRoutes(app, ctx) {
       const order = await Order.findById(req.params.id);
       if (!order) return sendError(res, 404, "ORDER_NOT_FOUND", "Pedido no encontrado.");
 
-      const isStaff = STAFF_ROLES.includes(req.user.role);
+      const isStaff = STAFF_ROLES.includes(req.user.role) && (await hasModule(req.user.role, "orders"));
       let isOwner = false;
       if (!isStaff) {
         if (order.customer && String(order.customer) === String(req.user.id)) {

@@ -19,6 +19,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const { asTrimmedString, getOrCreateModel } = require("../lib/moduleHelpers");
 const { resolveUploadsDir, createMediaUploadMiddlewares, MEDIA_KIND_BY_EXTENSION } = require("../lib/uploads");
+const { createModuleAuthorizer } = require("../lib/permissions");
 
 const TITLE_MAX = 200;
 const ALT_TEXT_MAX = 500;
@@ -72,12 +73,22 @@ const findPathsInObject = (value, mediaPath, prefix = "") => {
 };
 
 function registerRoutes(app, ctx) {
-  const { mongooseConnection, verifyToken, authorizeRoles, ROLES, sendError } = ctx;
+  const { mongooseConnection, verifyToken, sendError } = ctx;
   const Media = getOrCreateModel(mongooseConnection, "Media", mediaSchema);
 
   const router = express.Router();
   router.use(verifyToken);
-  router.use(authorizeRoles(ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN, ROLES.COLLABORATOR));
+  // Permisos por tienda (lib/permissions.js): listar y subir también lo hacen
+  // Productos y Configurar tienda (selector de medios), aunque la tienda no
+  // haya contratado Medios (sin él no podrían ni poner el logo); renombrar y
+  // borrar, solo Medios.
+  const { authorizeModule } = createModuleAuthorizer({ mongooseConnection, sendError });
+  const canUsePicker = authorizeModule("media", { alsoBy: ["products", "storeConfig"], requireContract: false });
+  const canManageLibrary = authorizeModule("media");
+  router.use((req, res, next) => {
+    const isPickerAction = req.method === "GET" || req.method === "HEAD" || req.method === "POST";
+    return (isPickerAction ? canUsePicker : canManageLibrary)(req, res, next);
+  });
 
   const { uploadMiddleware, sanitizeAndStoreMiddleware } = createMediaUploadMiddlewares({
     fieldName: "media",

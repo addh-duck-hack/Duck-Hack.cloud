@@ -25,12 +25,24 @@ vault, not in this repo).
   (`/api/media`): lists files from disk, uploads images/GIF/MP4/WebM, edits
   title + alt text (stored in the `Media` collection, the file itself is never
   renamed), and deletes with a usage check (Product/User/StoreConfig/AppHome).
+- `modules/permissions.js` — per-store permissions (`/api/permissions`):
+  which modules the store contracted and what `store_admin`/`collaborator`
+  may use; `super_admin` always sees everything. The logic lives in
+  `lib/permissions.js`, whose `createModuleAuthorizer({ mongooseConnection,
+  sendError })` every staff route uses (`authorizeModule`,
+  `authorizeModuleAccess`, `authorizeSelfOrModule`, `hasModule`); `index.js`
+  re-exports it as `permissions` for `backend/routes/*`. A new admin module
+  must be added to `PERMISSION_MODULES`/`DEFAULT_PERMISSIONS` and guard its
+  routes with the authorizer instead of `authorizeRoles`.
 - `modules/appHome.js` — the mobile app's home screen as server-driven JSON
   (`/api/app-home/*`), singleton per deployment like StoreConfig. Only
   `super_admin` reads/writes it (`GET`/`PUT /`); `GET /public` returns the
   visible sections with product carousels already resolved (active + in stock,
   `lib/purchaseLimits.js#filterInStock`). Sections are validated against a
-  type catalog (banner, productCarousel, categoryGrid, notice).
+  type catalog: own content (banner, productCarousel, categoryGrid, notice)
+  or `store*` types that reuse StoreConfig's hero/metrics/commands/services/
+  plans/FAQs/team/testimonials (resolved in `/public`, live metrics via
+  `lib/liveMetrics.js`).
 
 Still in `backend/`, and **not** a candidate to move here — Duck-Hack's own
 internal agency-management tooling, not a per-store eCommerce feature:

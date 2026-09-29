@@ -1,4 +1,4 @@
-// Editor del home de la app móvil (solo super_admin) — el JSON que devuelve
+// Pestaña "Home" de "Configurar App" (solo super_admin) — el JSON que devuelve
 // GET /api/app-home/public y con el que la app arma su pantalla de inicio sin
 // publicar una versión nueva (ver packages/core-api/modules/appHome.js).
 // Dos vistas sobre el mismo estado `sections`: Visual (switch de visible,
@@ -7,7 +7,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
-import { SECTION_TYPES, createSection, summarizeSection } from "../utils/appHomeSections";
+import { SECTION_TYPES, STORE_SECTION_TYPES, createSection, summarizeSection } from "../utils/appHomeSections";
+import AppConfigTabs from "./AppConfigTabs";
 import AppHomeSectionForm from "./AppHomeSectionForm";
 import Loader from "./Loader";
 import "./AppHomeEditor.css";
@@ -21,6 +22,8 @@ const AppHomeEditor = () => {
   const [savedSnapshot, setSavedSnapshot] = useState("[]");
   const [updatedAt, setUpdatedAt] = useState(null);
   const [products, setProducts] = useState([]);
+  // Para contar lo que mostrarán las secciones de tienda (null si aún no existe).
+  const [storeConfig, setStoreConfig] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [newType, setNewType] = useState("banner");
   const [view, setView] = useState("visual");
@@ -51,12 +54,16 @@ const AppHomeEditor = () => {
     setError("");
     setMessage("");
     try {
-      const [homeRes, productsRes] = await Promise.all([
+      const [homeRes, productsRes, storeRes] = await Promise.all([
         axios.get(`${baseUrl}/api/app-home`, { headers: getAuthHeaders() }),
         axios.get(`${baseUrl}/api/products`, { headers: getAuthHeaders() }),
+        axios
+          .get(`${baseUrl}/api/store-config`, { headers: getAuthHeaders() })
+          .catch((err) => (err.response?.status === 404 ? { data: null } : Promise.reject(err))),
       ]);
       applyServerData(homeRes.data);
       setProducts((productsRes.data?.items || []).sort((a, b) => a.name.localeCompare(b.name)));
+      setStoreConfig(storeRes.data);
     } catch (err) {
       setError(err.response?.data?.error?.message || "No fue posible cargar el home de la app.");
     } finally {
@@ -145,9 +152,10 @@ const AppHomeEditor = () => {
 
   return (
     <div className="app-home">
+      <AppConfigTabs />
       <div className="app-home-header">
         <div>
-          <h2>Home de la app</h2>
+          <h3>Home de la app</h3>
           <div className="app-home-hint">
             Secciones de la pantalla de inicio de la app móvil, en orden. Guardar publica los cambios: la app los ve la
             próxima vez que cargue el inicio, sin publicar una versión nueva.
@@ -198,7 +206,7 @@ const AppHomeEditor = () => {
                       <span className="app-home-section-text">
                         <strong>{section.title || type?.label || section.type}</strong>
                         <small>
-                          {type?.label || section.type} · {summarizeSection(section, productsById)}
+                          {type?.label || section.type} · {summarizeSection(section, productsById, storeConfig)}
                         </small>
                       </span>
                       <i className={`fas fa-chevron-${isExpanded ? "up" : "down"}`} aria-hidden="true" />
@@ -236,6 +244,7 @@ const AppHomeEditor = () => {
                       products={products}
                       productsById={productsById}
                       categories={categories}
+                      storeConfig={storeConfig}
                     />
                   ) : null}
                 </li>
@@ -245,11 +254,22 @@ const AppHomeEditor = () => {
 
           <div className="app-home-add">
             <select value={newType} onChange={(e) => setNewType(e.target.value)}>
-              {Object.entries(SECTION_TYPES).map(([value, type]) => (
-                <option key={value} value={value}>
-                  {type.label}
-                </option>
-              ))}
+              <optgroup label="Contenido propio de la app">
+                {Object.entries(SECTION_TYPES)
+                  .filter(([value]) => !STORE_SECTION_TYPES[value])
+                  .map(([value, type]) => (
+                    <option key={value} value={value}>
+                      {type.label}
+                    </option>
+                  ))}
+              </optgroup>
+              <optgroup label="Contenido de Configurar tienda">
+                {Object.entries(STORE_SECTION_TYPES).map(([value, type]) => (
+                  <option key={value} value={value}>
+                    {type.label}
+                  </option>
+                ))}
+              </optgroup>
             </select>
             <button type="button" className="btn-secondary" onClick={addSection}>
               <i className="fas fa-plus" aria-hidden="true" /> Agregar sección

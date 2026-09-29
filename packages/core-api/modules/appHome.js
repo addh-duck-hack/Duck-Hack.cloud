@@ -14,11 +14,19 @@
 // que GET /api/products/public: activos y con stock, ver
 // lib/purchaseLimits.js#filterInStock), para que la app arme el home con una
 // sola petición; un carrusel que queda sin productos no se envía.
+//
+// Secciones de tienda (storeHero, storeMetrics, ... ver STORE_CONTENT): no
+// guardan contenido propio, reutilizan el de StoreConfig (se edita una sola
+// vez en "Configurar tienda" y sale igual en web y app). GET /public las
+// resuelve en `items`: solo elementos activos, ordenados por sortOrder, sin
+// isActive/sortOrder; métricas automáticas recalculadas como en
+// GET /api/store-config/public (lib/liveMetrics.js). Sin elementos → no se envía.
 const crypto = require("crypto");
 const express = require("express");
 const mongoose = require("mongoose");
 const { sanitizeDoc, asTrimmedString, isValidObjectId, getOrCreateModel } = require("../lib/moduleHelpers");
 const { getPurchaseLimit, filterInStock } = require("../lib/purchaseLimits");
+const { resolveLiveMetrics } = require("../lib/liveMetrics");
 
 const SCHEMA_VERSION = 1;
 const MAX_SECTIONS = 30;
@@ -145,7 +153,34 @@ const SECTION_VALIDATORS = {
   },
 };
 
+// Secciones que muestran contenido de StoreConfig: tipo → campo de origen.
+// Solo llevan los campos comunes (id, type, visible, title).
+const STORE_CONTENT = {
+  storeHero: { field: "heroSlides" },
+  storeMetrics: { field: "metrics" },
+  storeCommands: { field: "commands" },
+  storeServices: { field: "services" },
+  storePricingPlans: { field: "pricingPlans" },
+  storeFaqs: { field: "faqs" },
+  storeTeam: { field: "teamMembers" },
+  storeTestimonials: { field: "testimonials" },
+};
+Object.keys(STORE_CONTENT).forEach((type) => {
+  SECTION_VALIDATORS[type] = () => ({});
+});
+
 const SECTION_TYPES = Object.keys(SECTION_VALIDATORS);
+
+// Elementos públicos de una sección de tienda: activos, por sortOrder (estable).
+const publicStoreItems = (config, field) =>
+  (Array.isArray(config?.[field]) ? config[field] : [])
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => item && item.isActive !== false)
+    .sort((a, b) => (a.item.sortOrder ?? 0) - (b.item.sortOrder ?? 0) || a.index - b.index)
+    .map(({ item }) => {
+      const { isActive, sortOrder, _id, ...rest } = item;
+      return rest;
+    });
 
 // Normaliza `sections` completo o lanza HomeValidationError. Campos comunes:
 // id (se genera si falta; único), type, visible (default true), title.
@@ -179,7 +214,7 @@ const toResponse = (doc) => ({
 });
 
 function registerRoutes(app, ctx) {
-  const { mongooseConnection, verifyToken, authorizeRoles, ROLES, sendError } = ctx;
+  const { mongooseConnection, verifyToken, authorizeRoles, ROLES, sendError, resolveLiveMetricSources } = ctx;
   const AppHome = getOrCreateModel(mongooseConnection, "AppHome", appHomeSchema);
   const router = express.Router();
 
@@ -202,12 +237,26 @@ function registerRoutes(app, ctx) {
     return inStock.slice(0, section.limit);
   };
 
+  const resolveStoreSection = async (section, config) => {
+    const { field } = STORE_CONTENT[section.type];
+    let items = publicStoreItems(config, field);
+    if (section.type === "storeMetrics") items = await resolveLiveMetrics(items, resolveLiveMetricSources);
+    const resolved = { ...section, items };
+    if (section.type === "storePricingPlans") resolved.commonChecks = config?.commonPlanChecks || [];
+    return resolved;
+  };
+
   // ---- Pública (app móvil) ----
   router.get("/public", async (req, res) => {
     try {
       const doc = await AppHome.findOne({ singletonKey: "default" }).lean();
       const visible = (doc?.sections || []).filter((s) => s.visible !== false);
       const purchaseLimit = await getPurchaseLimit(mongooseConnection);
+      // StoreConfig solo se lee si hay secciones de tienda visibles.
+      const StoreConfig = mongooseConnection.models.StoreConfig;
+      const needsStore = visible.some((s) => STORE_CONTENT[s.type]);
+      const storeConfig =
+        needsStore && StoreConfig ? await StoreConfig.findOne({ singletonKey: "default", isActive: true }).lean() : null;
 
       const sections = [];
       for (const { visible: _visible, ...section } of visible) {
@@ -215,6 +264,10 @@ function registerRoutes(app, ctx) {
           const products = await resolveCarousel(section, purchaseLimit);
           if (products.length === 0) continue;
           sections.push({ ...section, products });
+        } else if (STORE_CONTENT[section.type]) {
+          const resolved = await resolveStoreSection(section, storeConfig);
+          if (resolved.items.length === 0) continue;
+          sections.push(resolved);
         } else {
           sections.push(section);
         }

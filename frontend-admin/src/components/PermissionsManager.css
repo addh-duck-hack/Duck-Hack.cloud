@@ -1,0 +1,87 @@
+/* Pantalla "Permisos" (PermissionsManager.jsx). */
+
+.permissions button {
+  width: auto;
+}
+
+.permissions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.permissions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.permissions-header h2 {
+  margin: 0 0 0.35rem;
+}
+
+.permissions-hint,
+.permissions-hint p {
+  text-align: left;
+  font-size: 0.8rem;
+  color: var(--placeholder-color);
+}
+
+.permissions-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.permissions-actions button {
+  padding: 8px 16px;
+}
+
+.permissions-dirty {
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid var(--primary-color);
+  background: rgba(248, 175, 17, 0.08);
+  font-size: 0.85rem;
+}
+
+.permissions-table {
+  margin-top: 1rem;
+}
+
+.permissions-table th:not(:first-child),
+.permissions-table td:not(:first-child) {
+  text-align: center;
+  width: 170px;
+}
+
+.permissions-table tr.is-disabled td:first-child {
+  color: var(--placeholder-color);
+}
+
+.permissions-check {
+  display: inline-flex;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.permissions-check input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  cursor: inherit;
+}
+
+.permissions-check input:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.permissions-notes {
+  margin-top: 1.25rem;
+}
+
+.permissions-notes p {
+  margin: 0 0 0.5rem;
+}

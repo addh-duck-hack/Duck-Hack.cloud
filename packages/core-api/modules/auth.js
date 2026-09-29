@@ -25,6 +25,7 @@ const {
   verifyPasswordResetToken,
 } = require("../lib/jwt");
 const { createRateLimiter } = require("../lib/rateLimit");
+const { createModuleAuthorizer, roleRank } = require("../lib/permissions");
 const {
   REFRESH_REUSE_GRACE_MS,
   readRefreshTtlMs,
@@ -339,7 +340,13 @@ function registerRoutes(app, ctx) {
   const { mongooseConnection, sendError } = ctx;
   const User = getOrCreateModel(mongooseConnection, "User", userSchema);
   const RefreshToken = getOrCreateModel(mongooseConnection, "RefreshToken", refreshTokenSchema);
-  const { verifyToken, authorizeRoles, authorizeSelfOrRoles, authorizeSelf } = createAuthMiddleware(sendError);
+  const { verifyToken, authorizeSelf } = createAuthMiddleware(sendError);
+  // Administrar usuarios es el módulo "users" de los permisos por tienda
+  // (lib/permissions.js). Además, salvo super_admin, nadie ve, crea, edita ni
+  // asigna una cuenta de rango mayor al suyo (roleRank) — así un collaborator
+  // con Usuarios no puede tocar a un store_admin.
+  const { authorizeModule, authorizeSelfOrModule } = createModuleAuthorizer({ mongooseConnection, sendError });
+  const outranks = (actorRole, targetRole) => actorRole !== ROLES.SUPER_ADMIN && roleRank(targetRole) > roleRank(actorRole);
 
   const router = express.Router();
 
@@ -618,7 +625,7 @@ function registerRoutes(app, ctx) {
     "/:id",
     validateObjectIdParam("id"),
     verifyToken,
-    authorizeSelfOrRoles("id", ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN),
+    authorizeSelfOrModule("id", "users"),
     uploadProfileImage,
     sanitizeProfileImageUpload,
     validateUpdateUserPayload(sendError),
@@ -651,7 +658,7 @@ function registerRoutes(app, ctx) {
           return sendError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado");
         }
 
-        if (actorRole === ROLES.STORE_ADMIN && currentUser.role === ROLES.SUPER_ADMIN) {
+        if (outranks(actorRole, currentUser.role)) {
           return sendError(res, 403, "FORBIDDEN_EDIT_USER", "No tienes permisos para editar este usuario.");
         }
 
@@ -661,7 +668,7 @@ function registerRoutes(app, ctx) {
             return sendError(res, 400, "INVALID_ROLE", "Rol no válido");
           }
 
-          if (![ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN].includes(actorRole)) {
+          if (actorRole === ROLES.CUSTOMER) {
             return sendError(res, 403, "FORBIDDEN_CHANGE_ROLE", "No tienes permisos para cambiar roles.");
           }
 
@@ -669,7 +676,7 @@ function registerRoutes(app, ctx) {
             return sendError(res, 400, "CANNOT_CHANGE_OWN_ROLE", "No puedes cambiar tu propio rol.");
           }
 
-          if (actorRole === ROLES.STORE_ADMIN && role === ROLES.SUPER_ADMIN) {
+          if (outranks(actorRole, role)) {
             return sendError(res, 403, "FORBIDDEN_ASSIGN_ROLE", "No tienes permisos para asignar este rol.");
           }
 
@@ -932,16 +939,15 @@ function registerRoutes(app, ctx) {
   router.post(
     "/",
     verifyToken,
-    authorizeRoles(ROLES.STORE_ADMIN, ROLES.SUPER_ADMIN),
+    authorizeModule("users"),
     validateCreateStaffPayload(sendError),
     async (req, res) => {
       try {
         const { name, email, password, role, phone } = req.body;
         const actorRole = req.user.role;
 
-        // Mismo límite que en PUT /:id: store_admin no puede adjudicarle
-        // super_admin a nadie, ni de nueva cuenta.
-        if (actorRole === ROLES.STORE_ADMIN && role === ROLES.SUPER_ADMIN) {
+        // Mismo límite que en PUT /:id: nadie crea cuentas de rango mayor al suyo.
+        if (outranks(actorRole, role)) {
           return sendError(res, 403, "FORBIDDEN_ASSIGN_ROLE", "No tienes permisos para asignar este rol.");
         }
 
@@ -967,9 +973,13 @@ function registerRoutes(app, ctx) {
     }
   );
 
-  router.get("/", verifyToken, authorizeRoles(ROLES.STORE_ADMIN, ROLES.SUPER_ADMIN), async (req, res) => {
+  router.get("/", verifyToken, authorizeModule("users"), async (req, res) => {
     try {
-      const users = await User.find({ deletedAt: null }).select("_id name email phone role isVerified createdAt");
+      // Sin las cuentas de rango mayor al de quien consulta (ej. store_admin no ve super_admin).
+      const visibleRoles = Object.values(ROLES).filter((role) => !outranks(req.user.role, role));
+      const users = await User.find({ deletedAt: null, role: { $in: visibleRoles } }).select(
+        "_id name email phone role isVerified createdAt"
+      );
       res.json(users);
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al obtener usuarios");
@@ -980,7 +990,7 @@ function registerRoutes(app, ctx) {
     "/:id",
     validateObjectIdParam("id"),
     verifyToken,
-    authorizeSelfOrRoles("id", ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN),
+    authorizeSelfOrModule("id", "users"),
     async (req, res) => {
       try {
         const userId = req.params.id;
@@ -994,7 +1004,7 @@ function registerRoutes(app, ctx) {
           return sendError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado");
         }
 
-        if (actorRole === ROLES.STORE_ADMIN && user.role === ROLES.SUPER_ADMIN) {
+        if (outranks(actorRole, user.role)) {
           return sendError(res, 403, "FORBIDDEN_VIEW_USER", "No tienes permisos para consultar este usuario.");
         }
 
@@ -1052,7 +1062,7 @@ function registerRoutes(app, ctx) {
     "/:id",
     validateObjectIdParam("id"),
     verifyToken,
-    authorizeSelfOrRoles("id", ROLES.STORE_ADMIN, ROLES.SUPER_ADMIN),
+    authorizeSelfOrModule("id", "users"),
     async (req, res) => {
       try {
         const userId = req.params.id;
@@ -1069,7 +1079,7 @@ function registerRoutes(app, ctx) {
           return sendError(res, 400, "USER_ALREADY_DELETED", "Esta cuenta ya fue eliminada.");
         }
 
-        if (actorRole === ROLES.STORE_ADMIN && userToDelete.role === ROLES.SUPER_ADMIN) {
+        if (outranks(actorRole, userToDelete.role)) {
           return sendError(res, 403, "FORBIDDEN_DELETE_USER", "No tienes permisos para eliminar este usuario.");
         }
 

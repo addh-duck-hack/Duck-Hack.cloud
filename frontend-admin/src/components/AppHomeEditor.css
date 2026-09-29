@@ -13,7 +13,7 @@
   margin-bottom: 1rem;
 }
 
-.app-home-header h2 {
+.app-home-header h3 {
   margin: 0 0 0.35rem;
 }
 
@@ -242,4 +242,20 @@
 
 .app-home-save {
   padding: 8px 16px;
+}
+
+.app-home-store-info {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.75rem;
+  border: 1px dashed var(--input-border-color);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.app-home-store-info > i {
+  margin-top: 0.2rem;
+  color: var(--secondary-color);
 }

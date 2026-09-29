@@ -1,10 +1,13 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import MediaField from "./MediaField";
 import {
   LINK_TYPE_OPTIONS,
   MAX_CAROUSEL_PRODUCTS,
   NOTICE_STYLE_OPTIONS,
   PRODUCT_SOURCE_OPTIONS,
+  STORE_SECTION_TYPES,
+  countActiveStoreItems,
 } from "../utils/appHomeSections";
 
 const Field = ({ label, children, hint }) => (
@@ -263,6 +266,24 @@ const NoticeForm = ({ section, onChange, products, categories }) => (
   </>
 );
 
+// Secciones de tienda: el contenido no se edita aquí, se reutiliza el de
+// "Configurar tienda" (mismo contenido en web y app).
+const StoreSectionInfo = ({ section, storeConfig }) => {
+  const def = STORE_SECTION_TYPES[section.type];
+  const count = countActiveStoreItems(storeConfig, section.type);
+  return (
+    <div className="app-home-store-info">
+      <i className="fas fa-link" aria-hidden="true" />
+      <div>
+        Muestra el contenido de la tienda: <b>{count}</b> elemento(s) activo(s).
+        {count === 0 ? " Mientras no haya ninguno activo, la sección no aparece en la app." : ""}
+        <br />
+        Se edita en <Link to={def.tab.path}>{def.tab.label}</Link> y los cambios salen igual en el sitio web y en la app.
+      </div>
+    </div>
+  );
+};
+
 const FORMS = {
   banner: BannerForm,
   productCarousel: ProductCarouselForm,
@@ -272,14 +293,17 @@ const FORMS = {
 
 // Formulario de una sección: campos comunes (título) + los de su tipo.
 // `onChange(patch)` mezcla el patch en la sección.
-const AppHomeSectionForm = ({ section, onChange, products, productsById, categories }) => {
+const AppHomeSectionForm = ({ section, onChange, products, productsById, categories, storeConfig }) => {
   const TypeForm = FORMS[section.type];
+  const isStoreSection = Boolean(STORE_SECTION_TYPES[section.type]);
   return (
     <div className="app-home-form">
       <Field label="Título de la sección" hint="Opcional — se muestra arriba de la sección en la app">
         <input type="text" value={section.title || ""} maxLength={120} onChange={(e) => onChange({ title: e.target.value })} />
       </Field>
-      {TypeForm ? (
+      {isStoreSection ? (
+        <StoreSectionInfo section={section} storeConfig={storeConfig} />
+      ) : TypeForm ? (
         <TypeForm section={section} onChange={onChange} products={products} productsById={productsById} categories={categories} />
       ) : (
         <small className="app-home-hint">Este tipo solo se puede editar desde la pestaña JSON.</small>
