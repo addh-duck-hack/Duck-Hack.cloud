@@ -34,7 +34,8 @@ const AppShell = () => {
         <main className={hasHero ? 'app-main' : 'app-main app-main--offset'}>
           <Outlet />
         </main>
-        <CtaBanner />
+        {/* En Mi cuenta el cierre son productos recomendados (Account.jsx). */}
+        {pathname === '/mi-cuenta' ? null : <CtaBanner />}
         <Footer />
         <CartDrawer />
       </div>

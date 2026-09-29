@@ -859,6 +859,12 @@ a.acc-fav-name:hover {
   outline-offset: 2px;
 }
 
+/* Productos recomendados (FeaturedProducts): ya dentro del ancho de .acc. */
+.acc-recommended {
+  width: 100%;
+  padding: 72px 0 0;
+}
+
 /* ---- Responsivo ---- */
 @media (max-width: 960px) {
   .acc-layout {

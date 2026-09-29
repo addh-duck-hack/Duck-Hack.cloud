@@ -13,6 +13,7 @@ import AccountAddresses from '../components/account/AccountAddresses';
 import AccountFavorites from '../components/account/AccountFavorites';
 import AccountProfile from '../components/account/AccountProfile';
 import AccountSecurity from '../components/account/AccountSecurity';
+import FeaturedProducts from '../components/FeaturedProducts';
 import './Account.css';
 
 const SECTION_COMPONENTS = {
@@ -102,6 +103,9 @@ const AccountContent = ({ leave }) => {
           )}
         </div>
       </div>
+
+      {/* Cierre de la página en lugar del CtaBanner (ver AppShell). */}
+      <FeaturedProducts title="Recomendados para ti" className="acc-recommended" />
     </div>
   );
 };

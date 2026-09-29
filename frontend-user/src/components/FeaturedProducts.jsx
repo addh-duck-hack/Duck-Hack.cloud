@@ -1,7 +1,7 @@
 // src/components/FeaturedProducts.jsx
 //
-// "Descubre nuestros productos" en Inicio: 6 productos al azar del catálogo
-// público. El primero va destacado (dos columnas, imagen de fondo); los demás
+// "Descubre nuestros productos" en Inicio (y, con otro `title`, en Mi
+// cuenta): 6 productos al azar del catálogo público. El primero va destacado (dos columnas, imagen de fondo); los demás
 // en tarjetas con nombre, una línea de descripción, precio e imagen cuadrada.
 // Si un producto tiene compareAtPrice mayor al precio, muestra "Ahorra $X" y
 // el precio anterior tachado. La última tarjeta, "Todos los productos",
@@ -66,7 +66,7 @@ const ProductCard = ({ product }) => {
   );
 };
 
-const FeaturedProducts = () => {
+const FeaturedProducts = ({ title = 'Descubre nuestros productos', className = '' }) => {
   const { products, isLoading } = useProducts();
 
   const picks = useMemo(() => pickRandom(products, PICK_COUNT), [products]);
@@ -84,9 +84,9 @@ const FeaturedProducts = () => {
   const [featured, ...rest] = picks;
 
   return (
-    <section className="fp" aria-labelledby="fp-title">
+    <section className={`fp ${className}`.trim()} aria-labelledby="fp-title">
       <h2 id="fp-title" className="fp-title">
-        Descubre nuestros productos
+        {title}
       </h2>
 
       <div className="fp-grid">
