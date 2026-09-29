@@ -24,7 +24,13 @@ vault, not in this repo).
 - `modules/media.js` — admin media library over the `uploads/` folder
   (`/api/media`): lists files from disk, uploads images/GIF/MP4/WebM, edits
   title + alt text (stored in the `Media` collection, the file itself is never
-  renamed), and deletes with a usage check (Product/User/StoreConfig).
+  renamed), and deletes with a usage check (Product/User/StoreConfig/AppHome).
+- `modules/appHome.js` — the mobile app's home screen as server-driven JSON
+  (`/api/app-home/*`), singleton per deployment like StoreConfig. Only
+  `super_admin` reads/writes it (`GET`/`PUT /`); `GET /public` returns the
+  visible sections with product carousels already resolved (active + in stock,
+  `lib/purchaseLimits.js#filterInStock`). Sections are validated against a
+  type catalog (banner, productCarousel, categoryGrid, notice).
 
 Still in `backend/`, and **not** a candidate to move here — Duck-Hack's own
 internal agency-management tooling, not a per-store eCommerce feature:

@@ -32,6 +32,7 @@ import UserList from "./components/UserList";
 import UserCreateForm from "./components/UserCreateForm";
 import UserForm from "./components/UserForm";
 import MediaLibrary from "./components/MediaLibrary";
+import AppHomeEditor from "./components/AppHomeEditor";
 import { StoreConfigProvider } from "./hooks/useStoreConfig";
 import {
   ROLES,
@@ -42,6 +43,7 @@ import {
   ORDER_ROLES,
   MEDIA_ROLES,
   USER_MANAGEMENT_ROLES,
+  APP_HOME_ROLES,
 } from "./utils/roles";
 import './index.css';
 
@@ -55,6 +57,7 @@ const App = () => {
   const canManageOrders = !!token && ORDER_ROLES.includes(role);
   const canManageUsers = !!token && USER_MANAGEMENT_ROLES.includes(role);
   const canManageMedia = !!token && MEDIA_ROLES.includes(role);
+  const canManageAppHome = !!token && APP_HOME_ROLES.includes(role);
 
   return (
     <StoreConfigProvider>
@@ -182,6 +185,10 @@ const App = () => {
             <Route
               path="media"
               element={canManageMedia ? <MediaLibrary /> : <Navigate to="/admin" />}
+            />
+            <Route
+              path="app-home"
+              element={canManageAppHome ? <AppHomeEditor /> : <Navigate to="/admin" />}
             />
             <Route
               path="users"

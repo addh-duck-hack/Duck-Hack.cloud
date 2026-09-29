@@ -8,7 +8,7 @@
 // subidos antes de este módulo (productos, logo, hero, perfiles...) aparecen
 // igual, con el nombre de archivo como título por default. "Renombrar" solo
 // cambia `title` — el archivo físico nunca se mueve, así que ninguna ruta
-// guardada en Product.images / StoreConfig / User.profileImage se rompe.
+// guardada en Product.images / StoreConfig / User.profileImage / AppHome se rompe.
 //
 // DELETE revisa primero dónde se usa el archivo (ver findUsages) y responde
 // 409 MEDIA_IN_USE con el detalle; el panel pide confirmación y reintenta con
@@ -149,7 +149,7 @@ function registerRoutes(app, ctx) {
   // Dónde se referencia el archivo. Los modelos se buscan por nombre en la
   // conexión (no por import) — si un módulo no está montado, se omite.
   const findUsages = async (mediaPath) => {
-    const { Product, User, StoreConfig } = mongooseConnection.models;
+    const { Product, User, StoreConfig, AppHome } = mongooseConnection.models;
     const pathRegex = new RegExp(`(^|/)${escapeRegex(mediaPath)}$`);
     const usages = [];
 
@@ -170,6 +170,15 @@ function registerRoutes(app, ctx) {
         findPathsInObject(content, mediaPath).forEach((fieldPath) => {
           const section = STORE_CONFIG_LABELS[fieldPath.split(/[.[]/)[0]] || "Configuración";
           usages.push({ type: "storeConfig", field: fieldPath, label: `Configurar tienda: ${section} (${fieldPath})` });
+        });
+      }
+    }
+
+    if (AppHome) {
+      const home = await AppHome.findOne({ singletonKey: "default" }).select("sections").lean();
+      if (home) {
+        findPathsInObject({ sections: home.sections }, mediaPath).forEach((fieldPath) => {
+          usages.push({ type: "appHome", field: fieldPath, label: `Home de la app (${fieldPath})` });
         });
       }
     }

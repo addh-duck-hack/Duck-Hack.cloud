@@ -12,6 +12,7 @@ import {
   ORDER_ROLES,
   MEDIA_ROLES,
   USER_MANAGEMENT_ROLES,
+  APP_HOME_ROLES,
 } from "../utils/roles";
 import "./AdminShell.css";
 
@@ -24,6 +25,7 @@ const ROUTE_LABELS = {
   "/admin/orders": "orders",
   "/admin/media": "media",
   "/admin/users": "users",
+  "/admin/app-home": "app-home",
 };
 
 const AdminShell = () => {
@@ -39,6 +41,7 @@ const AdminShell = () => {
   const canManageAgency = AGENCY_ROLES.includes(role);
   const canManageUsers = USER_MANAGEMENT_ROLES.includes(role);
   const canManageMedia = MEDIA_ROLES.includes(role);
+  const canManageAppHome = APP_HOME_ROLES.includes(role);
   const isSuperAdmin = role === ROLES.SUPER_ADMIN;
 
   useEffect(() => {
@@ -50,6 +53,7 @@ const AdminShell = () => {
     // — para cualquier otro rol quedaría vacío, así que no se le muestra el link.
     ...(isSuperAdmin ? [{ path: "/admin", label: "Panel", end: true }] : []),
     ...(canManageStoreConfig ? [{ path: "/admin/store-config", label: "Configurar tienda" }] : []),
+    ...(canManageAppHome ? [{ path: "/admin/app-home", label: "Home de la app" }] : []),
     ...(canManageCatalog
       ? [
           { path: "/admin/products", label: "Productos" },
