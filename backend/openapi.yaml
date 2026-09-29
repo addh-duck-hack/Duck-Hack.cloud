@@ -2775,7 +2775,10 @@ paths:
         Secciones visibles del home, en el orden en que se muestran. Los
         carruseles de productos vienen resueltos en `products` (mismas reglas
         que `GET /api/products/public`: activos y con existencias); un
-        carrusel sin productos no se envía. **La app debe ignorar los `type`
+        carrusel sin productos no se envía. Las secciones `store*` (hero,
+        métricas, comandos, servicios, planes, FAQs, equipo, testimonios)
+        reutilizan el contenido de Configurar tienda y vienen resueltas en
+        `items`. **La app debe ignorar los `type`
         que no conozca**, para que una versión vieja siga funcionando cuando
         se agregue un tipo nuevo. Si nunca se ha configurado, `sections` es `[]`.
       responses:
@@ -3163,6 +3166,14 @@ components:
         - $ref: "#/components/schemas/AppHomeProductCarouselSection"
         - $ref: "#/components/schemas/AppHomeCategoryGridSection"
         - $ref: "#/components/schemas/AppHomeNoticeSection"
+        - $ref: "#/components/schemas/AppHomeStoreHeroSection"
+        - $ref: "#/components/schemas/AppHomeStoreMetricsSection"
+        - $ref: "#/components/schemas/AppHomeStoreCommandsSection"
+        - $ref: "#/components/schemas/AppHomeStoreServicesSection"
+        - $ref: "#/components/schemas/AppHomeStorePricingPlansSection"
+        - $ref: "#/components/schemas/AppHomeStoreFaqsSection"
+        - $ref: "#/components/schemas/AppHomeStoreTeamSection"
+        - $ref: "#/components/schemas/AppHomeStoreTestimonialsSection"
       discriminator:
         propertyName: type
         mapping:
@@ -3170,6 +3181,228 @@ components:
           productCarousel: "#/components/schemas/AppHomeProductCarouselSection"
           categoryGrid: "#/components/schemas/AppHomeCategoryGridSection"
           notice: "#/components/schemas/AppHomeNoticeSection"
+          storeHero: "#/components/schemas/AppHomeStoreHeroSection"
+          storeMetrics: "#/components/schemas/AppHomeStoreMetricsSection"
+          storeCommands: "#/components/schemas/AppHomeStoreCommandsSection"
+          storeServices: "#/components/schemas/AppHomeStoreServicesSection"
+          storePricingPlans: "#/components/schemas/AppHomeStorePricingPlansSection"
+          storeFaqs: "#/components/schemas/AppHomeStoreFaqsSection"
+          storeTeam: "#/components/schemas/AppHomeStoreTeamSection"
+          storeTestimonials: "#/components/schemas/AppHomeStoreTestimonialsSection"
+
+    AppHomeStoreHeroSection:
+      type: object
+      description: >
+        Hero de Configurar tienda (StoreConfig.heroSlides). No guarda contenido
+        propio; en GET /api/app-home/public trae `items` (solo activos, por
+        sortOrder, sin isActive/sortOrder). Sin elementos activos no se envía.
+      properties:
+        id:
+          type: string
+          maxLength: 40
+        type:
+          type: string
+          enum: [storeHero]
+        visible:
+          type: boolean
+          default: true
+        title:
+          type: string
+          maxLength: 120
+        items:
+          type: array
+          readOnly: true
+          items:
+            $ref: "#/components/schemas/HeroSlide"
+      required: [type]
+
+    AppHomeStoreMetricsSection:
+      type: object
+      description: >
+        Métricas (las automáticas ya recalculadas) de Configurar tienda (StoreConfig.metrics). No guarda contenido
+        propio; en GET /api/app-home/public trae `items` (solo activos, por
+        sortOrder, sin isActive/sortOrder). Sin elementos activos no se envía.
+      properties:
+        id:
+          type: string
+          maxLength: 40
+        type:
+          type: string
+          enum: [storeMetrics]
+        visible:
+          type: boolean
+          default: true
+        title:
+          type: string
+          maxLength: 120
+        items:
+          type: array
+          readOnly: true
+          items:
+            $ref: "#/components/schemas/Metric"
+      required: [type]
+
+    AppHomeStoreCommandsSection:
+      type: object
+      description: >
+        Comandos de Configurar tienda (StoreConfig.commands). No guarda contenido
+        propio; en GET /api/app-home/public trae `items` (solo activos, por
+        sortOrder, sin isActive/sortOrder). Sin elementos activos no se envía.
+      properties:
+        id:
+          type: string
+          maxLength: 40
+        type:
+          type: string
+          enum: [storeCommands]
+        visible:
+          type: boolean
+          default: true
+        title:
+          type: string
+          maxLength: 120
+        items:
+          type: array
+          readOnly: true
+          items:
+            $ref: "#/components/schemas/Command"
+      required: [type]
+
+    AppHomeStoreServicesSection:
+      type: object
+      description: >
+        Servicios de Configurar tienda (StoreConfig.services). No guarda contenido
+        propio; en GET /api/app-home/public trae `items` (solo activos, por
+        sortOrder, sin isActive/sortOrder). Sin elementos activos no se envía.
+      properties:
+        id:
+          type: string
+          maxLength: 40
+        type:
+          type: string
+          enum: [storeServices]
+        visible:
+          type: boolean
+          default: true
+        title:
+          type: string
+          maxLength: 120
+        items:
+          type: array
+          readOnly: true
+          items:
+            $ref: "#/components/schemas/ServiceItem"
+      required: [type]
+
+    AppHomeStorePricingPlansSection:
+      type: object
+      description: >
+        Planes de Configurar tienda (StoreConfig.pricingPlans). No guarda contenido
+        propio; en GET /api/app-home/public trae `items` (solo activos, por
+        sortOrder, sin isActive/sortOrder). Sin elementos activos no se envía.
+      properties:
+        id:
+          type: string
+          maxLength: 40
+        type:
+          type: string
+          enum: [storePricingPlans]
+        visible:
+          type: boolean
+          default: true
+        title:
+          type: string
+          maxLength: 120
+        items:
+          type: array
+          readOnly: true
+          items:
+            $ref: "#/components/schemas/PricingPlan"
+        commonChecks:
+          type: array
+          readOnly: true
+          description: StoreConfig.commonPlanChecks (checks que aplican a todos los planes)
+          items:
+            type: string
+      required: [type]
+
+    AppHomeStoreFaqsSection:
+      type: object
+      description: >
+        Preguntas frecuentes de Configurar tienda (StoreConfig.faqs). No guarda contenido
+        propio; en GET /api/app-home/public trae `items` (solo activos, por
+        sortOrder, sin isActive/sortOrder). Sin elementos activos no se envía.
+      properties:
+        id:
+          type: string
+          maxLength: 40
+        type:
+          type: string
+          enum: [storeFaqs]
+        visible:
+          type: boolean
+          default: true
+        title:
+          type: string
+          maxLength: 120
+        items:
+          type: array
+          readOnly: true
+          items:
+            $ref: "#/components/schemas/Faq"
+      required: [type]
+
+    AppHomeStoreTeamSection:
+      type: object
+      description: >
+        Equipo de Configurar tienda (StoreConfig.teamMembers). No guarda contenido
+        propio; en GET /api/app-home/public trae `items` (solo activos, por
+        sortOrder, sin isActive/sortOrder). Sin elementos activos no se envía.
+      properties:
+        id:
+          type: string
+          maxLength: 40
+        type:
+          type: string
+          enum: [storeTeam]
+        visible:
+          type: boolean
+          default: true
+        title:
+          type: string
+          maxLength: 120
+        items:
+          type: array
+          readOnly: true
+          items:
+            $ref: "#/components/schemas/TeamMember"
+      required: [type]
+
+    AppHomeStoreTestimonialsSection:
+      type: object
+      description: >
+        Testimonios de Configurar tienda (StoreConfig.testimonials). No guarda contenido
+        propio; en GET /api/app-home/public trae `items` (solo activos, por
+        sortOrder, sin isActive/sortOrder). Sin elementos activos no se envía.
+      properties:
+        id:
+          type: string
+          maxLength: 40
+        type:
+          type: string
+          enum: [storeTestimonials]
+        visible:
+          type: boolean
+          default: true
+        title:
+          type: string
+          maxLength: 120
+        items:
+          type: array
+          readOnly: true
+          items:
+            $ref: "#/components/schemas/Testimonial"
+      required: [type]
 
     AppHomeLink:
       type: object

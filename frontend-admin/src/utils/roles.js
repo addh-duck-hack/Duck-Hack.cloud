@@ -29,9 +29,10 @@ export const MEDIA_ROLES = [ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN, ROLES.COLLABOR
 // /api/users ya están restringidos a estos dos roles en el backend (ver
 // packages/core-api/modules/auth.js); collaborator no entra.
 export const USER_MANAGEMENT_ROLES = [ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN];
-// Home de la app móvil (GET/PUT /api/app-home, packages/core-api/modules/appHome.js)
-// — solo super_admin, igual que en el backend.
-export const APP_HOME_ROLES = [ROLES.SUPER_ADMIN];
+// "Configurar App": configuración de la app móvil (hoy su Home, GET/PUT
+// /api/app-home en packages/core-api/modules/appHome.js) — solo super_admin,
+// igual que en el backend.
+export const APP_CONFIG_ROLES = [ROLES.SUPER_ADMIN];
 
 export const ROLE_LABELS = {
   [ROLES.SUPER_ADMIN]: "Super admin",

@@ -43,7 +43,7 @@ import {
   ORDER_ROLES,
   MEDIA_ROLES,
   USER_MANAGEMENT_ROLES,
-  APP_HOME_ROLES,
+  APP_CONFIG_ROLES,
 } from "./utils/roles";
 import './index.css';
 
@@ -57,7 +57,7 @@ const App = () => {
   const canManageOrders = !!token && ORDER_ROLES.includes(role);
   const canManageUsers = !!token && USER_MANAGEMENT_ROLES.includes(role);
   const canManageMedia = !!token && MEDIA_ROLES.includes(role);
-  const canManageAppHome = !!token && APP_HOME_ROLES.includes(role);
+  const canManageAppConfig = !!token && APP_CONFIG_ROLES.includes(role);
 
   return (
     <StoreConfigProvider>
@@ -186,10 +186,18 @@ const App = () => {
               path="media"
               element={canManageMedia ? <MediaLibrary /> : <Navigate to="/admin" />}
             />
+            {/* "Configurar App" (solo super_admin): configuración de la app móvil,
+                una pestaña por configuración (ver AppConfigTabs.jsx). */}
             <Route
-              path="app-home"
-              element={canManageAppHome ? <AppHomeEditor /> : <Navigate to="/admin" />}
+              path="app-config"
+              element={canManageAppConfig ? <Navigate to="/admin/app-config/home" replace /> : <Navigate to="/admin" />}
             />
+            <Route
+              path="app-config/home"
+              element={canManageAppConfig ? <AppHomeEditor /> : <Navigate to="/admin" />}
+            />
+            {/* Ruta anterior a "Configurar App" (enlaces viejos). */}
+            <Route path="app-home" element={<Navigate to="/admin/app-config/home" replace />} />
             <Route
               path="users"
               element={canManageUsers ? <UserList /> : <Navigate to="/admin" />}
