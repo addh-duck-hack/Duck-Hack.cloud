@@ -260,6 +260,7 @@ else
       -d "$login_body" \
       "$BASE_URL/api/users/login"
     mobile_token=$(jq -r '.token // empty' /tmp/bl014-body.txt 2>/dev/null || true)
+    mobile_refresh=$(jq -r '.refreshToken // empty' /tmp/bl014-body.txt 2>/dev/null || true)
     mobile_user_id=$(jq -r '.user | (._id // .id // empty)' /tmp/bl014-body.txt 2>/dev/null || true)
 
     if [[ -n "$mobile_token" && -n "$mobile_user_id" ]]; then
@@ -278,6 +279,49 @@ else
         "200" \
         -H "Authorization: Bearer $mobile_token" \
         "$BASE_URL/api/orders/mine"
+
+      # M10) Refresh token: rota, el nuevo access sirve, el viejo ya no;
+      # logout cierra la sesión. Se salta si el backend aún no lo soporta.
+      if [[ -n "$mobile_refresh" ]]; then
+        run_status_test \
+          "M10 POST /api/users/refresh retorna 200" \
+          "200" \
+          -H "Content-Type: application/json" \
+          -d "$(jq -n --arg t "$mobile_refresh" '{refreshToken: $t}')" \
+          "$BASE_URL/api/users/refresh"
+        rotated_token=$(jq -r '.token // empty' /tmp/bl014-body.txt 2>/dev/null || true)
+        rotated_refresh=$(jq -r '.refreshToken // empty' /tmp/bl014-body.txt 2>/dev/null || true)
+        if [[ -n "$rotated_token" && -n "$rotated_refresh" && "$rotated_refresh" != "$mobile_refresh" ]]; then
+          pass "M10 refresh devuelve un par nuevo"
+          run_status_test \
+            "M10 access token renovado sirve en /api/orders/mine" \
+            "200" \
+            -H "Authorization: Bearer $rotated_token" \
+            "$BASE_URL/api/orders/mine"
+          run_status_test \
+            "M10 refresh token ya rotado retorna 409" \
+            "409" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --arg t "$mobile_refresh" '{refreshToken: $t}')" \
+            "$BASE_URL/api/users/refresh"
+          run_status_test \
+            "M11 POST /api/users/logout retorna 204" \
+            "204" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --arg t "$rotated_refresh" '{refreshToken: $t}')" \
+            "$BASE_URL/api/users/logout"
+          run_status_test \
+            "M11 refresh tras logout retorna 401" \
+            "401" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --arg t "$rotated_refresh" '{refreshToken: $t}')" \
+            "$BASE_URL/api/users/refresh"
+        else
+          fail "M10 refresh sin par nuevo en la respuesta"
+        fi
+      else
+        echo "[SKIP] M10-M11 refresh/logout (el login no devolvió refreshToken — backend sin desplegar)"
+      fi
 
       # M9) Pedido autenticado (escribe en la BD) y aparece en Mis pedidos
       if [[ "$ALLOW_WRITES" == "1" && -n "$mobile_product_id" ]]; then

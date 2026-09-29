@@ -260,6 +260,84 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
+  /api/users/refresh:
+    post:
+      tags: [Auth]
+      summary: Renovar la sesión con un refresh token
+      operationId: refreshSession
+      security: []
+      description: >
+        Cambia un refresh token vigente (de `POST /api/users/login`) por un
+        access token nuevo y un refresh token nuevo. **Rotación**: el refresh
+        token enviado deja de servir; guarda siempre el último recibido. Si se
+        reenvía un refresh token ya rotado dentro de los 30 s siguientes (dos
+        peticiones simultáneas del mismo cliente) responde `409
+        REFRESH_TOKEN_ALREADY_ROTATED` sin cerrar la sesión; después de eso se
+        considera robado y se revoca toda la sesión (`401`). El rol del access
+        token nuevo se lee de la BD. Rate limit: 120 / 15 min por IP.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+      responses:
+        "200":
+          description: Sesión renovada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RefreshSessionResponse"
+        "400":
+          description: Falta el refresh token (REFRESH_TOKEN_REQUIRED)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: >
+            Refresh token inexistente, vencido, revocado (logout, cambio de
+            contraseña, cuenta eliminada) o reutilizado (REFRESH_TOKEN_INVALID)
+            — el cliente debe pedir login de nuevo.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Ya rotado por otra petición simultánea (REFRESH_TOKEN_ALREADY_ROTATED)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/users/logout:
+    post:
+      tags: [Auth]
+      summary: Cerrar la sesión de un refresh token
+      operationId: logout
+      security: []
+      description: >
+        Revoca el refresh token enviado y toda su sesión (sus rotaciones).
+        Siempre `204`, exista o no el token. El access token sigue siendo
+        válido hasta que venza (JWT sin estado): el cliente debe descartarlo.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+      responses:
+        "204":
+          description: Sesión cerrada
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
   /api/users:
     get:
       tags: [Users]
@@ -3232,9 +3310,34 @@ components:
           type: string
         token:
           type: string
+          description: Access token (JWT, vigencia JWT_ACCESS_EXPIRES_IN)
+        refreshToken:
+          type: string
+          description: >
+            Token opaco para `POST /api/users/refresh` (vigencia
+            JWT_REFRESH_EXPIRES_IN, default 30 días). Guárdalo en
+            almacenamiento seguro; la web puede ignorarlo.
         user:
           $ref: "#/components/schemas/UserPublic"
-      required: [message, token, user]
+      required: [message, token, refreshToken, user]
+
+    RefreshTokenRequest:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+      required: [refreshToken]
+
+    RefreshSessionResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: Access token nuevo
+        refreshToken:
+          type: string
+          description: Refresh token nuevo — el enviado ya no sirve
+      required: [token, refreshToken]
 
     UpdateUserRequest:
       type: object
@@ -3270,6 +3373,12 @@ components:
         newPassword:
           type: string
           minLength: 6
+        refreshToken:
+          type: string
+          description: >
+            Opcional. El cambio cierra todas las sesiones largas (refresh
+            tokens) del usuario; si mandas el de la sesión actual, esa se
+            conserva.
       required: [currentPassword, newPassword]
 
     DeleteUserResponse:
