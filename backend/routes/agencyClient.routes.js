@@ -10,19 +10,20 @@ const {
   validateDesignDebtPayload,
 } = require("../middleware/validationMiddleware");
 const { sendError } = require("../utils/httpResponses");
-// Auth vive en @duck-hack/core-api (packages/core-api/modules/auth.js) —
-// verifyToken/authorizeRoles se arman con sendError, ROLES es estático.
-const { auth } = require("@duck-hack/core-api");
-const { verifyToken, authorizeRoles } = auth.createAuthMiddleware(sendError);
-const { ROLES } = auth;
+// Auth y permisos viven en @duck-hack/core-api (modules/auth.js,
+// lib/permissions.js) — se arman con sendError y la conexión de esta instancia.
+const mongoose = require("mongoose");
+const { auth, permissions } = require("@duck-hack/core-api");
+const { verifyToken } = auth.createAuthMiddleware(sendError);
+const { authorizeModuleAccess } = permissions.createModuleAuthorizer({ mongooseConnection: mongoose.connection, sendError });
 const { recordIncome, isSourceInvoiced, deleteLinkedAccountingRecords, syncSingleSourceIncome } = require("../utils/accountingHooks");
 const { getContainersMetrics, PortainerConfigError, PortainerRequestError } = require("../utils/portainerClient");
 
-// Módulo confidencial: información de facturación/hosting de clientes de agencia.
-// Acceso super_admin + store_admin (collaborator NO — ver ROLES en
-// packages/core-api/lib/authMiddleware.js). Ver nota operativa en el plan:
-// solo usar/poblar desde la instancia interna de Duck-Hack.
-router.use(verifyToken, authorizeRoles(ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN));
+// Módulo "Clientes" de los permisos por tienda (packages/core-api/lib/permissions.js):
+// se contrata por tienda y el super_admin decide qué roles lo ven. Leer
+// también lo necesitan Contabilidad y Facturación (selector de cliente),
+// siempre que la tienda haya contratado Clientes.
+router.use(verifyToken, authorizeModuleAccess({ module: "agencyClients", readAlso: ["accounting", "invoices"] }));
 
 const sanitizeDoc = (doc) => {
   if (!doc) return null;

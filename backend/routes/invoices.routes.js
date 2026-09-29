@@ -9,16 +9,19 @@ const {
   validateInvoiceUpdatePayload,
 } = require("../middleware/validationMiddleware");
 const { sendError } = require("../utils/httpResponses");
-// Auth vive en @duck-hack/core-api (packages/core-api/modules/auth.js) —
-// verifyToken/authorizeRoles se arman con sendError, ROLES es estático.
-const { auth } = require("@duck-hack/core-api");
-const { verifyToken, authorizeRoles } = auth.createAuthMiddleware(sendError);
-const { ROLES } = auth;
+// Auth y permisos viven en @duck-hack/core-api (modules/auth.js,
+// lib/permissions.js) — se arman con sendError y la conexión de esta instancia.
+const mongoose = require("mongoose");
+const { auth, permissions } = require("@duck-hack/core-api");
+const { verifyToken } = auth.createAuthMiddleware(sendError);
+const { authorizeModuleAccess } = permissions.createModuleAuthorizer({ mongooseConnection: mongoose.connection, sendError });
 const { getNextInvoiceFolio } = require("../utils/accountingHooks");
 const { generateInvoicePdf } = require("../utils/invoicePdf");
 
-// Confidencial: mismo criterio que /api/agency-clients — super_admin + store_admin.
-router.use(verifyToken, authorizeRoles(ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN));
+// Módulo "Facturación" de los permisos por tienda (packages/core-api/lib/permissions.js).
+// Leer facturas (PDF) también lo necesitan Clientes y Contabilidad, si la
+// tienda contrató Facturación (si no la pagó, nadie salvo super_admin la ve).
+router.use(verifyToken, authorizeModuleAccess({ module: "invoices", readAlso: ["agencyClients", "accounting"] }));
 
 const sanitizeDoc = (doc) => {
   if (!doc) return null;

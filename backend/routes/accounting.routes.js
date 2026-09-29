@@ -7,14 +7,17 @@ const {
   validateOpeningBalancePayload,
 } = require("../middleware/validationMiddleware");
 const { sendError } = require("../utils/httpResponses");
-// Auth vive en @duck-hack/core-api (packages/core-api/modules/auth.js) —
-// verifyToken/authorizeRoles se arman con sendError, ROLES es estático.
-const { auth } = require("@duck-hack/core-api");
-const { verifyToken, authorizeRoles } = auth.createAuthMiddleware(sendError);
-const { ROLES } = auth;
+// Auth y permisos viven en @duck-hack/core-api (modules/auth.js,
+// lib/permissions.js) — se arman con sendError y la conexión de esta instancia.
+const mongoose = require("mongoose");
+const { auth, permissions } = require("@duck-hack/core-api");
+const { verifyToken } = auth.createAuthMiddleware(sendError);
+const { authorizeModuleAccess } = permissions.createModuleAuthorizer({ mongooseConnection: mongoose.connection, sendError });
 
-// Confidencial: mismo criterio que /api/agency-clients — super_admin + store_admin.
-router.use(verifyToken, authorizeRoles(ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN));
+// Módulo "Contabilidad y movimientos" de los permisos por tienda
+// (packages/core-api/lib/permissions.js). Leer movimientos también lo
+// necesitan Clientes y Facturación, si la tienda contrató Contabilidad.
+router.use(verifyToken, authorizeModuleAccess({ module: "accounting", readAlso: ["agencyClients", "invoices"] }));
 
 const sanitizeDoc = (doc) => {
   if (!doc) return null;

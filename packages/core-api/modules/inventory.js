@@ -12,6 +12,7 @@ const {
   isValidObjectId,
   getOrCreateModel,
 } = require("../lib/moduleHelpers");
+const { createModuleAuthorizer } = require("../lib/permissions");
 
 const inventorySchema = new mongoose.Schema(
   {
@@ -71,14 +72,16 @@ const validatePayload = (sendError) => (req, res, next) => {
 };
 
 function registerRoutes(app, ctx) {
-  const { mongooseConnection, verifyToken, authorizeRoles, ROLES, STAFF_ROLES, sendError } = ctx;
+  const { mongooseConnection, verifyToken, sendError } = ctx;
   const Inventory = getOrCreateModel(mongooseConnection, "Inventory", inventorySchema);
 
   const router = express.Router();
   router.use(verifyToken);
 
-  const canRead = authorizeRoles(...STAFF_ROLES);
-  const canWrite = authorizeRoles(ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN, ROLES.COLLABORATOR);
+  // Permisos por tienda (lib/permissions.js).
+  const { authorizeModule } = createModuleAuthorizer({ mongooseConnection, sendError });
+  const canRead = authorizeModule("inventory");
+  const canWrite = authorizeModule("inventory");
 
   const validateObjectIdParam = (paramName) => (req, res, next) => {
     if (!isValidObjectId(req.params?.[paramName])) {

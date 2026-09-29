@@ -11,7 +11,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatCalendarDate } from "../utils/formatCalendarDate";
 import { getCurrentUserId } from "../utils/currentUser";
-import { ROLES, ROLE_LABELS } from "../utils/roles";
+import { ROLE_LABELS, assignableRolesFor } from "../utils/roles";
 
 const formatDate = (value) => formatCalendarDate(value) || "—";
 
@@ -103,11 +103,9 @@ const UserForm = () => {
   if (isLoading) return <p>Cargando...</p>;
   if (!user) return <p>{error || "Usuario no encontrado."}</p>;
 
-  // store_admin no puede asignar (ni conservar mostrado como opción) el rol
-  // super_admin — mismo límite que aplica el backend en PUT /:id.
-  const assignableRoles = Object.values(ROLES).filter(
-    (r) => r !== ROLES.SUPER_ADMIN || actorRole === ROLES.SUPER_ADMIN
-  );
+  // Nadie (salvo super_admin) asigna un rol mayor al suyo — mismo límite que
+  // aplica el backend en PUT /:id.
+  const assignableRoles = assignableRolesFor(actorRole);
 
   return (
     <section>

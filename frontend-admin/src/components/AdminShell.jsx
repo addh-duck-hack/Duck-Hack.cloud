@@ -3,17 +3,9 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png";
-import {
-  ROLES,
-  ROLE_LABELS,
-  STORE_CONFIG_ROLES,
-  AGENCY_ROLES,
-  CATALOG_ROLES,
-  ORDER_ROLES,
-  MEDIA_ROLES,
-  USER_MANAGEMENT_ROLES,
-  APP_CONFIG_ROLES,
-} from "../utils/roles";
+import { ROLES, ROLE_LABELS } from "../utils/roles";
+import { MODULE_NAV } from "../utils/permissions";
+import { usePermissions } from "../hooks/usePermissions";
 import "./AdminShell.css";
 
 const ROUTE_LABELS = {
@@ -26,6 +18,7 @@ const ROUTE_LABELS = {
   "/admin/media": "media",
   "/admin/users": "users",
   "/admin/app-config/home": "app-config/home",
+  "/admin/permissions": "permissions",
 };
 
 const AdminShell = () => {
@@ -35,42 +28,22 @@ const AdminShell = () => {
 
   const role = localStorage.getItem("role");
   const name = localStorage.getItem("name");
-  const canManageStoreConfig = STORE_CONFIG_ROLES.includes(role);
-  const canManageCatalog = CATALOG_ROLES.includes(role);
-  const canManageOrders = ORDER_ROLES.includes(role);
-  const canManageAgency = AGENCY_ROLES.includes(role);
-  const canManageUsers = USER_MANAGEMENT_ROLES.includes(role);
-  const canManageMedia = MEDIA_ROLES.includes(role);
-  const canManageAppConfig = APP_CONFIG_ROLES.includes(role);
   const isSuperAdmin = role === ROLES.SUPER_ADMIN;
+  // Módulos por tienda (contratados + por rol), ver hooks/usePermissions.jsx.
+  const { can } = usePermissions();
+  const moduleItems = (key) => (can(key) ? MODULE_NAV.find((module) => module.key === key).items : []);
 
   useEffect(() => {
     setDrawerOpen(false);
   }, [location.pathname]);
 
   const navItems = [
-    // "Panel" es contenido 100% super_admin (uso de servidor/infraestructura)
-    // — para cualquier otro rol quedaría vacío, así que no se le muestra el link.
+    // "Panel", "Configurar App" y "Permisos" son siempre solo super_admin.
     ...(isSuperAdmin ? [{ path: "/admin", label: "Panel", end: true }] : []),
-    ...(canManageStoreConfig ? [{ path: "/admin/store-config", label: "Configurar tienda" }] : []),
-    ...(canManageAppConfig ? [{ path: "/admin/app-config", label: "Configurar App" }] : []),
-    ...(canManageCatalog
-      ? [
-          { path: "/admin/products", label: "Productos" },
-          { path: "/admin/inventory", label: "Inventario" },
-        ]
-      : []),
-    ...(canManageOrders ? [{ path: "/admin/orders", label: "Pedidos" }] : []),
-    ...(canManageMedia ? [{ path: "/admin/media", label: "Medios" }] : []),
-    ...(canManageUsers ? [{ path: "/admin/users", label: "Usuarios" }] : []),
-    ...(canManageAgency
-      ? [
-          { path: "/admin/agency-clients", label: "Clientes" },
-          { path: "/admin/accounting", label: "Contabilidad" },
-          { path: "/admin/accounting/transactions", label: "Movimientos" },
-          { path: "/admin/invoices", label: "Facturación" },
-        ]
-      : []),
+    ...moduleItems("storeConfig"),
+    ...(isSuperAdmin ? [{ path: "/admin/app-config", label: "Configurar App" }] : []),
+    ...MODULE_NAV.filter((module) => module.key !== "storeConfig").flatMap((module) => moduleItems(module.key)),
+    ...(isSuperAdmin ? [{ path: "/admin/permissions", label: "Permisos" }] : []),
   ];
 
   const handleLogout = () => {

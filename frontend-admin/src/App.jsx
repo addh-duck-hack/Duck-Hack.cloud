@@ -33,34 +33,42 @@ import UserCreateForm from "./components/UserCreateForm";
 import UserForm from "./components/UserForm";
 import MediaLibrary from "./components/MediaLibrary";
 import AppHomeEditor from "./components/AppHomeEditor";
+import PermissionsManager from "./components/PermissionsManager";
+import Loader from "./components/Loader";
 import { StoreConfigProvider } from "./hooks/useStoreConfig";
-import {
-  ROLES,
-  STAFF_ROLES,
-  STORE_CONFIG_ROLES,
-  AGENCY_ROLES,
-  CATALOG_ROLES,
-  ORDER_ROLES,
-  MEDIA_ROLES,
-  USER_MANAGEMENT_ROLES,
-  APP_CONFIG_ROLES,
-} from "./utils/roles";
+import { PermissionsProvider, usePermissions } from "./hooks/usePermissions";
+import { ROLES, STAFF_ROLES } from "./utils/roles";
+import { firstAllowedPath } from "./utils/permissions";
 import './index.css';
 
-const App = () => {
+// Staff sin ningún módulo permitido (ej. el super_admin aún no le asigna nada a su rol).
+const NoModules = () => (
+  <div>
+    <h2>Sin módulos disponibles</h2>
+    <p>Tu usuario todavía no tiene acceso a ningún módulo del panel. Pide al administrador que te asigne permisos.</p>
+  </div>
+);
+
+const AppRoutes = () => {
   const token = localStorage.getItem("token");
   const role = localStorage.getItem("role");
   const isLoggedIn = !!token && STAFF_ROLES.includes(role); // Verificar token y rol permitido
-  const canManageStoreConfig = !!token && STORE_CONFIG_ROLES.includes(role);
-  const canManageAgencyClients = !!token && AGENCY_ROLES.includes(role);
-  const canManageCatalog = !!token && CATALOG_ROLES.includes(role);
-  const canManageOrders = !!token && ORDER_ROLES.includes(role);
-  const canManageUsers = !!token && USER_MANAGEMENT_ROLES.includes(role);
-  const canManageMedia = !!token && MEDIA_ROLES.includes(role);
-  const canManageAppConfig = !!token && APP_CONFIG_ROLES.includes(role);
+  const isSuperAdmin = !!token && role === ROLES.SUPER_ADMIN;
+  // Módulos por tienda (contratados + por rol) — ver hooks/usePermissions.jsx.
+  const { can, isLoading: permissionsLoading } = usePermissions();
+  const gate = (key, element) => {
+    if (permissionsLoading) return <Loader />;
+    return can(key) ? element : <Navigate to="/admin" replace />;
+  };
+  // Panel y "Configurar App": siempre solo super_admin.
+  const superOnly = (element) => (isSuperAdmin ? element : <Navigate to="/admin" replace />);
+  const landing = () => {
+    if (permissionsLoading) return <Loader />;
+    const path = firstAllowedPath(can);
+    return path ? <Navigate to={path} replace /> : <NoModules />;
+  };
 
   return (
-    <StoreConfigProvider>
     <Router>
       <div className="App">
         <Routes>
@@ -69,153 +77,162 @@ const App = () => {
 
           <Route path="/admin" element={isLoggedIn ? <AdminShell /> : <Navigate to="/" />}>
             {/* AdminMenu es contenido 100% super_admin (uso de servidor/
-                infraestructura, ver AdminMenu.jsx) — cualquier otro rol lo ve
-                vacío, así que cae directo a Pedidos en vez de una pantalla sin nada. */}
-            <Route index element={role !== ROLES.SUPER_ADMIN ? <Navigate to="/admin/orders" replace /> : <AdminMenu />} />
+                infraestructura, ver AdminMenu.jsx) — cualquier otro rol cae a
+                su primer módulo permitido (Pedidos si lo tiene). */}
+            <Route index element={isSuperAdmin ? <AdminMenu /> : landing()} />
             <Route
               path="store-config"
-              element={canManageStoreConfig ? <StoreConfigManager /> : <Navigate to="/admin" />}
+              element={gate("storeConfig", <StoreConfigManager />)}
             />
             <Route
               path="store-config/home"
-              element={canManageStoreConfig ? <StoreConfigHome /> : <Navigate to="/admin" />}
+              element={gate("storeConfig", <StoreConfigHome />)}
             />
             <Route
               path="store-config/servicios-precios"
-              element={canManageStoreConfig ? <StoreConfigServicesPricing /> : <Navigate to="/admin" />}
+              element={gate("storeConfig", <StoreConfigServicesPricing />)}
             />
             <Route
               path="store-config/equipo-testimonios"
-              element={canManageStoreConfig ? <StoreConfigTeamTestimonials /> : <Navigate to="/admin" />}
+              element={gate("storeConfig", <StoreConfigTeamTestimonials />)}
             />
             <Route
               path="store-config/legal"
-              element={canManageStoreConfig ? <StoreConfigLegal /> : <Navigate to="/admin" />}
+              element={gate("storeConfig", <StoreConfigLegal />)}
             />
             <Route
               path="store-config/pagos"
-              element={canManageStoreConfig ? <StoreConfigPayments /> : <Navigate to="/admin" />}
+              element={gate("storeConfig", <StoreConfigPayments />)}
             />
             {/* "Entrega y pago" se juntó con "Pagos y ventas" (enlaces viejos). */}
             <Route path="store-config/entrega-pago" element={<Navigate to="/admin/store-config/pagos" replace />} />
             <Route
               path="agency-clients"
-              element={canManageAgencyClients ? <AgencyClientList /> : <Navigate to="/admin" />}
+              element={gate("agencyClients", <AgencyClientList />)}
             />
             <Route
               path="agency-clients/new"
-              element={canManageAgencyClients ? <AgencyClientForm /> : <Navigate to="/admin" />}
+              element={gate("agencyClients", <AgencyClientForm />)}
             />
             <Route
               path="agency-clients/:id"
-              element={canManageAgencyClients ? <AgencyClientDetail /> : <Navigate to="/admin" />}
+              element={gate("agencyClients", <AgencyClientDetail />)}
             />
             <Route
               path="agency-clients/:id/edit"
-              element={canManageAgencyClients ? <AgencyClientForm /> : <Navigate to="/admin" />}
+              element={gate("agencyClients", <AgencyClientForm />)}
             />
             <Route
               path="agency-clients/:id/hosting-payments/new"
-              element={canManageAgencyClients ? <AgencyClientHostingPaymentForm /> : <Navigate to="/admin" />}
+              element={gate("agencyClients", <AgencyClientHostingPaymentForm />)}
             />
             <Route
               path="agency-clients/:id/design-debts/new"
-              element={canManageAgencyClients ? <AgencyClientDesignDebtForm /> : <Navigate to="/admin" />}
+              element={gate("agencyClients", <AgencyClientDesignDebtForm />)}
             />
             <Route
               path="agency-clients/:id/design-debts/:debtId/payment"
-              element={canManageAgencyClients ? <AgencyClientDesignDebtPaymentForm /> : <Navigate to="/admin" />}
+              element={gate("agencyClients", <AgencyClientDesignDebtPaymentForm />)}
             />
             <Route
               path="accounting"
-              element={canManageAgencyClients ? <AccountingDashboard /> : <Navigate to="/admin" />}
+              element={gate("accounting", <AccountingDashboard />)}
             />
             <Route
               path="accounting/transactions"
-              element={canManageAgencyClients ? <AccountingTransactions /> : <Navigate to="/admin" />}
+              element={gate("accounting", <AccountingTransactions />)}
             />
             <Route
               path="invoices"
-              element={canManageAgencyClients ? <InvoiceList /> : <Navigate to="/admin" />}
+              element={gate("invoices", <InvoiceList />)}
             />
             <Route
               path="invoices/new"
-              element={canManageAgencyClients ? <InvoiceForm /> : <Navigate to="/admin" />}
+              element={gate("invoices", <InvoiceForm />)}
             />
             <Route
               path="invoices/:id/edit"
-              element={canManageAgencyClients ? <InvoiceEditForm /> : <Navigate to="/admin" />}
+              element={gate("invoices", <InvoiceEditForm />)}
             />
             <Route
               path="products"
-              element={canManageCatalog ? <ProductList /> : <Navigate to="/admin" />}
+              element={gate("products", <ProductList />)}
             />
             <Route
               path="products/new"
-              element={canManageCatalog ? <ProductForm /> : <Navigate to="/admin" />}
+              element={gate("products", <ProductForm />)}
             />
             <Route
               path="products/:id/edit"
-              element={canManageCatalog ? <ProductForm /> : <Navigate to="/admin" />}
+              element={gate("products", <ProductForm />)}
             />
             <Route
               path="inventory"
-              element={canManageCatalog ? <InventoryList /> : <Navigate to="/admin" />}
+              element={gate("inventory", <InventoryList />)}
             />
             <Route
               path="inventory/new"
-              element={canManageCatalog ? <InventoryForm /> : <Navigate to="/admin" />}
+              element={gate("inventory", <InventoryForm />)}
             />
             <Route
               path="inventory/:id/edit"
-              element={canManageCatalog ? <InventoryForm /> : <Navigate to="/admin" />}
+              element={gate("inventory", <InventoryForm />)}
             />
             <Route
               path="orders"
-              element={canManageOrders ? <OrderList /> : <Navigate to="/admin" />}
+              element={gate("orders", <OrderList />)}
             />
             <Route
               path="orders/new"
-              element={canManageOrders ? <OrderForm /> : <Navigate to="/admin" />}
+              element={gate("orders", <OrderForm />)}
             />
             <Route
               path="orders/:id"
-              element={canManageOrders ? <OrderDetail /> : <Navigate to="/admin" />}
+              element={gate("orders", <OrderDetail />)}
             />
             <Route
               path="media"
-              element={canManageMedia ? <MediaLibrary /> : <Navigate to="/admin" />}
+              element={gate("media", <MediaLibrary />)}
             />
             {/* "Configurar App" (solo super_admin): configuración de la app móvil,
                 una pestaña por configuración (ver AppConfigTabs.jsx). */}
             <Route
               path="app-config"
-              element={canManageAppConfig ? <Navigate to="/admin/app-config/home" replace /> : <Navigate to="/admin" />}
+              element={superOnly(<Navigate to="/admin/app-config/home" replace />)}
             />
             <Route
               path="app-config/home"
-              element={canManageAppConfig ? <AppHomeEditor /> : <Navigate to="/admin" />}
+              element={superOnly(<AppHomeEditor />)}
             />
             {/* Ruta anterior a "Configurar App" (enlaces viejos). */}
             <Route path="app-home" element={<Navigate to="/admin/app-config/home" replace />} />
+            {/* Permisos por tienda (módulos contratados + por rol) — solo super_admin. */}
+            <Route path="permissions" element={superOnly(<PermissionsManager />)} />
             <Route
               path="users"
-              element={canManageUsers ? <UserList /> : <Navigate to="/admin" />}
+              element={gate("users", <UserList />)}
             />
             <Route
               path="users/new"
-              element={canManageUsers ? <UserCreateForm /> : <Navigate to="/admin" />}
+              element={gate("users", <UserCreateForm />)}
             />
             <Route
               path="users/:id/edit"
-              element={canManageUsers ? <UserForm /> : <Navigate to="/admin" />}
+              element={gate("users", <UserForm />)}
             />
           </Route>
         </Routes>
       </div>
     </Router>
-    </StoreConfigProvider>
   );
 };
+
+const App = () => (
+  <StoreConfigProvider>
+    <PermissionsProvider>
+      <AppRoutes />
+    </PermissionsProvider>
+  </StoreConfigProvider>
+);
 
 export default App;
