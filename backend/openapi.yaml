@@ -30,6 +30,8 @@ tags:
   - name: Inventory
   - name: Orders
   - name: StoreConfig
+  - name: AppHome
+    description: Home de la app móvil armado por JSON desde el admin (solo super_admin lo edita)
 paths:
   /api/users/register:
     post:
@@ -2763,6 +2765,109 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
+  /api/app-home/public:
+    get:
+      tags: [AppHome]
+      summary: Home de la app móvil (público)
+      operationId: getPublicAppHome
+      security: []
+      description: >
+        Secciones visibles del home, en el orden en que se muestran. Los
+        carruseles de productos vienen resueltos en `products` (mismas reglas
+        que `GET /api/products/public`: activos y con existencias); un
+        carrusel sin productos no se envía. **La app debe ignorar los `type`
+        que no conozca**, para que una versión vieja siga funcionando cuando
+        se agregue un tipo nuevo. Si nunca se ha configurado, `sections` es `[]`.
+      responses:
+        "200":
+          description: Home de la app
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicAppHome"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/app-home:
+    get:
+      tags: [AppHome]
+      summary: Home de la app para editar (incluye secciones ocultas)
+      operationId: getAppHome
+      description: Solo `super_admin`.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Home completo
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/AppHome"
+                  - type: object
+                    properties:
+                      sectionTypes:
+                        type: array
+                        description: Tipos de sección que acepta el backend
+                        items:
+                          type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    put:
+      tags: [AppHome]
+      summary: Guardar y publicar el home de la app
+      operationId: updateAppHome
+      description: >
+        Solo `super_admin`. Reemplaza todas las secciones (el orden del
+        arreglo es el orden en pantalla) y publica al instante. Cada sección
+        se valida contra su tipo; los campos desconocidos se descartan y
+        `id` se genera si falta. Los productos de un carrusel manual deben
+        existir (`400 APP_HOME_PRODUCT_NOT_FOUND`), aunque estén inactivos o
+        sin stock (eso solo los oculta en la app).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sections:
+                  type: array
+                  maxItems: 30
+                  items:
+                    $ref: "#/components/schemas/AppHomeSection"
+              required: [sections]
+      responses:
+        "200":
+          description: Guardado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/AppHome"
+                  - type: object
+                    properties:
+                      message:
+                        type: string
+        "400":
+          description: Sección inválida (VALIDATION_ERROR, con la ruta del campo en el mensaje) o producto inexistente (APP_HOME_PRODUCT_NOT_FOUND)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
   /api/store-config/public:
     get:
       tags: [StoreConfig]
@@ -3019,6 +3124,207 @@ components:
             $ref: "#/components/schemas/ErrorResponse"
 
   schemas:
+    AppHome:
+      type: object
+      properties:
+        schemaVersion:
+          type: integer
+          example: 1
+        sections:
+          type: array
+          items:
+            $ref: "#/components/schemas/AppHomeSection"
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required: [schemaVersion, sections]
+
+    PublicAppHome:
+      type: object
+      description: Como AppHome, pero solo secciones visibles y sin el campo `visible`.
+      properties:
+        schemaVersion:
+          type: integer
+          example: 1
+        sections:
+          type: array
+          items:
+            $ref: "#/components/schemas/AppHomeSection"
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required: [schemaVersion, sections]
+
+    AppHomeSection:
+      oneOf:
+        - $ref: "#/components/schemas/AppHomeBannerSection"
+        - $ref: "#/components/schemas/AppHomeProductCarouselSection"
+        - $ref: "#/components/schemas/AppHomeCategoryGridSection"
+        - $ref: "#/components/schemas/AppHomeNoticeSection"
+      discriminator:
+        propertyName: type
+        mapping:
+          banner: "#/components/schemas/AppHomeBannerSection"
+          productCarousel: "#/components/schemas/AppHomeProductCarouselSection"
+          categoryGrid: "#/components/schemas/AppHomeCategoryGridSection"
+          notice: "#/components/schemas/AppHomeNoticeSection"
+
+    AppHomeLink:
+      type: object
+      description: Destino al tocar. `value` = id de producto, nombre de categoría o URL http(s).
+      properties:
+        type:
+          type: string
+          enum: [product, category, url]
+        value:
+          type: string
+          maxLength: 500
+      required: [type, value]
+
+    AppHomeBannerSection:
+      type: object
+      description: Una o varias imágenes deslizables.
+      properties:
+        id:
+          type: string
+          maxLength: 40
+        type:
+          type: string
+          enum: [banner]
+        visible:
+          type: boolean
+          default: true
+        title:
+          type: string
+          maxLength: 120
+        items:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            type: object
+            properties:
+              image:
+                type: string
+                description: Ruta de Medios (uploads/...) o URL http(s)
+              title:
+                type: string
+                maxLength: 120
+              subtitle:
+                type: string
+                maxLength: 200
+              link:
+                $ref: "#/components/schemas/AppHomeLink"
+            required: [image]
+      required: [type, items]
+
+    AppHomeProductCarouselSection:
+      type: object
+      description: >
+        Lista horizontal de productos. `source`: manual (`productIds`, en ese
+        orden), category (`category`) o latest (más recientes). En
+        GET /api/app-home/public trae además `products` ya resueltos.
+      properties:
+        id:
+          type: string
+          maxLength: 40
+        type:
+          type: string
+          enum: [productCarousel]
+        visible:
+          type: boolean
+          default: true
+        title:
+          type: string
+          maxLength: 120
+        source:
+          type: string
+          enum: [manual, category, latest]
+          default: latest
+        productIds:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+        category:
+          type: string
+          maxLength: 100
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 20
+          default: 10
+        products:
+          type: array
+          readOnly: true
+          items:
+            $ref: "#/components/schemas/PublicProduct"
+      required: [type, source]
+
+    AppHomeCategoryGridSection:
+      type: object
+      description: Cuadrícula de accesos a categorías del catálogo.
+      properties:
+        id:
+          type: string
+          maxLength: 40
+        type:
+          type: string
+          enum: [categoryGrid]
+        visible:
+          type: boolean
+          default: true
+        title:
+          type: string
+          maxLength: 120
+        items:
+          type: array
+          minItems: 1
+          maxItems: 12
+          items:
+            type: object
+            properties:
+              category:
+                type: string
+                maxLength: 100
+              label:
+                type: string
+                maxLength: 60
+                description: Texto a mostrar; si falta, el nombre de la categoría
+              image:
+                type: string
+            required: [category]
+      required: [type, items]
+
+    AppHomeNoticeSection:
+      type: object
+      description: Texto o aviso destacado.
+      properties:
+        id:
+          type: string
+          maxLength: 40
+        type:
+          type: string
+          enum: [notice]
+        visible:
+          type: boolean
+          default: true
+        title:
+          type: string
+          maxLength: 120
+        body:
+          type: string
+          maxLength: 1000
+        style:
+          type: string
+          enum: [info, promo, warning]
+          default: info
+        link:
+          $ref: "#/components/schemas/AppHomeLink"
+      required: [type, body]
+
     InfraUsage:
       type: object
       properties:

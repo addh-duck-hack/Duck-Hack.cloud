@@ -1,0 +1,245 @@
+/* Editor del home de la app móvil (AppHomeEditor.jsx / AppHomeSectionForm.jsx). */
+
+.app-home button {
+  width: auto;
+}
+
+.app-home-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.app-home-header h2 {
+  margin: 0 0 0.35rem;
+}
+
+.app-home-hint,
+.app-home-field small {
+  display: block;
+  text-align: left;
+  font-size: 0.8rem;
+  color: var(--placeholder-color);
+}
+
+.app-home-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.app-home-actions .btn-secondary,
+.app-home-actions .btn-danger {
+  padding: 6px 10px;
+}
+
+.app-home button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.app-home-dirty {
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid var(--primary-color);
+  background: rgba(248, 175, 17, 0.08);
+  font-size: 0.85rem;
+}
+
+.app-home-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1rem 0;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+.app-home-tabs .active {
+  background-color: var(--secondary-color);
+  color: var(--on-accent);
+  font-weight: 700;
+}
+
+.app-home-empty {
+  padding: 1.5rem;
+  border: 1px dashed var(--input-border-color);
+  border-radius: 6px;
+  text-align: center;
+  color: var(--placeholder-color);
+}
+
+.app-home-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.app-home-section {
+  border: 1px solid var(--input-border-color);
+  border-radius: 6px;
+  background: var(--form-background-color);
+}
+
+.app-home-section.is-hidden {
+  opacity: 0.6;
+}
+
+.app-home-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+}
+
+.app-home-section-toggle {
+  flex: 1 1 260px;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--text-color);
+  font-family: var(--font-body);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  text-align: left;
+}
+
+.app-home-section-toggle:hover {
+  background: none;
+}
+
+.app-home-section-toggle > i:first-child {
+  width: 1.5rem;
+  color: var(--secondary-color);
+  text-align: center;
+}
+
+.app-home-section-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.app-home-section-text strong {
+  color: var(--heading-color);
+}
+
+.app-home-section-text small {
+  color: var(--placeholder-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-home-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-right: 0.35rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.app-home-switch input {
+  width: auto;
+  margin: 0;
+}
+
+.app-home-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 0.9rem 0.75rem 1rem;
+  border-top: 1px solid var(--input-border-color);
+}
+
+.app-home-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1 1 200px;
+}
+
+.app-home-field > span {
+  font-size: 0.85rem;
+}
+
+.app-home-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.app-home-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.app-home-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--input-border-color);
+  border-radius: 6px;
+  background: var(--background-color);
+}
+
+.app-home-item-head,
+.app-home-chip-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.app-home-chip-row {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--input-border-color);
+  border-radius: 4px;
+}
+
+.app-home-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.app-home-add select {
+  flex: 1 1 240px;
+  width: auto;
+}
+
+.app-home-json {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.app-home-json textarea {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  min-height: 420px;
+  resize: vertical;
+}
+
+.app-home-save {
+  padding: 8px 16px;
+}
