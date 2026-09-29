@@ -1,7 +1,8 @@
 // src/pages/ForgotPassword.jsx — ruta /recuperar-contrasena. Formulario de
-// useForgotPassword. El endpoint (POST /api/users/forgot-password) todavía
-// no existe en core-api: mientras tanto la página lo dice y ofrece contacto;
-// cuando exista, muestra el mensaje genérico de "revisa tu correo".
+// useForgotPassword (POST /api/users/forgot-password): al enviar muestra el
+// mensaje genérico de "revisa tu correo"; el enlace lleva a
+// /restablecer-contrasena (ResetPassword). Si el backend todavía no tiene el
+// endpoint (404), lo dice y ofrece contacto.
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { usePageMeta } from '../hooks/usePageMeta';

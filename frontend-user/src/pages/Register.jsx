@@ -7,6 +7,7 @@ import { usePageMeta } from '../hooks/usePageMeta';
 import { useAuth } from '../hooks/useAuth';
 import { useRegisterForm, safeNextPath } from '../hooks/useAuthForms';
 import AuthLayout, { PasswordInput } from '../components/AuthLayout';
+import ResendVerification from '../components/ResendVerification';
 
 const Register = () => {
   usePageMeta('Crear cuenta', 'Crea tu cuenta para comprar más rápido, guardar tus direcciones y seguir tus pedidos.');
@@ -34,6 +35,7 @@ const Register = () => {
           <Link to={`/login${nextQuery}`} className="auth-btn">
             Ir a iniciar sesión
           </Link>
+          <ResendVerification email={form.email} label="¿No llegó? Reenviar correo" />
         </div>
       </AuthLayout>
     );

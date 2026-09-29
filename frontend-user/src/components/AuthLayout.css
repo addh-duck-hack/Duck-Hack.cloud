@@ -395,3 +395,16 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Reenviar verificación (ResendVerification) */
+.auth-resend {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+}
+
+.auth-btn--ghost {
+  gap: 8px;
+  background: none;
+  color: var(--color-accent);
+}

@@ -7,6 +7,7 @@ import { usePageMeta } from '../hooks/usePageMeta';
 import { useAuth } from '../hooks/useAuth';
 import { useLoginForm, safeNextPath } from '../hooks/useAuthForms';
 import AuthLayout, { PasswordInput } from '../components/AuthLayout';
+import ResendVerification from '../components/ResendVerification';
 
 const Login = () => {
   usePageMeta('Iniciar sesión');
@@ -60,6 +61,7 @@ const Login = () => {
             <span>{login.error}</span>
           </p>
         ) : null}
+        {login.errorCode === 'ACCOUNT_NOT_VERIFIED' ? <ResendVerification email={login.form.email} /> : null}
 
         <button type="submit" className="auth-btn" disabled={login.isSubmitting}>
           {login.isSubmitting ? 'Entrando…' : 'Iniciar sesión'}
