@@ -98,7 +98,13 @@ const Register = () => {
         <p className="auth-hint">Mínimo 6 caracteres.</p>
 
         <label className="auth-check">
-          <input type="checkbox" required />
+          {/* Mensaje propio: el del navegador ("Controla esta casilla…") suena raro. */}
+          <input
+            type="checkbox"
+            required
+            onInvalid={(e) => e.target.setCustomValidity('Marca esta casilla para continuar.')}
+            onChange={(e) => e.target.setCustomValidity('')}
+          />
           <span>
             Acepto el <Link to="/privacy-policy">Aviso de privacidad</Link>.
           </span>
