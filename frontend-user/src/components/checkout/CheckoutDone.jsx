@@ -104,7 +104,7 @@ const CheckoutDone = ({ co }) => {
           Seguir comprando
         </Link>
         {auth.isAuthenticated ? (
-          <Link to="/mi-cuenta" className="co-btn">
+          <Link to="/mi-cuenta?seccion=pedidos" className="co-btn">
             Ver mis pedidos
           </Link>
         ) : null}

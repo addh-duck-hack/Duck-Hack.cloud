@@ -2,13 +2,14 @@
 //
 // Lógica de "Mi cuenta" (/mi-cuenta), sin UI: datos personales, contraseña,
 // libreta de direcciones, pedidos (detalle, comprar de nuevo, comprobante
-// PDF), favoritos, cerrar sesión y eliminar cuenta.
+// PDF), lista de deseos (cruzada con el catálogo), cerrar sesión y eliminar
+// cuenta. La sección activa la maneja la página (?seccion=).
 //
 // Los datos completos se cargan con GET /api/users/:id porque auth.user (lo
 // que regresó /login) no trae favoritos poblados ni necesariamente el
 // teléfono/direcciones más recientes. La UI debe redirigir a /login si
 // `isAuthenticated` es false.
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch, getApiBaseUrl } from '../utils/apiClient';
 import { EMPTY_SAVED_ADDRESS, readFieldChange, savedAddressToForm } from '../utils/address';
 import { useAuth } from './useAuth';
@@ -16,12 +17,15 @@ import { useCart } from './useCart';
 import { useProducts } from './useProducts';
 
 export const ACCOUNT_SECTIONS = [
-  { id: 'datos', label: 'Mis datos' },
-  { id: 'password', label: 'Contraseña' },
-  { id: 'direcciones', label: 'Mis direcciones' },
-  { id: 'pedidos', label: 'Mis pedidos' },
-  { id: 'favoritos', label: 'Mi lista de deseos' },
+  { id: 'resumen', label: 'Resumen', icon: 'fa-solid fa-house' },
+  { id: 'pedidos', label: 'Mis pedidos', icon: 'fa-solid fa-box' },
+  { id: 'direcciones', label: 'Mis direcciones', icon: 'fa-solid fa-location-dot' },
+  { id: 'favoritos', label: 'Lista de deseos', icon: 'fa-regular fa-heart' },
+  { id: 'datos', label: 'Mis datos', icon: 'fa-regular fa-user' },
+  { id: 'seguridad', label: 'Seguridad', icon: 'fa-solid fa-lock' },
 ];
+
+const MIN_PASSWORD = 6; // mismo mínimo que modules/auth.js
 
 export const ORDER_STATUS_LABELS = {
   pending: 'Pendiente',
@@ -35,6 +39,14 @@ export const ORDER_STATUS_LABELS = {
 // "cancelled" no forma parte de la secuencia — se muestra aparte.
 export const ORDER_STATUS_SEQUENCE = ['pending', 'confirmed', 'processing', 'shipped', 'delivered'];
 
+// Al recoger en punto de venta, "enviado" significa que ya está listo.
+const PICKUP_STATUS_LABELS = { shipped: 'Listo para recoger', delivered: 'Recogido' };
+
+export const orderStatusLabel = (status, deliveryMethod) =>
+  (deliveryMethod === 'pickup' && PICKUP_STATUS_LABELS[status]) || ORDER_STATUS_LABELS[status] || status;
+
+export const isOrderActive = (order) => !['delivered', 'cancelled'].includes(order?.status);
+
 export const formatDate = (value) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
@@ -43,15 +55,13 @@ export const formatDate = (value) => {
 
 export const useAccount = () => {
   const auth = useAuth();
-  const { addItem } = useCart();
-  const { products: catalogProducts } = useProducts();
+  const { addItem, openCart } = useCart();
+  const { products: catalogProducts, isLoading: isLoadingCatalog } = useProducts();
   const userId = auth.user?._id;
   const token = auth.token;
 
   const authHeader = useCallback(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
   const jsonHeaders = () => ({ ...authHeader(), 'Content-Type': 'application/json' });
-
-  const [activeSection, setActiveSection] = useState('datos');
 
   // ---- Perfil ----
   const [profile, setProfile] = useState(null);
@@ -63,7 +73,7 @@ export const useAccount = () => {
   const [profileError, setProfileError] = useState('');
 
   // ---- Contraseña ----
-  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '' });
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [isSavingPassword, setIsSavingPassword] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -147,13 +157,18 @@ export const useAccount = () => {
 
   const saveProfile = async (e) => {
     e?.preventDefault();
-    setIsSavingProfile(true);
     setProfileError('');
     setProfileMessage('');
+    const phoneDigits = profileForm.phone.replace(/\D/g, '');
+    if (profileForm.phone.trim() && phoneDigits.length !== 10) {
+      setProfileError('El teléfono debe tener 10 dígitos.');
+      return;
+    }
+    setIsSavingProfile(true);
     try {
       const payload = {};
       if (profileForm.name !== (profile?.name || '')) payload.name = profileForm.name;
-      if (profileForm.phone !== (profile?.phone || '')) payload.phone = profileForm.phone;
+      if (phoneDigits !== (profile?.phone || '')) payload.phone = phoneDigits;
       if (Object.keys(payload).length === 0) {
         setProfileMessage('No hay cambios que guardar.');
         return;
@@ -185,17 +200,25 @@ export const useAccount = () => {
 
   const savePassword = async (e) => {
     e?.preventDefault();
-    setIsSavingPassword(true);
     setPasswordError('');
     setPasswordMessage('');
+    if (passwordForm.newPassword.length < MIN_PASSWORD) {
+      setPasswordError(`La contraseña nueva debe tener al menos ${MIN_PASSWORD} caracteres.`);
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError('Las contraseñas nuevas no coinciden.');
+      return;
+    }
+    setIsSavingPassword(true);
     try {
       await apiFetch(`/api/users/${userId}/password`, {
         method: 'PATCH',
         headers: jsonHeaders(),
-        body: JSON.stringify(passwordForm),
+        body: JSON.stringify({ currentPassword: passwordForm.currentPassword, newPassword: passwordForm.newPassword }),
       });
       setPasswordMessage('Contraseña actualizada.');
-      setPasswordForm({ currentPassword: '', newPassword: '' });
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (err) {
       setPasswordError(err.message || 'No fue posible actualizar tu contraseña.');
     } finally {
@@ -334,7 +357,9 @@ export const useAccount = () => {
       );
     }
     if (addedCount > 0) {
-      setReorderMessage(`Se agregaron ${addedCount} producto${addedCount === 1 ? '' : 's'} a tu canasta.`);
+      setReorderMessage(
+        addedCount === 1 ? 'Se agregó 1 producto a tu canasta.' : `Se agregaron ${addedCount} productos a tu canasta.`
+      );
     }
   };
 
@@ -356,6 +381,26 @@ export const useAccount = () => {
     } finally {
       setIsDownloadingReceipt(false);
     }
+  };
+
+  // ---- Favoritos ----
+  // Cada favorito (populado con name/price/images) se cruza con el catálogo
+  // público, que trae imagen resuelta, precio vigente y solo lo que tiene
+  // existencias: `product` null = ya no está disponible.
+  const favoriteItems = useMemo(() => {
+    const catalogById = new Map(catalogProducts.map((p) => [String(p.id), p]));
+    return (profile?.favorites || []).map((fav) => {
+      const id = String(typeof fav === 'string' ? fav : fav._id);
+      const product = catalogById.get(id) || null;
+      return { id, name: product?.name || fav?.name || 'Producto', product };
+    });
+  }, [profile?.favorites, catalogProducts]);
+
+  // Agregar un favorito a la canasta (los que tienen opciones se eligen en su
+  // ficha, igual que en la tienda).
+  const addFavoriteToCart = (product) => {
+    addItem(product, 1, {});
+    openCart();
   };
 
   // ---- Favoritos: handlers ----
@@ -381,14 +426,13 @@ export const useAccount = () => {
   const logout = () => auth.logout();
 
   // Derecho ARCO de Cancelación: el backend no borra físicamente la cuenta,
-  // la anonimiza (DELETE /api/users/:id). Devuelve true si se eliminó, para
-  // que la UI navegue fuera.
+  // la anonimiza (DELETE /api/users/:id). Devuelve true si se eliminó; la UI
+  // cierra entonces la sesión (logout) y sale de /mi-cuenta.
   const deleteAccount = async () => {
     setDeleteAccountError('');
     setIsDeletingAccount(true);
     try {
       await apiFetch(`/api/users/${userId}`, { method: 'DELETE', headers: authHeader() });
-      auth.logout();
       return true;
     } catch (err) {
       setDeleteAccountError(err.message || 'No fue posible eliminar tu cuenta.');
@@ -400,8 +444,6 @@ export const useAccount = () => {
   return {
     isAuthenticated: auth.isAuthenticated,
     user: auth.user,
-    activeSection,
-    setActiveSection,
 
     profile: {
       data: profile,
@@ -453,7 +495,7 @@ export const useAccount = () => {
       list: orders,
       isLoading: isLoadingOrders,
       error: ordersError,
-      pendingCount: orders.filter((o) => !['delivered', 'cancelled'].includes(o.status)).length,
+      pendingCount: orders.filter(isOrderActive).length,
       selected: orders.find((o) => o._id === selectedOrderId) || null,
       open: openOrder,
       close: closeOrder,
@@ -466,7 +508,9 @@ export const useAccount = () => {
     },
 
     favorites: {
-      list: profile?.favorites || [],
+      list: favoriteItems,
+      isLoadingCatalog,
+      addToCart: addFavoriteToCart,
       remove: removeFavorite,
       removingId: removingFavoriteId,
       error: favoritesError,
