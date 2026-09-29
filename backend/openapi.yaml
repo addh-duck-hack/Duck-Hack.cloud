@@ -6,6 +6,12 @@ info:
     API base del proyecto CRM/eCommerce (estado actual).
     Incluye autenticación, gestión de usuarios, contacto por correo y archivos públicos.
 servers:
+  - url: https://{apiHost}
+    description: Backend desplegado de una tienda (un backend por tienda)
+    variables:
+      apiHost:
+        default: api-tacita.duck-hack.cloud
+        description: Host de la API de la tienda
   - url: http://localhost:5000
     description: Local backend
   - url: http://localhost:83
@@ -19,6 +25,7 @@ tags:
   - name: AgencyClients
   - name: Accounting
   - name: Invoices
+  - name: Infra
   - name: Products
   - name: Inventory
   - name: Orders
@@ -28,6 +35,8 @@ paths:
     post:
       tags: [Auth]
       summary: Registrar usuario customer
+      operationId: registerUser
+      security: []
       requestBody:
         required: true
         content:
@@ -54,6 +63,8 @@ paths:
     get:
       tags: [Auth]
       summary: Verificar cuenta por token de correo
+      operationId: verifyEmail
+      security: []
       parameters:
         - in: query
           name: token
@@ -80,6 +91,8 @@ paths:
     post:
       tags: [Auth]
       summary: Reenviar el correo de verificación
+      operationId: resendVerificationEmail
+      security: []
       description: >
         Rate-limited (5 cada 15 min por IP, `429 RATE_LIMIT_ACCOUNT_EMAIL_EXCEEDED`).
         Responde siempre lo mismo, exista o no la cuenta o ya esté verificada,
@@ -123,6 +136,8 @@ paths:
     post:
       tags: [Auth]
       summary: Pedir un enlace para restablecer la contraseña
+      operationId: forgotPassword
+      security: []
       description: >
         Rate-limited igual que resend-verification. Respuesta genérica; si la
         cuenta existe, manda un enlace de un solo uso
@@ -165,6 +180,8 @@ paths:
     post:
       tags: [Auth]
       summary: Restablecer la contraseña con el token del correo
+      operationId: resetPassword
+      security: []
       description: >
         El token deja de servir en cuanto la contraseña cambia (lleva una
         huella de la contraseña actual). Restablecer también marca la cuenta
@@ -209,6 +226,8 @@ paths:
     post:
       tags: [Auth]
       summary: Iniciar sesión
+      operationId: login
+      security: []
       requestBody:
         required: true
         content:
@@ -241,10 +260,89 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
+  /api/users/refresh:
+    post:
+      tags: [Auth]
+      summary: Renovar la sesión con un refresh token
+      operationId: refreshSession
+      security: []
+      description: >
+        Cambia un refresh token vigente (de `POST /api/users/login`) por un
+        access token nuevo y un refresh token nuevo. **Rotación**: el refresh
+        token enviado deja de servir; guarda siempre el último recibido. Si se
+        reenvía un refresh token ya rotado dentro de los 30 s siguientes (dos
+        peticiones simultáneas del mismo cliente) responde `409
+        REFRESH_TOKEN_ALREADY_ROTATED` sin cerrar la sesión; después de eso se
+        considera robado y se revoca toda la sesión (`401`). El rol del access
+        token nuevo se lee de la BD. Rate limit: 120 / 15 min por IP.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+      responses:
+        "200":
+          description: Sesión renovada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RefreshSessionResponse"
+        "400":
+          description: Falta el refresh token (REFRESH_TOKEN_REQUIRED)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: >
+            Refresh token inexistente, vencido, revocado (logout, cambio de
+            contraseña, cuenta eliminada) o reutilizado (REFRESH_TOKEN_INVALID)
+            — el cliente debe pedir login de nuevo.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Ya rotado por otra petición simultánea (REFRESH_TOKEN_ALREADY_ROTATED)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/users/logout:
+    post:
+      tags: [Auth]
+      summary: Cerrar la sesión de un refresh token
+      operationId: logout
+      security: []
+      description: >
+        Revoca el refresh token enviado y toda su sesión (sus rotaciones).
+        Siempre `204`, exista o no el token. El access token sigue siendo
+        válido hasta que venza (JWT sin estado): el cliente debe descartarlo.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+      responses:
+        "204":
+          description: Sesión cerrada
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
   /api/users:
     get:
       tags: [Users]
       summary: Listar usuarios
+      operationId: listUsers
       security:
         - bearerAuth: []
       responses:
@@ -265,6 +363,7 @@ paths:
     post:
       tags: [Users]
       summary: Crear cuenta de staff (panel)
+      operationId: createUser
       description: >
         Solo super_admin, store_admin. Versión "staff, autenticado" de
         POST /api/users/register — a diferencia de ese endpoint, aquí sí se
@@ -305,6 +404,7 @@ paths:
     get:
       tags: [Users]
       summary: Obtener usuario por id
+      operationId: getUser
       security:
         - bearerAuth: []
       parameters:
@@ -330,6 +430,7 @@ paths:
     put:
       tags: [Users]
       summary: Actualizar usuario (datos generales y/o rol)
+      operationId: updateUser
       description: >
         No permite cambiar email. Soporta multipart/form-data para profileImage.
         El archivo se valida por contenido real (no solo mimetype) y se aceptan únicamente JPG/PNG.
@@ -364,6 +465,7 @@ paths:
     delete:
       tags: [Users]
       summary: Eliminar usuario por id
+      operationId: deleteUser
       security:
         - bearerAuth: []
       parameters:
@@ -390,6 +492,7 @@ paths:
     patch:
       tags: [Users]
       summary: Cambiar contraseña del usuario autenticado
+      operationId: changePassword
       security:
         - bearerAuth: []
       parameters:
@@ -422,6 +525,7 @@ paths:
     post:
       tags: [Users]
       summary: Agregar un producto a favoritos
+      operationId: addFavorite
       description: Solo el dueño de la cuenta (ni siquiera super_admin/store_admin). Idempotente — agregar el mismo producto dos veces no duplica la entrada.
       security:
         - bearerAuth: []
@@ -463,6 +567,7 @@ paths:
     delete:
       tags: [Users]
       summary: Quitar un producto de favoritos
+      operationId: removeFavorite
       description: Solo el dueño de la cuenta. No es error quitar un producto que ya no estaba en favoritos.
       security:
         - bearerAuth: []
@@ -495,6 +600,7 @@ paths:
     post:
       tags: [Users]
       summary: Agregar una dirección a la libreta
+      operationId: addAddress
       description: Solo el dueño de la cuenta. La primera dirección de la cuenta siempre queda como isDefault:true, aunque no se pida explícito.
       security:
         - bearerAuth: []
@@ -528,6 +634,7 @@ paths:
     put:
       tags: [Users]
       summary: Editar una dirección de la libreta
+      operationId: updateAddress
       description: Solo el dueño de la cuenta. Marcar isDefault:true le quita esa marca a las demás direcciones de la cuenta.
       security:
         - bearerAuth: []
@@ -568,6 +675,7 @@ paths:
     delete:
       tags: [Users]
       summary: Eliminar una dirección de la libreta
+      operationId: deleteAddress
       description: Solo el dueño de la cuenta. Si se borra la dirección default y quedan otras, la primera que quede pasa a ser la nueva default.
       security:
         - bearerAuth: []
@@ -604,6 +712,8 @@ paths:
     post:
       tags: [Mail]
       summary: Enviar correo de contacto
+      operationId: sendContactEmail
+      security: []
       requestBody:
         required: true
         content:
@@ -632,6 +742,8 @@ paths:
     get:
       tags: [Uploads]
       summary: Obtener archivo estático subido
+      operationId: getUploadedFile
+      security: []
       parameters:
         - in: path
           name: fileName
@@ -648,6 +760,7 @@ paths:
     get:
       tags: [Media]
       summary: Listar medios de la carpeta uploads/
+      operationId: listMedia
       description: >
         Roles `super_admin`, `store_admin`, `collaborator`. Lee el directorio de uploads (fuente de verdad)
         y le cruza los metadatos guardados en la colección `Media`. Archivos sin metadatos usan su nombre
@@ -675,6 +788,7 @@ paths:
     post:
       tags: [Media]
       summary: Subir un medio
+      operationId: uploadMedia
       description: >
         JPG/PNG (re-encodeados, máx. 10MB), GIF (guardado tal cual, máx. 10MB) o MP4/WebM (validados por
         firma binaria, máx. 50MB). El tipo se decide por contenido, no por el Content-Type declarado.
@@ -736,6 +850,7 @@ paths:
     put:
       tags: [Media]
       summary: Editar título y texto alternativo de un medio
+      operationId: updateMedia
       description: No renombra el archivo físico — solo actualiza los metadatos (upsert en `Media`).
       security:
         - bearerAuth: []
@@ -782,6 +897,7 @@ paths:
     delete:
       tags: [Media]
       summary: Eliminar un medio
+      operationId: deleteMedia
       description: >
         Si el archivo está referenciado por un producto, una foto de perfil o la configuración de la tienda,
         responde 409 `MEDIA_IN_USE` con los usos en `error.details`. Reintentar con `?force=true` para
@@ -821,6 +937,7 @@ paths:
     get:
       tags: [Media]
       summary: Dónde se usa un medio
+      operationId: getMediaUsage
       security:
         - bearerAuth: []
       parameters:
@@ -858,6 +975,7 @@ paths:
     get:
       tags: [AgencyClients]
       summary: Listar clientes con estado calculado
+      operationId: listAgencyClients
       description: >
         Información confidencial de facturación interna de la agencia (no confundir con el rol `customer`).
         Acceso exclusivo a `super_admin`. Cada item incluye `hostingPaidUntil` (fecha del último pago vigente)
@@ -886,6 +1004,7 @@ paths:
     post:
       tags: [AgencyClients]
       summary: Crear cliente
+      operationId: createAgencyClient
       security:
         - bearerAuth: []
       requestBody:
@@ -919,6 +1038,7 @@ paths:
     get:
       tags: [AgencyClients]
       summary: Obtener ficha de un cliente
+      operationId: getAgencyClient
       security:
         - bearerAuth: []
       parameters:
@@ -941,6 +1061,7 @@ paths:
     put:
       tags: [AgencyClients]
       summary: Editar cliente
+      operationId: updateAgencyClient
       security:
         - bearerAuth: []
       parameters:
@@ -976,6 +1097,7 @@ paths:
     delete:
       tags: [AgencyClients]
       summary: Eliminar cliente
+      operationId: deleteAgencyClient
       description: >
         Bloqueado con 409 si el cliente tiene pagos de hosting o deudas asociados
         (sin borrado en cascada, para no destruir historial financiero por accidente).
@@ -1005,6 +1127,7 @@ paths:
     get:
       tags: [AgencyClients]
       summary: Listar historial de pagos de hosting de un cliente
+      operationId: listHostingPayments
       security:
         - bearerAuth: []
       parameters:
@@ -1032,6 +1155,7 @@ paths:
     post:
       tags: [AgencyClients]
       summary: Registrar pago de hosting
+      operationId: createHostingPayment
       security:
         - bearerAuth: []
       parameters:
@@ -1069,6 +1193,7 @@ paths:
     put:
       tags: [AgencyClients]
       summary: Editar pago de hosting
+      operationId: updateHostingPayment
       description: >
         Además de actualizar el pago, sincroniza la transacción de ingreso
         generada automáticamente al registrarlo (monto y fecha actualizados):
@@ -1121,6 +1246,7 @@ paths:
     delete:
       tags: [AgencyClients]
       summary: Eliminar pago de hosting
+      operationId: deleteHostingPayment
       description: >
         También elimina la transacción de ingreso que se generó
         automáticamente al registrar este pago (identificada por
@@ -1162,6 +1288,7 @@ paths:
     get:
       tags: [AgencyClients]
       summary: Listar deudas de un cliente
+      operationId: listDesignDebts
       security:
         - bearerAuth: []
       parameters:
@@ -1189,6 +1316,7 @@ paths:
     post:
       tags: [AgencyClients]
       summary: Registrar deuda
+      operationId: createDesignDebt
       security:
         - bearerAuth: []
       parameters:
@@ -1226,6 +1354,7 @@ paths:
     put:
       tags: [AgencyClients]
       summary: Editar deuda (incluye marcar pagada vía amountPaid)
+      operationId: updateDesignDebt
       description: >
         `status` no se acepta del cliente: se recalcula server-side a partir de `amount`/`amountPaid`
         (`pending`/`partial`/`paid`).
@@ -1269,6 +1398,7 @@ paths:
     delete:
       tags: [AgencyClients]
       summary: Eliminar deuda
+      operationId: deleteDesignDebt
       description: >
         También elimina las transacciones de ingreso generadas
         automáticamente por los abonos a esta deuda (puede haber varias si se
@@ -1310,6 +1440,7 @@ paths:
     get:
       tags: [AgencyClients]
       summary: Estado en vivo de los contenedores Docker del cliente (vía Portainer)
+      operationId: getAgencyClientDockerStatus
       security:
         - bearerAuth: []
       parameters:
@@ -1352,6 +1483,7 @@ paths:
     get:
       tags: [Accounting]
       summary: Listar transacciones (filtrable por type/client/rango de fechas)
+      operationId: listTransactions
       security:
         - bearerAuth: []
       parameters:
@@ -1401,6 +1533,7 @@ paths:
     post:
       tags: [Accounting]
       summary: Registrar transacción manual (ingreso o egreso)
+      operationId: createTransaction
       security:
         - bearerAuth: []
       requestBody:
@@ -1434,6 +1567,7 @@ paths:
     put:
       tags: [Accounting]
       summary: Editar transacción manual
+      operationId: updateTransaction
       description: Solo transacciones con source "manual" — las automáticas se corrigen desde su origen.
       security:
         - bearerAuth: []
@@ -1480,6 +1614,7 @@ paths:
     delete:
       tags: [Accounting]
       summary: Eliminar transacción manual
+      operationId: deleteTransaction
       security:
         - bearerAuth: []
       parameters:
@@ -1514,6 +1649,7 @@ paths:
     post:
       tags: [Accounting]
       summary: Configurar (o actualizar) el saldo inicial de la cuenta
+      operationId: setOpeningBalance
       description: Idempotente — si ya existe un saldo inicial, lo actualiza en vez de duplicarlo.
       security:
         - bearerAuth: []
@@ -1549,6 +1685,7 @@ paths:
     get:
       tags: [Accounting]
       summary: Resumen mes a mes de ingresos/egresos (dashboard de contabilidad)
+      operationId: getAccountingSummary
       security:
         - bearerAuth: []
       parameters:
@@ -1574,6 +1711,7 @@ paths:
     get:
       tags: [Invoices]
       summary: Listar facturas (filtrable por client)
+      operationId: listInvoices
       security:
         - bearerAuth: []
       parameters:
@@ -1602,6 +1740,7 @@ paths:
     post:
       tags: [Invoices]
       summary: Crear factura a partir de movimientos seleccionados
+      operationId: createInvoice
       description: >
         Los transactionIds deben ser ingresos (type "income") del mismo
         cliente, ninguno ya facturado, y todos del mismo mes calendario (UTC)
@@ -1649,6 +1788,7 @@ paths:
     get:
       tags: [Invoices]
       summary: Obtener una factura por id
+      operationId: getInvoice
       security:
         - bearerAuth: []
       parameters:
@@ -1682,6 +1822,7 @@ paths:
     put:
       tags: [Invoices]
       summary: Editar una factura ya emitida (edición acotada)
+      operationId: updateInvoice
       description: >
         Solo se pueden cambiar el concepto de cada renglón (items, posicional —
         items[i].concept reemplaza el renglón i) y la fecha de emisión. El
@@ -1737,6 +1878,7 @@ paths:
     get:
       tags: [Invoices]
       summary: Generar y descargar el PDF de la factura (sin validez fiscal)
+      operationId: getInvoicePdf
       security:
         - bearerAuth: []
       parameters:
@@ -1766,10 +1908,122 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
+  /api/infra/status:
+    get:
+      tags: [Infra]
+      summary: Estado de las herramientas de infraestructura del servidor
+      operationId: getInfraStatus
+      description: >
+        Solo `super_admin`. Hace un GET (timeout 5 s) a cada herramienta del
+        servidor (Portainer, NPM, deploy, FTP, Mongo, PMA). 502/503/504 del
+        proxy o sin respuesta = `down`; cualquier otra respuesta = `up`.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Estado de cada herramienta
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        label:
+                          type: string
+                        url:
+                          type: string
+                        status:
+                          type: string
+                          enum: [up, down]
+                        httpStatus:
+                          type: integer
+                        reason:
+                          type: string
+                          enum: [gateway_error, timeout, unreachable]
+                        latencyMs:
+                          type: integer
+                  checkedAt:
+                    type: string
+                    format: date-time
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/infra/metrics:
+    get:
+      tags: [Infra]
+      summary: Uso de recursos del servidor (vía Portainer)
+      operationId: getInfraMetrics
+      description: >
+        Solo `super_admin`. CPU/memoria/disco/red aproximados sumando el uso de
+        todos los contenedores del host (ver backend/utils/portainerClient.js).
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Métricas del servidor
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cpu:
+                    type: object
+                    properties:
+                      percent:
+                        type: number
+                      cores:
+                        type: integer
+                  memory:
+                    $ref: "#/components/schemas/InfraUsage"
+                  disk:
+                    $ref: "#/components/schemas/InfraUsage"
+                  network:
+                    type: object
+                    properties:
+                      download:
+                        $ref: "#/components/schemas/InfraTransfer"
+                      upload:
+                        $ref: "#/components/schemas/InfraTransfer"
+                  containersRunning:
+                    type: integer
+                  checkedAt:
+                    type: string
+                    format: date-time
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "501":
+          description: Portainer no configurado (PORTAINER_NOT_CONFIGURED)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: No fue posible consultar Portainer (PORTAINER_UNREACHABLE)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/products/public:
     get:
       tags: [Products]
       summary: Catálogo público (storefront)
+      operationId: listPublicProducts
+      security: []
       description: >
         Sin autenticación. Solo productos con `isActive: true` Y con inventario
         cargado con quantity > 0 — un producto sin registro de inventario se
@@ -1800,6 +2054,8 @@ paths:
     get:
       tags: [Products]
       summary: Obtener un producto público (storefront)
+      operationId: getPublicProduct
+      security: []
       description: >
         Sin autenticación. 404 tanto si el producto no existe, como si está
         inactivo, como si no tiene existencias — no distingue entre los tres,
@@ -1828,6 +2084,7 @@ paths:
     get:
       tags: [Products]
       summary: Listar catálogo de productos
+      operationId: listProducts
       description: Lectura permitida a cualquier rol de staff (super_admin, store_admin, collaborator).
       security:
         - bearerAuth: []
@@ -1858,6 +2115,7 @@ paths:
     post:
       tags: [Products]
       summary: Crear producto
+      operationId: createProduct
       description: Solo super_admin, store_admin, collaborator.
       security:
         - bearerAuth: []
@@ -1898,6 +2156,7 @@ paths:
     get:
       tags: [Products]
       summary: Obtener un producto
+      operationId: getProduct
       security:
         - bearerAuth: []
       parameters:
@@ -1924,6 +2183,7 @@ paths:
     put:
       tags: [Products]
       summary: Editar producto
+      operationId: updateProduct
       description: Solo super_admin, store_admin, collaborator.
       security:
         - bearerAuth: []
@@ -1964,6 +2224,7 @@ paths:
     delete:
       tags: [Products]
       summary: Eliminar producto
+      operationId: deleteProduct
       description: Solo super_admin, store_admin, collaborator. Bloqueado si el producto tiene inventario o pedidos ligados.
       security:
         - bearerAuth: []
@@ -1999,6 +2260,7 @@ paths:
     get:
       tags: [Inventory]
       summary: Listar inventario
+      operationId: listInventory
       description: Lectura permitida a cualquier rol de staff.
       security:
         - bearerAuth: []
@@ -2029,6 +2291,7 @@ paths:
     post:
       tags: [Inventory]
       summary: Registrar inventario de un producto
+      operationId: createInventory
       description: Solo super_admin, store_admin, collaborator. Un producto solo puede tener un registro de inventario.
       security:
         - bearerAuth: []
@@ -2075,6 +2338,7 @@ paths:
     get:
       tags: [Inventory]
       summary: Obtener un registro de inventario
+      operationId: getInventory
       security:
         - bearerAuth: []
       parameters:
@@ -2101,6 +2365,7 @@ paths:
     put:
       tags: [Inventory]
       summary: Ajustar cantidad/umbral de un registro de inventario
+      operationId: updateInventory
       description: Solo super_admin, store_admin, collaborator. `product` es inmutable después de creado.
       security:
         - bearerAuth: []
@@ -2141,6 +2406,7 @@ paths:
     delete:
       tags: [Inventory]
       summary: Eliminar un registro de inventario
+      operationId: deleteInventory
       description: Solo super_admin, store_admin, collaborator.
       security:
         - bearerAuth: []
@@ -2170,6 +2436,7 @@ paths:
     post:
       tags: [Orders]
       summary: Checkout público (storefront)
+      operationId: createPublicOrder
       description: >
         Sin autenticación obligatoria, rate-limited (10 min / 6 intentos por
         IP — `429 RATE_LIMIT_CHECKOUT_EXCEEDED`). Acepta opcionalmente un
@@ -2249,6 +2516,7 @@ paths:
     get:
       tags: [Orders]
       summary: Mis pedidos (autoservicio del cliente)
+      operationId: listMyOrders
       description: >
         Cualquier rol autenticado (no exige staff, a diferencia de GET /api/orders)
         — se autolimita a lo propio: pedidos con `customer` igual a la cuenta que
@@ -2278,6 +2546,7 @@ paths:
     get:
       tags: [Orders]
       summary: Listar pedidos
+      operationId: listOrders
       description: Lectura permitida a cualquier rol de staff.
       security:
         - bearerAuth: []
@@ -2308,6 +2577,7 @@ paths:
     post:
       tags: [Orders]
       summary: Crear pedido (manual, panel)
+      operationId: createOrder
       description: >
         Solo super_admin, store_admin, collaborator. Venta manual desde el
         panel (telefónica, mostrador, etc.) — el checkout real del storefront
@@ -2353,6 +2623,7 @@ paths:
     get:
       tags: [Orders]
       summary: Obtener un pedido
+      operationId: getOrder
       security:
         - bearerAuth: []
       parameters:
@@ -2379,6 +2650,7 @@ paths:
     put:
       tags: [Orders]
       summary: Actualizar estado/notas/dirección de envío de un pedido
+      operationId: updateOrder
       description: >
         Solo super_admin, store_admin, collaborator. items/customer no se reabren
         después de creado. Si `status` transiciona hacia "confirmed", se descuenta
@@ -2424,6 +2696,7 @@ paths:
     delete:
       tags: [Orders]
       summary: Eliminar pedido
+      operationId: deleteOrder
       description: Solo super_admin, store_admin, collaborator.
       security:
         - bearerAuth: []
@@ -2453,6 +2726,7 @@ paths:
     get:
       tags: [Orders]
       summary: Descargar el comprobante del pedido en PDF
+      operationId: getOrderPdf
       description: >
         Accesible por cualquier rol de staff, o por el cliente dueño del pedido
         (cuenta vinculada vía `customer`, o cuenta cuyo correo coincide con
@@ -2493,6 +2767,8 @@ paths:
     get:
       tags: [StoreConfig]
       summary: Consultar configuración pública de la tienda
+      operationId: getPublicStoreConfig
+      security: []
       description: >
         Sin autenticación. Devuelve la configuración de tienda activa
         (`isActive: true`) para que el storefront la consuma en runtime.
@@ -2516,6 +2792,7 @@ paths:
     get:
       tags: [StoreConfig]
       summary: Consultar configuración de tienda (administración)
+      operationId: getStoreConfig
       description: Requiere autenticación y rol `super_admin` o `store_admin`. Devuelve el documento completo, activo o no.
       security:
         - bearerAuth: []
@@ -2541,6 +2818,7 @@ paths:
     put:
       tags: [StoreConfig]
       summary: Actualizar configuración de tienda (parcial por campo)
+      operationId: updateStoreConfig
       description: >
         Requiere autenticación y rol `super_admin` o `store_admin`. Solo actualiza los
         campos presentes en el body (allowlist) — se puede enviar una sola sección
@@ -2741,6 +3019,30 @@ components:
             $ref: "#/components/schemas/ErrorResponse"
 
   schemas:
+    InfraUsage:
+      type: object
+      properties:
+        usedBytes:
+          type: integer
+          format: int64
+        totalBytes:
+          type: integer
+          format: int64
+        percent:
+          type: number
+
+    InfraTransfer:
+      type: object
+      properties:
+        bytes:
+          type: integer
+          format: int64
+        totalBytes:
+          type: integer
+          format: int64
+        percent:
+          type: number
+
     Role:
       type: string
       enum:
@@ -3008,9 +3310,34 @@ components:
           type: string
         token:
           type: string
+          description: Access token (JWT, vigencia JWT_ACCESS_EXPIRES_IN)
+        refreshToken:
+          type: string
+          description: >
+            Token opaco para `POST /api/users/refresh` (vigencia
+            JWT_REFRESH_EXPIRES_IN, default 30 días). Guárdalo en
+            almacenamiento seguro; la web puede ignorarlo.
         user:
           $ref: "#/components/schemas/UserPublic"
-      required: [message, token, user]
+      required: [message, token, refreshToken, user]
+
+    RefreshTokenRequest:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+      required: [refreshToken]
+
+    RefreshSessionResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: Access token nuevo
+        refreshToken:
+          type: string
+          description: Refresh token nuevo — el enviado ya no sirve
+      required: [token, refreshToken]
 
     UpdateUserRequest:
       type: object
@@ -3046,6 +3373,12 @@ components:
         newPassword:
           type: string
           minLength: 6
+        refreshToken:
+          type: string
+          description: >
+            Opcional. El cambio cierra todas las sesiones largas (refresh
+            tokens) del usuario; si mandas el de la sesión actual, esa se
+            conserva.
       required: [currentPassword, newPassword]
 
     DeleteUserResponse:
@@ -3374,7 +3707,8 @@ components:
           maxLength: 300
         amount:
           type: number
-          exclusiveMinimum: 0
+          minimum: 0
+          exclusiveMinimum: true
         amountPaid:
           type: number
           minimum: 0
@@ -3474,7 +3808,8 @@ components:
           $ref: "#/components/schemas/TransactionType"
         amount:
           type: number
-          exclusiveMinimum: 0
+          minimum: 0
+          exclusiveMinimum: true
         date:
           type: string
           format: date
@@ -3824,7 +4159,6 @@ components:
         customerPhone:
           type: string
         customer:
-          nullable: true
           description: >
             Cuenta de User vinculada al pedido, si el comprador estaba
             logueado en el checkout (ver POST /api/orders/public) o si se le
@@ -3833,6 +4167,7 @@ components:
             (GET/PUT /api/orders...) viene poblado con name/email.
           oneOf:
             - type: string
+              nullable: true
             - type: object
               properties:
                 _id:
@@ -4469,13 +4804,3 @@ components:
         storeConfig:
           $ref: "#/components/schemas/StoreConfig"
       required: [message, storeConfig]
-
-    StoreImageUploadResponse:
-      type: object
-      properties:
-        message:
-          type: string
-        imagePath:
-          type: string
-          example: uploads/store-config-1718282784-uuid.jpg
-      required: [message, imagePath]

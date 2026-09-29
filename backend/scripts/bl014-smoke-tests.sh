@@ -10,7 +10,14 @@ set -euo pipefail
 #   STAFF_TOKEN=... \
 #   CUSTOMER_ID=... \
 #   PRODUCT_ID=... \
+#   CUSTOMER_EMAIL=... CUSTOMER_PASSWORD=... \
+#   ALLOW_WRITES=1 \
 #   ./backend/scripts/bl014-smoke-tests.sh
+#
+# El bloque "Flujo app móvil" (tests M*) requiere jq. Todas sus peticiones van
+# sin header Origin, como las manda una app nativa. Es de solo lectura salvo
+# M9, que crea un pedido real y solo corre con ALLOW_WRITES=1 — no lo actives
+# contra producción.
 
 BASE_URL="${BASE_URL:-http://localhost:5000}"
 ALLOWED_ORIGIN="${ALLOWED_ORIGIN:-http://localhost:3000}"
@@ -20,6 +27,11 @@ STAFF_TOKEN="${STAFF_TOKEN:-}"
 CUSTOMER_ID="${CUSTOMER_ID:-}"
 # Producto activo existente — habilita el test 13 (checkout público real).
 PRODUCT_ID="${PRODUCT_ID:-}"
+# Cuenta customer verificada — habilita el login real del flujo app móvil.
+CUSTOMER_EMAIL="${CUSTOMER_EMAIL:-}"
+CUSTOMER_PASSWORD="${CUSTOMER_PASSWORD:-}"
+# 1 = permite M9 (pedido real autenticado). Por default no escribe nada.
+ALLOW_WRITES="${ALLOW_WRITES:-0}"
 
 pass_count=0
 fail_count=0
@@ -48,6 +60,31 @@ run_status_test() {
     printf "       URL/args: %s\n" "$*"
     printf "       body: %s\n" "$(cat /tmp/bl014-body.txt 2>/dev/null || true)"
   fi
+}
+
+# Payload de checkout válido para la config actual de la tienda (igual que el
+# storefront/app): recoger en el primer punto de venta activo (o envío si no
+# hay puntos) y el primer método de pago que aplique. Sin jq o sin config,
+# cae al formato viejo ("pickup" como método de pago).
+# Uso: checkout_payload <nombre> <correo> <productId>
+checkout_payload() {
+  local name="$1" email="$2" product="$3"
+  if command -v jq >/dev/null 2>&1; then
+    curl -s "$BASE_URL/api/store-config/public" 2>/dev/null | jq -c \
+      --arg name "$name" --arg email "$email" --arg product "$product" '
+      (.pickupPoints // []) as $points
+      | (if ($points | length) > 0 then "pickup" else "shipping" end) as $delivery
+      | ((.paymentMethods // [])
+          | map(select(if $delivery == "pickup" then .forPickup != false else .forShipping != false end))
+          | first | (._id // .id // null)) as $payment
+      | {customerName: $name, customerEmail: $email, deliveryMethod: $delivery,
+         paymentMethod: ($payment // (if $delivery == "pickup" then "pickup" else "transfer" end)),
+         items: [{product: $product, quantity: 1}]}
+      + (if $delivery == "pickup" and ($points | length) > 0 then {pickupPointId: ($points[0]._id // $points[0].id)} else {} end)
+      + (if $delivery == "shipping" then {shippingAddress: {recipientName: $name, street: "Calle Smoke", exteriorNumber: "1", zipCode: "42000", city: "Pachuca", state: "Hidalgo"}} else {} end)
+      ' 2>/dev/null && return
+  fi
+  printf '{"customerName":"%s","customerEmail":"%s","paymentMethod":"pickup","items":[{"product":"%s","quantity":1}]}' "$name" "$email" "$product"
 }
 
 echo "== BL-014 smoke tests =="
@@ -160,7 +197,7 @@ if [[ -n "$PRODUCT_ID" ]]; then
     "POST /api/orders/public válido retorna 201" \
     "201" \
     -H "Content-Type: application/json" \
-    -d "{\"customerName\":\"BL014 Smoke\",\"customerEmail\":\"bl014-smoke@example.com\",\"paymentMethod\":\"pickup\",\"items\":[{\"product\":\"$PRODUCT_ID\",\"quantity\":1}]}" \
+    -d "$(checkout_payload "BL014 Smoke" "bl014-smoke@example.com" "$PRODUCT_ID")" \
     "$BASE_URL/api/orders/public"
   if grep -q '"orderNumber"' /tmp/bl014-body.txt 2>/dev/null; then
     pass "POST /api/orders/public válido incluye orderNumber"
@@ -169,6 +206,148 @@ if [[ -n "$PRODUCT_ID" ]]; then
   fi
 else
   echo "[SKIP] Checkout público válido (PRODUCT_ID no definido)"
+fi
+
+echo
+echo "== Flujo app móvil (sin Origin) =="
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo "[SKIP] Flujo app móvil (jq no instalado)"
+else
+  # M1) Branding/config de la tienda que usa la app para su theming
+  run_status_test \
+    "M1 GET /api/store-config/public retorna 200" \
+    "200" \
+    "$BASE_URL/api/store-config/public"
+
+  # M2) Catálogo; toma un producto para el detalle (M3) y el pedido (M9)
+  run_status_test \
+    "M2 GET /api/products/public retorna 200" \
+    "200" \
+    "$BASE_URL/api/products/public"
+  mobile_product_id="${PRODUCT_ID:-$(jq -r '(.items // .)[0] | (._id // .id // empty)' /tmp/bl014-body.txt 2>/dev/null || true)}"
+
+  # M3) Detalle de producto
+  if [[ -n "$mobile_product_id" ]]; then
+    run_status_test \
+      "M3 GET /api/products/public/:id retorna 200" \
+      "200" \
+      "$BASE_URL/api/products/public/$mobile_product_id"
+  else
+    echo "[SKIP] M3 detalle de producto (catálogo vacío)"
+  fi
+
+  # M4) Mis pedidos sin token
+  run_status_test \
+    "M4 GET /api/orders/mine sin token retorna 401" \
+    "401" \
+    "$BASE_URL/api/orders/mine"
+
+  # M5) Token mal formado
+  run_status_test \
+    "M5 GET /api/orders/mine con token inválido retorna 401" \
+    "401" \
+    -H "Authorization: Bearer not-a-jwt" \
+    "$BASE_URL/api/orders/mine"
+
+  if [[ -n "$CUSTOMER_EMAIL" && -n "$CUSTOMER_PASSWORD" ]]; then
+    # M6) Login real -> token + user
+    login_body=$(jq -n --arg e "$CUSTOMER_EMAIL" --arg p "$CUSTOMER_PASSWORD" '{email: $e, password: $p}')
+    run_status_test \
+      "M6 POST /api/users/login retorna 200" \
+      "200" \
+      -H "Content-Type: application/json" \
+      -d "$login_body" \
+      "$BASE_URL/api/users/login"
+    mobile_token=$(jq -r '.token // empty' /tmp/bl014-body.txt 2>/dev/null || true)
+    mobile_refresh=$(jq -r '.refreshToken // empty' /tmp/bl014-body.txt 2>/dev/null || true)
+    mobile_user_id=$(jq -r '.user | (._id // .id // empty)' /tmp/bl014-body.txt 2>/dev/null || true)
+
+    if [[ -n "$mobile_token" && -n "$mobile_user_id" ]]; then
+      pass "M6 login devuelve token y user.id"
+
+      # M7) Perfil propio (Mi cuenta)
+      run_status_test \
+        "M7 GET /api/users/:id propio retorna 200" \
+        "200" \
+        -H "Authorization: Bearer $mobile_token" \
+        "$BASE_URL/api/users/$mobile_user_id"
+
+      # M8) Mis pedidos
+      run_status_test \
+        "M8 GET /api/orders/mine con token retorna 200" \
+        "200" \
+        -H "Authorization: Bearer $mobile_token" \
+        "$BASE_URL/api/orders/mine"
+
+      # M10) Refresh token: rota, el nuevo access sirve, el viejo ya no;
+      # logout cierra la sesión. Se salta si el backend aún no lo soporta.
+      if [[ -n "$mobile_refresh" ]]; then
+        run_status_test \
+          "M10 POST /api/users/refresh retorna 200" \
+          "200" \
+          -H "Content-Type: application/json" \
+          -d "$(jq -n --arg t "$mobile_refresh" '{refreshToken: $t}')" \
+          "$BASE_URL/api/users/refresh"
+        rotated_token=$(jq -r '.token // empty' /tmp/bl014-body.txt 2>/dev/null || true)
+        rotated_refresh=$(jq -r '.refreshToken // empty' /tmp/bl014-body.txt 2>/dev/null || true)
+        if [[ -n "$rotated_token" && -n "$rotated_refresh" && "$rotated_refresh" != "$mobile_refresh" ]]; then
+          pass "M10 refresh devuelve un par nuevo"
+          run_status_test \
+            "M10 access token renovado sirve en /api/orders/mine" \
+            "200" \
+            -H "Authorization: Bearer $rotated_token" \
+            "$BASE_URL/api/orders/mine"
+          run_status_test \
+            "M10 refresh token ya rotado retorna 409" \
+            "409" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --arg t "$mobile_refresh" '{refreshToken: $t}')" \
+            "$BASE_URL/api/users/refresh"
+          run_status_test \
+            "M11 POST /api/users/logout retorna 204" \
+            "204" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --arg t "$rotated_refresh" '{refreshToken: $t}')" \
+            "$BASE_URL/api/users/logout"
+          run_status_test \
+            "M11 refresh tras logout retorna 401" \
+            "401" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --arg t "$rotated_refresh" '{refreshToken: $t}')" \
+            "$BASE_URL/api/users/refresh"
+        else
+          fail "M10 refresh sin par nuevo en la respuesta"
+        fi
+      else
+        echo "[SKIP] M10-M11 refresh/logout (el login no devolvió refreshToken — backend sin desplegar)"
+      fi
+
+      # M9) Pedido autenticado (escribe en la BD) y aparece en Mis pedidos
+      if [[ "$ALLOW_WRITES" == "1" && -n "$mobile_product_id" ]]; then
+        run_status_test \
+          "M9 POST /api/orders/public autenticado retorna 201" \
+          "201" \
+          -H "Authorization: Bearer $mobile_token" \
+          -H "Content-Type: application/json" \
+          -d "$(checkout_payload "BL014 Mobile Smoke" "$CUSTOMER_EMAIL" "$mobile_product_id")" \
+          "$BASE_URL/api/orders/public"
+        mobile_order_number=$(jq -r '.orderNumber // empty' /tmp/bl014-body.txt 2>/dev/null || true)
+        curl -s -o /tmp/bl014-body.txt -H "Authorization: Bearer $mobile_token" "$BASE_URL/api/orders/mine" || true
+        if [[ -n "$mobile_order_number" ]] && jq -e --arg n "$mobile_order_number" '.items | any((.orderNumber | tostring) == $n)' /tmp/bl014-body.txt >/dev/null 2>&1; then
+          pass "M9 el pedido $mobile_order_number aparece en /api/orders/mine"
+        else
+          fail "M9 el pedido creado no aparece en /api/orders/mine"
+        fi
+      else
+        echo "[SKIP] M9 pedido autenticado (requiere ALLOW_WRITES=1 y un producto)"
+      fi
+    else
+      fail "M6 login sin token o sin user.id en la respuesta"
+    fi
+  else
+    echo "[SKIP] M6-M9 login real (CUSTOMER_EMAIL/CUSTOMER_PASSWORD no definidos)"
+  fi
 fi
 
 echo

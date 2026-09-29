@@ -41,6 +41,8 @@ const readJwtConfig = () => {
 
 const validateJwtEnvConfig = () => {
   readJwtConfig();
+  // Opcional, pero si viene mal escrito el backend no arranca (igual que el resto).
+  require("./refreshTokens").readRefreshTtlMs();
 };
 
 const signAccessToken = ({ id, role }) => {
