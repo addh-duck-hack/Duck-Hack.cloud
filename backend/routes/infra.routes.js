@@ -1,16 +1,18 @@
 const express = require("express");
 const router = express.Router();
 const { sendError } = require("../utils/httpResponses");
-// Auth vive en @duck-hack/core-api (packages/core-api/modules/auth.js) —
-// verifyToken/authorizeRoles se arman con sendError, ROLES es estático.
-const { auth } = require("@duck-hack/core-api");
-const { verifyToken, authorizeRoles } = auth.createAuthMiddleware(sendError);
-const { ROLES } = auth;
+// Auth y permisos viven en @duck-hack/core-api (modules/auth.js,
+// lib/permissions.js) — se arman con sendError y la conexión de esta instancia.
+const mongoose = require("mongoose");
+const { auth, permissions } = require("@duck-hack/core-api");
+const { verifyToken } = auth.createAuthMiddleware(sendError);
+const { authorizeModule } = permissions.createModuleAuthorizer({ mongooseConnection: mongoose.connection, sendError });
 const { getServerMetrics, PortainerConfigError, PortainerRequestError } = require("../utils/portainerClient");
 
-// Herramientas de infraestructura del servidor — confidencial, solo super_admin
-// (mismo criterio que /api/agency-clients: no son datos que un store_admin de
-// un cliente deba ver ni accesos que deba conocer).
+// Herramientas de infraestructura del servidor — confidencial: módulo "panel"
+// de los permisos por tienda (packages/core-api/lib/permissions.js). Por
+// default ningún rol además de super_admin lo tiene: son URLs y uso del
+// servidor de Duck-Hack, no datos que un cliente suela necesitar.
 const INFRA_TARGETS = [
   { id: "portainer", label: "Portainer", url: "https://portainer.server.duck-hack.cloud" },
   { id: "npm", label: "NGINX Proxy Manager", url: "https://npm.server.duck-hack.cloud" },
@@ -52,7 +54,7 @@ const checkTarget = async (target) => {
   }
 };
 
-router.get("/status", verifyToken, authorizeRoles(ROLES.SUPER_ADMIN), async (req, res) => {
+router.get("/status", verifyToken, authorizeModule("panel"), async (req, res) => {
   try {
     const items = await Promise.all(INFRA_TARGETS.map(checkTarget));
     return res.status(200).json({ items, checkedAt: new Date().toISOString() });
@@ -65,7 +67,7 @@ router.get("/status", verifyToken, authorizeRoles(ROLES.SUPER_ADMIN), async (req
 // de todos los contenedores del host vía la API de Portainer. Ver
 // utils/portainerClient.js para las fórmulas y limitaciones (disco = solo
 // footprint de Docker, red = acumulado desde que arrancó cada contenedor).
-router.get("/metrics", verifyToken, authorizeRoles(ROLES.SUPER_ADMIN), async (req, res) => {
+router.get("/metrics", verifyToken, authorizeModule("panel"), async (req, res) => {
   try {
     const metrics = await getServerMetrics();
     return res.status(200).json(metrics);
