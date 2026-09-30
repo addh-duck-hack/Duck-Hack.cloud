@@ -38,11 +38,8 @@ const AdminShell = () => {
   }, [location.pathname]);
 
   const navItems = [
-    // "Panel", "Configurar App" y "Permisos" son siempre solo super_admin.
-    ...(isSuperAdmin ? [{ path: "/admin", label: "Panel", end: true }] : []),
-    ...moduleItems("storeConfig"),
-    ...(isSuperAdmin ? [{ path: "/admin/app-config", label: "Configurar App" }] : []),
-    ...MODULE_NAV.filter((module) => module.key !== "storeConfig").flatMap((module) => moduleItems(module.key)),
+    ...MODULE_NAV.flatMap((module) => moduleItems(module.key)),
+    // "Permisos" es siempre solo super_admin (no es un módulo asignable).
     ...(isSuperAdmin ? [{ path: "/admin/permissions", label: "Permisos" }] : []),
   ];
 

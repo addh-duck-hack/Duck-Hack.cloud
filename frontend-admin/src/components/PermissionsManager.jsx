@@ -157,12 +157,17 @@ const PermissionsManager = () => {
 
       <div className="permissions-hint permissions-notes">
         <p>
+          El Panel muestra el uso y las herramientas de infraestructura del servidor (Portainer, NPM, Mongo, FTP...):
+          dáselo a un cliente solo si de verdad lo necesita.
+        </p>
+        <p>
           Si un módulo no está contratado, nadie más que tú lo ve, aunque su rol lo tenga marcado; al volver a contratarlo,
           los roles recuperan lo que tenían marcado.
         </p>
         <p>
-          Algunas pantallas consultan datos de otros módulos: con Pedidos o Inventario se puede elegir productos, y con
-          Configurar tienda o Productos se usa el selector de Medios, aunque esos módulos no estén marcados. Clientes,
+          Algunas pantallas consultan datos de otros módulos: con Pedidos, Inventario o Configurar App se puede elegir
+          productos, y con Configurar tienda, Configurar App o Productos se usa el selector de Medios, aunque esos módulos
+          no estén marcados. Clientes,
           Contabilidad y Facturación se consultan entre sí solo si el módulo consultado está contratado.
         </p>
         <p>

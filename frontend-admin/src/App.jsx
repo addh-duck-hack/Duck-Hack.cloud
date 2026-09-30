@@ -35,6 +35,7 @@ import MediaLibrary from "./components/MediaLibrary";
 import AppHomeEditor from "./components/AppHomeEditor";
 import PermissionsManager from "./components/PermissionsManager";
 import Loader from "./components/Loader";
+import NotFound from "./components/NotFound";
 import { StoreConfigProvider } from "./hooks/useStoreConfig";
 import { PermissionsProvider, usePermissions } from "./hooks/usePermissions";
 import { ROLES, STAFF_ROLES } from "./utils/roles";
@@ -60,7 +61,7 @@ const AppRoutes = () => {
     if (permissionsLoading) return <Loader />;
     return can(key) ? element : <Navigate to="/admin" replace />;
   };
-  // Panel y "Configurar App": siempre solo super_admin.
+  // "Permisos": siempre solo super_admin.
   const superOnly = (element) => (isSuperAdmin ? element : <Navigate to="/admin" replace />);
   const landing = () => {
     if (permissionsLoading) return <Loader />;
@@ -76,10 +77,10 @@ const AppRoutes = () => {
           <Route path="/register" element={<RegisterUser />} />
 
           <Route path="/admin" element={isLoggedIn ? <AdminShell /> : <Navigate to="/" />}>
-            {/* AdminMenu es contenido 100% super_admin (uso de servidor/
-                infraestructura, ver AdminMenu.jsx) — cualquier otro rol cae a
-                su primer módulo permitido (Pedidos si lo tiene). */}
-            <Route index element={isSuperAdmin ? <AdminMenu /> : landing()} />
+            {/* El índice es el Panel (uso de servidor/infraestructura, ver
+                AdminMenu.jsx), módulo "panel"; sin él se cae al primer módulo
+                permitido (Pedidos si lo tiene). */}
+            <Route index element={permissionsLoading ? <Loader /> : can("panel") ? <AdminMenu /> : landing()} />
             <Route
               path="store-config"
               element={gate("storeConfig", <StoreConfigManager />)}
@@ -194,15 +195,15 @@ const AppRoutes = () => {
               path="media"
               element={gate("media", <MediaLibrary />)}
             />
-            {/* "Configurar App" (solo super_admin): configuración de la app móvil,
-                una pestaña por configuración (ver AppConfigTabs.jsx). */}
+            {/* "Configurar App" (módulo "appConfig"): configuración de la app
+                móvil, una pestaña por configuración (ver AppConfigTabs.jsx). */}
             <Route
               path="app-config"
-              element={superOnly(<Navigate to="/admin/app-config/home" replace />)}
+              element={gate("appConfig", <Navigate to="/admin/app-config/home" replace />)}
             />
             <Route
               path="app-config/home"
-              element={superOnly(<AppHomeEditor />)}
+              element={gate("appConfig", <AppHomeEditor />)}
             />
             {/* Ruta anterior a "Configurar App" (enlaces viejos). */}
             <Route path="app-home" element={<Navigate to="/admin/app-config/home" replace />} />
@@ -220,7 +221,11 @@ const AppRoutes = () => {
               path="users/:id/edit"
               element={gate("users", <UserForm />)}
             />
+            {/* Cualquier otra ruta del panel: 404 dentro del shell (con menú). */}
+            <Route path="*" element={<NotFound />} />
           </Route>
+          {/* Rutas fuera de /admin que no existen: 404 sola. */}
+          <Route path="*" element={<NotFound standalone />} />
         </Routes>
       </div>
     </Router>
