@@ -14,6 +14,7 @@ import PrivacyNotice from './components/PrivacyNotice';
 import VerifyUser from './components/VerifyUser';
 import LoginUser from './components/LoginUser';
 import RegisterUser from './components/RegisterUser';
+import NotFound from './components/NotFound';
 import { StoreConfigProvider } from './hooks/useStoreConfig';
 import './App.css';
 
@@ -46,6 +47,8 @@ const App = () => {
                 <Route path="/contacto" element={<ContactUs />} />
                 <Route path="/legal-notice" element={<LegalNotice />} />
                 <Route path="/privacy-policy" element={<PrivacyNotice />} />
+                {/* Cualquier otra ruta: 404 con el menú y el footer del sitio. */}
+                <Route path="*" element={<NotFound />} />
               </Route>
               <Route path="/users/verify" element={<VerifyUser />} />
               <Route path="/login" element={<LoginUser />} />

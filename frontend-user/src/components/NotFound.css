@@ -1,0 +1,59 @@
+/* Página 404 del sitio (NotFound.jsx). */
+
+.not-found {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 60vh;
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 2rem 0;
+  text-align: center;
+}
+
+.not-found-code {
+  font-family: var(--font-mono);
+  font-size: clamp(4.5rem, 16vw, 8rem);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--action);
+  text-shadow: 0 0 32px var(--signal-dim);
+}
+
+.not-found .section-sub {
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 1.25rem;
+}
+
+.not-found-path {
+  width: 100%;
+  margin: 0.75rem 0 0.25rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  line-height: 1.7;
+  text-align: left;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.not-found-prompt {
+  color: var(--signal);
+}
+
+.not-found-error {
+  color: var(--text-dim);
+}
+
+.not-found-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+}
