@@ -35,8 +35,8 @@ vault, not in this repo).
   must be added to `PERMISSION_MODULES`/`DEFAULT_PERMISSIONS` and guard its
   routes with the authorizer instead of `authorizeRoles`.
 - `modules/appHome.js` — the mobile app's home screen as server-driven JSON
-  (`/api/app-home/*`), singleton per deployment like StoreConfig. Only
-  `super_admin` reads/writes it (`GET`/`PUT /`); `GET /public` returns the
+  (`/api/app-home/*`), singleton per deployment like StoreConfig. `GET`/`PUT /`
+  need the `appConfig` permission module (by default only `super_admin`); `GET /public` returns the
   visible sections with product carousels already resolved (active + in stock,
   `lib/purchaseLimits.js#filterInStock`). Sections are validated against a
   type catalog: own content (banner, productCarousel, categoryGrid, notice)

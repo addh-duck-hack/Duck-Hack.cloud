@@ -9,18 +9,21 @@
 // los roles: al volver a contratarlo, reaparece igual.
 //
 // Sin documento guardado aplica DEFAULT_PERMISSIONS = el comportamiento que
-// había antes (todo contratado; collaborator solo catálogo/pedidos/medios), así
-// que una tienda ya desplegada no cambia al actualizar.
+// había antes (todo contratado; store_admin todo menos Panel y Configurar App;
+// collaborator solo catálogo/pedidos/medios), así que una tienda ya desplegada
+// no cambia al actualizar.
 //
-// Panel (/api/infra) y "Configurar App" (/api/app-home) no están aquí: son
-// siempre solo super_admin.
+// "Permisos" (esta configuración) no es un módulo: siempre solo super_admin,
+// si no un rol podría darse a sí mismo cualquier módulo.
 const mongoose = require("mongoose");
 const { ROLES } = require("./authMiddleware");
 const { getOrCreateModel } = require("./moduleHelpers");
 
 // Orden = orden del menú del panel (frontend-admin/src/utils/permissions.js).
 const PERMISSION_MODULES = [
+  { key: "panel", label: "Panel (uso e infraestructura del servidor)" },
   { key: "storeConfig", label: "Configurar tienda" },
+  { key: "appConfig", label: "Configurar App" },
   { key: "products", label: "Productos" },
   { key: "inventory", label: "Inventario" },
   { key: "orders", label: "Pedidos" },
@@ -36,7 +39,7 @@ const CONFIGURABLE_ROLES = [ROLES.STORE_ADMIN, ROLES.COLLABORATOR];
 const DEFAULT_PERMISSIONS = Object.freeze({
   enabledModules: [...MODULE_KEYS],
   roles: {
-    [ROLES.STORE_ADMIN]: [...MODULE_KEYS],
+    [ROLES.STORE_ADMIN]: MODULE_KEYS.filter((key) => key !== "panel" && key !== "appConfig"),
     [ROLES.COLLABORATOR]: ["products", "inventory", "orders", "media"],
   },
 });

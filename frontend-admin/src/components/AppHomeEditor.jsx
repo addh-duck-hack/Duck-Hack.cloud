@@ -1,4 +1,4 @@
-// Pestaña "Home" de "Configurar App" (solo super_admin) — el JSON que devuelve
+// Pestaña "Home" de "Configurar App" (módulo "appConfig") — el JSON que devuelve
 // GET /api/app-home/public y con el que la app arma su pantalla de inicio sin
 // publicar una versión nueva (ver packages/core-api/modules/appHome.js).
 // Dos vistas sobre el mismo estado `sections`: Visual (switch de visible,
@@ -57,8 +57,10 @@ const AppHomeEditor = () => {
       const [homeRes, productsRes, storeRes] = await Promise.all([
         axios.get(`${baseUrl}/api/app-home`, { headers: getAuthHeaders() }),
         axios.get(`${baseUrl}/api/products`, { headers: getAuthHeaders() }),
+        // La versión pública basta para contar lo que mostrarán las secciones de
+        // tienda, y no exige el módulo Configurar tienda (ni trae datos bancarios).
         axios
-          .get(`${baseUrl}/api/store-config`, { headers: getAuthHeaders() })
+          .get(`${baseUrl}/api/store-config/public`)
           .catch((err) => (err.response?.status === 404 ? { data: null } : Promise.reject(err))),
       ]);
       applyServerData(homeRes.data);
