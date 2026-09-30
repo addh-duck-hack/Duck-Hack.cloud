@@ -2,9 +2,11 @@
 // Mismo catálogo y orden que PERMISSION_MODULES en
 // packages/core-api/lib/permissions.js — el backend es quien decide y hace
 // cumplir; esto solo dice qué entrada(s) del menú abre cada módulo.
-// Panel y "Configurar App" no están aquí: son siempre solo super_admin.
+// "Permisos" no está aquí: es siempre solo super_admin.
 export const MODULE_NAV = [
+  { key: "panel", items: [{ path: "/admin", label: "Panel", end: true }] },
   { key: "storeConfig", items: [{ path: "/admin/store-config", label: "Configurar tienda" }] },
+  { key: "appConfig", items: [{ path: "/admin/app-config", label: "Configurar App" }] },
   { key: "products", items: [{ path: "/admin/products", label: "Productos" }] },
   { key: "inventory", items: [{ path: "/admin/inventory", label: "Inventario" }] },
   { key: "orders", items: [{ path: "/admin/orders", label: "Pedidos" }] },
@@ -21,10 +23,10 @@ export const MODULE_NAV = [
   { key: "invoices", items: [{ path: "/admin/invoices", label: "Facturación" }] },
 ];
 
-// Primera pantalla a la que puede entrar quien no es super_admin (el índice
-// /admin es el Panel, solo super_admin). Pedidos primero si lo tiene, como antes.
+// Primera pantalla de quien no tiene el Panel (el índice /admin): Pedidos si lo
+// tiene, como antes; si no, su primer módulo permitido; null = ninguno.
 export const firstAllowedPath = (can) => {
   if (can("orders")) return "/admin/orders";
-  const first = MODULE_NAV.find((module) => can(module.key));
+  const first = MODULE_NAV.find((module) => module.key !== "panel" && can(module.key));
   return first ? first.items[0].path : null;
 };

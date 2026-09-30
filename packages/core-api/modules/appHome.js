@@ -1,5 +1,6 @@
 // Home de la app móvil armado por JSON desde el admin (server-driven UI): el
-// super_admin decide qué secciones se ven y en qué orden sin publicar una
+// admin (quien tenga el módulo "Configurar App", ver lib/permissions.js) decide
+// qué secciones se ven y en qué orden sin publicar una
 // versión nueva de la app. Singleton por despliegue, igual que StoreConfig
 // (`singletonKey: "default"`).
 //
@@ -27,6 +28,7 @@ const mongoose = require("mongoose");
 const { sanitizeDoc, asTrimmedString, isValidObjectId, getOrCreateModel } = require("../lib/moduleHelpers");
 const { getPurchaseLimit, filterInStock } = require("../lib/purchaseLimits");
 const { resolveLiveMetrics } = require("../lib/liveMetrics");
+const { createModuleAuthorizer } = require("../lib/permissions");
 
 const SCHEMA_VERSION = 1;
 const MAX_SECTIONS = 30;
@@ -214,7 +216,7 @@ const toResponse = (doc) => ({
 });
 
 function registerRoutes(app, ctx) {
-  const { mongooseConnection, verifyToken, authorizeRoles, ROLES, sendError, resolveLiveMetricSources } = ctx;
+  const { mongooseConnection, verifyToken, sendError, resolveLiveMetricSources } = ctx;
   const AppHome = getOrCreateModel(mongooseConnection, "AppHome", appHomeSchema);
   const router = express.Router();
 
@@ -278,8 +280,8 @@ function registerRoutes(app, ctx) {
     }
   });
 
-  // ---- Admin: solo super_admin ----
-  router.use(verifyToken, authorizeRoles(ROLES.SUPER_ADMIN));
+  // ---- Admin: módulo "Configurar App" de los permisos por tienda (lib/permissions.js) ----
+  router.use(verifyToken, createModuleAuthorizer({ mongooseConnection, sendError }).authorizeModule("appConfig"));
 
   router.get("/", async (req, res) => {
     try {

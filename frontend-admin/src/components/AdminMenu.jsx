@@ -4,11 +4,12 @@ import { Link } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { INFRA_ICONS } from "../utils/infraIcons";
 import { formatBytes } from "../utils/formatBytes";
-import { ROLES } from "../utils/roles";
+import { usePermissions } from "../hooks/usePermissions";
 
 const AdminMenu = () => {
-  const role = localStorage.getItem("role");
-  const isSuperAdmin = role === ROLES.SUPER_ADMIN;
+  // Módulo "panel" de los permisos por tienda (por default solo super_admin).
+  const { can } = usePermissions();
+  const canSeePanel = can("panel");
 
   const [items, setItems] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -25,7 +26,7 @@ const AdminMenu = () => {
   };
 
   const loadStatus = useCallback(async () => {
-    if (!isSuperAdmin) return;
+    if (!canSeePanel) return;
     setIsLoading(true);
     setError("");
     try {
@@ -41,10 +42,10 @@ const AdminMenu = () => {
       setIsLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSuperAdmin]);
+  }, [canSeePanel]);
 
   const loadMetrics = useCallback(async () => {
-    if (!isSuperAdmin) return;
+    if (!canSeePanel) return;
     setMetricsLoading(true);
     setMetricsError("");
     try {
@@ -65,7 +66,7 @@ const AdminMenu = () => {
       setMetricsLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSuperAdmin]);
+  }, [canSeePanel]);
 
   useEffect(() => {
     loadStatus();
@@ -75,7 +76,7 @@ const AdminMenu = () => {
   return (
     <div>
       <h2>Panel administrativo</h2>
-      {isSuperAdmin ? (
+      {canSeePanel ? (
         <>
           <section style={{ marginTop: "2.5rem" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>

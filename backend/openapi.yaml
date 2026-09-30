@@ -33,7 +33,7 @@ tags:
   - name: Permissions
     description: Permisos por tienda — módulos contratados y qué puede usar cada rol (solo super_admin los configura)
   - name: AppHome
-    description: Home de la app móvil armado por JSON desde el admin (solo super_admin lo edita)
+    description: Home de la app móvil armado por JSON desde el admin (módulo appConfig de los permisos por tienda)
 paths:
   /api/users/register:
     post:
@@ -369,7 +369,8 @@ paths:
       summary: Crear cuenta de staff (panel)
       operationId: createUser
       description: >
-        Solo super_admin, store_admin. Versión "staff, autenticado" de
+        Módulo `users` de los permisos por tienda; nadie (salvo super_admin)
+        crea un rol mayor al suyo. Versión "staff, autenticado" de
         POST /api/users/register — a diferencia de ese endpoint, aquí sí se
         elige `role`, y la cuenta entra ya `isVerified: true` (el admin le
         entrega la contraseña directo a la persona, no hace falta correo de
@@ -1918,7 +1919,7 @@ paths:
       summary: Estado de las herramientas de infraestructura del servidor
       operationId: getInfraStatus
       description: >
-        Solo `super_admin`. Hace un GET (timeout 5 s) a cada herramienta del
+        Módulo `panel` de los permisos por tienda (por default solo super_admin). Hace un GET (timeout 5 s) a cada herramienta del
         servidor (Portainer, NPM, deploy, FTP, Mongo, PMA). 502/503/504 del
         proxy o sin respuesta = `down`; cualquier otra respuesta = `up`.
       security:
@@ -1968,7 +1969,7 @@ paths:
       summary: Uso de recursos del servidor (vía Portainer)
       operationId: getInfraMetrics
       description: >
-        Solo `super_admin`. CPU/memoria/disco/red aproximados sumando el uso de
+        Módulo `panel` de los permisos por tienda (por default solo super_admin). CPU/memoria/disco/red aproximados sumando el uso de
         todos los contenedores del host (ver backend/utils/portainerClient.js).
       security:
         - bearerAuth: []
@@ -2089,7 +2090,7 @@ paths:
       tags: [Products]
       summary: Listar catálogo de productos
       operationId: listProducts
-      description: Lectura permitida a cualquier rol de staff (super_admin, store_admin, collaborator).
+      description: Lectura con el módulo `products`, o con `inventory`, `orders` o `appConfig` (selector de productos) aunque Productos no esté contratado.
       security:
         - bearerAuth: []
       parameters:
@@ -2120,7 +2121,7 @@ paths:
       tags: [Products]
       summary: Crear producto
       operationId: createProduct
-      description: Solo super_admin, store_admin, collaborator.
+      description: Módulo `products` de los permisos por tienda.
       security:
         - bearerAuth: []
       requestBody:
@@ -2188,7 +2189,7 @@ paths:
       tags: [Products]
       summary: Editar producto
       operationId: updateProduct
-      description: Solo super_admin, store_admin, collaborator.
+      description: Módulo `products` de los permisos por tienda.
       security:
         - bearerAuth: []
       parameters:
@@ -2229,7 +2230,7 @@ paths:
       tags: [Products]
       summary: Eliminar producto
       operationId: deleteProduct
-      description: Solo super_admin, store_admin, collaborator. Bloqueado si el producto tiene inventario o pedidos ligados.
+      description: Módulo `products` de los permisos por tienda. Bloqueado si el producto tiene inventario o pedidos ligados.
       security:
         - bearerAuth: []
       parameters:
@@ -2296,7 +2297,7 @@ paths:
       tags: [Inventory]
       summary: Registrar inventario de un producto
       operationId: createInventory
-      description: Solo super_admin, store_admin, collaborator. Un producto solo puede tener un registro de inventario.
+      description: Módulo `inventory` de los permisos por tienda. Un producto solo puede tener un registro de inventario.
       security:
         - bearerAuth: []
       requestBody:
@@ -2370,7 +2371,7 @@ paths:
       tags: [Inventory]
       summary: Ajustar cantidad/umbral de un registro de inventario
       operationId: updateInventory
-      description: Solo super_admin, store_admin, collaborator. `product` es inmutable después de creado.
+      description: Módulo `inventory` de los permisos por tienda. `product` es inmutable después de creado.
       security:
         - bearerAuth: []
       parameters:
@@ -2411,7 +2412,7 @@ paths:
       tags: [Inventory]
       summary: Eliminar un registro de inventario
       operationId: deleteInventory
-      description: Solo super_admin, store_admin, collaborator.
+      description: Módulo `inventory` de los permisos por tienda.
       security:
         - bearerAuth: []
       parameters:
@@ -2583,7 +2584,7 @@ paths:
       summary: Crear pedido (manual, panel)
       operationId: createOrder
       description: >
-        Solo super_admin, store_admin, collaborator. Venta manual desde el
+        Módulo `orders` de los permisos por tienda. Venta manual desde el
         panel (telefónica, mostrador, etc.) — el checkout real del storefront
         usa POST /api/orders/public. unitPrice se toma del precio actual de
         cada producto, no del payload; a diferencia del checkout público,
@@ -2656,7 +2657,7 @@ paths:
       summary: Actualizar estado/notas/dirección de envío de un pedido
       operationId: updateOrder
       description: >
-        Solo super_admin, store_admin, collaborator. items/customer no se reabren
+        Módulo `orders` de los permisos por tienda. items/customer no se reabren
         después de creado. Si `status` transiciona hacia "confirmed", se descuenta
         el inventario de cada producto del pedido; si transiciona fuera de
         "confirmed" (cancelado, regresado a pending, etc.), el stock se restaura
@@ -2701,7 +2702,7 @@ paths:
       tags: [Orders]
       summary: Eliminar pedido
       operationId: deleteOrder
-      description: Solo super_admin, store_admin, collaborator.
+      description: Módulo `orders` de los permisos por tienda.
       security:
         - bearerAuth: []
       parameters:
@@ -2895,7 +2896,7 @@ paths:
       tags: [AppHome]
       summary: Home de la app para editar (incluye secciones ocultas)
       operationId: getAppHome
-      description: Solo `super_admin`.
+      description: Módulo `appConfig` de los permisos por tienda (por default solo super_admin).
       security:
         - bearerAuth: []
       responses:
@@ -2924,7 +2925,7 @@ paths:
       summary: Guardar y publicar el home de la app
       operationId: updateAppHome
       description: >
-        Solo `super_admin`. Reemplaza todas las secciones (el orden del
+        Módulo `appConfig` de los permisos por tienda (por default solo super_admin). Reemplaza todas las secciones (el orden del
         arreglo es el orden en pantalla) y publica al instante. Cada sección
         se valida contra su tipo; los campos desconocidos se descartan y
         `id` se genera si falta. Los productos de un carrusel manual deben
@@ -3232,7 +3233,7 @@ components:
     PermissionModuleKey:
       type: string
       description: Módulo del panel sujeto a permisos por tienda
-      enum: [storeConfig, products, inventory, orders, media, users, agencyClients, accounting, invoices]
+      enum: [panel, storeConfig, appConfig, products, inventory, orders, media, users, agencyClients, accounting, invoices]
 
     StorePermissions:
       type: object
