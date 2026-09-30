@@ -22,6 +22,7 @@ import Account from './pages/Account';
 import VerifyEmail from './pages/VerifyEmail';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import NotFound from './pages/NotFound';
 import { StoreConfigProvider } from './hooks/useStoreConfig';
 import { CartProvider } from './hooks/useCart';
 import { AuthProvider } from './hooks/useAuth';
@@ -52,6 +53,8 @@ const App = () => (
               {/* Enlace del correo de verificación (dentro de AppShell, con barra y footer). */}
               <Route path="/users/verify" element={<VerifyEmail />} />
               <Route path="/mi-cuenta" element={<Account />} />
+              {/* Cualquier otra ruta: 404 con barra, CTA y footer. */}
+              <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>
         </Router>
