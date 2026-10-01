@@ -1,9 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 
-const initialState = { product: "", quantity: "0", lowStockThreshold: "0", notes: "" };
+const initialState = { product: "", variant: "", quantity: "0", lowStockThreshold: "0", notes: "" };
+
+const variantText = (product, variant) =>
+  `${(product.options || []).map((o, i) => `${o.name}: ${variant.optionValues?.[i] ?? ""}`).join(" / ")} (${variant.sku})`;
 
 const InventoryForm = () => {
   const navigate = useNavigate();
@@ -42,6 +45,7 @@ const InventoryForm = () => {
         const item = response.data || {};
         setForm({
           product: item.product?._id || item.product || "",
+          variant: item.variant || "",
           quantity: String(item.quantity ?? "0"),
           lowStockThreshold: String(item.lowStockThreshold ?? "0"),
           notes: item.notes || "",
@@ -58,8 +62,12 @@ const InventoryForm = () => {
 
   const handleChange = (event) => {
     const { name, value } = event.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    // Cambiar de producto reinicia la variante elegida.
+    setForm((prev) => ({ ...prev, [name]: value, ...(name === "product" ? { variant: "" } : {}) }));
   };
+
+  const selectedProduct = useMemo(() => products.find((p) => p._id === form.product) || null, [products, form.product]);
+  const productVariants = selectedProduct?.options?.length ? selectedProduct.variants || [] : [];
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -71,7 +79,10 @@ const InventoryForm = () => {
         lowStockThreshold: Number(form.lowStockThreshold),
         notes: form.notes,
       };
-      if (!isEditing) payload.product = form.product;
+      if (!isEditing) {
+        payload.product = form.product;
+        if (form.variant) payload.variant = form.variant;
+      }
 
       if (isEditing) {
         await axios.put(`${baseUrl}/api/inventory/${id}`, payload, {
@@ -110,6 +121,22 @@ const InventoryForm = () => {
             ))}
           </select>
         </label>
+
+        {productVariants.length > 0 ? (
+          <label>
+            Variante
+            <select name="variant" value={form.variant} onChange={handleChange} required disabled={isEditing}>
+              <option value="">Selecciona una variante</option>
+              {productVariants.map((v) => (
+                <option key={v._id} value={v._id}>
+                  {variantText(selectedProduct, v)}
+                  {v.isActive === false ? " — inactiva" : ""}
+                </option>
+              ))}
+            </select>
+            <small>Cada variante lleva su propio registro de inventario.</small>
+          </label>
+        ) : null}
 
         <label>
           Cantidad

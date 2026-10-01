@@ -18,15 +18,17 @@ const Field = ({ label, children, hint }) => (
   </label>
 );
 
+// `categories` = categorías del catálogo (/api/categories); se guarda el slug.
 const CategorySelect = ({ value, onChange, categories }) => (
   <select value={value || ""} onChange={(e) => onChange(e.target.value)}>
     <option value="">— Elige una categoría —</option>
     {categories.map((category) => (
-      <option key={category} value={category}>
-        {category}
+      <option key={category._id} value={category.slug}>
+        {category.name}
+        {category.isActive === false ? " (inactiva)" : ""}
       </option>
     ))}
-    {value && !categories.includes(value) ? <option value={value}>{value} (sin productos)</option> : null}
+    {value && !categories.some((c) => c.slug === value) ? <option value={value}>{value} (ya no existe)</option> : null}
   </select>
 );
 
