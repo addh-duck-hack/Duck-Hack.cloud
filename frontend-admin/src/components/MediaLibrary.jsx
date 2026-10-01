@@ -21,9 +21,13 @@ import "./MediaLibrary.css";
 
 const ACCEPTED_TYPES = acceptForKinds(["image", "gif", "video"]);
 
-const MediaViewer = ({ item, src, onClose, onPrev, onNext, onSaved, onDeleted }) => {
+// `galleryCategories`: las categorías de galería ya usadas en la biblioteca,
+// como sugerencias (se puede escribir una nueva).
+const MediaViewer = ({ item, src, galleryCategories = [], onClose, onPrev, onNext, onSaved, onDeleted }) => {
   const [title, setTitle] = useState(item.title);
   const [altText, setAltText] = useState(item.altText);
+  const [inGallery, setInGallery] = useState(Boolean(item.inGallery));
+  const [galleryCategory, setGalleryCategory] = useState(item.galleryCategory || "");
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [usages, setUsages] = useState(null);
@@ -37,6 +41,8 @@ const MediaViewer = ({ item, src, onClose, onPrev, onNext, onSaved, onDeleted })
   useEffect(() => {
     setTitle(item.title);
     setAltText(item.altText);
+    setInGallery(Boolean(item.inGallery));
+    setGalleryCategory(item.galleryCategory || "");
     setConfirmingDelete(false);
     setError("");
     setSuccess("");
@@ -75,7 +81,11 @@ const MediaViewer = ({ item, src, onClose, onPrev, onNext, onSaved, onDeleted })
     };
   }, [onClose, onPrev, onNext]);
 
-  const isDirty = title.trim() !== item.title || altText.trim() !== item.altText;
+  const isDirty =
+    title.trim() !== item.title ||
+    altText.trim() !== item.altText ||
+    inGallery !== Boolean(item.inGallery) ||
+    galleryCategory.trim() !== (item.galleryCategory || "");
 
   const handleSave = async (event) => {
     event.preventDefault();
@@ -87,7 +97,7 @@ const MediaViewer = ({ item, src, onClose, onPrev, onNext, onSaved, onDeleted })
     setError("");
     setSuccess("");
     try {
-      const response = await axios.put(fileUrl, { title, altText }, { headers: getAuthHeaders() });
+      const response = await axios.put(fileUrl, { title, altText, inGallery, galleryCategory }, { headers: getAuthHeaders() });
       onSaved(response.data.item);
       setSuccess("Cambios guardados.");
     } catch (err) {
@@ -161,6 +171,30 @@ const MediaViewer = ({ item, src, onClose, onPrev, onNext, onSaved, onDeleted })
             value={altText}
             onChange={(e) => setAltText(e.target.value)}
           />
+
+          <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <input type="checkbox" checked={inGallery} onChange={(e) => setInGallery(e.target.checked)} style={{ width: "auto" }} />
+            Mostrar en la galería de la tienda
+          </label>
+          {inGallery ? (
+            <>
+              <label htmlFor="media-gallery-category">Categoría de la galería (opcional)</label>
+              <input
+                id="media-gallery-category"
+                type="text"
+                maxLength={60}
+                list="media-gallery-categories"
+                placeholder="Ej. Uñas, Pestañas, Cabello"
+                value={galleryCategory}
+                onChange={(e) => setGalleryCategory(e.target.value)}
+              />
+              <datalist id="media-gallery-categories">
+                {galleryCategories.map((category) => (
+                  <option key={category} value={category} />
+                ))}
+              </datalist>
+            </>
+          ) : null}
 
           <button type="submit" disabled={!isDirty || isSaving}>
             {isSaving ? "Guardando..." : "Guardar cambios"}
@@ -336,6 +370,11 @@ const MediaLibrary = () => {
               ) : null}
             </div>
             <span className="media-card-title">{item.title}</span>
+            {item.inGallery ? (
+              <span className="media-card-sub">
+                <i className="fas fa-images" aria-hidden="true" /> Galería{item.galleryCategory ? ` · ${item.galleryCategory}` : ""}
+              </span>
+            ) : null}
             <span className="media-card-sub">{formatBytes(item.size)}</span>
           </button>
         ))}
@@ -345,6 +384,7 @@ const MediaLibrary = () => {
         <MediaViewer
           item={selectedItem}
           src={srcFor(selectedItem)}
+          galleryCategories={[...new Set(items.map((i) => i.galleryCategory).filter(Boolean))].sort((a, b) => a.localeCompare(b))}
           onClose={closeViewer}
           onPrev={showPrev}
           onNext={showNext}

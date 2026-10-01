@@ -9,6 +9,7 @@ import StoreConfigHome from "./components/StoreConfigHome";
 import StoreConfigServicesPricing from "./components/StoreConfigServicesPricing";
 import StoreConfigTeamTestimonials from "./components/StoreConfigTeamTestimonials";
 import StoreConfigLegal from "./components/StoreConfigLegal";
+import StoreConfigContact from "./components/StoreConfigContact";
 import StoreConfigPayments from "./components/StoreConfigPayments";
 import AgencyClientList from "./components/AgencyClientList";
 import AgencyClientForm from "./components/AgencyClientForm";
@@ -98,6 +99,10 @@ const AppRoutes = () => {
             <Route
               path="store-config/equipo-testimonios"
               element={gate("storeConfig", <StoreConfigTeamTestimonials />)}
+            />
+            <Route
+              path="store-config/contacto"
+              element={gate("storeConfig", <StoreConfigContact />)}
             />
             <Route
               path="store-config/legal"

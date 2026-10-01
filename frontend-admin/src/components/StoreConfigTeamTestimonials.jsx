@@ -20,7 +20,8 @@ const TESTIMONIAL_FIELDS = [
   { name: "rubro", label: "Rubro", type: "text", maxLength: 120 },
   { name: "description", label: "Descripción", type: "textarea", maxLength: 500, fullWidth: true },
   { name: "url", label: "URL del sitio", type: "url", maxLength: 300 },
-  { name: "photoUrl", label: "Captura de pantalla", type: "image", fullWidth: true },
+  { name: "photoUrl", label: "Foto o captura (opcional)", type: "image", fullWidth: true },
+  { name: "rating", label: "Calificación (1 a 5, opcional)", type: "number", min: 1, max: 5, step: 1 },
   { name: "isActive", label: "Activo", type: "boolean" },
 ];
 

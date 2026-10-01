@@ -13,6 +13,10 @@
 // DELETE revisa primero dónde se usa el archivo (ver findUsages) y responde
 // 409 MEDIA_IN_USE con el detalle; el panel pide confirmación y reintenta con
 // ?force=true.
+//
+// Galería pública (portafolio de trabajos del storefront): solo los archivos
+// marcados `inGallery`, con una categoría libre opcional (`galleryCategory`,
+// p. ej. "Uñas", "Pestañas") para los filtros. GET /public, sin auth.
 const fs = require("fs");
 const path = require("path");
 const express = require("express");
@@ -23,12 +27,15 @@ const { createModuleAuthorizer } = require("../lib/permissions");
 
 const TITLE_MAX = 200;
 const ALT_TEXT_MAX = 500;
+const GALLERY_CATEGORY_MAX = 60;
 
 const mediaSchema = new mongoose.Schema(
   {
     fileName: { type: String, required: true, unique: true, trim: true, maxlength: 300 },
     title: { type: String, trim: true, maxlength: TITLE_MAX, default: "" },
     altText: { type: String, trim: true, maxlength: ALT_TEXT_MAX, default: "" },
+    inGallery: { type: Boolean, default: false },
+    galleryCategory: { type: String, trim: true, maxlength: GALLERY_CATEGORY_MAX, default: "" },
     uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true }
@@ -77,6 +84,42 @@ function registerRoutes(app, ctx) {
   const Media = getOrCreateModel(mongooseConnection, "Media", mediaSchema);
 
   const router = express.Router();
+
+  // ---- pública: galería del storefront (sin auth) ----
+  // Solo lo marcado en la galería y que siga existiendo en disco. `categories`
+  // = categorías con al menos un archivo, para pintar los filtros.
+  router.get("/public", async (req, res) => {
+    const uploadsDir = resolveUploadsDir();
+    if (!uploadsDir) return res.status(200).json({ items: [], categories: [] });
+    try {
+      const docs = await Media.find({ inGallery: true }).sort({ createdAt: -1 }).lean();
+      const existing = [];
+      for (const doc of docs) {
+        if (!SAFE_FILE_NAME.test(doc.fileName) || !getKind(doc.fileName)) continue;
+        try {
+          const stat = await fs.promises.stat(path.join(uploadsDir, doc.fileName));
+          if (stat.isFile()) existing.push(doc);
+        } catch {
+          // borrado del disco: no se muestra
+        }
+      }
+      const categories = [...new Set(existing.map((d) => d.galleryCategory).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+      const wanted = asTrimmedString(req.query.category).toLowerCase();
+      const items = existing
+        .filter((d) => !wanted || (d.galleryCategory || "").toLowerCase() === wanted)
+        .map((d) => ({
+          path: `uploads/${d.fileName}`,
+          kind: getKind(d.fileName),
+          title: d.title || "",
+          altText: d.altText || "",
+          category: d.galleryCategory || "",
+        }));
+      return res.status(200).json({ items, categories });
+    } catch (error) {
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al listar la galería.");
+    }
+  });
+
   router.use(verifyToken);
   // Permisos por tienda (lib/permissions.js): listar y subir también lo hacen
   // Productos, Configurar tienda y Configurar App (selector de medios), aunque la tienda no
@@ -114,6 +157,8 @@ function registerRoutes(app, ctx) {
     uploadedAt: (doc?.createdAt || stat.mtime).toISOString(),
     title: doc?.title || fileName,
     altText: doc?.altText || "",
+    inGallery: Boolean(doc?.inGallery),
+    galleryCategory: doc?.galleryCategory || "",
   });
 
   // Valida :fileName, confirma que el archivo existe y deja en req.media
@@ -153,6 +198,15 @@ function registerRoutes(app, ctx) {
         return sendError(res, 400, "VALIDATION_ERROR", `altText excede ${ALT_TEXT_MAX} caracteres.`);
       }
       req.body.altText = altText;
+    }
+    // Llega como texto en el multipart de POST ("true"/"false").
+    if (payload.inGallery !== undefined) req.body.inGallery = payload.inGallery === true || payload.inGallery === "true";
+    if (payload.galleryCategory !== undefined) {
+      const galleryCategory = asTrimmedString(payload.galleryCategory);
+      if (galleryCategory.length > GALLERY_CATEGORY_MAX) {
+        return sendError(res, 400, "VALIDATION_ERROR", `galleryCategory excede ${GALLERY_CATEGORY_MAX} caracteres.`);
+      }
+      req.body.galleryCategory = galleryCategory;
     }
     return next();
   };
@@ -236,6 +290,8 @@ function registerRoutes(app, ctx) {
         fileName,
         title: req.body.title || originalBaseName || fileName,
         altText: req.body.altText || "",
+        inGallery: Boolean(req.body.inGallery),
+        galleryCategory: req.body.galleryCategory || "",
         uploadedBy: req.user?.id,
       });
       const stat = await fs.promises.stat(path.join(resolveUploadsDir(), fileName));
@@ -249,6 +305,8 @@ function registerRoutes(app, ctx) {
     const update = {};
     if (req.body.title !== undefined) update.title = req.body.title;
     if (req.body.altText !== undefined) update.altText = req.body.altText;
+    if (req.body.inGallery !== undefined) update.inGallery = req.body.inGallery;
+    if (req.body.galleryCategory !== undefined) update.galleryCategory = req.body.galleryCategory;
 
     try {
       const { fileName, stat } = req.media;
