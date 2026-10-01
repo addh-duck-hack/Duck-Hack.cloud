@@ -50,7 +50,7 @@ const ProductAttributesEditor = ({ value = [], onChange }) => {
   const iconButtonStyle = { width: "auto", padding: "0.35rem 0.6rem", margin: 0 };
 
   return (
-    <fieldset style={{ border: "1px solid var(--input-border-color)", borderRadius: 8, padding: "0.75rem 1rem", margin: "0.75rem 0" }}>
+    <fieldset style={{ border: "1px solid var(--input-border-color)", borderRadius: 8, padding: "0.75rem 1rem", margin: "0.75rem 0", minWidth: 0 }}>
       <legend style={{ padding: "0 0.35rem" }}>Atributos (opcional)</legend>
       <p style={{ margin: "0 0 0.75rem", fontSize: "0.85rem", opacity: 0.8 }}>
         Especificaciones que se muestran en la tienda, en este orden. Ej.: Notas de cata → Cacao, panela · Material →

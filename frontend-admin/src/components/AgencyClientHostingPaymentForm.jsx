@@ -39,7 +39,7 @@ const AgencyClientHostingPaymentForm = () => {
   };
 
   return (
-    <section style={{ maxWidth: 500 }}>
+    <section style={{ maxWidth: 1300 }}>
       <div style={{ marginBottom: "1rem" }}>
         <button type="button" className="btn-secondary" onClick={() => navigate(`/admin/agency-clients/${id}`)} style={{ width: "auto" }}>
           Volver a la ficha

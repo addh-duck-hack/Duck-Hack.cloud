@@ -108,7 +108,7 @@ const UserForm = () => {
   const assignableRoles = assignableRolesFor(actorRole);
 
   return (
-    <section>
+    <section style={{ maxWidth: 1300 }}>
       <button type="button" className="btn-secondary" style={{ width: "auto" }} onClick={() => navigate("/admin/users")}>
         ← Volver
       </button>
@@ -126,7 +126,7 @@ const UserForm = () => {
         <p>Registrado: {formatDate(user.createdAt)}</p>
       </div>
 
-      <form onSubmit={handleSubmit} style={{ maxWidth: 400, margin: 0 }}>
+      <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
         <label>
           Nombre
           <input

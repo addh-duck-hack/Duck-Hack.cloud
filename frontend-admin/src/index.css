@@ -53,6 +53,26 @@ form {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
+/* Móvil: menos relleno en los formularios y las filas en columnas
+   (.form-row) se apilan. Los grids van inline en cada componente, por eso el
+   !important. .form-row--with-action deja el botón (quitar) a la derecha del
+   primer campo en lugar de en una fila aparte. */
+@media (max-width: 640px) {
+  form {
+    padding: 14px;
+  }
+  .form-row {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .form-row--with-action {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+  }
+  .form-row--with-action > :nth-child(2) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
 label {
   display: block;
   margin-bottom: 8px;
