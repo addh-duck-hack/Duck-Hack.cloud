@@ -22,6 +22,8 @@ const AppHomeEditor = () => {
   const [savedSnapshot, setSavedSnapshot] = useState("[]");
   const [updatedAt, setUpdatedAt] = useState(null);
   const [products, setProducts] = useState([]);
+  // Categorías del catálogo ({ slug, name, ... }); las secciones guardan el slug.
+  const [categories, setCategories] = useState([]);
   // Para contar lo que mostrarán las secciones de tienda (null si aún no existe).
   const [storeConfig, setStoreConfig] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
@@ -35,10 +37,6 @@ const AppHomeEditor = () => {
   const [error, setError] = useState("");
 
   const productsById = useMemo(() => new Map(products.map((p) => [p._id, p])), [products]);
-  const categories = useMemo(
-    () => [...new Set(products.map((p) => p.category).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
-    [products]
-  );
   const isDirty = JSON.stringify(sections) !== savedSnapshot;
 
   const applyServerData = (data) => {
@@ -54,9 +52,10 @@ const AppHomeEditor = () => {
     setError("");
     setMessage("");
     try {
-      const [homeRes, productsRes, storeRes] = await Promise.all([
+      const [homeRes, productsRes, categoriesRes, storeRes] = await Promise.all([
         axios.get(`${baseUrl}/api/app-home`, { headers: getAuthHeaders() }),
         axios.get(`${baseUrl}/api/products`, { headers: getAuthHeaders() }),
+        axios.get(`${baseUrl}/api/categories`, { headers: getAuthHeaders() }),
         // La versión pública basta para contar lo que mostrarán las secciones de
         // tienda, y no exige el módulo Configurar tienda (ni trae datos bancarios).
         axios
@@ -65,6 +64,7 @@ const AppHomeEditor = () => {
       ]);
       applyServerData(homeRes.data);
       setProducts((productsRes.data?.items || []).sort((a, b) => a.name.localeCompare(b.name)));
+      setCategories(categoriesRes.data?.items || []);
       setStoreConfig(storeRes.data);
     } catch (err) {
       setError(err.response?.data?.error?.message || "No fue posible cargar el home de la app.");

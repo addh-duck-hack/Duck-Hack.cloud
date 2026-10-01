@@ -27,6 +27,8 @@ tags:
   - name: Invoices
   - name: Infra
   - name: Products
+  - name: Categories
+    description: Categorías del catálogo (mismos permisos que el módulo products)
   - name: Inventory
   - name: Orders
   - name: StoreConfig
@@ -2032,14 +2034,56 @@ paths:
       description: >
         Sin autenticación. Solo productos con `isActive: true` Y con inventario
         cargado con quantity > 0 — un producto sin registro de inventario se
-        considera sin existencias, no se muestra. Filtro opcional `?category=`.
-        Consumido por frontend-user para la tienda pública. Cada producto trae
-        `maxQty`/`purchaseLimit` (ver PublicProduct).
+        considera sin existencias, no se muestra. Con variantes, basta una
+        variante activa con existencias. Consumido por frontend-user para la
+        tienda pública. Cada producto trae `maxQty`/`purchaseLimit` y, si tiene
+        variantes, `variants`/`priceRange` (ver PublicProduct). Filtros de
+        precio, orden y paginación se aplican después del filtro de stock, así
+        que `total` cuenta solo lo visible. Sin `limit` devuelve todo.
       parameters:
         - in: query
           name: category
+          description: Id o slug de la categoría. Inexistente o inactiva = lista vacía.
           schema:
             type: string
+        - in: query
+          name: q
+          description: Busca en nombre, descripción, SKU y SKU de variantes (máx. 100 caracteres).
+          schema:
+            type: string
+        - in: query
+          name: featured
+          schema:
+            type: string
+            enum: ["true"]
+        - in: query
+          name: minPrice
+          description: Precio efectivo mínimo (con variantes, cualquiera disponible).
+          schema:
+            type: number
+        - in: query
+          name: maxPrice
+          schema:
+            type: number
+        - in: query
+          name: sort
+          schema:
+            type: string
+            enum: [relevance, price_asc, price_desc, newest, name]
+            default: relevance
+          description: relevance = sortOrder del producto y luego nombre.
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
       responses:
         "200":
           description: Listado de productos activos
@@ -2052,6 +2096,13 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/PublicProduct"
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+                    nullable: true
         "500":
           $ref: "#/components/responses/InternalServerError"
 
@@ -2084,6 +2135,212 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           $ref: "#/components/responses/InternalServerError"
+
+  /api/products/public/{id}/related:
+    get:
+      tags: [Products]
+      summary: Productos relacionados (misma categoría)
+      operationId: listRelatedProducts
+      security: []
+      description: >
+        Productos activos y con existencias de la misma categoría, sin el
+        propio, por sortOrder y nombre. Producto sin categoría = lista vacía.
+      parameters:
+        - $ref: "#/components/parameters/ProductIdParam"
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+            default: 4
+      responses:
+        "200":
+          description: Relacionados
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PublicProduct"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: Producto no encontrado o inactivo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/categories/public:
+    get:
+      tags: [Categories]
+      summary: Categorías públicas (storefront / app)
+      operationId: listPublicCategories
+      security: []
+      description: Solo activas, por sortOrder y nombre.
+      parameters:
+        - in: query
+          name: kind
+          schema:
+            type: string
+            enum: [product, service]
+            default: product
+        - in: query
+          name: featured
+          schema:
+            type: string
+            enum: ["true"]
+      responses:
+        "200":
+          description: Categorías
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PublicCategory"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/categories:
+    get:
+      tags: [Categories]
+      summary: Listar categorías (staff)
+      operationId: listCategories
+      description: Lectura con el módulo `products`, o con `inventory`, `orders` o `appConfig` aunque Productos no esté contratado. Trae `productCount`.
+      parameters:
+        - in: query
+          name: kind
+          schema:
+            type: string
+            enum: [product, service]
+            default: product
+        - in: query
+          name: isActive
+          schema:
+            type: string
+            enum: ["true", "false"]
+      responses:
+        "200":
+          description: Categorías
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Category"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      tags: [Categories]
+      summary: Crear categoría
+      operationId: createCategory
+      description: Módulo `products`. Sin `slug` se genera del nombre ("Café de Olla" → "cafe-de-olla").
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryRequest"
+      responses:
+        "201":
+          description: Creada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  category:
+                    $ref: "#/components/schemas/Category"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: CATEGORY_SLUG_TAKEN
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/categories/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+    get:
+      tags: [Categories]
+      summary: Obtener categoría
+      operationId: getCategory
+      responses:
+        "200":
+          description: Categoría
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "404":
+          description: CATEGORY_NOT_FOUND
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      tags: [Categories]
+      summary: Actualizar categoría
+      operationId: updateCategory
+      description: Módulo `products`. `kind` no se puede cambiar. Cambiar el slug no actualiza las secciones del home de la app que lo usan.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryRequest"
+      responses:
+        "200":
+          description: Actualizada
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: CATEGORY_NOT_FOUND
+        "409":
+          description: CATEGORY_SLUG_TAKEN
+    delete:
+      tags: [Categories]
+      summary: Eliminar categoría
+      operationId: deleteCategory
+      description: Módulo `products`. Bloqueado (409 CATEGORY_HAS_PRODUCTS) si algún producto la usa.
+      responses:
+        "200":
+          description: Eliminada
+        "404":
+          description: CATEGORY_NOT_FOUND
+        "409":
+          description: CATEGORY_HAS_PRODUCTS
 
   /api/products:
     get:
@@ -2459,8 +2716,11 @@ paths:
         no lo está. Por producto (sumando sus renglones) no se aceptan más
         unidades que `StoreConfig.maxUnitsPerProduct` — `400
         PURCHASE_LIMIT_EXCEEDED`, arriba de eso es venta de mayoreo por
-        contacto; vacío o 0 = sin tope — ni más de las que hay en inventario —
-        `409 INSUFFICIENT_STOCK`. El inventario solo se consulta; se descuenta
+        contacto; vacío o 0 = sin tope; el tope suma todas las variantes del
+        producto — ni más de las que hay en inventario (por variante, si el
+        producto tiene) — `409 INSUFFICIENT_STOCK`. Producto con variantes sin
+        `variant` en el renglón = `400 VARIANT_REQUIRED`; el precio es el de la
+        variante. El inventario solo se consulta; se descuenta
         al confirmar el pedido. El envío (`shippingCost`) se calcula con
         `StoreConfig.shipping`: se cobra `cost` salvo que la tienda no cobre
         envío, que el subtotal de productos llegue a `freeFrom`, o que el
@@ -3561,7 +3821,7 @@ components:
 
     AppHomeLink:
       type: object
-      description: Destino al tocar. `value` = id de producto, nombre de categoría o URL http(s).
+      description: Destino al tocar. `value` = id de producto, slug de categoría o URL http(s).
       properties:
         type:
           type: string
@@ -3638,7 +3898,8 @@ components:
             type: string
         category:
           type: string
-          maxLength: 100
+          maxLength: 80
+          description: Slug de la categoría (source category).
         limit:
           type: integer
           minimum: 1
@@ -3676,13 +3937,19 @@ components:
             properties:
               category:
                 type: string
-                maxLength: 100
+                maxLength: 80
+                description: Slug de la categoría.
               label:
                 type: string
                 maxLength: 60
                 description: Texto a mostrar; si falta, el nombre de la categoría
               image:
                 type: string
+              categoryInfo:
+                readOnly: true
+                description: Solo en GET /api/app-home/public — los accesos a categorías borradas o inactivas se omiten.
+                allOf:
+                  - $ref: "#/components/schemas/PublicCategory"
             required: [category]
       required: [type, items]
 
@@ -3798,7 +4065,9 @@ components:
         price:
           type: number
         category:
-          type: string
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/CategoryRef"
         images:
           type: array
           items:
@@ -4663,7 +4932,13 @@ components:
           type: number
           nullable: true
         category:
-          type: string
+          nullable: true
+          description: >-
+            ObjectId de Category; en los listados (staff y públicos) viene
+            poblado como { _id, name, slug }.
+          oneOf:
+            - type: string
+            - $ref: "#/components/schemas/CategoryRef"
         images:
           type: array
           items:
@@ -4673,10 +4948,26 @@ components:
           maxItems: 30
           description: >-
             Especificaciones libres "Nombre: valor" en orden de visualización
-            (p. ej. Notas de cata, Tueste, Material, Talla). Genéricas para
-            cualquier giro de tienda.
+            (p. ej. Notas de cata, Tueste, Material). Solo informativas: lo que
+            el cliente elige al comprar son las variantes.
           items:
             $ref: '#/components/schemas/ProductAttribute'
+        options:
+          type: array
+          maxItems: 3
+          description: Opciones de variante (Talla, Color…). Vacío = producto sin variantes.
+          items:
+            $ref: "#/components/schemas/ProductOption"
+        variants:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/ProductVariant"
+        featured:
+          type: boolean
+        sortOrder:
+          type: integer
+          minimum: 0
         isActive:
           type: boolean
         createdAt:
@@ -4703,8 +4994,186 @@ components:
               description: >-
                 min(existencias, purchaseLimit) — lo máximo que se puede
                 agregar. Sin tope son las existencias; con tope, arriba de él
-                el inventario real no se expone.
+                el inventario real no se expone. Con variantes, el mayor de
+                sus variantes.
+            variants:
+              type: array
+              description: Solo si el producto tiene variantes — solo las activas (las agotadas con inStock false).
+              items:
+                $ref: "#/components/schemas/PublicProductVariant"
+            priceRange:
+              type: object
+              description: Solo con variantes — precio efectivo mínimo y máximo de las disponibles.
+              properties:
+                min:
+                  type: number
+                max:
+                  type: number
           required: [purchaseLimit, maxQty]
+
+    PublicProductVariant:
+      type: object
+      properties:
+        _id:
+          type: string
+        sku:
+          type: string
+        optionValues:
+          type: array
+          items:
+            type: string
+        label:
+          type: string
+          example: "Talla: M / Color: Rojo"
+        price:
+          type: number
+          description: Precio efectivo (el de la variante o, si no tiene, el del producto).
+        compareAtPrice:
+          type: number
+          nullable: true
+        image:
+          type: string
+          nullable: true
+        inStock:
+          type: boolean
+        maxQty:
+          type: integer
+          minimum: 0
+
+    ProductOption:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 40
+          example: Talla
+        values:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: string
+            maxLength: 60
+          example: [S, M, L]
+      required: [name, values]
+
+    ProductVariant:
+      type: object
+      description: >-
+        Una combinación vendible. Cada una lleva su inventario (Inventory.variant).
+        Al editar, mandar el `_id` de las existentes para conservar su
+        inventario; no se puede quitar una variante que tenga inventario
+        (409 VARIANT_HAS_INVENTORY) — desactivarla con isActive false.
+      properties:
+        _id:
+          type: string
+        sku:
+          type: string
+          maxLength: 60
+          description: Único entre todos los productos y variantes (409 SKU_TAKEN).
+        optionValues:
+          type: array
+          description: Un valor de cada opción, en el orden de `options`; combinación única.
+          items:
+            type: string
+        price:
+          type: number
+          minimum: 0
+          nullable: true
+          description: Vacío = hereda price/compareAtPrice del producto.
+        compareAtPrice:
+          type: number
+          minimum: 0
+          nullable: true
+        image:
+          type: string
+        isActive:
+          type: boolean
+          default: true
+      required: [sku, optionValues]
+
+    CategoryRef:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+
+    Category:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+          maxLength: 80
+        slug:
+          type: string
+          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        kind:
+          type: string
+          enum: [product, service]
+        description:
+          type: string
+        image:
+          type: string
+        featured:
+          type: boolean
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+        productCount:
+          type: integer
+          readOnly: true
+          description: Solo en GET /api/categories.
+      required: [_id, name, slug, kind]
+
+    PublicCategory:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        image:
+          type: string
+        featured:
+          type: boolean
+        sortOrder:
+          type: integer
+
+    CategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        kind:
+          type: string
+          enum: [product, service]
+          description: Solo en el alta.
+        description:
+          type: string
+        image:
+          type: string
+          description: Ruta uploads/ de Medios.
+        featured:
+          type: boolean
+        sortOrder:
+          type: integer
+          minimum: 0
+        isActive:
+          type: boolean
+      required: [name]
 
     ProductCreateRequest:
       type: object
@@ -4723,6 +5192,23 @@ components:
           minimum: 0
         category:
           type: string
+          nullable: true
+          description: Id de Category (kind product); null o "" = sin categoría.
+        featured:
+          type: boolean
+        sortOrder:
+          type: integer
+          minimum: 0
+        options:
+          type: array
+          maxItems: 3
+          items:
+            $ref: "#/components/schemas/ProductOption"
+        variants:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/ProductVariant"
         images:
           type: array
           items:
@@ -4762,6 +5248,23 @@ components:
         product:
           type: string
           description: ObjectId de Product, o el objeto poblado en GET /api/inventory[/{id}].
+        variant:
+          type: string
+          nullable: true
+          description: _id de Product.variants; null = producto sin variantes. Único por producto + variante.
+        variantLabel:
+          type: string
+          nullable: true
+          readOnly: true
+          description: 'Solo en GET — "Talla: M / Color: Rojo".'
+        variantSku:
+          type: string
+          nullable: true
+          readOnly: true
+        isOrphan:
+          type: boolean
+          readOnly: true
+          description: Solo en GET — el registro ya no corresponde a las variantes actuales del producto.
         quantity:
           type: number
         lowStockThreshold:
@@ -4777,8 +5280,14 @@ components:
 
     InventoryCreateRequest:
       type: object
+      description: >-
+        product y variant solo en el alta (inmutables). Si el producto tiene
+        variantes, variant es obligatorio (400 VARIANT_REQUIRED); ya registrado
+        = 409 INVENTORY_ALREADY_EXISTS.
       properties:
         product:
+          type: string
+        variant:
           type: string
         quantity:
           type: number
@@ -4799,6 +5308,13 @@ components:
           type: string
           readOnly: true
           description: Snapshot del nombre del producto al momento de crear el pedido.
+        variant:
+          type: string
+          description: _id de la variante elegida (obligatorio si el producto tiene variantes — 400 VARIANT_REQUIRED).
+        variantLabel:
+          type: string
+          readOnly: true
+          description: 'Snapshot "Talla: M / Color: Rojo".'
         quantity:
           type: integer
           minimum: 1
@@ -4944,6 +5460,9 @@ components:
             properties:
               product:
                 type: string
+              variant:
+                type: string
+                description: Obligatorio si el producto tiene variantes. El precio sale de la variante.
               quantity:
                 type: integer
                 minimum: 1
@@ -4980,6 +5499,9 @@ components:
             properties:
               product:
                 type: string
+              variant:
+                type: string
+                description: Obligatorio si el producto tiene variantes. El precio sale de la variante.
               quantity:
                 type: integer
                 minimum: 1

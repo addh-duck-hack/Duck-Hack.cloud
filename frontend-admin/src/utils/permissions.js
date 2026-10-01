@@ -7,7 +7,13 @@ export const MODULE_NAV = [
   { key: "panel", items: [{ path: "/admin", label: "Panel", end: true }] },
   { key: "storeConfig", items: [{ path: "/admin/store-config", label: "Configurar tienda" }] },
   { key: "appConfig", items: [{ path: "/admin/app-config", label: "Configurar App" }] },
-  { key: "products", items: [{ path: "/admin/products", label: "Productos" }] },
+  {
+    key: "products",
+    items: [
+      { path: "/admin/products", label: "Productos" },
+      { path: "/admin/categories", label: "Categorías" },
+    ],
+  },
   { key: "inventory", items: [{ path: "/admin/inventory", label: "Inventario" }] },
   { key: "orders", items: [{ path: "/admin/orders", label: "Pedidos" }] },
   { key: "media", items: [{ path: "/admin/media", label: "Medios" }] },

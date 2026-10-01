@@ -27,7 +27,7 @@ const OrderForm = () => {
       state: "",
     },
   });
-  const [lines, setLines] = useState([{ product: "", quantity: 1 }]);
+  const [lines, setLines] = useState([{ product: "", variant: "", quantity: 1 }]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -59,17 +59,30 @@ const OrderForm = () => {
     setContact((prev) => ({ ...prev, shippingAddress: { ...prev.shippingAddress, [name]: value } }));
   };
 
+  // Cambiar de producto reinicia la variante elegida.
   const handleLineChange = (index, field, value) => {
-    setLines((prev) => prev.map((line, i) => (i === index ? { ...line, [field]: value } : line)));
+    setLines((prev) =>
+      prev.map((line, i) => (i === index ? { ...line, [field]: value, ...(field === "product" ? { variant: "" } : {}) } : line))
+    );
   };
 
-  const addLine = () => setLines((prev) => [...prev, { product: "", quantity: 1 }]);
+  const addLine = () => setLines((prev) => [...prev, { product: "", variant: "", quantity: 1 }]);
+
+  // Precio de la línea: el de la variante si lo tiene (mismo criterio que
+  // packages/core-api/lib/variants.js#variantPricing; el backend recalcula).
+  const linePrice = (line) => {
+    const product = productsById.get(line.product);
+    if (!product) return null;
+    const variant = (product.variants || []).find((v) => v._id === line.variant);
+    return variant && variant.price !== undefined && variant.price !== null ? variant.price : product.price;
+  };
+  const hasVariants = (product) => Boolean(product?.options?.length);
   const removeLine = (index) => setLines((prev) => prev.filter((_, i) => i !== index));
 
   const total = lines.reduce((sum, line) => {
-    const product = productsById.get(line.product);
-    if (!product) return sum;
-    return sum + product.price * Number(line.quantity || 0);
+    const price = linePrice(line);
+    if (price === null) return sum;
+    return sum + price * Number(line.quantity || 0);
   }, 0);
 
   const handleSubmit = async (event) => {
@@ -77,6 +90,11 @@ const OrderForm = () => {
     const validLines = lines.filter((l) => l.product && Number(l.quantity) > 0);
     if (validLines.length === 0) {
       setError("Agrega al menos un artículo con cantidad válida.");
+      return;
+    }
+    const missingVariant = validLines.find((l) => hasVariants(productsById.get(l.product)) && !l.variant);
+    if (missingVariant) {
+      setError(`Elige la variante de "${productsById.get(missingVariant.product).name}".`);
       return;
     }
 
@@ -90,7 +108,11 @@ const OrderForm = () => {
       const payload = {
         ...contact,
         shippingAddress: hasShippingAddress ? contact.shippingAddress : undefined,
-        items: validLines.map((l) => ({ product: l.product, quantity: Number(l.quantity) })),
+        items: validLines.map((l) => ({
+          product: l.product,
+          ...(l.variant ? { variant: l.variant } : {}),
+          quantity: Number(l.quantity),
+        })),
       };
       const response = await axios.post(`${baseUrl}/api/orders`, payload, {
         headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
@@ -207,6 +229,21 @@ const OrderForm = () => {
                   ))}
                 </select>
               </label>
+              {hasVariants(product) ? (
+                <label style={{ flex: 1.5, marginBottom: 0 }}>
+                  Variante
+                  <select value={line.variant} onChange={(e) => handleLineChange(index, "variant", e.target.value)} required>
+                    <option value="">Elige una variante</option>
+                    {(product.variants || [])
+                      .filter((v) => v.isActive !== false)
+                      .map((v) => (
+                        <option key={v._id} value={v._id}>
+                          {v.optionValues.join(" / ")} ({v.sku})
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              ) : null}
               <label style={{ width: 100, marginBottom: 0 }}>
                 Cantidad
                 <input
@@ -217,7 +254,7 @@ const OrderForm = () => {
                   required
                 />
               </label>
-              <div style={{ minWidth: 100 }}>{product ? formatMxn(product.price * Number(line.quantity || 0)) : "—"}</div>
+              <div style={{ minWidth: 100 }}>{product ? formatMxn(linePrice(line) * Number(line.quantity || 0)) : "—"}</div>
               {lines.length > 1 ? (
                 <button type="button" className="btn-secondary" style={{ width: "auto" }} onClick={() => removeLine(index)}>
                   Quitar
