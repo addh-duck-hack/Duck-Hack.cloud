@@ -4,6 +4,14 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatCalendarDate } from "../utils/formatCalendarDate";
 import { ORDER_STATUSES, ORDER_STATUS_LABELS, paymentLabelOf, deliveryLabelOf } from "../utils/orderStatusLabels";
+import OrderPaymentProofs from "./OrderPaymentProofs";
+
+const emptyShipment = { carrier: "", trackingNumber: "", trackingUrl: "" };
+const shipmentFormOf = (order) => ({
+  carrier: order?.shipment?.carrier || "",
+  trackingNumber: order?.shipment?.trackingNumber || "",
+  trackingUrl: order?.shipment?.trackingUrl || "",
+});
 
 const formatMxn = (value) => Number(value || 0).toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 const formatDate = (value) => formatCalendarDate(value) || "—";
@@ -14,6 +22,7 @@ const OrderDetail = () => {
 
   const [order, setOrder] = useState(null);
   const [status, setStatus] = useState("");
+  const [shipment, setShipment] = useState(emptyShipment);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
@@ -29,6 +38,7 @@ const OrderDetail = () => {
       const response = await axios.get(`${baseUrl}/api/orders/${id}`, { headers: getAuthHeaders() });
       setOrder(response.data);
       setStatus(response.data?.status || "");
+      setShipment(shipmentFormOf(response.data));
     } catch (err) {
       setError(err.response?.data?.error?.message || "No fue posible cargar el pedido.");
     } finally {
@@ -41,18 +51,27 @@ const OrderDetail = () => {
     loadOrder();
   }, [loadOrder]);
 
+  // Después de revisar o subir un comprobante: el backend ya devuelve el
+  // pedido actualizado (puede haber cambiado de estado).
+  const handleProofsChange = (updated, text) => {
+    setOrder((prev) => ({ ...updated, customer: prev?.customer }));
+    setStatus(updated.status);
+    setError("");
+    setMessage(text);
+  };
+
   const handleUpdateStatus = async (event) => {
     event.preventDefault();
     setIsSaving(true);
     setError("");
     setMessage("");
     try {
-      await axios.put(
-        `${baseUrl}/api/orders/${id}`,
-        { status },
-        { headers: { ...getAuthHeaders(), "Content-Type": "application/json" } }
-      );
-      setMessage("Estado actualizado.");
+      const payload = { status };
+      if (order.deliveryMethod !== "pickup") payload.shipment = shipment;
+      await axios.put(`${baseUrl}/api/orders/${id}`, payload, {
+        headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+      });
+      setMessage("Pedido actualizado.");
       await loadOrder();
     } catch (err) {
       setError(err.response?.data?.error?.message || "No fue posible actualizar el estado.");
@@ -158,8 +177,10 @@ const OrderDetail = () => {
         <strong>Total: {formatMxn(order.total)}</strong>
       </p>
 
-      <h4 style={{ marginTop: "1.5rem" }}>Cambiar estado</h4>
-      <form onSubmit={handleUpdateStatus} style={{ maxWidth: 400, margin: 0 }}>
+      <OrderPaymentProofs order={order} onChange={handleProofsChange} />
+
+      <h4 style={{ marginTop: "1.5rem" }}>{order.deliveryMethod === "pickup" ? "Cambiar estado" : "Estado y envío"}</h4>
+      <form onSubmit={handleUpdateStatus} style={{ maxWidth: 700, margin: 0 }}>
         <label>
           Estado
           <select value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -169,9 +190,58 @@ const OrderDetail = () => {
               </option>
             ))}
           </select>
+          <small>
+            Al cambiarlo a Pagado, Enviado, Entregado o Cancelado se le avisa al cliente por correo (se puede apagar en
+            Configurar tienda → Ventas y pagos).
+          </small>
         </label>
+
+        {order.deliveryMethod !== "pickup" ? (
+          <>
+            <div className="form-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+              <label>
+                Paquetería
+                <input
+                  type="text"
+                  value={shipment.carrier}
+                  maxLength={80}
+                  placeholder="Ej. Estafeta, DHL, FedEx"
+                  onChange={(e) => setShipment((prev) => ({ ...prev, carrier: e.target.value }))}
+                />
+              </label>
+              <label>
+                Número de guía
+                <input
+                  type="text"
+                  value={shipment.trackingNumber}
+                  maxLength={120}
+                  onChange={(e) => setShipment((prev) => ({ ...prev, trackingNumber: e.target.value }))}
+                />
+              </label>
+            </div>
+            <label>
+              Enlace de rastreo (opcional)
+              <input
+                type="url"
+                value={shipment.trackingUrl}
+                maxLength={500}
+                placeholder="https://..."
+                onChange={(e) => setShipment((prev) => ({ ...prev, trackingUrl: e.target.value }))}
+              />
+              <small>Si lo llenas, el correo de "va en camino" lleva un botón para rastrear.</small>
+            </label>
+            {order.shipment?.shippedAt || order.shipment?.deliveredAt ? (
+              <p style={{ marginTop: 0 }}>
+                {order.shipment.shippedAt ? `Enviado: ${formatDate(order.shipment.shippedAt)}` : ""}
+                {order.shipment.shippedAt && order.shipment.deliveredAt ? " · " : ""}
+                {order.shipment.deliveredAt ? `Entregado: ${formatDate(order.shipment.deliveredAt)}` : ""}
+              </p>
+            ) : null}
+          </>
+        ) : null}
+
         <button type="submit" disabled={isSaving} style={{ width: "auto" }}>
-          {isSaving ? "Guardando..." : "Actualizar estado"}
+          {isSaving ? "Guardando..." : "Guardar cambios"}
         </button>
       </form>
     </section>

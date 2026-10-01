@@ -763,6 +763,51 @@ paths:
         "404":
           $ref: "#/components/responses/RouteNotFound"
 
+  /api/media/public:
+    get:
+      tags: [Media]
+      summary: Galería pública (portafolio de trabajos)
+      operationId: listPublicGallery
+      security: []
+      description: >
+        Sin autenticación. Solo los medios marcados `inGallery` que sigan en
+        disco, del más reciente al más antiguo. `?category=` filtra por
+        galleryCategory sin distinguir mayúsculas; `categories` trae las
+        categorías con al menos un archivo, para los filtros.
+      parameters:
+        - in: query
+          name: category
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Galería
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        path:
+                          type: string
+                        kind:
+                          type: string
+                          enum: [image, gif, video]
+                        title:
+                          type: string
+                        altText:
+                          type: string
+                        category:
+                          type: string
+                  categories:
+                    type: array
+                    items:
+                      type: string
+
   /api/media:
     get:
       tags: [Media]
@@ -875,6 +920,11 @@ paths:
                 altText:
                   type: string
                   maxLength: 500
+                inGallery:
+                  type: boolean
+                galleryCategory:
+                  type: string
+                  maxLength: 60
       responses:
         "200":
           description: Medio actualizado
@@ -2747,6 +2797,13 @@ paths:
                     type: string
                   order:
                     $ref: "#/components/schemas/Order"
+                  orderAccessToken:
+                    type: string
+                    description: >-
+                      JWT de acceso a ESTE pedido (tokenType order_access, vence con
+                      JWT_ORDER_ACCESS_EXPIRES_IN, default 30d). El invitado lo manda en
+                      el header X-Order-Token para subir su comprobante de pago. No es
+                      una sesión: no sirve como access token.
         "400":
           description: >-
             Validación fallida, producto no disponible (PRODUCT_UNAVAILABLE) o
@@ -2820,7 +2877,7 @@ paths:
           name: status
           schema:
             type: string
-            enum: [pending, confirmed, processing, shipped, delivered, cancelled]
+            enum: [pending, payment_review, confirmed, processing, shipped, delivered, cancelled]
       responses:
         "200":
           description: Listado de pedidos
@@ -2986,6 +3043,181 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           $ref: "#/components/responses/InternalServerError"
+
+  /api/orders/{id}/payment-proof:
+    post:
+      tags: [Orders]
+      summary: Subir comprobante de pago (SPEI)
+      operationId: uploadOrderPaymentProof
+      security:
+        - bearerAuth: []
+        - orderToken: []
+      description: >
+        Lo puede subir el staff con el módulo `orders` (a nombre del cliente),
+        el cliente dueño con su sesión (cuenta vinculada o mismo correo, como
+        GET /mine) o el invitado con el header `X-Order-Token` que devolvió
+        POST /api/orders/public. Solo mientras el pedido espera su pago
+        (`pending` o `payment_review`; si no, 409 ORDER_NOT_AWAITING_PAYMENT) y
+        hasta 10 comprobantes por pedido. El archivo (campo `file`: JPG o PNG,
+        que se re-codifican, o PDF, hasta 8 MB) se guarda en una carpeta privada
+        que nunca se sirve en /uploads. Un pedido `pending` pasa a
+        `payment_review`; si lo subió el cliente se avisa a la tienda por
+        correo (StoreConfig.orderNotifications.proofUploaded). Rate limit 20 /
+        15 min por IP.
+      parameters:
+        - $ref: "#/components/parameters/OrderIdParam"
+        - in: header
+          name: X-Order-Token
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required: [file]
+      responses:
+        "201":
+          description: >-
+            Comprobante guardado. Al staff le devuelve el pedido completo; al
+            cliente/invitado solo `status` y `proof`.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  order:
+                    $ref: "#/components/schemas/Order"
+                  status:
+                    type: string
+                  proof:
+                    type: object
+                    properties:
+                      _id:
+                        type: string
+                      status:
+                        type: string
+                      uploadedAt:
+                        type: string
+                        format: date-time
+        "400":
+          description: FILE_REQUIRED, INVALID_FILE_TYPE o INVALID_FILE_CONTENT
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Sin sesión ni token, o ORDER_TOKEN_INVALID (otro pedido / vencido)
+        "403":
+          description: El usuario no es staff con `orders` ni dueño del pedido
+        "404":
+          description: ORDER_NOT_FOUND
+        "409":
+          description: ORDER_NOT_AWAITING_PAYMENT o TOO_MANY_PAYMENT_PROOFS
+        "413":
+          description: FILE_TOO_LARGE
+        "429":
+          description: RATE_LIMIT_PAYMENT_PROOF_EXCEEDED
+
+  /api/orders/{id}/payment-proofs/{proofId}/file:
+    get:
+      tags: [Orders]
+      summary: Ver el archivo de un comprobante de pago
+      operationId: getOrderPaymentProofFile
+      security:
+        - bearerAuth: []
+        - orderToken: []
+      description: >
+        Mismos permisos que subirlo (staff con `orders`, dueño o invitado con
+        X-Order-Token). Responde el archivo inline con Cache-Control
+        `private, no-store`.
+      parameters:
+        - $ref: "#/components/parameters/OrderIdParam"
+        - in: path
+          name: proofId
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Order-Token
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: El archivo (image/jpeg, image/png o application/pdf)
+          content:
+            image/jpeg: {}
+            image/png: {}
+            application/pdf: {}
+        "401":
+          description: Sin sesión ni token válido
+        "403":
+          description: Sin permiso sobre el pedido
+        "404":
+          description: ORDER_NOT_FOUND, PAYMENT_PROOF_NOT_FOUND o PAYMENT_PROOF_FILE_NOT_FOUND
+
+  /api/orders/{id}/payment-proofs/{proofId}/review:
+    post:
+      tags: [Orders]
+      summary: Aprobar o rechazar un comprobante de pago
+      operationId: reviewOrderPaymentProof
+      description: >
+        Módulo `orders`. Solo comprobantes `pending` (si no, 409
+        PAYMENT_PROOF_ALREADY_REVIEWED). `approve`: si el pedido esperaba su
+        pago pasa a `confirmed` (descuenta inventario) y se avisa al cliente.
+        `reject` exige `reason`, que se le envía al cliente; un pedido en
+        `payment_review` vuelve a `pending` si ya no le quedan comprobantes por
+        revisar.
+      parameters:
+        - $ref: "#/components/parameters/OrderIdParam"
+        - in: path
+          name: proofId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                decision:
+                  type: string
+                  enum: [approve, reject]
+                reason:
+                  type: string
+                  maxLength: 500
+              required: [decision]
+      responses:
+        "200":
+          description: Revisado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  order:
+                    $ref: "#/components/schemas/Order"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: ORDER_NOT_FOUND o PAYMENT_PROOF_NOT_FOUND
+        "409":
+          description: PAYMENT_PROOF_ALREADY_REVIEWED
 
   /api/orders/{id}/pdf:
     get:
@@ -3323,6 +3555,14 @@ paths:
 
 components:
   securitySchemes:
+    orderToken:
+      type: apiKey
+      in: header
+      name: X-Order-Token
+      description: >
+        Token de acceso a un pedido (tokenType=order_access) que devuelve
+        POST /api/orders/public. Solo sirve para ese pedido y para subir/ver
+        su comprobante de pago.
     bearerAuth:
       type: http
       scheme: bearer
@@ -4404,6 +4644,12 @@ components:
           type: string
         altText:
           type: string
+        inGallery:
+          type: boolean
+          description: Se muestra en la galería pública (GET /api/media/public).
+        galleryCategory:
+          type: string
+          maxLength: 60
       required: [fileName, path, kind, size, uploadedAt, title, altText]
 
     MediaUsage:
@@ -5392,7 +5638,7 @@ components:
             $ref: "#/components/schemas/OrderItem"
         status:
           type: string
-          enum: [pending, confirmed, processing, shipped, delivered, cancelled]
+          enum: [pending, payment_review, confirmed, processing, shipped, delivered, cancelled]
         shippingCost:
           type: number
           readOnly: true
@@ -5434,10 +5680,68 @@ components:
           type: integer
           readOnly: true
           description: Folio legible secuencial, distinto de _id.
+        paymentProofs:
+          type: array
+          readOnly: true
+          description: Comprobantes de pago en orden de subida (POST /api/orders/{id}/payment-proof).
+          items:
+            $ref: "#/components/schemas/PaymentProof"
+        shipment:
+          $ref: "#/components/schemas/OrderShipment"
         createdAt:
           type: string
           format: date-time
       required: [_id, customerName, customerEmail, items, status, total]
+
+    PaymentProof:
+      type: object
+      properties:
+        _id:
+          type: string
+        mimeType:
+          type: string
+          enum: [image/jpeg, image/png, application/pdf]
+        size:
+          type: integer
+        originalName:
+          type: string
+        uploadedBy:
+          type: string
+          enum: [customer, staff]
+        uploadedAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        reviewedAt:
+          type: string
+          format: date-time
+        rejectReason:
+          type: string
+
+    OrderShipment:
+      type: object
+      description: Guía de envío. shippedAt/deliveredAt los pone el servidor al pasar a shipped/delivered.
+      properties:
+        carrier:
+          type: string
+          maxLength: 80
+        trackingNumber:
+          type: string
+          maxLength: 120
+        trackingUrl:
+          type: string
+          maxLength: 500
+          description: http(s); si viene, el correo de "va en camino" lleva botón de rastreo.
+        shippedAt:
+          type: string
+          format: date-time
+          readOnly: true
+        deliveredAt:
+          type: string
+          format: date-time
+          readOnly: true
 
     OrderCreateRequest:
       type: object
@@ -5531,15 +5835,28 @@ components:
 
     OrderUpdateRequest:
       type: object
-      description: Solo status/shippingAddress/notes — items/customer no se reabren después de creado el pedido.
+      description: >-
+        Solo status/shippingAddress/notes/shipment — items/customer no se reabren
+        después de creado el pedido. Al cambiar a confirmed, shipped, delivered o
+        cancelled se avisa al cliente por correo (StoreConfig.orderNotifications);
+        confirmar a mano aprueba los comprobantes pendientes.
       properties:
         status:
           type: string
-          enum: [pending, confirmed, processing, shipped, delivered, cancelled]
+          enum: [pending, payment_review, confirmed, processing, shipped, delivered, cancelled]
         shippingAddress:
           $ref: "#/components/schemas/ShippingAddress"
         notes:
           type: string
+        shipment:
+          type: object
+          properties:
+            carrier:
+              type: string
+            trackingNumber:
+              type: string
+            trackingUrl:
+              type: string
 
     StoreTheme:
       type: object
@@ -5786,6 +6103,12 @@ components:
         photoUrl:
           type: string
           example: uploads/store-config-1718282784-uuid.jpg
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+          description: Calificación en estrellas; null = sin calificación.
         sortOrder:
           type: integer
           minimum: 0
@@ -5900,6 +6223,104 @@ components:
             Tope de piezas de un mismo producto por pedido en el storefront
             (POST /api/orders/public). null, vacío o 0 = sin tope; solo limita
             el inventario.
+        orderNotifications:
+          type: object
+          description: >-
+            Qué avisos por correo del pedido se mandan (todos true por default).
+            No sale en GET /public.
+          properties:
+            confirmed:
+              type: boolean
+            proofRejected:
+              type: boolean
+            shipped:
+              type: boolean
+            delivered:
+              type: boolean
+            cancelled:
+              type: boolean
+            proofUploaded:
+              type: boolean
+              description: A la tienda, cuando el cliente sube un comprobante.
+        lowStockAlerts:
+          type: boolean
+          default: true
+          description: >-
+            Correo a la tienda cuando un producto (o variante) pasa a stock bajo
+            o se agota. No sale en GET /public.
+        businessHours:
+          type: array
+          maxItems: 14
+          description: >-
+            Horario de atención, un renglón por turno (hasta dos por día, sin
+            encimarse). day 0 = domingo … 6 = sábado; open/close "HH:MM" en 24 h.
+            Un día sin renglones o con closed true = cerrado.
+          items:
+            type: object
+            properties:
+              day:
+                type: integer
+                minimum: 0
+                maximum: 6
+              open:
+                type: string
+                example: "10:00"
+              close:
+                type: string
+                example: "19:00"
+              closed:
+                type: boolean
+            required: [day]
+        holidays:
+          type: array
+          maxItems: 60
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                example: "2026-12-25"
+                description: Fecha de calendario AAAA-MM-DD (sin zona horaria).
+              label:
+                type: string
+                maxLength: 80
+            required: [date]
+        location:
+          type: object
+          description: Ubicación del negocio (contacto y "Cómo llegar"); distinta de pickupPoints.
+          properties:
+            address:
+              type: string
+              maxLength: 400
+            lat:
+              type: number
+              nullable: true
+            lng:
+              type: number
+              nullable: true
+            mapsUrl:
+              type: string
+              description: http(s)
+        whatsappButton:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            phone:
+              type: string
+              description: Lada de país + número, solo dígitos (10 a 15). Se limpian espacios y signos.
+              example: "525512345678"
+            defaultMessage:
+              type: string
+              maxLength: 300
+            itemMessage:
+              type: string
+              maxLength: 300
+              description: "{item} se reemplaza por el servicio o producto."
+        returnsPolicy:
+          type: string
+          maxLength: 20000
+          description: Política de devoluciones (HTML básico). Vacío = sin página.
         isActive:
           type: boolean
       required: [storeName, storeSlug]

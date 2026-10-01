@@ -31,12 +31,19 @@ vault, not in this repo).
 - `modules/inventory.js` — stock per product, or per product + variant
   (`/api/inventory`). Data from before categories/variants needs
   `backend/scripts/migrate-categories-variants.mongo.js` once per store.
-- `modules/orders.js` — orders, created manually from the admin panel for now
-  (`/api/orders`).
+- `modules/orders.js` — orders (`/api/orders`): manual sales from the admin
+  and the public checkout. SPEI payment proofs (`lib/paymentProofs.js`, files
+  in the private uploads dir) uploaded by staff, the owner, or a guest with
+  the `X-Order-Token` returned at checkout; staff approves (→ `confirmed`,
+  stock is deducted) or rejects with a reason. Status `payment_review` sits
+  between `pending` and `confirmed`. `shipment` (carrier/tracking) and status
+  emails to the customer, gated by `StoreConfig.orderNotifications`.
 - `modules/media.js` — admin media library over the `uploads/` folder
   (`/api/media`): lists files from disk, uploads images/GIF/MP4/WebM, edits
   title + alt text (stored in the `Media` collection, the file itself is never
   renamed), and deletes with a usage check (Product/User/StoreConfig/AppHome).
+  Files can be flagged `inGallery` (+ free `galleryCategory`) for the public
+  portfolio at `GET /api/media/public`.
 - `modules/permissions.js` — per-store permissions (`/api/permissions`):
   which modules the store contracted and what `store_admin`/`collaborator`
   may use; `super_admin` always sees everything. The logic lives in

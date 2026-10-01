@@ -10,6 +10,7 @@ const initialState = {
   legalAddress: "",
   legalEmail: "",
   legalPhone: "",
+  returnsPolicy: "",
 };
 
 const StoreConfigLegal = () => {
@@ -28,6 +29,7 @@ const StoreConfigLegal = () => {
     legalAddress: data?.legalIdentity?.legalAddress || "",
     legalEmail: data?.legalIdentity?.legalEmail || "",
     legalPhone: data?.legalIdentity?.legalPhone || "",
+    returnsPolicy: data?.returnsPolicy || "",
   });
 
   const loadConfig = async () => {
@@ -57,13 +59,14 @@ const StoreConfigLegal = () => {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    const { returnsPolicy, ...legalIdentity } = form;
     setIsLoading(true);
     setError("");
     setMessage("");
     try {
       const response = await axios.put(
         `${baseUrl}/api/store-config`,
-        { legalIdentity: { ...form } },
+        { legalIdentity: { ...legalIdentity }, returnsPolicy },
         { headers: { ...getAuthHeaders(), "Content-Type": "application/json" } }
       );
       setForm(mapApiToForm(response.data?.storeConfig));
@@ -88,7 +91,7 @@ const StoreConfigLegal = () => {
       {error ? <div className="auth-error">{error}</div> : null}
 
       <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+        <div className="form-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
           <label>
             Razón social / nombre comercial
             <input type="text" name="legalName" value={form.legalName} onChange={handleChange} maxLength={160} />
@@ -115,11 +118,18 @@ const StoreConfigLegal = () => {
             Teléfono de contacto legal
             <input type="tel" name="legalPhone" value={form.legalPhone} onChange={handleChange} maxLength={30} />
           </label>
-          <label style={{ gridColumn: "1 / span 2" }}>
+          <label style={{ gridColumn: "1 / -1" }}>
             Domicilio legal
             <textarea name="legalAddress" value={form.legalAddress} onChange={handleChange} maxLength={400} rows={3} />
           </label>
         </div>
+
+        <h4 style={{ marginTop: "2rem" }}>Política de devoluciones</h4>
+        <label>
+          Texto de la página (admite HTML básico: &lt;p&gt;, &lt;b&gt;, &lt;ul&gt;…)
+          <textarea name="returnsPolicy" value={form.returnsPolicy} onChange={handleChange} maxLength={20000} rows={12} />
+          <small>Vacío = la tienda no muestra la página.</small>
+        </label>
 
         <div style={{ marginTop: "1.5rem", display: "flex", gap: "0.75rem" }}>
           <button type="submit" disabled={isLoading} style={{ width: "auto" }}>

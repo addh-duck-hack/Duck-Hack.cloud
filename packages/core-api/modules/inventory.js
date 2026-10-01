@@ -15,6 +15,8 @@ const {
 } = require("../lib/moduleHelpers");
 const { createModuleAuthorizer } = require("../lib/permissions");
 const { hasVariants, findVariant, variantLabel } = require("../lib/variants");
+const { sendMail } = require("../lib/mailer");
+const { lowStockEmailTemplate } = require("../lib/emailTemplates");
 
 const inventorySchema = new mongoose.Schema(
   {
@@ -41,6 +43,53 @@ const recalculateStatus = (quantity, threshold) => {
   if (quantity <= 0) return "out_of_stock";
   if (quantity <= threshold) return "low_stock";
   return "in_stock";
+};
+
+// Alertas de inventario (§4.3 del Roadmap de cotizaciones): un correo a la
+// tienda cuando un registro EMPEORA de estado (in_stock → low_stock,
+// cualquiera → out_of_stock). Reabastecer o volver a guardar sin cambio no
+// avisa. `changes`: [{ item, previousStatus }] con item ya guardado; varios
+// cambios (p. ej. todos los renglones de un pedido confirmado) van en un solo
+// correo. Respeta StoreConfig.lowStockAlerts. Best-effort: nunca lanza.
+const STATUS_RANK = { in_stock: 0, low_stock: 1, out_of_stock: 2 };
+
+const notifyStockAlerts = async (mongooseConnection, changes) => {
+  try {
+    const worsened = changes.filter(({ item, previousStatus }) => STATUS_RANK[item.status] > (STATUS_RANK[previousStatus] ?? 0));
+    if (worsened.length === 0) return;
+
+    const { StoreConfig, Product } = mongooseConnection.models;
+    const storeConfig = StoreConfig ? await StoreConfig.findOne({ singletonKey: "default" }).lean() : null;
+    if (storeConfig?.lowStockAlerts === false) return;
+    const to = process.env.CONTACT_EMAIL_TO || process.env.EMAIL_USER;
+    if (!to || !Product) return;
+
+    const products = await Product.find({ _id: { $in: worsened.map(({ item }) => item.product) } })
+      .select("name sku options variants")
+      .lean();
+    const byId = new Map(products.map((p) => [String(p._id), p]));
+    const items = worsened.map(({ item }) => {
+      const product = byId.get(String(item.product)) || {};
+      const variant = item.variant ? findVariant(product, item.variant) : null;
+      return {
+        name: product.name || "Producto",
+        variantLabel: variant ? variantLabel(product, variant) : undefined,
+        sku: variant?.sku || product.sku,
+        quantity: item.quantity,
+        threshold: item.lowStockThreshold || 0,
+        status: item.status,
+      };
+    });
+
+    const backendPublicUrl = (process.env.BACKEND_PUBLIC_URL || "").replace(/\/+$/, "");
+    const logoAbsoluteUrl = backendPublicUrl && storeConfig?.logoUrl
+      ? `${backendPublicUrl}/${String(storeConfig.logoUrl).replace(/^\/+/, "")}`
+      : undefined;
+    const { subject, html, text } = lowStockEmailTemplate({ items, storeConfig, logoAbsoluteUrl });
+    await sendMail({ to, subject, text, html });
+  } catch (error) {
+    console.error("No fue posible enviar la alerta de inventario:", error.message);
+  }
 };
 
 const validatePayload = (sendError) => (req, res, next) => {
@@ -194,12 +243,14 @@ function registerRoutes(app, ctx) {
     async (req, res) => {
       try {
         // product es inmutable después de creado (un registro = un producto).
+        const previousStatus = req.inventoryItem.status;
         if (req.body.quantity !== undefined) req.inventoryItem.quantity = req.body.quantity;
         if (req.body.lowStockThreshold !== undefined) req.inventoryItem.lowStockThreshold = req.body.lowStockThreshold;
         if (req.body.notes !== undefined) req.inventoryItem.notes = req.body.notes;
         req.inventoryItem.status = recalculateStatus(req.inventoryItem.quantity, req.inventoryItem.lowStockThreshold || 0);
 
         await req.inventoryItem.save();
+        notifyStockAlerts(mongooseConnection, [{ item: req.inventoryItem, previousStatus }]);
         return res.status(200).json({ message: "Inventario actualizado.", inventory: sanitizeDoc(req.inventoryItem) });
       } catch (error) {
         return handleMongooseError(sendError, res, error, "Error al actualizar el inventario.");
@@ -227,4 +278,6 @@ module.exports = {
   // pedido entra o sale de "confirmed" — mismo criterio de cálculo que este
   // módulo usa para su propio CRUD, para no tener dos copias de la regla.
   recalculateStatus,
+  // Y este, para avisar si confirmar un pedido dejó productos en su mínimo.
+  notifyStockAlerts,
 };

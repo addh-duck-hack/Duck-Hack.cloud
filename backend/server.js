@@ -1,4 +1,5 @@
 const express = require("express");
+const path = require("path");
 const mongoose = require("mongoose");
 require("dotenv").config();
 const cors = require("cors");
@@ -119,6 +120,27 @@ const uploadsDir = resolveUploadsDir();
 if (!uploadsDir) {
   throw new Error("No hay un directorio de uploads con permisos de escritura.");
 }
+// uploads/private (comprobantes de pago, packages/core-api/lib/uploads.js
+// #resolvePrivateDir) vive en el mismo volumen pero nunca se sirve: solo se
+// lee por las rutas autenticadas de pedidos. Se compara contra la ruta ya
+// decodificada y en minúsculas, igual que la resolvería express.static
+// (%70rivate, ./private, a/../private, PRIVATE en un disco sin distinción de
+// mayúsculas…).
+app.use('/uploads', (req, res, next) => {
+  let decoded;
+  try {
+    decoded = decodeURIComponent(req.path);
+  } catch {
+    return sendError(res, 400, "BAD_REQUEST", "Ruta inválida.");
+  }
+  // normalize resuelve "./" y "../" (a/../private) igual que el estático.
+  const normalized = path.posix.normalize(`/${decoded.replace(/\\/g, "/")}`);
+  const firstSegment = normalized.split("/").filter(Boolean)[0] || "";
+  if (firstSegment.toLowerCase() === "private") {
+    return sendError(res, 404, "NOT_FOUND", "Recurso no encontrado.");
+  }
+  return next();
+});
 app.use('/uploads', express.static(uploadsDir, { maxAge: '365d', immutable: true }));
 
 app.use((err, req, res, next) => {

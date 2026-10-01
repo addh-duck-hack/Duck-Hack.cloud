@@ -12,6 +12,7 @@ const STATUS_LABELS = {
 const InventoryList = () => {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
+  const [statusFilter, setStatusFilter] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -22,7 +23,8 @@ const InventoryList = () => {
     setIsLoading(true);
     setError("");
     try {
-      const response = await axios.get(`${baseUrl}/api/inventory`, { headers: getAuthHeaders() });
+      const params = statusFilter ? { status: statusFilter } : undefined;
+      const response = await axios.get(`${baseUrl}/api/inventory`, { headers: getAuthHeaders(), params });
       setItems(response.data?.items || []);
     } catch (err) {
       setError(err.response?.data?.error?.message || "No fue posible cargar el inventario.");
@@ -30,7 +32,7 @@ const InventoryList = () => {
       setIsLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [statusFilter]);
 
   useEffect(() => {
     loadItems();
@@ -56,6 +58,18 @@ const InventoryList = () => {
         </button>
       </div>
       <p>Un registro por producto, o uno por variante si el producto tiene variantes. El estado se calcula solo, no se edita directo.</p>
+
+      <label style={{ maxWidth: 260 }}>
+        Filtrar por estado
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <option value="">Todos los estados</option>
+          {Object.entries(STATUS_LABELS).map(([value, { label }]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </label>
 
       {error ? <div className="auth-error">{error}</div> : null}
 
