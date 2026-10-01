@@ -63,7 +63,9 @@ const ProductDetail = () => {
     );
   }
 
-  const saving = savingOf(product);
+  // Precio/ahorro de lo que se va a comprar (la variante elegida, si hay).
+  const { sellable, unavailable } = detail;
+  const saving = savingOf(sellable);
   const hasDescription = Boolean(summary);
   const hasSpecs = attributes.length > 0;
   const mainImage = images[activeImage] || images[0];
@@ -72,7 +74,7 @@ const ProductDetail = () => {
   // no puede subir.
   const { limit, remaining } = detail;
   const atLimit = detail.qty >= remaining;
-  const showLimit = atLimit || (limit.reason === 'stock' && limit.max <= LOW_STOCK_NOTICE);
+  const showLimit = !unavailable && (atLimit || (limit.reason === 'stock' && limit.max <= LOW_STOCK_NOTICE));
 
   // Envío gratis: mientras el producto no está en la canasta se proyecta con
   // la cantidad elegida; ya agregado, se muestra el estado real de la canasta
@@ -80,7 +82,7 @@ const ProductDetail = () => {
   // Solo aplica si la tienda cobra envío y tiene un mínimo para que sea gratis.
   const hasShippingGoal = shippingEnabled && Boolean(freeShippingFrom);
   const inCart = lines.some((l) => String(l.id) === String(product.id));
-  const projected = subtotal + (inCart ? 0 : product.price * detail.qty);
+  const projected = subtotal + (inCart ? 0 : sellable.price * detail.qty);
   const missing = hasShippingGoal ? Math.max(0, freeShippingFrom - projected) : 0;
   const progress = hasShippingGoal ? Math.min(100, Math.round((projected / freeShippingFrom) * 100)) : 0;
 
@@ -146,10 +148,10 @@ const ProductDetail = () => {
           ) : null}
 
           <p className="pd-price">
-            <strong>{formatMxn(product.price)}</strong>
+            <strong>{formatMxn(sellable.price)}</strong>
             {saving ? (
               <>
-                <s>{formatMxn(product.compareAtPrice)}</s>
+                <s>{formatMxn(sellable.compareAtPrice)}</s>
                 <span className="pd-saving">Ahorra {formatMxn(saving)}</span>
               </>
             ) : null}
@@ -162,11 +164,18 @@ const ProductDetail = () => {
                 {group.values.map((value) => (
                   <option key={value} value={value}>
                     {value}
+                    {detail.isOptionAvailable(group.name, value) ? '' : ' — agotado'}
                   </option>
                 ))}
               </select>
             </label>
           ))}
+
+          {unavailable ? (
+            <p className="pd-unavailable" role="status">
+              <i className="fa-solid fa-circle-info" aria-hidden="true" /> Esta combinación está agotada. Elige otra opción.
+            </p>
+          ) : null}
 
           <div className="pd-buy">
             <div className="pd-stepper" role="group" aria-label="Cantidad">
@@ -192,6 +201,8 @@ const ProductDetail = () => {
                 <>
                   <i className="fas fa-check" aria-hidden="true" /> Agregado
                 </>
+              ) : unavailable ? (
+                'Agotado'
               ) : remaining === 0 ? (
                 'Ya tienes el máximo'
               ) : (

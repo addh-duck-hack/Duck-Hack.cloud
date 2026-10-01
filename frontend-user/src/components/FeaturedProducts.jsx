@@ -29,7 +29,10 @@ const PriceTag = ({ product, stacked = false }) => {
   const hasDiscount = savingOf(product) > 0;
   return (
     <p className={`fp-price${stacked ? ' fp-price--stacked' : ''}`}>
-      <strong>{formatMxn(product.price)}</strong>
+      <strong>
+        {product.priceFrom ? 'Desde ' : ''}
+        {formatMxn(product.price)}
+      </strong>
       {hasDiscount ? <s>{formatMxn(product.compareAtPrice)}</s> : null}
     </p>
   );

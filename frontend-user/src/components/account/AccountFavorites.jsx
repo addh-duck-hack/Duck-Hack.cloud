@@ -48,6 +48,7 @@ const AccountFavorites = ({ account }) => {
                     )}
                     {product ? (
                       <span className="acc-fav-price">
+                        {product.priceFrom ? 'Desde ' : ''}
                         {formatMxn(product.price)}
                         {product.compareAtPrice > product.price ? <s>{formatMxn(product.compareAtPrice)}</s> : null}
                       </span>

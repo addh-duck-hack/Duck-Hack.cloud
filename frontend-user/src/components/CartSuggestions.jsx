@@ -59,7 +59,10 @@ const CartSuggestions = ({ title = 'Completa tu pedido', className = '' }) => {
                 {product.name}
               </Link>
               <div className="cart-suggest-foot">
-                <span>{formatMxn(product.price)}</span>
+                <span>
+                  {product.priceFrom ? 'Desde ' : ''}
+                  {formatMxn(product.price)}
+                </span>
                 {needsOptions ? (
                   <Link to={`/tienda/${product.id}`} className="cart-suggest-add" aria-label={`Elegir opciones de ${product.name}`}>
                     <i className="fas fa-arrow-right" aria-hidden="true" />

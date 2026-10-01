@@ -75,6 +75,27 @@ const unitsIn = (lines, productId, exceptKey) =>
     .filter((l) => String(l.id) === String(productId) && l.key !== exceptKey)
     .reduce((sum, l) => sum + l.qty, 0);
 
+// Igual, pero solo de una variante (cada variante tiene su propio inventario).
+const unitsInVariant = (lines, productId, variantId, exceptKey) =>
+  lines
+    .filter((l) => String(l.id) === String(productId) && String(l.variantId) === String(variantId) && l.key !== exceptKey)
+    .reduce((sum, l) => sum + l.qty, 0);
+
+// Cuánto más cabe de un producto, variante o línea. Mismas reglas que el
+// backend (packages/core-api/modules/orders.js#checkPublicQuantities): el tope
+// por pedido (`purchaseLimit`) suma todas las líneas del producto, y las
+// existencias (`maxQty`) cuentan por variante si la hay — si no, por producto.
+// `item.variantId` lo traen las líneas y el "vendible" de la ficha
+// (useProductDetail).
+const capsOf = (lines, item, exceptKey) => {
+  const purchaseLimit = purchaseLimitOf(item);
+  const productUnits = unitsIn(lines, item.id, exceptKey);
+  const ownUnits = item.variantId ? unitsInVariant(lines, item.id, item.variantId, exceptKey) : productUnits;
+  const max = maxQtyOf(item);
+  const room = Math.min(max - ownUnits, (purchaseLimit ?? Infinity) - productUnits);
+  return { max, purchaseLimit, units: ownUnits, room: Math.max(0, room) };
+};
+
 // Ahorro de una línea de la canasta (precio anterior − actual) × cantidad.
 export const lineSavingOf = (line) =>
   line?.compareAtPrice > line?.price ? (line.compareAtPrice - line.price) * line.qty : 0;
@@ -107,13 +128,23 @@ export const CartProvider = ({ children }) => {
     }
   }, [lines]);
 
-  // Nunca deja pasar del tope del producto (maxQtyOf) sumando sus líneas:
-  // lo que no cabe simplemente no se agrega.
-  const addItem = useCallback((product, qty = 1, options = {}) => {
+  // Nunca deja pasar del tope (capsOf): lo que no cabe simplemente no se
+  // agrega. Con `variant` (producto con variantes, ver useProducts.js#variantFor)
+  // la línea lleva el precio, la imagen y las existencias de esa variante.
+  const addItem = useCallback((product, qty = 1, options = {}, variant = null) => {
     const key = lineKey(product.id, options);
+    const sellable = variant
+      ? {
+          ...product,
+          variantId: variant.id,
+          price: variant.price,
+          compareAtPrice: variant.compareAtPrice,
+          maxQty: variant.maxQty,
+          image: variant.image || product.image,
+        }
+      : product;
     setLines((prev) => {
-      const room = Math.max(0, maxQtyOf(product) - unitsIn(prev, product.id));
-      const toAdd = Math.min(qty, room);
+      const toAdd = Math.min(qty, capsOf(prev, sellable).room);
       if (toAdd <= 0) return prev;
       const existing = prev.find((l) => l.key === key);
       if (existing) {
@@ -124,9 +155,10 @@ export const CartProvider = ({ children }) => {
             ? {
                 ...l,
                 qty: l.qty + toAdd,
-                compareAtPrice: compareAtOf(product),
-                maxQty: product.maxQty,
-                purchaseLimit: product.purchaseLimit,
+                price: Number(sellable.price),
+                compareAtPrice: compareAtOf(sellable),
+                maxQty: sellable.maxQty,
+                purchaseLimit: sellable.purchaseLimit,
               }
             : l
         );
@@ -136,14 +168,15 @@ export const CartProvider = ({ children }) => {
         {
           key,
           id: product.id,
+          ...(variant ? { variantId: variant.id } : {}),
           name: product.name,
           meta: product.meta || '',
           category: product.category,
-          image: product.image || '',
-          price: Number(product.price),
-          compareAtPrice: compareAtOf(product),
-          maxQty: product.maxQty,
-          purchaseLimit: product.purchaseLimit,
+          image: sellable.image || '',
+          price: Number(sellable.price),
+          compareAtPrice: compareAtOf(sellable),
+          maxQty: sellable.maxQty,
+          purchaseLimit: sellable.purchaseLimit,
           options,
           qty: toAdd,
         },
@@ -156,7 +189,7 @@ export const CartProvider = ({ children }) => {
       prev
         .map((l) =>
           l.key === key
-            ? { ...l, qty: Math.max(0, Math.min(qty, maxQtyOf(l) - unitsIn(prev, l.id, l.key))) }
+            ? { ...l, qty: Math.max(0, Math.min(qty, capsOf(prev, l, l.key).room)) }
             : l
         )
         .filter((l) => l.qty > 0)
@@ -169,14 +202,12 @@ export const CartProvider = ({ children }) => {
   // ni existencias conocidas, `max`/`remaining` son Infinity.
   const limitOf = useCallback(
     (item) => {
-      const max = maxQtyOf(item);
-      const purchaseLimit = purchaseLimitOf(item);
-      const units = unitsIn(lines, item.id);
+      const { max, purchaseLimit, units, room } = capsOf(lines, item);
       return {
         max,
         purchaseLimit,
         units,
-        remaining: Math.max(0, max - units),
+        remaining: room,
         reason: purchaseLimit && max >= purchaseLimit ? 'wholesale' : 'stock',
       };
     },
@@ -210,10 +241,11 @@ export const CartProvider = ({ children }) => {
   // del carrito (no se agrupan por producto): dos líneas del mismo café con
   // distinta presentación/opción llegan como dos entradas con el mismo
   // `product` — el backend las factura por separado, que es justo lo que son.
-  // Las opciones elegidas (presentación, molienda, color...) no tienen campo
-  // propio en Order.items (ver orders.js) porque Product tampoco lo tiene
-  // todavía (ver useProducts.js), así que van resumidas en `notes` para que
-  // la tienda sepa qué preparar de cada línea.
+  // Las líneas de un producto con variantes mandan su `variant` (el backend
+  // toma de ahí precio y existencias, y guarda la variante en el pedido). Las
+  // opciones sin variante (catálogo de muestra) no tienen campo en
+  // Order.items, así que van resumidas en `notes` para que la tienda sepa qué
+  // preparar de cada línea.
   // `deliveryMethod` ("shipping" | "pickup"), `pickupPointId` y
   // `paymentMethod` (id de StoreConfig.paymentMethods) los elige el checkout
   // (useCheckout.js); el backend los valida contra la configuración de la
@@ -229,7 +261,7 @@ export const CartProvider = ({ children }) => {
       paymentMethod,
       notes,
     }) => {
-      const linesWithOptions = lines.filter((l) => optionsKey(l.options));
+      const linesWithOptions = lines.filter((l) => !l.variantId && optionsKey(l.options));
       const optionsNote = linesWithOptions.length
         ? `Detalle por producto — ${linesWithOptions
             .map((l) => `${l.name} ×${l.qty}: ${formatOptions(l.options)}`)
@@ -241,7 +273,7 @@ export const CartProvider = ({ children }) => {
         customerEmail,
         deliveryMethod,
         paymentMethod,
-        items: lines.map((l) => ({ product: l.id, quantity: l.qty })),
+        items: lines.map((l) => ({ product: l.id, ...(l.variantId ? { variant: l.variantId } : {}), quantity: l.qty })),
       };
       if (customerPhone) payload.customerPhone = customerPhone;
       if (deliveryMethod === 'pickup' && pickupPointId) payload.pickupPointId = pickupPointId;

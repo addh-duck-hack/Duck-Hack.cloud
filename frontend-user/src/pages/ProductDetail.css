@@ -205,6 +205,16 @@
   background-color: var(--color-bg);
 }
 
+/* Combinación de variante agotada */
+.pd-unavailable {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 0;
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}
+
 /* ---- Cantidad + agregar + favoritos ---- */
 .pd-buy {
   margin-top: 28px;

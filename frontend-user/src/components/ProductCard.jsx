@@ -61,7 +61,10 @@ const ProductCard = ({ product }) => {
 
         <div className="product-card-footer">
           <p className="product-card-price">
-            <strong>{formatMxn(product.price)}</strong>
+            <strong>
+              {product.priceFrom ? 'Desde ' : ''}
+              {formatMxn(product.price)}
+            </strong>
             {saving ? <s>{formatMxn(product.compareAtPrice)}</s> : null}
           </p>
 

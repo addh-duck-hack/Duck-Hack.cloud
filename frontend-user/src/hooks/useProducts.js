@@ -8,23 +8,28 @@
 // para que la tienda nunca se vea vacía.
 //
 // Forma normalizada de cada producto:
-//   { id, name, sku, description, price, compareAtPrice, category, image,
-//     images, meta, origin, roast, options }
-// `meta` / `origin` / `roast` / `options` son datos de ficha que hoy solo trae
-// el catálogo de muestra; cuando la tienda lea del backend real quedarán
-// undefined y la ficha de producto simplemente omite esas filas/selectores.
+//   { id, name, sku, description, price, compareAtPrice, category,
+//     categorySlug, image, images, meta, origin, roast, options, variants,
+//     priceFrom }
+// `meta` / `origin` / `roast` son datos de ficha que hoy solo trae el
+// catálogo de muestra; con el backend real quedan undefined y la ficha
+// simplemente omite esas filas.
 //
-// `options`: diferenciadores del producto (presentación, color, lo que sea) —
-// NO es un campo de Product todavía (ver packages/core-api/modules/products.js:
-// name/sku/description/price/compareAtPrice/category/images/isActive nada más).
-// Antes había un selector de "Molienda" fijo con una lista global
-// (GRIND_OPTIONS) que aplicaba igual a cualquier tienda/producto — se quitó
-// porque no era configurable desde el admin y no tenía sentido fuera de café.
-// `options` es el reemplazo genérico: cada producto trae su propia lista de
-// grupos `{ name, values }` (ej. Presentación: 250 g/500 g/1 kg, o en otra
-// tienda Color: Azul/Verde) — ProductDetail.jsx pinta un <select> por grupo,
-// sea cual sea. Vive aquí como dato de muestra hasta que se agregue a
-// Product en el backend y a ProductForm.jsx en el admin (otra rama).
+// `category` es el NOMBRE de la categoría (el backend la manda poblada como
+// { _id, name, slug }, ver packages/core-api/modules/categories.js): así la
+// tienda agrupa, filtra (?categoria=) y pinta las migas igual que cuando era
+// texto. `categorySlug` queda para lo que necesite el identificador.
+//
+// `options`: grupos `{ name, values }` que el cliente elige (Presentación,
+// Molienda, Color…) — ProductDetail.jsx pinta un <select> por grupo. Con el
+// backend real son las opciones de las variantes del producto
+// (packages/core-api/lib/variants.js) y vienen con `variants`: cada
+// combinación vendible con su id, precio, imagen y existencias propias (ver
+// variantFor). El catálogo de muestra trae `options` sin `variants`: ahí la
+// elección solo viaja en las notas del pedido (useCart#submitOrder).
+//
+// Con variantes, `price` es el menor de las variantes disponibles y
+// `priceFrom` indica que hay precios distintos ("Desde $X").
 import { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../utils/apiClient';
 import { resolveStoreImageUrl } from './useStoreConfig';
@@ -124,7 +129,8 @@ const normalizeApiProduct = (p) => {
     description: p.description || '',
     price: Number(p.price),
     compareAtPrice: p.compareAtPrice != null ? Number(p.compareAtPrice) : undefined,
-    category: p.category || 'Café en grano',
+    category: (typeof p.category === 'string' ? p.category : p.category?.name) || 'Café en grano',
+    categorySlug: typeof p.category === 'object' && p.category ? p.category.slug : undefined,
     image: images[0] || '',
     images,
     // Especificaciones "Nombre: valor" del admin (Product.attributes), en su
@@ -139,10 +145,46 @@ const normalizeApiProduct = (p) => {
     meta: p.meta,
     origin: p.origin,
     roast: p.roast,
-    // Product todavía no tiene este campo en el backend (ver comentario
-    // arriba) — queda undefined para cualquier producto real, a propósito.
-    options: p.options,
+    ...normalizeVariants(p, images),
   };
+};
+
+// Variantes del backend (GET /api/products/public: solo las activas, las
+// agotadas con inStock false). Sin variantes, `options` queda vacío.
+const normalizeVariants = (p, productImages) => {
+  const variants = Array.isArray(p.variants)
+    ? p.variants.map((v) => ({
+        id: v._id,
+        sku: v.sku,
+        optionValues: Array.isArray(v.optionValues) ? v.optionValues : [],
+        label: v.label || '',
+        price: Number(v.price),
+        compareAtPrice: v.compareAtPrice != null ? Number(v.compareAtPrice) : undefined,
+        image: v.image ? resolveStoreImageUrl(v.image) : productImages[0] || '',
+        inStock: Boolean(v.inStock),
+        maxQty: Number.isFinite(Number(v.maxQty)) ? Number(v.maxQty) : 0,
+      }))
+    : [];
+  if (variants.length === 0) return { options: [], variants: [] };
+
+  const options = (p.options || [])
+    .filter((o) => o?.name && Array.isArray(o.values) && o.values.length)
+    .map((o) => ({ name: o.name, values: o.values }));
+  const min = Number(p.priceRange?.min);
+  const max = Number(p.priceRange?.max);
+  return {
+    options,
+    variants,
+    ...(Number.isFinite(min) ? { price: min, compareAtPrice: undefined, priceFrom: Number.isFinite(max) && max > min } : {}),
+  };
+};
+
+// Variante que corresponde a lo elegido ({ nombreDeGrupo: valor }), o null si
+// el producto no tiene variantes o la combinación no existe.
+export const variantFor = (product, selectedOptions) => {
+  if (!product?.variants?.length) return null;
+  const values = (product.options || []).map((o) => selectedOptions?.[o.name]);
+  return product.variants.find((v) => v.optionValues.every((value, i) => value === values[i])) || null;
 };
 
 export const groupByCategory = (products) => {
