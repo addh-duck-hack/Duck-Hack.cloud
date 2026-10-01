@@ -29,6 +29,7 @@ const { sanitizeDoc, asTrimmedString, isValidObjectId, getOrCreateModel } = requ
 const { getPurchaseLimit, filterInStock } = require("../lib/purchaseLimits");
 const { resolveLiveMetrics } = require("../lib/liveMetrics");
 const { createModuleAuthorizer } = require("../lib/permissions");
+const { findCategoryByRef, toPublicCategory } = require("./categories");
 
 const SCHEMA_VERSION = 1;
 const MAX_SECTIONS = 30;
@@ -78,6 +79,13 @@ const mediaPath = (value, field, { required = false } = {}) => {
   return text;
 };
 
+const CATEGORY_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const categorySlug = (value, field) => {
+  const slug = requiredText(value, field, 80);
+  if (!CATEGORY_SLUG.test(slug)) fail(`${field} debe ser el slug de una categoría.`);
+  return slug;
+};
+
 const link = (value, field) => {
   if (value === undefined || value === null) return undefined;
   if (typeof value !== "object" || Array.isArray(value)) fail(`${field} debe ser un objeto { type, value }.`);
@@ -86,6 +94,8 @@ const link = (value, field) => {
   if (type === "none") return undefined;
   const target = requiredText(value.value, `${field}.value`, 500);
   if (type === "product" && !isValidObjectId(target)) fail(`${field}.value debe ser el id de un producto.`);
+  // Categorías: se guarda el slug (modules/categories.js), no el nombre.
+  if (type === "category" && !CATEGORY_SLUG.test(target)) fail(`${field}.value debe ser el slug de una categoría.`);
   if (type === "url" && !/^https?:\/\/\S+$/i.test(target)) fail(`${field}.value debe ser una URL http(s).`);
   return { type, value: target };
 };
@@ -132,7 +142,7 @@ const SECTION_VALIDATORS = {
         if (!isValidObjectId(id)) fail(`${f}.productIds[${i}] no es un id válido.`);
       });
     }
-    if (source === "category") section.category = requiredText(s.category, `${f}.category`, 100);
+    if (source === "category") section.category = categorySlug(s.category, `${f}.category`);
     return section;
   },
 
@@ -140,7 +150,7 @@ const SECTION_VALIDATORS = {
   categoryGrid: (s, f) => ({
     items: itemList(s.items, `${f}.items`, { min: 1, max: 12 }).map((item, i) =>
       clean({
-        category: requiredText(item.category, `${f}.items[${i}].category`, 100),
+        category: categorySlug(item.category, `${f}.items[${i}].category`),
         label: optionalText(item.label, `${f}.items[${i}].label`, 60),
         image: mediaPath(item.image, `${f}.items[${i}].image`),
       })
@@ -231,7 +241,11 @@ function registerRoutes(app, ctx) {
       const byId = new Map(found.map((p) => [String(p._id), p]));
       candidates = section.productIds.map((id) => byId.get(id)).filter(Boolean);
     } else if (section.source === "category") {
-      candidates = await Product.find({ isActive: true, category: section.category }).sort({ name: 1 }).lean();
+      // section.category = slug (o id) de la categoría; inexistente o inactiva = carrusel vacío.
+      const category = await findCategoryByRef(mongooseConnection, section.category);
+      candidates = category && category.isActive !== false
+        ? await Product.find({ isActive: true, category: category._id }).sort({ sortOrder: 1, name: 1 }).lean()
+        : [];
     } else {
       candidates = await Product.find({ isActive: true }).sort({ createdAt: -1 }).lean();
     }
@@ -262,7 +276,17 @@ function registerRoutes(app, ctx) {
 
       const sections = [];
       for (const { visible: _visible, ...section } of visible) {
-        if (section.type === "productCarousel") {
+        if (section.type === "categoryGrid") {
+          // Cada acceso trae `categoryInfo` (nombre, imagen…) resuelto; los
+          // de categorías borradas o inactivas se omiten.
+          const items = [];
+          for (const item of section.items || []) {
+            const category = await findCategoryByRef(mongooseConnection, item.category);
+            if (category && category.isActive !== false) items.push({ ...item, categoryInfo: toPublicCategory(category) });
+          }
+          if (items.length === 0) continue;
+          sections.push({ ...section, items });
+        } else if (section.type === "productCarousel") {
           const products = await resolveCarousel(section, purchaseLimit);
           if (products.length === 0) continue;
           sections.push({ ...section, products });

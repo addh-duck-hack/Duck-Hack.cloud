@@ -1,4 +1,5 @@
-// Inventario: un registro de stock por producto. Roadmap eCommerce (ver
+// Inventario: un registro de stock por producto, o uno por variante si el
+// producto tiene variantes (lib/variants.js). Roadmap eCommerce (ver
 // frontend-admin/src/components/AdminMenu.jsx). No modela un histórico de
 // movimientos en esta entrega — quantity se ajusta directo, igual de simple
 // que el resto de los módulos nuevos (ver plan).
@@ -13,12 +14,15 @@ const {
   getOrCreateModel,
 } = require("../lib/moduleHelpers");
 const { createModuleAuthorizer } = require("../lib/permissions");
+const { hasVariants, findVariant, variantLabel } = require("../lib/variants");
 
 const inventorySchema = new mongoose.Schema(
   {
-    // Único a propósito: un solo registro de inventario por producto. Si se
-    // necesita multi-almacén en el futuro, este es el campo a migrar.
-    product: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true, unique: true },
+    // Un solo registro por producto + variante (índice único abajo). Si se
+    // necesita multi-almacén en el futuro, este es el índice a migrar.
+    product: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true },
+    // _id de Product.variants; null = producto sin variantes.
+    variant: { type: mongoose.Schema.Types.ObjectId, default: null },
     quantity: { type: Number, required: true, min: 0, default: 0 },
     lowStockThreshold: { type: Number, min: 0, default: 0 },
     // Recalculado server-side a partir de quantity/lowStockThreshold, nunca
@@ -29,6 +33,9 @@ const inventorySchema = new mongoose.Schema(
   { timestamps: true }
 );
 inventorySchema.index({ status: 1 });
+// Antes el único era solo `product` (índice "product_1"); al pasar a variantes
+// hay que borrarlo en cada tienda: backend/scripts/migrate-categories-variants.mongo.js.
+inventorySchema.index({ product: 1, variant: 1 }, { unique: true });
 
 const recalculateStatus = (quantity, threshold) => {
   if (quantity <= 0) return "out_of_stock";
@@ -45,6 +52,18 @@ const validatePayload = (sendError) => (req, res, next) => {
       return sendError(res, 400, "VALIDATION_ERROR", "product es requerido y debe ser un id válido.");
     }
     req.body.product = payload.product;
+    if (payload.variant !== undefined && payload.variant !== null && payload.variant !== "") {
+      if (!isValidObjectId(payload.variant)) {
+        return sendError(res, 400, "VALIDATION_ERROR", "variant debe ser un id válido.");
+      }
+      req.body.variant = payload.variant;
+    } else {
+      req.body.variant = null;
+    }
+  } else {
+    // product/variant son inmutables después de creado.
+    delete req.body.product;
+    delete req.body.variant;
   }
 
   if (isCreate || payload.quantity !== undefined) {
@@ -101,12 +120,32 @@ function registerRoutes(app, ctx) {
     }
   };
 
+  // Respuesta con `variantLabel`/`variantSku` ya resueltos y `isOrphan` si el
+  // registro ya no corresponde a la forma actual del producto (no debería
+  // pasar: products.js lo bloquea, pero queda visible si alguien edita la BD).
+  const POPULATE_FIELDS = "name sku price images options variants";
+  const toResponse = (item) => {
+    const doc = sanitizeDoc(item);
+    const product = doc.product && typeof doc.product === "object" ? doc.product : null;
+    if (!product) return doc;
+    if (doc.variant) {
+      const variant = findVariant(product, doc.variant);
+      doc.variantLabel = variant ? variantLabel(product, variant) : null;
+      doc.variantSku = variant?.sku || null;
+      doc.isOrphan = !variant;
+    } else {
+      doc.isOrphan = hasVariants(product);
+    }
+    return doc;
+  };
+
   router.get("/", canRead, async (req, res) => {
     try {
       const filter = {};
       if (req.query.status) filter.status = req.query.status;
-      const items = await Inventory.find(filter).sort({ updatedAt: -1 }).populate("product", "name sku price images");
-      return res.status(200).json({ items: items.map(sanitizeDoc) });
+      if (req.query.product && isValidObjectId(req.query.product)) filter.product = req.query.product;
+      const items = await Inventory.find(filter).sort({ updatedAt: -1 }).populate("product", POPULATE_FIELDS);
+      return res.status(200).json({ items: items.map(toResponse) });
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al listar el inventario.");
     }
@@ -115,9 +154,18 @@ function registerRoutes(app, ctx) {
   router.post("/", canWrite, validatePayload(sendError), async (req, res) => {
     try {
       const Product = mongooseConnection.models.Product;
-      const productExists = Product ? await Product.exists({ _id: req.body.product }) : null;
-      if (!productExists) {
+      const product = Product ? await Product.findById(req.body.product).select("name options variants").lean() : null;
+      if (!product) {
         return sendError(res, 404, "PRODUCT_NOT_FOUND", "El producto referenciado no existe.");
+      }
+      if (hasVariants(product) && !req.body.variant) {
+        return sendError(res, 400, "VARIANT_REQUIRED", `"${product.name}" tiene variantes: elige a cuál le registras inventario.`);
+      }
+      if (!hasVariants(product) && req.body.variant) {
+        return sendError(res, 400, "VARIANT_NOT_FOUND", `"${product.name}" no tiene variantes.`);
+      }
+      if (req.body.variant && !findVariant(product, req.body.variant)) {
+        return sendError(res, 404, "VARIANT_NOT_FOUND", "La variante referenciada no existe en el producto.");
       }
 
       const status = recalculateStatus(req.body.quantity, req.body.lowStockThreshold || 0);
@@ -125,13 +173,16 @@ function registerRoutes(app, ctx) {
       await item.save();
       return res.status(201).json({ message: "Inventario registrado.", inventory: sanitizeDoc(item) });
     } catch (error) {
+      if (error?.code === 11000) {
+        return sendError(res, 409, "INVENTORY_ALREADY_EXISTS", "Ese producto (o variante) ya tiene registro de inventario; edítalo en lugar de crear otro.");
+      }
       return handleMongooseError(sendError, res, error, "Error al registrar el inventario.");
     }
   });
 
   router.get("/:id", validateObjectIdParam("id"), canRead, ensureInventoryExists, async (req, res) => {
-    await req.inventoryItem.populate("product", "name sku price images");
-    return res.status(200).json(sanitizeDoc(req.inventoryItem));
+    await req.inventoryItem.populate("product", POPULATE_FIELDS);
+    return res.status(200).json(toResponse(req.inventoryItem));
   });
 
   router.put(

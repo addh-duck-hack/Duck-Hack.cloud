@@ -34,6 +34,7 @@ const { extractBearerToken, ROLES: AUTH_ROLES } = require("../lib/authMiddleware
 const { orderConfirmationEmailTemplate, orderNotificationEmailTemplate } = require("../lib/emailTemplates");
 const { createModuleAuthorizer } = require("../lib/permissions");
 const { recalculateStatus } = require("./inventory");
+const { hasVariants, findVariant, variantLabel, variantPricing, stockKey } = require("../lib/variants");
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ORDER_STATUSES = ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"];
@@ -101,6 +102,10 @@ const orderItemSchema = new mongoose.Schema(
     // producto cambia de precio después, el pedido ya hecho no se mueve
     // (mismo criterio que Invoice.items, ver backend/models/invoice.model.js).
     productName: { type: String, required: true, trim: true },
+    // Variante elegida (Product.variants._id) + snapshot legible
+    // ("Talla: M / Color: Rojo"); ausentes en productos sin variantes.
+    variant: { type: mongoose.Schema.Types.ObjectId },
+    variantLabel: { type: String, trim: true },
     quantity: { type: Number, required: true, min: 1 },
     unitPrice: { type: Number, required: true, min: 0 },
     // Snapshot de Product.compareAtPrice SOLO cuando representaba un
@@ -209,7 +214,14 @@ const validateCreatePayload = (sendError) => (req, res, next) => {
     if (quantity === null || quantity < 1) {
       return sendError(res, 400, "VALIDATION_ERROR", "Cada item requiere quantity >= 1.");
     }
-    normalizedItems.push({ product: item.product, quantity });
+    const normalized = { product: item.product, quantity };
+    if (item.variant !== undefined && item.variant !== null && item.variant !== "") {
+      if (!isValidObjectId(item.variant)) {
+        return sendError(res, 400, "VALIDATION_ERROR", "variant debe ser un id válido.");
+      }
+      normalized.variant = item.variant;
+    }
+    normalizedItems.push(normalized);
   }
   req.body.items = normalizedItems;
 
@@ -319,14 +331,46 @@ const buildOrderItems = async (Product, requestedItems, { requireActive }) => {
         },
       };
     }
-    const subtotal = product.price * item.quantity;
-    const hasDiscount = product.compareAtPrice && product.compareAtPrice > product.price;
+    // Con variantes, la variante es obligatoria y manda el precio
+    // (lib/variants.js#variantPricing); sin variantes no se acepta una.
+    let variant = null;
+    if (hasVariants(product)) {
+      if (!item.variant) {
+        return {
+          error: {
+            status: 400,
+            code: "VARIANT_REQUIRED",
+            message: `Elige ${product.options.map((o) => o.name.toLowerCase()).join(" / ")} de "${product.name}".`,
+          },
+        };
+      }
+      variant = findVariant(product, item.variant);
+      if (!variant) {
+        return { error: { status: 404, code: "VARIANT_NOT_FOUND", message: `La opción elegida de "${product.name}" ya no existe.` } };
+      }
+      if (requireActive && variant.isActive === false) {
+        return {
+          error: {
+            status: 400,
+            code: "PRODUCT_UNAVAILABLE",
+            message: `"${product.name}" (${variantLabel(product, variant)}) ya no está disponible.`,
+          },
+        };
+      }
+    } else if (item.variant) {
+      return { error: { status: 400, code: "VARIANT_NOT_FOUND", message: `"${product.name}" no tiene variantes.` } };
+    }
+
+    const { price, compareAtPrice } = variant ? variantPricing(product, variant) : product;
+    const subtotal = price * item.quantity;
+    const hasDiscount = compareAtPrice && compareAtPrice > price;
     items.push({
       product: product._id,
       productName: product.name,
+      ...(variant ? { variant: variant._id, variantLabel: variantLabel(product, variant) } : {}),
       quantity: item.quantity,
-      unitPrice: product.price,
-      ...(hasDiscount ? { compareAtPrice: product.compareAtPrice } : {}),
+      unitPrice: price,
+      ...(hasDiscount ? { compareAtPrice } : {}),
       subtotal,
     });
   }
@@ -334,21 +378,29 @@ const buildOrderItems = async (Product, requestedItems, { requireActive }) => {
   return { items, total };
 };
 
-// Checkout público: por producto (sumando sus renglones — el mismo café en
-// dos presentaciones cuenta junto) no se pueden pedir más unidades que el tope
-// de la tienda (`purchaseLimit`, lib/purchaseLimits.js; null = sin tope) ni más
-// de las que hay en inventario.
+// Checkout público: por producto (sumando sus renglones y sus variantes — el
+// mismo café en dos presentaciones cuenta junto) no se pueden pedir más
+// unidades que el tope de la tienda (`purchaseLimit`, lib/purchaseLimits.js;
+// null = sin tope); y por producto + variante, no más de las que hay en
+// inventario.
 // Mismo criterio que GET /api/products/public#maxQty, que es lo que el
 // storefront ya limita; esto es la red por si llega un payload a mano o el
 // inventario bajó mientras el cliente tenía la canasta abierta. Solo lee el
 // inventario — se descuenta hasta confirmar el pedido (adjustInventoryForOrder).
 const checkPublicQuantities = async (Inventory, items, purchaseLimit) => {
   const units = new Map();
+  const stockUnits = new Map();
   for (const item of items) {
     const id = String(item.product);
     const current = units.get(id) || { name: item.productName, quantity: 0 };
     current.quantity += item.quantity;
     units.set(id, current);
+
+    const key = stockKey(item.product, item.variant);
+    const name = item.variantLabel ? `${item.productName} (${item.variantLabel})` : item.productName;
+    const stockLine = stockUnits.get(key) || { name, quantity: 0 };
+    stockLine.quantity += item.quantity;
+    stockUnits.set(key, stockLine);
   }
 
   for (const { name, quantity } of units.values()) {
@@ -362,11 +414,11 @@ const checkPublicQuantities = async (Inventory, items, purchaseLimit) => {
   }
 
   const stock = Inventory
-    ? await Inventory.find({ product: { $in: [...units.keys()] } }).select("product quantity").lean()
+    ? await Inventory.find({ product: { $in: [...units.keys()] } }).select("product variant quantity").lean()
     : [];
-  const stockById = new Map(stock.map((i) => [String(i.product), i.quantity]));
-  for (const [id, { name, quantity }] of units) {
-    const available = stockById.get(id) || 0;
+  const stockByKey = new Map(stock.map((i) => [stockKey(i.product, i.variant), i.quantity]));
+  for (const [key, { name, quantity }] of stockUnits) {
+    const available = stockByKey.get(key) || 0;
     if (quantity > available) {
       return {
         status: 409,
@@ -454,7 +506,7 @@ const sendCheckoutEmails = async (order, { mongooseConnection, generateOrderPdf 
   });
 };
 
-// Ajusta el inventario de cada producto del pedido — sign=-1 al confirmar
+// Ajusta el inventario de cada producto (o variante) del pedido — sign=-1 al confirmar
 // (se descuenta lo vendido), sign=+1 al salir de "confirmed" hacia cualquier
 // otro estado (se regresa el stock — decisión explícita: un pedido
 // confirmado por error, o cancelado después de confirmado, no debe dejar el
@@ -469,7 +521,7 @@ const adjustInventoryForOrder = async (mongooseConnection, order, sign) => {
   for (const item of order.items) {
     try {
       const updated = await Inventory.findOneAndUpdate(
-        { product: item.product },
+        { product: item.product, variant: item.variant || null },
         { $inc: { quantity: sign * item.quantity } },
         { new: true }
       );

@@ -17,8 +17,20 @@ vault, not in this repo).
 - `modules/storeConfig.js` — store branding/content, singleton per deployment
   (`/api/store-config/*`, including the public `GET /public` the storefront
   reads).
-- `modules/products.js` — product catalog (`/api/products`).
-- `modules/inventory.js` — per-product stock (`/api/inventory`).
+- `modules/categories.js` — catalog categories (`/api/categories`), with
+  image, `featured`, `sortOrder` and a `slug` (what the app home sections and
+  `?category=` use). `kind` = `product` today (`service` reserved for the
+  appointments module). Same permission key as products — not a module of
+  its own. Mounted before products (`Product.category` refs `Category`).
+- `modules/products.js` — product catalog (`/api/products`). Optional
+  variants (`options` + `variants`, logic in `lib/variants.js`): each variant
+  has its own SKU, stock and optional price/image; `lib/purchaseLimits.js
+  #filterInStock` resolves them for the public catalog. Public listing
+  supports `q`/`category`/`featured`/price/sort/pagination, plus
+  `/public/:id/related`.
+- `modules/inventory.js` — stock per product, or per product + variant
+  (`/api/inventory`). Data from before categories/variants needs
+  `backend/scripts/migrate-categories-variants.mongo.js` once per store.
 - `modules/orders.js` — orders, created manually from the admin panel for now
   (`/api/orders`).
 - `modules/media.js` — admin media library over the `uploads/` folder

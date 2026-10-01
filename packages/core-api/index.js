@@ -1,6 +1,7 @@
 const auth = require("./modules/auth");
 const mail = require("./modules/mail");
 const storeConfig = require("./modules/storeConfig");
+const categories = require("./modules/categories");
 const products = require("./modules/products");
 const inventory = require("./modules/inventory");
 const orders = require("./modules/orders");
@@ -13,13 +14,14 @@ const permissionsLib = require("./lib/permissions");
 // lista. Agrega uno nuevo requiriéndolo aquí y añadiéndolo al arreglo — nada
 // más debería tener que cambiar para que se recoja.
 // Orden: auth primero (registra "User", y es la fuente de verifyToken/
-// authorizeRoles/ROLES que arma el ctx de todos los demás); products antes
+// authorizeRoles/ROLES que arma el ctx de todos los demás); categories antes
+// que products (Product.category referencia "Category"); products antes
 // que inventory/orders porque ambos referencian "Product" por nombre de
 // modelo (no por import directo, ver lib/moduleHelpers.js#getOrCreateModel)
 // — no es estrictamente necesario ya que todos los módulos se montan de
 // forma síncrona antes de que el server empiece a aceptar requests, pero
 // mantiene el orden legible.
-const modules = [auth, mail, storeConfig, products, inventory, orders, media, appHome, permissions];
+const modules = [auth, mail, storeConfig, categories, products, inventory, orders, media, appHome, permissions];
 
 module.exports = {
   modules,

@@ -5,6 +5,15 @@ import { getApiBaseUrl } from "../utils/apiBaseUrl";
 
 const formatMxn = (value) => Number(value || 0).toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 
+// Con variantes: rango de precios efectivos (la variante sin precio usa el del producto).
+const formatPrice = (p) => {
+  if (!p.variants?.length) return formatMxn(p.price);
+  const prices = p.variants.map((v) => (v.price !== undefined && v.price !== null ? v.price : p.price));
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  return min === max ? formatMxn(min) : `${formatMxn(min)} – ${formatMxn(max)}`;
+};
+
 const ProductList = () => {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
@@ -96,10 +105,22 @@ const ProductList = () => {
                   "—"
                 )}
               </td>
-              <td>{p.name}</td>
+              <td>
+                {p.name}
+                {p.featured ? (
+                  <span className="badge badge-blue" style={{ marginLeft: "0.5rem" }}>
+                    Destacado
+                  </span>
+                ) : null}
+                {p.variants?.length ? (
+                  <small style={{ display: "block", opacity: 0.75 }}>
+                    {p.variants.length} variante{p.variants.length === 1 ? "" : "s"} · {p.options.map((o) => o.name).join(", ")}
+                  </small>
+                ) : null}
+              </td>
               <td>{p.sku}</td>
-              <td>{p.category || "—"}</td>
-              <td>{formatMxn(p.price)}</td>
+              <td>{p.category?.name || "—"}</td>
+              <td>{formatPrice(p)}</td>
               <td>
                 <span className={`badge badge-${p.isActive === false ? "red" : "green"}`}>
                   {p.isActive === false ? "Inactivo" : "Activo"}

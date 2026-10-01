@@ -140,7 +140,10 @@ const OrderDetail = () => {
         <tbody>
           {order.items.map((item, index) => (
             <tr key={index}>
-              <td>{item.productName}</td>
+              <td>
+                {item.productName}
+                {item.variantLabel ? <small style={{ display: "block", opacity: 0.75 }}>{item.variantLabel}</small> : null}
+              </td>
               <td>{item.quantity}</td>
               <td>{formatMxn(item.unitPrice)}</td>
               <td>{formatMxn(item.subtotal)}</td>

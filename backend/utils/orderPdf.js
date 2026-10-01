@@ -172,9 +172,17 @@ const generateOrderPdf = (order, storeConfig, outputStream) => {
     // Order.items#compareAtPrice en modules/orders.js) — se muestra el precio
     // anterior tachado justo arriba del precio pagado, misma columna.
     const hasDiscount = item.compareAtPrice && item.compareAtPrice > item.unitPrice;
-    const rowHeight = Math.max(doc.heightOfString(item.productName, { width: 280 }), hasDiscount ? 26 : 14);
+    // Variante (talla, color…) en una segunda línea, más chica.
+    const nameHeight = doc.heightOfString(item.productName, { width: 280 });
+    const variantHeight = item.variantLabel ? doc.fontSize(8).heightOfString(item.variantLabel, { width: 280 }) + 2 : 0;
+    doc.fontSize(10);
+    const rowHeight = Math.max(nameHeight + variantHeight, hasDiscount ? 26 : 14);
 
     doc.fillColor(BRAND_TEXT_DIM).font("Helvetica").text(item.productName, 50, rowY, { width: 280 });
+    if (item.variantLabel) {
+      doc.fontSize(8).fillColor("#777777").text(item.variantLabel, 50, rowY + nameHeight + 2, { width: 280 });
+      doc.fontSize(10).fillColor(BRAND_TEXT_DIM);
+    }
     doc.text(String(item.quantity), 340, rowY, { width: 50, align: "right" });
 
     if (hasDiscount) {

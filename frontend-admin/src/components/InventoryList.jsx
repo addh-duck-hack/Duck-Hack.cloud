@@ -55,7 +55,7 @@ const InventoryList = () => {
           Registrar inventario
         </button>
       </div>
-      <p>Un registro por producto. El estado se calcula solo, no se edita directo.</p>
+      <p>Un registro por producto, o uno por variante si el producto tiene variantes. El estado se calcula solo, no se edita directo.</p>
 
       {error ? <div className="auth-error">{error}</div> : null}
 
@@ -80,8 +80,20 @@ const InventoryList = () => {
             const statusInfo = STATUS_LABELS[item.status] || { label: item.status, color: "" };
             return (
               <tr key={item._id}>
-                <td>{item.product?.name || "—"}</td>
-                <td>{item.product?.sku || "—"}</td>
+                <td>
+                  {item.product?.name || "—"}
+                  {item.variantLabel ? <small style={{ display: "block", opacity: 0.75 }}>{item.variantLabel}</small> : null}
+                  {item.isOrphan ? (
+                    <span
+                      className="badge badge-red"
+                      style={{ marginLeft: "0.4rem" }}
+                      title="Ya no corresponde a las variantes actuales del producto: elimínalo y registra el inventario de nuevo"
+                    >
+                      Sin variante válida
+                    </span>
+                  ) : null}
+                </td>
+                <td>{item.variantSku || item.product?.sku || "—"}</td>
                 <td>{item.quantity}</td>
                 <td>{item.lowStockThreshold}</td>
                 <td>

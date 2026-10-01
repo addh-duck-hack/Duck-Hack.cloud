@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import ProductImageGallery from "./ProductImageGallery";
 import ProductAttributesEditor from "./ProductAttributesEditor";
+import ProductVariantsEditor from "./ProductVariantsEditor";
 
 const initialState = {
   name: "",
@@ -14,8 +15,29 @@ const initialState = {
   category: "",
   images: [],
   attributes: [],
+  options: [],
+  variants: [],
+  featured: false,
+  sortOrder: "0",
   isActive: true,
 };
+
+const priceOrNull = (value) => (value === "" || value === null || value === undefined ? null : Number(value));
+
+// Recorta valores de opciones (se editan "crudos", ver ProductVariantsEditor)
+// y convierte los precios vacíos de las variantes en null (= heredan).
+const toVariantsPayload = (options, variants) => ({
+  options: options.map((o) => ({ name: o.name.trim(), values: [...new Set(o.values.map((v) => v.trim()).filter(Boolean))] })),
+  variants: variants.map((v) => ({
+    ...(v._id ? { _id: v._id } : {}),
+    sku: v.sku.trim(),
+    optionValues: v.optionValues,
+    price: priceOrNull(v.price),
+    compareAtPrice: v.price === "" ? null : priceOrNull(v.compareAtPrice),
+    image: v.image || "",
+    isActive: v.isActive !== false,
+  })),
+});
 
 const ProductForm = () => {
   const navigate = useNavigate();
@@ -23,12 +45,26 @@ const ProductForm = () => {
   const isEditing = Boolean(id);
 
   const [form, setForm] = useState(initialState);
+  const [categories, setCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(isEditing);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
 
   const baseUrl = getApiBaseUrl();
   const getAuthHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem("token")}` });
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const response = await axios.get(`${baseUrl}/api/categories`, { headers: getAuthHeaders() });
+        setCategories(response.data?.items || []);
+      } catch (err) {
+        setError(err.response?.data?.error?.message || "No fue posible cargar las categorías.");
+      }
+    };
+    loadCategories();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!isEditing) return;
@@ -44,9 +80,21 @@ const ProductForm = () => {
           description: p.description || "",
           price: p.price !== undefined ? String(p.price) : "",
           compareAtPrice: p.compareAtPrice !== undefined && p.compareAtPrice !== null ? String(p.compareAtPrice) : "",
-          category: p.category || "",
+          category: p.category?._id || p.category || "",
           images: p.images || [],
           attributes: (p.attributes || []).map((a) => ({ name: a.name || "", value: a.value || "" })),
+          options: (p.options || []).map((o) => ({ name: o.name || "", values: o.values || [] })),
+          variants: (p.variants || []).map((v) => ({
+            _id: v._id,
+            sku: v.sku || "",
+            optionValues: v.optionValues || [],
+            price: v.price !== undefined && v.price !== null ? String(v.price) : "",
+            compareAtPrice: v.compareAtPrice !== undefined && v.compareAtPrice !== null ? String(v.compareAtPrice) : "",
+            image: v.image || "",
+            isActive: v.isActive !== false,
+          })),
+          featured: Boolean(p.featured),
+          sortOrder: String(p.sortOrder ?? 0),
           isActive: p.isActive !== false,
         });
       } catch (err) {
@@ -72,6 +120,10 @@ const ProductForm = () => {
     setForm((prev) => ({ ...prev, attributes }));
   };
 
+  const handleVariantsChange = ({ options, variants }) => {
+    setForm((prev) => ({ ...prev, options, variants }));
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setIsSaving(true);
@@ -83,12 +135,15 @@ const ProductForm = () => {
         description: form.description,
         price: Number(form.price),
         compareAtPrice: form.compareAtPrice === "" ? undefined : Number(form.compareAtPrice),
-        category: form.category,
+        category: form.category || null,
         images: form.images,
         // Filas vacías fuera; el resto se manda recortado (el backend valida).
         attributes: form.attributes
           .map((a) => ({ name: a.name.trim(), value: a.value.trim() }))
           .filter((a) => a.name || a.value),
+        ...toVariantsPayload(form.options, form.variants),
+        featured: form.featured,
+        sortOrder: Number(form.sortOrder || 0),
         isActive: form.isActive,
       };
 
@@ -144,16 +199,44 @@ const ProductForm = () => {
           </label>
         </div>
 
-        <label>
-          Categoría (opcional)
-          <input type="text" name="category" value={form.category} onChange={handleChange} />
-        </label>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "0.75rem" }}>
+          <label>
+            Categoría (opcional)
+            <select name="category" value={form.category} onChange={handleChange}>
+              <option value="">Sin categoría</option>
+              {categories.map((c) => (
+                <option key={c._id} value={c._id}>
+                  {c.name}
+                  {c.isActive === false ? " (inactiva)" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Orden
+            <input type="number" name="sortOrder" min="0" step="1" value={form.sortOrder} onChange={handleChange} />
+          </label>
+        </div>
 
         <ProductImageGallery value={form.images} onChange={handleImagesChange} />
 
         <ProductAttributesEditor value={form.attributes} onChange={handleAttributesChange} />
 
+        <ProductVariantsEditor
+          options={form.options}
+          variants={form.variants}
+          onChange={handleVariantsChange}
+          productSku={form.sku.trim().toUpperCase()}
+          productPrice={form.price}
+          productImages={form.images}
+        />
+
         <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.75rem" }}>
+          <input type="checkbox" name="featured" checked={form.featured} onChange={handleChange} style={{ width: "auto" }} />
+          Producto destacado
+        </label>
+
+        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
           <input type="checkbox" name="isActive" checked={form.isActive} onChange={handleChange} style={{ width: "auto" }} />
           Producto activo
         </label>

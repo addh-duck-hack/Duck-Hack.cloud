@@ -17,7 +17,13 @@
 // `attributes`: especificaciones libres "Nombre: valor" en el orden en que se
 // muestran (Notas de cata: cacao, panela · Tueste: medio · Material: barro ·
 // Talla: M). Genérico a propósito: cada tienda define los suyos sin agregar un
-// campo al esquema por giro.
+// campo al esquema por giro. Son solo informativos — lo que el cliente elige
+// al comprar (talla, color…) son las variantes (`options`/`variants`, ver
+// lib/variants.js), cada una con su SKU, existencias y precio opcional.
+//
+// `category` referencia a modules/categories.js. `featured`/`sortOrder` los
+// usa el storefront para destacar y ordenar (orden por defecto del catálogo
+// público: sortOrder y luego nombre).
 const express = require("express");
 const mongoose = require("mongoose");
 const {
@@ -30,6 +36,8 @@ const {
 } = require("../lib/moduleHelpers");
 const { getPurchaseLimit, filterInStock } = require("../lib/purchaseLimits");
 const { createModuleAuthorizer } = require("../lib/permissions");
+const { hasVariants, normalizeOptions, normalizeVariants, validateVariants } = require("../lib/variants");
+const { findCategoryByRef } = require("./categories");
 
 const MAX_ATTRIBUTES = 30;
 const MAX_ATTRIBUTE_NAME = 60;
@@ -43,6 +51,26 @@ const productAttributeSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const productOptionSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true, maxlength: 40 },
+    values: { type: [String], default: [] },
+  },
+  { _id: false }
+);
+
+// Con _id propio: es lo que referencian Inventory.variant y Order.items[].variant.
+const productVariantSchema = new mongoose.Schema({
+  sku: { type: String, required: true, trim: true, uppercase: true, maxlength: 60 },
+  // Un valor por opción, en el mismo orden que `options`.
+  optionValues: { type: [String], default: [] },
+  // Vacíos = heredan price/compareAtPrice del producto (lib/variants.js#variantPricing).
+  price: { type: Number, min: 0 },
+  compareAtPrice: { type: Number, min: 0 },
+  image: { type: String, trim: true, maxlength: 300 },
+  isActive: { type: Boolean, default: true },
+});
+
 const productSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true, minlength: 1, maxlength: 200 },
@@ -50,17 +78,27 @@ const productSchema = new mongoose.Schema(
     description: { type: String, trim: true, maxlength: 2000 },
     price: { type: Number, required: true, min: 0 },
     compareAtPrice: { type: Number, min: 0 },
-    // String libre a propósito: no existe un modelo Category todavía, no se
-    // agrega en esta entrega para no sobre-alcanzar el roadmap pedido.
-    category: { type: String, trim: true, maxlength: 100 },
+    category: { type: mongoose.Schema.Types.ObjectId, ref: "Category", default: null },
     images: { type: [String], default: [] },
     attributes: { type: [productAttributeSchema], default: [] },
+    options: { type: [productOptionSchema], default: [] },
+    variants: { type: [productVariantSchema], default: [] },
+    featured: { type: Boolean, default: false },
+    sortOrder: { type: Number, default: 0, min: 0 },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }
 );
 productSchema.index({ name: 1 });
 productSchema.index({ isActive: 1 });
+productSchema.index({ category: 1 });
+// SKU de variante único entre productos (dentro del mismo producto lo revisa
+// lib/variants.js#validateVariants).
+productSchema.index({ "variants.sku": 1 }, { unique: true, partialFilterExpression: { "variants.sku": { $exists: true } } });
+
+const PUBLIC_SORTS = ["relevance", "price_asc", "price_desc", "newest", "name"];
+const MAX_PUBLIC_LIMIT = 100;
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const validatePayload = (sendError) => (req, res, next) => {
   const payload = req.body || {};
@@ -97,7 +135,34 @@ const validatePayload = (sendError) => (req, res, next) => {
   }
 
   if (payload.description !== undefined) req.body.description = asTrimmedString(payload.description);
-  if (payload.category !== undefined) req.body.category = asTrimmedString(payload.category);
+  // Existencia de la categoría: en el handler (resolveCategory).
+  if (payload.category !== undefined) {
+    if (payload.category === null || payload.category === "") {
+      req.body.category = null;
+    } else if (!isValidObjectId(payload.category)) {
+      return sendError(res, 400, "VALIDATION_ERROR", "category debe ser un id de categoría válido.");
+    } else {
+      req.body.category = payload.category;
+    }
+  }
+  if (payload.featured !== undefined) req.body.featured = Boolean(payload.featured);
+  if (payload.sortOrder !== undefined) {
+    const sortOrder = asFiniteNumber(payload.sortOrder);
+    if (sortOrder === null || sortOrder < 0) return sendError(res, 400, "VALIDATION_ERROR", "sortOrder debe ser un número >= 0.");
+    req.body.sortOrder = Math.floor(sortOrder);
+  }
+  // Forma de options/variants aquí; la congruencia entre ambos, en el handler
+  // (en un PUT puede llegar solo uno y se compara contra lo guardado).
+  if (payload.options !== undefined) {
+    const options = normalizeOptions(payload.options);
+    if (options.error) return sendError(res, 400, "VALIDATION_ERROR", options.error);
+    req.body.options = options.value;
+  }
+  if (payload.variants !== undefined) {
+    const variants = normalizeVariants(payload.variants, isValidObjectId);
+    if (variants.error) return sendError(res, 400, "VALIDATION_ERROR", variants.error);
+    req.body.variants = variants.value;
+  }
   if (payload.images !== undefined) {
     req.body.images = Array.isArray(payload.images) ? payload.images.filter((i) => typeof i === "string") : [];
   }
@@ -155,17 +220,96 @@ function registerRoutes(app, ctx) {
     }
   };
 
+  // Categoría del payload → existe y es de productos. Devuelve un mensaje de
+  // error o null (null también si no viene o se está quitando).
+  const resolveCategory = async (categoryId) => {
+    if (!categoryId) return null;
+    const Category = mongooseConnection.models.Category;
+    const exists = Category ? await Category.exists({ _id: categoryId, kind: "product" }) : null;
+    return exists ? null : "La categoría elegida no existe.";
+  };
+
+  // El inventario siempre sigue la forma actual del producto: un registro sin
+  // variante, o uno por variante. Por eso no se puede quitar una variante (ni
+  // pasar de "sin variantes" a "con variantes" y viceversa) mientras tenga
+  // inventario registrado — igual que no se borra un producto con inventario.
+  const checkInventoryForVariantChange = async (product, nextOptions, nextVariants) => {
+    const Inventory = mongooseConnection.models.Inventory;
+    if (!Inventory) return null;
+    const hadVariants = hasVariants(product);
+    const willHaveVariants = nextOptions.length > 0;
+
+    if (!hadVariants && willHaveVariants) {
+      const base = await Inventory.exists({ product: product._id, variant: null });
+      return base
+        ? "Este producto tiene inventario sin variante. Elimina ese registro de inventario antes de agregarle variantes."
+        : null;
+    }
+    const keptIds = new Set(nextVariants.filter((v) => v._id).map((v) => String(v._id)));
+    const removedIds = (product.variants || []).map((v) => v._id).filter((id) => !keptIds.has(String(id)));
+    if (removedIds.length === 0) return null;
+    const removedWithStock = await Inventory.exists({ product: product._id, variant: { $in: removedIds } });
+    return removedWithStock
+      ? "Una de las variantes que quitaste tiene inventario registrado. Elimina su inventario o, mejor, desactívala."
+      : null;
+  };
+
   // ---- rutas públicas (storefront) — sin verifyToken, siempre isActive:true
   // y con stock (ver filterInStock) ----
+  //
+  // Filtros: q (nombre, descripción o SKU), category (id o slug), featured,
+  // minPrice/maxPrice (precio efectivo; con variantes, cualquiera disponible),
+  // sort (relevance|price_asc|price_desc|newest|name) y paginación opcional
+  // page/limit. Sin `limit` devuelve todo (comportamiento anterior). Los
+  // filtros de precio, el orden y la paginación se aplican después de
+  // filterInStock para que `total` cuente solo lo que realmente se ve.
   router.get("/public", async (req, res) => {
     try {
       const filter = { isActive: true };
-      if (req.query.category) filter.category = asTrimmedString(req.query.category);
-      const products = await Product.find(filter).sort({ name: 1 }).lean();
+      if (req.query.category) {
+        const category = await findCategoryByRef(mongooseConnection, req.query.category);
+        if (!category || category.isActive === false) return res.status(200).json({ items: [], total: 0, page: 1, limit: null });
+        filter.category = category._id;
+      }
+      if (req.query.featured === "true") filter.featured = true;
+      const q = asTrimmedString(req.query.q).slice(0, 100);
+      if (q) {
+        const pattern = new RegExp(escapeRegex(q), "i");
+        filter.$or = [{ name: pattern }, { description: pattern }, { sku: pattern }, { "variants.sku": pattern }];
+      }
 
+      const products = await Product.find(filter).populate("category", "name slug").lean();
       const Inventory = mongooseConnection.models.Inventory;
-      const inStock = await filterInStock(Inventory, products, await getPurchaseLimit(mongooseConnection));
-      return res.status(200).json({ items: inStock });
+      let items = await filterInStock(Inventory, products, await getPurchaseLimit(mongooseConnection));
+
+      const minPrice = asFiniteNumber(req.query.minPrice);
+      const maxPrice = asFiniteNumber(req.query.maxPrice);
+      const displayPrice = (p) => p.priceRange?.min ?? p.price;
+      if (minPrice !== null || maxPrice !== null) {
+        items = items.filter((p) => {
+          const low = p.priceRange?.min ?? p.price;
+          const high = p.priceRange?.max ?? p.price;
+          return (minPrice === null || high >= minPrice) && (maxPrice === null || low <= maxPrice);
+        });
+      }
+
+      const sort = PUBLIC_SORTS.includes(req.query.sort) ? req.query.sort : "relevance";
+      const byName = (a, b) => a.name.localeCompare(b.name, "es");
+      const comparators = {
+        relevance: (a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || byName(a, b),
+        price_asc: (a, b) => displayPrice(a) - displayPrice(b) || byName(a, b),
+        price_desc: (a, b) => displayPrice(b) - displayPrice(a) || byName(a, b),
+        newest: (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+        name: byName,
+      };
+      items.sort(comparators[sort]);
+
+      const total = items.length;
+      const limitParam = asFiniteNumber(req.query.limit);
+      if (limitParam === null) return res.status(200).json({ items, total, page: 1, limit: null });
+      const limit = Math.min(Math.max(Math.floor(limitParam), 1), MAX_PUBLIC_LIMIT);
+      const page = Math.max(Math.floor(asFiniteNumber(req.query.page) || 1), 1);
+      return res.status(200).json({ items: items.slice((page - 1) * limit, page * limit), total, page, limit });
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al listar productos.");
     }
@@ -173,7 +317,7 @@ function registerRoutes(app, ctx) {
 
   router.get("/public/:id", validateObjectIdParam("id"), async (req, res) => {
     try {
-      const product = await Product.findOne({ _id: req.params.id, isActive: true }).lean();
+      const product = await Product.findOne({ _id: req.params.id, isActive: true }).populate("category", "name slug").lean();
       if (!product) return sendError(res, 404, "PRODUCT_NOT_FOUND", "Producto no encontrado.");
 
       const Inventory = mongooseConnection.models.Inventory;
@@ -183,6 +327,27 @@ function registerRoutes(app, ctx) {
       return res.status(200).json(inStock);
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al consultar el producto.");
+    }
+  });
+
+  // Productos relacionados = misma categoría, disponibles, sin el propio.
+  // Sin categoría no hay relacionados (lista vacía, no error).
+  router.get("/public/:id/related", validateObjectIdParam("id"), async (req, res) => {
+    try {
+      const product = await Product.findOne({ _id: req.params.id, isActive: true }).select("category").lean();
+      if (!product) return sendError(res, 404, "PRODUCT_NOT_FOUND", "Producto no encontrado.");
+      if (!product.category) return res.status(200).json({ items: [] });
+
+      const limit = Math.min(Math.max(Math.floor(asFiniteNumber(req.query.limit) || 4), 1), 12);
+      const candidates = await Product.find({ _id: { $ne: product._id }, category: product.category, isActive: true })
+        .sort({ sortOrder: 1, name: 1 })
+        .populate("category", "name slug")
+        .lean();
+      const Inventory = mongooseConnection.models.Inventory;
+      const inStock = await filterInStock(Inventory, candidates, await getPurchaseLimit(mongooseConnection));
+      return res.status(200).json({ items: inStock.slice(0, limit) });
+    } catch (error) {
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al listar productos relacionados.");
     }
   });
 
@@ -201,7 +366,8 @@ function registerRoutes(app, ctx) {
       const filter = {};
       if (req.query.isActive === "true") filter.isActive = true;
       if (req.query.isActive === "false") filter.isActive = false;
-      const products = await Product.find(filter).sort({ name: 1 });
+      if (req.query.category && isValidObjectId(req.query.category)) filter.category = req.query.category;
+      const products = await Product.find(filter).sort({ sortOrder: 1, name: 1 }).populate("category", "name slug");
       return res.status(200).json({ items: products.map(sanitizeDoc) });
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al listar productos.");
@@ -210,10 +376,16 @@ function registerRoutes(app, ctx) {
 
   router.post("/", canWrite, validatePayload(sendError), async (req, res) => {
     try {
+      const categoryError = await resolveCategory(req.body.category);
+      if (categoryError) return sendError(res, 400, "CATEGORY_NOT_FOUND", categoryError);
+      const variantsError = validateVariants(req.body.options || [], req.body.variants || [], req.body.sku);
+      if (variantsError) return sendError(res, 400, "VALIDATION_ERROR", variantsError);
+
       const product = new Product(req.body);
       await product.save();
       return res.status(201).json({ message: "Producto creado.", product: sanitizeDoc(product) });
     } catch (error) {
+      if (error?.code === 11000) return sendError(res, 409, "SKU_TAKEN", "El SKU del producto o de una variante ya existe en otro producto.");
       return handleMongooseError(sendError, res, error, "Error al crear el producto.");
     }
   });
@@ -230,13 +402,31 @@ function registerRoutes(app, ctx) {
     validatePayload(sendError),
     async (req, res) => {
       try {
-        const allowedFields = ["name", "sku", "description", "price", "compareAtPrice", "category", "images", "attributes", "isActive"];
+        if (req.body.category !== undefined) {
+          const categoryError = await resolveCategory(req.body.category);
+          if (categoryError) return sendError(res, 400, "CATEGORY_NOT_FOUND", categoryError);
+        }
+
+        if (req.body.options !== undefined || req.body.variants !== undefined || req.body.sku !== undefined) {
+          const nextOptions = req.body.options ?? req.product.options.map((o) => ({ name: o.name, values: [...o.values] }));
+          const nextVariants = req.body.variants ?? req.product.variants.map((v) => v.toObject());
+          const variantsError = validateVariants(nextOptions, nextVariants, req.body.sku ?? req.product.sku);
+          if (variantsError) return sendError(res, 400, "VALIDATION_ERROR", variantsError);
+          const inventoryError = await checkInventoryForVariantChange(req.product, nextOptions, nextVariants);
+          if (inventoryError) return sendError(res, 409, "VARIANT_HAS_INVENTORY", inventoryError);
+        }
+
+        const allowedFields = [
+          "name", "sku", "description", "price", "compareAtPrice", "category", "images", "attributes",
+          "options", "variants", "featured", "sortOrder", "isActive",
+        ];
         for (const key of allowedFields) {
           if (req.body[key] !== undefined) req.product[key] = req.body[key];
         }
         await req.product.save();
         return res.status(200).json({ message: "Producto actualizado.", product: sanitizeDoc(req.product) });
       } catch (error) {
+        if (error?.code === 11000) return sendError(res, 409, "SKU_TAKEN", "El SKU del producto o de una variante ya existe en otro producto.");
         return handleMongooseError(sendError, res, error, "Error al actualizar el producto.");
       }
     }

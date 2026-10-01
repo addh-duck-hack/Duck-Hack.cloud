@@ -58,6 +58,13 @@ const ADDRESS_REQUIRED_FIELDS = [
 ];
 const ADDRESS_FIELDS = [...ADDRESS_REQUIRED_FIELDS, "interiorNumber"];
 
+// Resumen de producto en favoritos, con la categoría resuelta (modules/categories.js).
+const FAVORITES_POPULATE = {
+  path: "favorites",
+  select: "name price images category",
+  populate: { path: "category", select: "name slug" },
+};
+
 const userSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -760,7 +767,7 @@ function registerRoutes(app, ctx) {
           req.params.id,
           { $addToSet: { favorites: productId } },
           { new: true }
-        ).populate("favorites", "name price images category");
+        ).populate(FAVORITES_POPULATE);
         if (!user) {
           return sendError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado");
         }
@@ -784,7 +791,7 @@ function registerRoutes(app, ctx) {
           req.params.id,
           { $pull: { favorites: req.params.productId } },
           { new: true }
-        ).populate("favorites", "name price images category");
+        ).populate(FAVORITES_POPULATE);
         if (!user) {
           return sendError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado");
         }
@@ -998,7 +1005,7 @@ function registerRoutes(app, ctx) {
 
         // populate solo lo necesario para pintar una tarjeta en "Mi cuenta >
         // Favoritos" sin una segunda llamada — Product no trae nada sensible.
-        const user = await User.findById(userId).populate("favorites", "name price images category");
+        const user = await User.findById(userId).populate(FAVORITES_POPULATE);
 
         if (!user) {
           return sendError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado");

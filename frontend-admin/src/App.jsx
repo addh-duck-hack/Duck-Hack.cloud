@@ -23,6 +23,8 @@ import InvoiceForm from "./components/InvoiceForm";
 import InvoiceEditForm from "./components/InvoiceEditForm";
 import ProductList from "./components/ProductList";
 import ProductForm from "./components/ProductForm";
+import CategoryList from "./components/CategoryList";
+import CategoryForm from "./components/CategoryForm";
 import InventoryList from "./components/InventoryList";
 import InventoryForm from "./components/InventoryForm";
 import OrderList from "./components/OrderList";
@@ -166,6 +168,18 @@ const AppRoutes = () => {
             <Route
               path="products/:id/edit"
               element={gate("products", <ProductForm />)}
+            />
+            <Route
+              path="categories"
+              element={gate("products", <CategoryList />)}
+            />
+            <Route
+              path="categories/new"
+              element={gate("products", <CategoryForm />)}
+            />
+            <Route
+              path="categories/:id/edit"
+              element={gate("products", <CategoryForm />)}
             />
             <Route
               path="inventory"

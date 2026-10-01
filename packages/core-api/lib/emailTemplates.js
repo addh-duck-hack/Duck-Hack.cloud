@@ -149,7 +149,7 @@ const renderOrderItemRowHtml = (item, textColor, textDimColor) => {
     ? `<span style="text-decoration:line-through; color:${textDimColor}; margin-right:6px;">${formatCurrency(item.compareAtPrice)}</span><strong style="color:${textColor};">${formatCurrency(item.unitPrice)}</strong>`
     : `<span style="color:${textColor};">${formatCurrency(item.unitPrice)}</span>`;
   return `<tr>
-    <td style="padding:8px 0; font-family:${bodyFont}; font-size:14px; color:${textColor}; border-bottom:1px solid ${BRAND.line};">${escapeHtml(item.productName)}</td>
+    <td style="padding:8px 0; font-family:${bodyFont}; font-size:14px; color:${textColor}; border-bottom:1px solid ${BRAND.line};">${escapeHtml(item.productName)}${item.variantLabel ? `<br><span style="font-size:12px; color:${textDimColor};">${escapeHtml(item.variantLabel)}</span>` : ""}</td>
     <td style="padding:8px 0; font-family:${bodyFont}; font-size:14px; color:${textDimColor}; border-bottom:1px solid ${BRAND.line}; text-align:center;">×${item.quantity}</td>
     <td style="padding:8px 0; font-family:${bodyFont}; font-size:14px; border-bottom:1px solid ${BRAND.line}; text-align:right;">${priceCell}</td>
     <td style="padding:8px 0; font-family:${bodyFont}; font-size:14px; color:${textColor}; border-bottom:1px solid ${BRAND.line}; text-align:right;">${formatCurrency(item.subtotal)}</td>
@@ -172,7 +172,7 @@ const renderOrderItemLineText = (item) => {
   const priceText = item.compareAtPrice && item.compareAtPrice > item.unitPrice
     ? `${formatCurrency(item.unitPrice)} (antes ${formatCurrency(item.compareAtPrice)})`
     : formatCurrency(item.unitPrice);
-  return `- ${item.productName} ×${item.quantity} — ${priceText} c/u — ${formatCurrency(item.subtotal)}`;
+  return `- ${item.productName}${item.variantLabel ? ` (${item.variantLabel})` : ""} ×${item.quantity} — ${priceText} c/u — ${formatCurrency(item.subtotal)}`;
 };
 
 // Etiquetas de entrega y pago: los pedidos nuevos traen la copia del método
