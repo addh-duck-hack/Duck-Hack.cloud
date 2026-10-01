@@ -151,7 +151,7 @@ const InvoiceForm = () => {
   };
 
   return (
-    <section>
+    <section style={{ maxWidth: 1300 }}>
       <h3>Facturar movimientos</h3>
       <p>
         Selecciona uno o más movimientos del mismo cliente y mismo mes para facturarlos juntos. El folio se asigna
@@ -161,7 +161,7 @@ const InvoiceForm = () => {
 
       {error ? <div className="auth-error">{error}</div> : null}
 
-      <form onSubmit={handleSubmit} style={{ maxWidth: 700, margin: 0 }}>
+      <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
         <label>
           Cliente
           <select value={clientId} onChange={handleClientChange} required>

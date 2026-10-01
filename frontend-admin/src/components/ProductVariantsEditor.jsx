@@ -74,7 +74,7 @@ const ProductVariantsEditor = ({ options, variants, onChange, productSku, produc
   const cellInput = { marginBottom: 0, minWidth: 0 };
 
   return (
-    <fieldset style={{ border: "1px solid var(--input-border-color)", borderRadius: 8, padding: "0.75rem 1rem", margin: "0.75rem 0" }}>
+    <fieldset style={{ border: "1px solid var(--input-border-color)", borderRadius: 8, padding: "0.75rem 1rem", margin: "0.75rem 0", minWidth: 0 }}>
       <legend style={{ padding: "0 0.35rem" }}>Variantes (opcional)</legend>
       <p style={{ margin: "0 0 0.75rem", fontSize: "0.85rem", opacity: 0.8 }}>
         Lo que el cliente elige al comprar (ej. Talla → S, M, L · Color → Rojo, Azul). Cada combinación lleva su SKU y su
@@ -84,6 +84,7 @@ const ProductVariantsEditor = ({ options, variants, onChange, productSku, produc
       {options.map((option, index) => (
         <div
           key={index}
+          className="form-row form-row--with-action"
           style={{ display: "grid", gridTemplateColumns: "minmax(0, 0.8fr) minmax(0, 2fr) auto", gap: "0.5rem", alignItems: "center", marginBottom: "0.5rem" }}
         >
           <input

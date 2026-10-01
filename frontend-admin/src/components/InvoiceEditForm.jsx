@@ -113,7 +113,7 @@ const InvoiceEditForm = () => {
   }
 
   return (
-    <section>
+    <section style={{ maxWidth: 1300 }}>
       <h3>Editar factura {String(invoice.folio).padStart(6, "0")}</h3>
       <p>
         Cliente: <strong>{invoice.client?.businessName || "—"}</strong>. Solo se pueden editar los conceptos y la
@@ -123,7 +123,7 @@ const InvoiceEditForm = () => {
       {error ? <div className="auth-error">{error}</div> : null}
       {message ? <div className="auth-success">{message}</div> : null}
 
-      <form onSubmit={handleSubmit} style={{ maxWidth: 700, margin: 0 }}>
+      <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
         <label>
           Fecha de emisión
           <input type="date" value={issuedAt} onChange={(e) => setIssuedAt(e.target.value)} />
