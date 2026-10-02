@@ -49,7 +49,7 @@ const UserCreateForm = () => {
   };
 
   return (
-    <section>
+    <section style={{ maxWidth: 1300 }}>
       <h3>Nuevo usuario</h3>
       <p>
         Crea una cuenta de staff con la contraseña que le vas a entregar — queda verificada de inmediato, sin
@@ -58,7 +58,7 @@ const UserCreateForm = () => {
 
       {error ? <div className="auth-error">{error}</div> : null}
 
-      <form onSubmit={handleSubmit} style={{ maxWidth: 400, margin: 0 }}>
+      <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
         <label>
           Nombre
           <input

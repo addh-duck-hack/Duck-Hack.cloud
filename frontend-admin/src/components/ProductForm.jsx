@@ -167,12 +167,12 @@ const ProductForm = () => {
   if (isLoading) return <p>Cargando...</p>;
 
   return (
-    <section>
+    <section style={{ maxWidth: 1300 }}>
       <h3>{isEditing ? "Editar producto" : "Nuevo producto"}</h3>
 
       {error ? <div className="auth-error">{error}</div> : null}
 
-      <form onSubmit={handleSubmit} style={{ maxWidth: 600, margin: 0 }}>
+      <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
         <label>
           Nombre
           <input type="text" name="name" value={form.name} onChange={handleChange} required />
@@ -188,7 +188,7 @@ const ProductForm = () => {
           <textarea name="description" value={form.description} onChange={handleChange} rows={3} />
         </label>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+        <div className="form-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
           <label>
             Precio (MXN)
             <input type="number" name="price" min="0" step="0.01" value={form.price} onChange={handleChange} required />
@@ -199,7 +199,7 @@ const ProductForm = () => {
           </label>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "0.75rem" }}>
+        <div className="form-row" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "0.75rem" }}>
           <label>
             Categoría (opcional)
             <select name="category" value={form.category} onChange={handleChange}>

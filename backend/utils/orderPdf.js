@@ -19,12 +19,16 @@ const BRAND_AMBER = "#f8af11";
 const BRAND_TEXT_DIM = "#5b6b76";
 const BRAND_LINE = "#dddddd";
 
+// Mismas etiquetas que frontend-admin/src/utils/orderStatusLabels.js.
 const ORDER_STATUS_LABELS = {
-  pending: "Pendiente",
-  confirmed: "Confirmado",
+  pending: "Pendiente de pago",
+  payment_review: "Comprobante en revisión",
+  confirmed: "Pagado",
   processing: "En preparación",
   shipped: "Enviado",
   delivered: "Entregado",
+  ready_for_pickup: "Listo para recoger",
+  picked_up: "Recogido",
   cancelled: "Cancelado",
 };
 

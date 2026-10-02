@@ -126,13 +126,13 @@ const OrderForm = () => {
   };
 
   return (
-    <section>
+    <section style={{ maxWidth: 1300 }}>
       <h3>Nuevo pedido</h3>
       <p>Registro manual de un pedido (venta telefónica, mostrador, etc.). Los pedidos del checkout público de la tienda llegan solos, ya con folio.</p>
 
       {error ? <div className="auth-error">{error}</div> : null}
 
-      <form onSubmit={handleSubmit} style={{ maxWidth: 700, margin: 0 }}>
+      <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
           <label>
             Nombre del cliente

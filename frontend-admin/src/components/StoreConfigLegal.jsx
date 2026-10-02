@@ -10,7 +10,32 @@ const initialState = {
   legalAddress: "",
   legalEmail: "",
   legalPhone: "",
+  privacyNotice: "",
+  legalNotice: "",
+  returnsPolicy: "",
 };
+
+// Textos de las páginas legales de la tienda, en HTML básico (StoreConfig
+// .privacyNotice / legalNotice / returnsPolicy). `emptyHint`: qué pasa si se
+// deja vacío.
+const LEGAL_TEXTS = [
+  {
+    name: "privacyNotice",
+    title: "Aviso de privacidad",
+    emptyHint: "Vacío = la tienda muestra su aviso de privacidad por defecto, con los datos de la empresa de arriba.",
+  },
+  {
+    name: "legalNotice",
+    title: "Aviso legal",
+    emptyHint: "Vacío = la tienda muestra su aviso legal por defecto, con los datos de la empresa de arriba.",
+  },
+  {
+    name: "returnsPolicy",
+    title: "Política de devoluciones",
+    emptyHint: "Vacío = la tienda no muestra la página.",
+  },
+];
+const LEGAL_TEXT_MAX = 50000;
 
 const StoreConfigLegal = () => {
   const [form, setForm] = useState(initialState);
@@ -28,6 +53,9 @@ const StoreConfigLegal = () => {
     legalAddress: data?.legalIdentity?.legalAddress || "",
     legalEmail: data?.legalIdentity?.legalEmail || "",
     legalPhone: data?.legalIdentity?.legalPhone || "",
+    privacyNotice: data?.privacyNotice || "",
+    legalNotice: data?.legalNotice || "",
+    returnsPolicy: data?.returnsPolicy || "",
   });
 
   const loadConfig = async () => {
@@ -57,13 +85,14 @@ const StoreConfigLegal = () => {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    const { privacyNotice, legalNotice, returnsPolicy, ...legalIdentity } = form;
     setIsLoading(true);
     setError("");
     setMessage("");
     try {
       const response = await axios.put(
         `${baseUrl}/api/store-config`,
-        { legalIdentity: { ...form } },
+        { legalIdentity: { ...legalIdentity }, privacyNotice, legalNotice, returnsPolicy },
         { headers: { ...getAuthHeaders(), "Content-Type": "application/json" } }
       );
       setForm(mapApiToForm(response.data?.storeConfig));
@@ -80,15 +109,17 @@ const StoreConfigLegal = () => {
       <StoreConfigTabs />
       <h3>Identidad legal</h3>
       <p>
-        Datos usados en Aviso Legal y Aviso de Privacidad (razón social, RFC, representante, domicilio y
-        contacto). El texto narrativo de esas páginas se mantiene fijo — solo estos datos son editables.
+        Datos de la empresa (razón social, RFC, representante, domicilio y contacto) y el texto de las páginas legales
+        de la tienda: Aviso de privacidad, Aviso legal y Política de devoluciones.
       </p>
 
       {message ? <div className="auth-success">{message}</div> : null}
       {error ? <div className="auth-error">{error}</div> : null}
 
       <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+        <h4 style={{ marginTop: 0 }}>Datos de la empresa</h4>
+        <p style={{ marginTop: 0 }}>Se usan en los avisos legales por defecto de la tienda.</p>
+        <div className="form-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
           <label>
             Razón social / nombre comercial
             <input type="text" name="legalName" value={form.legalName} onChange={handleChange} maxLength={160} />
@@ -115,11 +146,24 @@ const StoreConfigLegal = () => {
             Teléfono de contacto legal
             <input type="tel" name="legalPhone" value={form.legalPhone} onChange={handleChange} maxLength={30} />
           </label>
-          <label style={{ gridColumn: "1 / span 2" }}>
+          <label style={{ gridColumn: "1 / -1" }}>
             Domicilio legal
             <textarea name="legalAddress" value={form.legalAddress} onChange={handleChange} maxLength={400} rows={3} />
           </label>
         </div>
+
+        {LEGAL_TEXTS.map(({ name, title, emptyHint }) => (
+          <React.Fragment key={name}>
+            <h4 style={{ marginTop: "2rem" }}>{title}</h4>
+            <label>
+              Texto de la página (admite HTML básico: &lt;h2&gt;, &lt;p&gt;, &lt;b&gt;, &lt;ul&gt;, &lt;a&gt;…)
+              <textarea name={name} value={form[name]} onChange={handleChange} maxLength={LEGAL_TEXT_MAX} rows={12} />
+              <small>
+                {emptyHint} {form[name].length.toLocaleString("es-MX")} / {LEGAL_TEXT_MAX.toLocaleString("es-MX")} caracteres.
+              </small>
+            </label>
+          </React.Fragment>
+        ))}
 
         <div style={{ marginTop: "1.5rem", display: "flex", gap: "0.75rem" }}>
           <button type="submit" disabled={isLoading} style={{ width: "auto" }}>

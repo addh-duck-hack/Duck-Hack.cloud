@@ -92,12 +92,12 @@ const CategoryForm = () => {
   if (isLoading) return <p>Cargando...</p>;
 
   return (
-    <section>
+    <section style={{ maxWidth: 1300 }}>
       <h3>{isEditing ? "Editar categoría" : "Nueva categoría"}</h3>
 
       {error ? <div className="auth-error">{error}</div> : null}
 
-      <form onSubmit={handleSubmit} style={{ maxWidth: 600, margin: 0 }}>
+      <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
         <label>
           Nombre
           <input type="text" name="name" value={form.name} onChange={handleChange} maxLength={80} required />

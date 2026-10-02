@@ -104,12 +104,12 @@ const InventoryForm = () => {
   if (isLoading) return <p>Cargando...</p>;
 
   return (
-    <section>
+    <section style={{ maxWidth: 1300 }}>
       <h3>{isEditing ? "Editar inventario" : "Registrar inventario"}</h3>
 
       {error ? <div className="auth-error">{error}</div> : null}
 
-      <form onSubmit={handleSubmit} style={{ maxWidth: 500, margin: 0 }}>
+      <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
         <label>
           Producto
           <select name="product" value={form.product} onChange={handleChange} required disabled={isEditing}>

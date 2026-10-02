@@ -25,11 +25,12 @@ const escapeHtml = (value = "") =>
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 
-// Correo de una acción de cuenta (verificar correo, restablecer contraseña):
-// encabezado con la marca de la tienda, saludo, párrafo, un botón y el enlace
-// en texto por si el botón no funciona. `accent` es theme.accentColor de la
-// tienda (si es un hex válido).
-const accountActionEmailTemplate = ({ storeName, logoUrl, accent, title, name, intro, ctaLabel, url, note, footnote }) => {
+// Correo de una acción de cuenta (verificar correo, restablecer contraseña) o
+// aviso de un pedido: encabezado con la marca de la tienda, saludo, párrafo,
+// renglones opcionales "Etiqueta: valor" (`details`) y, si hay `url`, un botón
+// con el enlace en texto por si el botón no funciona. `accent` es
+// theme.accentColor de la tienda (si es un hex válido).
+const accountActionEmailTemplate = ({ storeName, logoUrl, accent, title, name, intro, details = [], ctaLabel, url, note, footnote }) => {
   const brandName = storeName || "Duck-Hack";
   const color = accent && /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/.test(accent) ? accent : BRAND.action;
   const safeName = escapeHtml(name || "");
@@ -59,7 +60,15 @@ const accountActionEmailTemplate = ({ storeName, logoUrl, accent, title, name, i
                 <p style="margin:0 0 24px; font-family:${bodyFont}; font-size:15px; line-height:1.6; color:${BRAND.textDim};">
                   ${escapeHtml(intro)}
                 </p>
-                <table role="presentation" cellpadding="0" cellspacing="0">
+                ${details.length ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">${details
+                  .map(
+                    (d) => `<tr>
+                    <td style="padding:6px 0; font-family:${bodyFont}; font-size:14px; color:${BRAND.textDim}; border-bottom:1px solid ${BRAND.line};">${escapeHtml(d.label)}</td>
+                    <td style="padding:6px 0; font-family:${bodyFont}; font-size:14px; color:${BRAND.white}; border-bottom:1px solid ${BRAND.line}; text-align:right;">${escapeHtml(d.value)}</td>
+                  </tr>`
+                  )
+                  .join("")}</table>` : ""}
+                ${url ? `<table role="presentation" cellpadding="0" cellspacing="0">
                   <tr>
                     <td align="center" bgcolor="${color}" style="border-radius:8px;">
                       <a href="${url}"
@@ -68,12 +77,12 @@ const accountActionEmailTemplate = ({ storeName, logoUrl, accent, title, name, i
                       </a>
                     </td>
                   </tr>
-                </table>
+                </table>` : ""}
                 ${note ? `<p style="margin:20px 0 0; font-family:${bodyFont}; font-size:13px; line-height:1.5; color:${BRAND.textDim};">${escapeHtml(note)}</p>` : ""}
-                <p style="margin:24px 0 0; font-family:${bodyFont}; font-size:13px; line-height:1.5; color:${BRAND.textDim};">
+                ${url ? `<p style="margin:24px 0 0; font-family:${bodyFont}; font-size:13px; line-height:1.5; color:${BRAND.textDim};">
                   Si el botón no funciona, copia y pega este enlace en tu navegador:<br />
                   <a href="${url}" style="color:${color}; word-break:break-all;">${url}</a>
-                </p>
+                </p>` : ""}
               </td>
             </tr>
             <tr>
@@ -90,11 +99,11 @@ const accountActionEmailTemplate = ({ storeName, logoUrl, accent, title, name, i
   </body>
 </html>`;
 
+  const detailsText = details.map((d) => `${d.label}: ${d.value}`).join("\n");
   const text = `${greeting}
 
 ${intro}
-${url}
-${note ? `\n${note}\n` : ""}
+${detailsText ? `\n${detailsText}\n` : ""}${url ? `${url}\n` : ""}${note ? `\n${note}\n` : ""}
 ${footnote}`;
 
   return { html, text };
@@ -201,13 +210,45 @@ const pickupPointLines = (order) => {
 const paragraphHtml = (text) =>
   `<p style="margin:0; font-family:${bodyFont}; font-size:14px; line-height:1.6; color:${BRAND.textDim};">${escapeHtml(text).replace(/\n/g, "<br/>")}</p>`;
 
+// Tipo de pago del pedido: "spei" o "manual". Pedidos anteriores a los
+// métodos configurables: "transfer" = SPEI, "pickup" = manual.
+const paymentTypeOf = (order) => order.paymentMethodType || (order.paymentMethod === "pickup" ? "manual" : "spei");
+
+// Cuenta SPEI a la que se transfiere: la del método elegido; si no tiene
+// CLABE propia (o el pedido es de antes de los métodos configurables), la
+// cuenta general speiPayment. null si la tienda no la ha configurado. La
+// usan este correo y la página del pedido (modules/orders.js#GET /:id/summary).
+const resolveSpeiAccount = (order, storeConfig) => {
+  if (paymentTypeOf(order) !== "spei") return null;
+  const method = (storeConfig?.paymentMethods || []).find((m) => String(m._id) === String(order.paymentMethod));
+  const spei = method?.spei?.clabe ? method.spei : storeConfig?.speiPayment;
+  if (!spei?.clabe) return null;
+  return {
+    accountHolderName: spei.accountHolderName || "",
+    bank: spei.bank || "",
+    clabe: spei.clabe,
+    phone: spei.phone || "",
+  };
+};
+
+// Botón del correo (mismo estilo que accountActionEmailTemplate).
+const ctaButtonHtml = (label, url, color) => `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:16px 0 8px;">
+          <tr>
+            <td align="center" bgcolor="${color}" style="border-radius:8px;">
+              <a href="${url}" style="display:inline-block; padding:12px 24px; font-family:${monoFont}; font-size:13px; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; color:${BRAND.onAccent}; text-decoration:none; border-radius:8px;">${escapeHtml(label)}</a>
+            </td>
+          </tr>
+        </table>`;
+
 // Bloque de instrucciones de pago según el tipo de método (ver
-// lib/checkoutOptions.js): "spei" usa storeConfig.speiPayment si la tienda ya
-// lo configuró — si falta la CLABE, cae al texto genérico en vez de mostrar
-// un bloque a medias —; "manual" usa las instrucciones que escribió la
-// tienda. Pedidos anteriores: "transfer" = SPEI, "pickup" = texto fijo.
-const buildPaymentInstructions = (order, storeConfig) => {
-  const type = order.paymentMethodType || (order.paymentMethod === "pickup" ? "manual" : "spei");
+// lib/checkoutOptions.js): "spei" usa la cuenta de resolveSpeiAccount — si
+// falta la CLABE, cae al texto genérico en vez de mostrar un bloque a
+// medias —; "manual" usa las instrucciones que escribió la tienda.
+// `proofUploadUrl` (si la tienda deja subir el comprobante desde su sitio,
+// StoreConfig.customerProofUpload) agrega el botón "Subir mi comprobante";
+// responder el correo queda como alternativa.
+const buildPaymentInstructions = (order, storeConfig, { proofUploadUrl, accent = BRAND.action } = {}) => {
+  const type = paymentTypeOf(order);
   if (type === "manual") {
     const text = order.paymentInstructions ||
       (order.paymentMethod === "pickup"
@@ -216,11 +257,8 @@ const buildPaymentInstructions = (order, storeConfig) => {
     return { html: paragraphHtml(text), text };
   }
 
-  // Cuenta del método SPEI elegido; si no tiene CLABE propia (o el pedido es
-  // de antes de los métodos configurables), la cuenta general speiPayment.
-  const method = (storeConfig?.paymentMethods || []).find((m) => String(m._id) === String(order.paymentMethod));
-  const spei = method?.spei?.clabe ? method.spei : storeConfig?.speiPayment;
-  if (spei?.clabe) {
+  const spei = resolveSpeiAccount(order, storeConfig);
+  if (spei) {
     const rows = [
       spei.accountHolderName ? ["Beneficiario", spei.accountHolderName] : null,
       spei.bank ? ["Banco", spei.bank] : null,
@@ -242,12 +280,23 @@ const buildPaymentInstructions = (order, storeConfig) => {
           Realiza tu transferencia SPEI por <strong style="color:${BRAND.white};">${formatCurrency(order.total)}</strong> con los siguientes datos:
         </p>
         <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:8px;">${htmlRows}</table>
-        <p style="margin:0; font-family:${bodyFont}; font-size:13px; line-height:1.5; color:${BRAND.textDim};">
+        ${proofUploadUrl
+          ? `<p style="margin:0; font-family:${bodyFont}; font-size:13px; line-height:1.5; color:${BRAND.textDim};">
+          Una vez hecha la transferencia, sube tu comprobante para confirmar tu pedido:
+        </p>
+        ${ctaButtonHtml("Subir mi comprobante", proofUploadUrl, accent)}
+        <p style="margin:0; font-family:${bodyFont}; font-size:12px; line-height:1.5; color:${BRAND.textDim};">
+          Si el botón no funciona, copia este enlace: <a href="${proofUploadUrl}" style="color:${accent}; word-break:break-all;">${proofUploadUrl}</a><br/>
+          También puedes responder este correo con tu comprobante.
+        </p>`
+          : `<p style="margin:0; font-family:${bodyFont}; font-size:13px; line-height:1.5; color:${BRAND.textDim};">
           Una vez hecha la transferencia, envíanos tu comprobante respondiendo este correo para confirmar tu pedido.
-        </p>`,
+        </p>`}`,
       text: `Realiza tu transferencia SPEI por ${formatCurrency(order.total)} con los siguientes datos:\n` +
         rows.map(([label, value]) => `${label}: ${value}`).join("\n") +
-        `\n\nUna vez hecha la transferencia, envíanos tu comprobante respondiendo este correo para confirmar tu pedido.`,
+        (proofUploadUrl
+          ? `\n\nUna vez hecha la transferencia, sube tu comprobante para confirmar tu pedido:\n${proofUploadUrl}\nTambién puedes responder este correo con tu comprobante.`
+          : `\n\nUna vez hecha la transferencia, envíanos tu comprobante respondiendo este correo para confirmar tu pedido.`),
     };
   }
 
@@ -278,14 +327,14 @@ const buildPaymentInstructions = (order, storeConfig) => {
  * @param {{ order: object, storeConfig: object|null, logoAbsoluteUrl?: string }} params
  * @returns {{ html: string, text: string }}
  */
-const orderConfirmationEmailTemplate = ({ order, storeConfig, logoAbsoluteUrl }) => {
+const orderConfirmationEmailTemplate = ({ order, storeConfig, logoAbsoluteUrl, proofUploadUrl }) => {
   const pickup = pickupPointLines(order);
   const storeName = storeConfig?.storeName || "Tienda";
   const accent = (storeConfig?.theme?.accentColor && /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/.test(storeConfig.theme.accentColor))
     ? storeConfig.theme.accentColor
     : BRAND.action;
 
-  const payment = buildPaymentInstructions(order, storeConfig);
+  const payment = buildPaymentInstructions(order, storeConfig, { proofUploadUrl, accent });
 
   const html = `<!DOCTYPE html>
 <html lang="es">
@@ -325,7 +374,7 @@ const orderConfirmationEmailTemplate = ({ order, storeConfig, logoAbsoluteUrl })
                 ${payment.html}
 
                 <p style="margin:24px 0 0; font-family:${bodyFont}; font-size:13px; line-height:1.5; color:${BRAND.textDim};">
-                  Adjuntamos tu comprobante de pedido en PDF. Gracias por tu compra.
+                  Adjuntamos tu ticket del pedido en PDF. Gracias por tu compra.
                 </p>
               </td>
             </tr>
@@ -345,7 +394,7 @@ ${pickup.length ? `\nRecoge tu pedido:\n${pickup.join("\n")}\n` : ""}
 ¿Cómo pagar?
 ${payment.text}
 
-Adjuntamos tu comprobante de pedido en PDF. Gracias por tu compra.`;
+Adjuntamos tu ticket del pedido en PDF. Gracias por tu compra.`;
 
   return { html, text };
 };
@@ -481,7 +530,132 @@ const formatShippingAddressLine = (addr) => {
   return [addr.recipientName, line1, line2, line3, addr.phone ? `Tel: ${addr.phone}` : ""].filter(Boolean).join("\n");
 };
 
+// Avisos del pedido después de creado (order-notify): pago validado,
+// comprobante rechazado, enviado (con guía), entregado, listo para recoger
+// (con el punto de venta), recogido y cancelado — al
+// cliente — y "comprobante recibido" — a la tienda. Los dispara
+// modules/orders.js; cuáles se mandan lo decide StoreConfig.orderNotifications.
+const ORDER_STATUS_EMAILS = {
+  confirmed: {
+    subject: (n) => `Pago confirmado — pedido #${n}`,
+    title: "Recibimos tu pago",
+    intro: (store) => `Confirmamos el pago de tu pedido. ${store} ya lo está preparando.`,
+  },
+  proof_rejected: {
+    subject: (n) => `Revisa tu comprobante — pedido #${n}`,
+    title: "No pudimos validar tu comprobante",
+    intro: () => "El comprobante de pago que enviaste no se pudo validar. Revisa el motivo y envíanos uno nuevo para continuar con tu pedido.",
+  },
+  shipped: {
+    subject: (n) => `Tu pedido #${n} va en camino`,
+    title: "Tu pedido va en camino",
+    intro: () => "Ya enviamos tu pedido. Con el número de guía puedes rastrearlo con la paquetería.",
+  },
+  ready_for_pickup: {
+    subject: (n) => `Tu pedido #${n} está listo para recoger`,
+    title: "Tu pedido está listo para recoger",
+    intro: () => "Ya puedes pasar por tu pedido. Te esperamos en el punto de venta que elegiste.",
+  },
+  picked_up: {
+    subject: (n) => `Pedido #${n} recogido`,
+    title: "Recogiste tu pedido",
+    intro: (store) => `Tu pedido aparece como recogido. ¡Gracias por comprar en ${store}!`,
+  },
+  delivered: {
+    subject: (n) => `Pedido #${n} entregado`,
+    title: "Tu pedido fue entregado",
+    intro: (store) => `Tu pedido aparece como entregado. ¡Gracias por comprar en ${store}!`,
+  },
+  cancelled: {
+    subject: (n) => `Pedido #${n} cancelado`,
+    title: "Tu pedido fue cancelado",
+    intro: () => "Tu pedido fue cancelado. Si tienes dudas o no esperabas este cambio, responde a este correo o contáctanos.",
+  },
+  proof_uploaded: {
+    subject: (n) => `Comprobante recibido — pedido #${n}`,
+    title: "Nuevo comprobante de pago",
+    intro: () => "Se subió un comprobante de pago. Revísalo en el panel (Pedidos) para aprobarlo o rechazarlo.",
+  },
+};
+
+/**
+ * @param {{ kind: keyof ORDER_STATUS_EMAILS, order: object, storeConfig?: object, logoAbsoluteUrl?: string, reason?: string }} params
+ * @returns {{ subject: string, html: string, text: string }}
+ */
+const orderStatusEmailTemplate = ({ kind, order, storeConfig, logoAbsoluteUrl, reason, proofUploadUrl }) => {
+  const copy = ORDER_STATUS_EMAILS[kind];
+  if (!copy) throw new Error(`Aviso de pedido desconocido: ${kind}`);
+  const storeName = storeConfig?.storeName || "Duck-Hack";
+  const number = order.orderNumber ?? String(order._id);
+  const shipment = order.shipment || {};
+  const details = [{ label: "Pedido", value: `#${number}` }, { label: "Total", value: formatCurrency(order.total) }];
+  if (kind === "proof_rejected" && reason) details.push({ label: "Motivo", value: reason });
+  if (kind === "shipped") {
+    if (shipment.carrier) details.push({ label: "Paquetería", value: shipment.carrier });
+    if (shipment.trackingNumber) details.push({ label: "Número de guía", value: shipment.trackingNumber });
+  }
+  if (kind === "proof_uploaded") details.push({ label: "Cliente", value: `${order.customerName} (${order.customerEmail})` });
+  // Dónde y cuándo recoger (copia del punto de venta guardada en el pedido).
+  if (kind === "ready_for_pickup" && order.pickupPoint?.name) {
+    details.push({ label: "Dónde", value: order.pickupPoint.name });
+    if (order.pickupPoint.address) details.push({ label: "Dirección", value: order.pickupPoint.address });
+    if (order.pickupPoint.schedule) details.push({ label: "Horario", value: order.pickupPoint.schedule });
+    // Las "indicaciones" del punto de venta se escriben para el checkout
+    // (antes de confirmar: "te avisaremos cuándo pasar…") y aquí confundirían;
+    // en este correo ya puede pasar, así que va qué llevar.
+    details.push({ label: "Qué llevar", value: "Puede pasar a recoger con el número del pedido y una identificación oficial." });
+  }
+
+  const trackingUrl = kind === "shipped" && /^https?:\/\//i.test(shipment.trackingUrl || "") ? shipment.trackingUrl : undefined;
+  // Comprobante rechazado: botón para subir otro, si la tienda lo permite.
+  const ctaUrl = kind === "proof_rejected" ? proofUploadUrl : trackingUrl;
+  const { html, text } = accountActionEmailTemplate({
+    storeName,
+    logoUrl: logoAbsoluteUrl,
+    accent: storeConfig?.theme?.accentColor,
+    title: copy.title,
+    name: kind === "proof_uploaded" ? "" : order.customerName,
+    intro: copy.intro(storeName),
+    details,
+    ctaLabel: kind === "proof_rejected" ? "Subir otro comprobante" : "Rastrear mi pedido",
+    url: ctaUrl,
+    footnote: kind === "proof_uploaded" ? `Aviso automático de ${storeName}.` : `Este correo es un aviso automático de ${storeName} sobre tu pedido.`,
+  });
+  return { subject: copy.subject(number), html, text };
+};
+
+// Aviso a la tienda de productos que llegaron a su mínimo o se agotaron
+// (modules/inventory.js#notifyStockAlerts). `items`: [{ name, variantLabel?,
+// sku?, quantity, threshold, status: "low_stock" | "out_of_stock" }].
+const lowStockEmailTemplate = ({ items, storeConfig, logoAbsoluteUrl }) => {
+  const storeName = storeConfig?.storeName || "Duck-Hack";
+  const outCount = items.filter((i) => i.status === "out_of_stock").length;
+  const subject =
+    items.length === 1
+      ? `${items[0].status === "out_of_stock" ? "Agotado" : "Inventario bajo"}: ${items[0].name}${items[0].variantLabel ? ` (${items[0].variantLabel})` : ""}`
+      : `Inventario: ${items.length} productos requieren atención${outCount ? ` (${outCount} ${outCount === 1 ? "agotado" : "agotados"})` : ""}`;
+  const details = items.map((i) => ({
+    label: `${i.name}${i.variantLabel ? ` · ${i.variantLabel}` : ""}${i.sku ? ` (${i.sku})` : ""}`,
+    value: i.status === "out_of_stock" ? "Agotado" : `Quedan ${i.quantity} (mínimo ${i.threshold})`,
+  }));
+  const { html, text } = accountActionEmailTemplate({
+    storeName,
+    logoUrl: logoAbsoluteUrl,
+    accent: storeConfig?.theme?.accentColor,
+    title: outCount === items.length ? "Productos agotados" : "Inventario bajo",
+    name: "",
+    intro: "Estos productos llegaron a su mínimo de inventario o se agotaron. Los agotados ya no se muestran en la tienda hasta que registres existencias en Inventario.",
+    details,
+    footnote: `Aviso automático de ${storeName}. Se puede apagar en Configurar tienda → Ventas y pagos.`,
+  });
+  return { subject, html, text };
+};
+
 module.exports = {
+  resolveSpeiAccount,
+  paymentTypeOf,
+  lowStockEmailTemplate,
+  orderStatusEmailTemplate,
   verificationEmailTemplate,
   passwordResetEmailTemplate,
   orderConfirmationEmailTemplate,

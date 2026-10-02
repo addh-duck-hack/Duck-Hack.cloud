@@ -10,6 +10,19 @@ import StoreConfigTabs from "./StoreConfigTabs";
 // packages/core-api/lib/checkoutOptions.js, lib/shipping.js y
 // lib/purchaseLimits.js.
 
+// Mismas claves que ORDER_NOTIFICATION_KEYS en packages/core-api/modules/storeConfig.js.
+const ORDER_NOTIFICATIONS = [
+  { key: "confirmed", label: "Al cliente: pago confirmado (el pedido pasa a Pagado)" },
+  { key: "proofRejected", label: "Al cliente: comprobante rechazado (con el motivo)" },
+  { key: "shipped", label: "Al cliente: pedido enviado (con paquetería y guía)" },
+  { key: "delivered", label: "Al cliente: pedido entregado" },
+  { key: "readyForPickup", label: "Al cliente: pedido listo para recoger (con el punto de venta)" },
+  { key: "pickedUp", label: "Al cliente: pedido recogido" },
+  { key: "cancelled", label: "Al cliente: pedido cancelado" },
+  { key: "proofUploaded", label: "A la tienda: el cliente subió un comprobante" },
+];
+const defaultOrderNotifications = Object.fromEntries(ORDER_NOTIFICATIONS.map(({ key }) => [key, true]));
+
 const PICKUP_POINT_FIELDS = [
   { name: "name", label: "Nombre", type: "text", required: true, maxLength: 120, placeholder: "Finca Tacita" },
   { name: "schedule", label: "Horario", type: "text", maxLength: 200, placeholder: "Lun a sáb, 9:00 a 18:00" },
@@ -134,6 +147,9 @@ const StoreConfigPayments = () => {
   const [shipping, setShipping] = useState(initialShipping);
   const [pickupPoints, setPickupPoints] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);
+  const [orderNotifications, setOrderNotifications] = useState(defaultOrderNotifications);
+  const [lowStockAlerts, setLowStockAlerts] = useState(true);
+  const [customerProofUpload, setCustomerProofUpload] = useState(false);
   const [usingDefaultMethods, setUsingDefaultMethods] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -146,6 +162,11 @@ const StoreConfigPayments = () => {
     // null/0 = sin límite; se muestra vacío para que se lea así.
     setMaxUnitsPerProduct(data?.maxUnitsPerProduct ? String(data.maxUnitsPerProduct) : "");
     setHomeDeliveryEnabled(data?.homeDeliveryEnabled !== false);
+    setLowStockAlerts(data?.lowStockAlerts !== false);
+    setCustomerProofUpload(Boolean(data?.customerProofUpload));
+    setOrderNotifications(
+      Object.fromEntries(ORDER_NOTIFICATIONS.map(({ key }) => [key, data?.orderNotifications?.[key] !== false]))
+    );
     setShipping({
       enabled: Boolean(data?.shipping?.enabled),
       cost: data?.shipping?.cost != null ? String(data.shipping.cost) : "",
@@ -207,6 +228,9 @@ const StoreConfigPayments = () => {
           },
           pickupPoints,
           paymentMethods: paymentMethods.map(formToMethod),
+          orderNotifications,
+          lowStockAlerts,
+          customerProofUpload,
         },
         { headers: { ...getAuthHeaders(), "Content-Type": "application/json" } }
       );
@@ -364,6 +388,43 @@ const StoreConfigPayments = () => {
           createEmptyItem={emptyPaymentMethod}
           addButtonLabel="+ Agregar método de pago"
         />
+
+        <h4 style={{ marginTop: "2rem" }}>Comprobantes de pago</h4>
+        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <input
+            type="checkbox"
+            checked={customerProofUpload}
+            onChange={(e) => setCustomerProofUpload(e.target.checked)}
+            style={{ width: "auto" }}
+          />
+          El cliente sube su comprobante de transferencia desde la tienda
+        </label>
+        <p style={{ marginTop: 0 }}>
+          El correo de confirmación (y el de comprobante rechazado) llevan el botón "Subir mi comprobante" a la página del
+          pedido en la tienda. Actívalo solo cuando la tienda ya tenga esa página; si no, el cliente recibiría un enlace roto.
+          Apagado, el correo pide responder con el comprobante, como hasta ahora.
+        </p>
+
+        <h4 style={{ marginTop: "2rem" }}>Avisos por correo del pedido</h4>
+        <p>
+          Correos automáticos cuando cambia un pedido. El correo de confirmación al hacer el pedido y el aviso de pedido
+          nuevo a la tienda se envían siempre.
+        </p>
+        {ORDER_NOTIFICATIONS.map(({ key, label }) => (
+          <label key={key} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <input
+              type="checkbox"
+              checked={orderNotifications[key]}
+              onChange={(e) => setOrderNotifications((prev) => ({ ...prev, [key]: e.target.checked }))}
+              style={{ width: "auto" }}
+            />
+            {label}
+          </label>
+        ))}
+        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <input type="checkbox" checked={lowStockAlerts} onChange={(e) => setLowStockAlerts(e.target.checked)} style={{ width: "auto" }} />
+          A la tienda: un producto llegó a su mínimo de inventario o se agotó
+        </label>
 
         <div style={{ marginTop: "1.5rem", display: "flex", gap: "0.75rem" }}>
           <button type="submit" disabled={isLoading} style={{ width: "auto" }}>

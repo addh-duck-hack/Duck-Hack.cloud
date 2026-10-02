@@ -7,8 +7,10 @@ const JWT_ALGORITHM = "HS256";
 const ACCESS_TOKEN_TYPE = "access";
 const EMAIL_VERIFICATION_TOKEN_TYPE = "email_verification";
 const PASSWORD_RESET_TOKEN_TYPE = "password_reset";
-// Opcional (no está en requiredVars para no romper .env existentes).
+const ORDER_ACCESS_TOKEN_TYPE = "order_access";
+// Opcionales (no están en requiredVars para no romper .env existentes).
 const DEFAULT_PASSWORD_RESET_EXPIRES_IN = "1h";
+const DEFAULT_ORDER_ACCESS_EXPIRES_IN = "30d";
 
 const readJwtConfig = () => {
   const requiredVars = [
@@ -36,6 +38,7 @@ const readJwtConfig = () => {
     accessExpiresIn: String(process.env.JWT_ACCESS_EXPIRES_IN).trim(),
     emailVerifyExpiresIn: String(process.env.JWT_EMAIL_VERIFY_EXPIRES_IN).trim(),
     passwordResetExpiresIn: String(process.env.JWT_PASSWORD_RESET_EXPIRES_IN || DEFAULT_PASSWORD_RESET_EXPIRES_IN).trim(),
+    orderAccessExpiresIn: String(process.env.JWT_ORDER_ACCESS_EXPIRES_IN || DEFAULT_ORDER_ACCESS_EXPIRES_IN).trim(),
   };
 };
 
@@ -151,8 +154,40 @@ const verifyPasswordResetToken = (token) => {
   return decoded;
 };
 
+// Acceso de un invitado a SU pedido (subir el comprobante de pago sin cuenta).
+// Lo devuelve POST /api/orders/public y solo sirve para ese pedido (`oid`);
+// no es una sesión: no trae rol ni se acepta como access token.
+const signOrderAccessToken = ({ orderId }) => {
+  const config = readJwtConfig();
+  const subject = String(orderId);
+  return jwt.sign({ oid: subject, tokenType: ORDER_ACCESS_TOKEN_TYPE }, config.secret, {
+    algorithm: JWT_ALGORITHM,
+    issuer: config.issuer,
+    audience: config.audience,
+    subject,
+    expiresIn: config.orderAccessExpiresIn,
+  });
+};
+
+const verifyOrderAccessToken = (token) => {
+  const config = readJwtConfig();
+  const decoded = jwt.verify(token, config.secret, {
+    algorithms: [JWT_ALGORITHM],
+    issuer: config.issuer,
+    audience: config.audience,
+  });
+  if (decoded.tokenType !== ORDER_ACCESS_TOKEN_TYPE) {
+    const error = new Error("Tipo de token inválido para acceder al pedido.");
+    error.code = "JWT_INVALID_TOKEN_TYPE";
+    throw error;
+  }
+  return decoded;
+};
+
 module.exports = {
   signAccessToken,
+  signOrderAccessToken,
+  verifyOrderAccessToken,
   signEmailVerificationToken,
   signPasswordResetToken,
   verifyAccessToken,

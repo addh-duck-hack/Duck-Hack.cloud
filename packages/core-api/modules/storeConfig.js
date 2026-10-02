@@ -227,8 +227,61 @@ const testimonialSchema = new mongoose.Schema(
     description: { type: String, trim: true, maxlength: 500 },
     url: { type: String, trim: true, maxlength: 300 },
     photoUrl: { type: String, trim: true, maxlength: 300 },
+    // Calificación 1–5 (estrellas); null = sin calificación.
+    rating: { type: Number, min: 1, max: 5, default: null },
     sortOrder: { type: Number, default: 0, min: 0 },
     isActive: { type: Boolean, default: true },
+  },
+  { _id: false }
+);
+
+// Horario de atención (contacto/ubicación del storefront y, después, horario
+// general del módulo de Citas). Un renglón por turno: un día puede tener dos
+// (p. ej. 10:00–14:00 y 16:00–20:00). `closed` marca un día de descanso.
+// day: 0 = domingo … 6 = sábado. Horas "HH:MM" en 24 h, hora local de la tienda.
+const businessHoursSchema = new mongoose.Schema(
+  {
+    day: { type: Number, required: true, min: 0, max: 6 },
+    open: { type: String, trim: true, match: /^([01]\d|2[0-3]):[0-5]\d$/ },
+    close: { type: String, trim: true, match: /^([01]\d|2[0-3]):[0-5]\d$/ },
+    closed: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
+// Días festivos / cerrado. `date` en texto "YYYY-MM-DD" (fecha local, sin
+// zona horaria a propósito: es un día del calendario, no un instante).
+const holidaySchema = new mongoose.Schema(
+  {
+    date: { type: String, required: true, trim: true, match: /^\d{4}-\d{2}-\d{2}$/ },
+    label: { type: String, trim: true, maxlength: 80 },
+  },
+  { _id: false }
+);
+
+// Ubicación del negocio (componente "contact-location": mapa, dirección y
+// "Cómo llegar"). Distinta de pickupPoints, que son puntos de entrega.
+const locationSchema = new mongoose.Schema(
+  {
+    address: { type: String, trim: true, maxlength: 400 },
+    lat: { type: Number, min: -90, max: 90, default: null },
+    lng: { type: Number, min: -180, max: 180, default: null },
+    // Enlace de Google Maps para "Cómo llegar"; si falta, el storefront puede
+    // armarlo con lat/lng o la dirección.
+    mapsUrl: { type: String, trim: true, maxlength: 500 },
+  },
+  { _id: false }
+);
+
+// Botón flotante de WhatsApp y botones "Agendar"/"Preguntar" con mensaje
+// prellenado. `phone` con lada de país, solo dígitos (52 + 10 dígitos en
+// México). En `itemMessage`, {item} se reemplaza por el servicio o producto.
+const whatsappButtonSchema = new mongoose.Schema(
+  {
+    enabled: { type: Boolean, default: false },
+    phone: { type: String, trim: true, maxlength: 15, match: [/^\d*$/, "whatsappButton.phone solo admite números."] },
+    defaultMessage: { type: String, trim: true, maxlength: 300, default: "Hola, tengo una pregunta." },
+    itemMessage: { type: String, trim: true, maxlength: 300, default: "Hola, me interesa: {item}" },
   },
   { _id: false }
 );
@@ -252,6 +305,18 @@ const shippingSchema = new mongoose.Schema(
     cost: { type: Number, min: 0, max: 1000000, default: null },
     freeFrom: { type: Number, min: 0, max: 1000000, default: null },
   },
+  { _id: false }
+);
+
+// Avisos por correo del pedido después de creado (modules/orders.js,
+// lib/emailTemplates.js#orderStatusEmailTemplate). Todos encendidos por
+// default; la confirmación al hacer el pedido y el aviso de pedido nuevo a la
+// tienda no dependen de esto (siempre se mandan, como antes).
+const ORDER_NOTIFICATION_KEYS = [
+  "confirmed", "proofRejected", "shipped", "delivered", "readyForPickup", "pickedUp", "cancelled", "proofUploaded",
+];
+const orderNotificationsSchema = new mongoose.Schema(
+  Object.fromEntries(ORDER_NOTIFICATION_KEYS.map((key) => [key, { type: Boolean, default: true }])),
   { _id: false }
 );
 
@@ -313,6 +378,17 @@ const storeConfigSchema = new mongoose.Schema(
     // lib/purchaseLimits.js). null o 0 = sin tope (solo limita el inventario).
     maxUnitsPerProduct: { type: Number, min: 0, max: 9999, default: null },
     shipping: { type: shippingSchema, default: () => ({}) },
+    orderNotifications: { type: orderNotificationsSchema, default: () => ({}) },
+    // Correo a la tienda cuando un producto llega a su mínimo o se agota
+    // (modules/inventory.js#notifyStockAlerts).
+    lowStockAlerts: { type: Boolean, default: true },
+    // El cliente sube su comprobante de pago desde el sitio: el correo de
+    // confirmación (y el de comprobante rechazado) llevan el botón a
+    // FRONTEND_URL/pedido/<id>?token=… (ver modules/orders.js). Apagado por
+    // default: solo se enciende cuando el storefront de la tienda ya tiene esa
+    // página — si no, el cliente recibiría un enlace roto. Sí sale en /public,
+    // para que el storefront sepa si mostrar "Subir comprobante".
+    customerProofUpload: { type: Boolean, default: false },
     homeDeliveryEnabled: { type: Boolean, default: true },
     pickupPoints: { type: [pickupPointSchema], default: [] },
     paymentMethods: { type: [paymentMethodSchema], default: [] },
@@ -325,6 +401,18 @@ const storeConfigSchema = new mongoose.Schema(
     faqs: { type: [faqSchema], default: [] },
     teamMembers: { type: [teamMemberSchema], default: [] },
     testimonials: { type: [testimonialSchema], default: [] },
+    businessHours: { type: [businessHoursSchema], default: [] },
+    holidays: { type: [holidaySchema], default: [] },
+    location: { type: locationSchema, default: () => ({}) },
+    whatsappButton: { type: whatsappButtonSchema, default: () => ({}) },
+    // Textos de las páginas legales del storefront (Configurar tienda →
+    // Identidad legal). Admiten HTML básico, igual que la bio del equipo.
+    // Vacío = el storefront usa su texto por defecto (aviso legal y de
+    // privacidad, armados con legalIdentity) o, en devoluciones, no muestra
+    // la página. Ver LEGAL_TEXT_FIELDS.
+    privacyNotice: { type: String, trim: true, maxlength: 50000, default: "" },
+    legalNotice: { type: String, trim: true, maxlength: 50000, default: "" },
+    returnsPolicy: { type: String, trim: true, maxlength: 50000, default: "" },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }
@@ -691,10 +779,127 @@ const validateTestimonialItem = (item, index) => {
     if (photoUrl.length > 300) return `testimonials[${index}].photoUrl excede 300 caracteres.`;
     item.photoUrl = photoUrl;
   }
+  if (item.rating !== undefined) {
+    if (item.rating === null || item.rating === "") {
+      item.rating = null;
+    } else {
+      const rating = Number(item.rating);
+      if (!Number.isInteger(rating) || rating < 1 || rating > 5) return `testimonials[${index}].rating debe ser un entero de 1 a 5.`;
+      item.rating = rating;
+    }
+  }
   if (item.sortOrder !== undefined && (!Number.isInteger(item.sortOrder) || item.sortOrder < 0)) {
     return `testimonials[${index}].sortOrder debe ser entero >= 0.`;
   }
   if (item.isActive !== undefined && typeof item.isActive !== "boolean") return `testimonials[${index}].isActive debe ser boolean.`;
+  return null;
+};
+
+const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+const MAX_BUSINESS_HOURS = 14;
+const MAX_HOLIDAYS = 60;
+
+const validateBusinessHoursItem = (item, index) => {
+  if (!isPlainObject(item)) return `businessHours[${index}] debe ser un objeto.`;
+  const day = Number(item.day);
+  if (!Number.isInteger(day) || day < 0 || day > 6) return `businessHours[${index}].day debe ser 0 (domingo) a 6 (sábado).`;
+  item.day = day;
+  item.closed = Boolean(item.closed);
+  if (item.closed) {
+    delete item.open;
+    delete item.close;
+    return null;
+  }
+  const open = asTrimmedString(item.open);
+  const close = asTrimmedString(item.close);
+  if (!TIME_PATTERN.test(open) || !TIME_PATTERN.test(close)) return `businessHours[${index}] necesita apertura y cierre en formato HH:MM (24 h).`;
+  if (open >= close) return `businessHours[${index}]: la hora de cierre debe ser después de la de apertura.`;
+  item.open = open;
+  item.close = close;
+  return null;
+};
+
+const validateHolidayItem = (item, index) => {
+  if (!isPlainObject(item)) return `holidays[${index}] debe ser un objeto.`;
+  const date = asTrimmedString(item.date);
+  // Ida y vuelta: Date.parse acepta "2026-02-30" (lo recorre al 2 de marzo).
+  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(`${date}T00:00:00Z`) : null;
+  if (!parsed || Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date) {
+    return `holidays[${index}].date debe ser una fecha AAAA-MM-DD.`;
+  }
+  item.date = date;
+  const label = asTrimmedString(item.label);
+  if (label.length > 80) return `holidays[${index}].label excede 80 caracteres.`;
+  item.label = label;
+  return null;
+};
+
+// Textos legales en HTML básico (ver el esquema). Mismo límite para los tres:
+// un aviso de privacidad completo pasa con facilidad de 20,000 caracteres.
+const LEGAL_TEXT_FIELDS = ["privacyNotice", "legalNotice", "returnsPolicy"];
+const LEGAL_TEXT_MAX = 50000;
+
+// Valida y normaliza location / whatsappButton / textos legales. Devuelve un
+// mensaje de error o null.
+const validateContactExtras = (payload) => {
+  if (payload.businessHours !== undefined) {
+    if (!Array.isArray(payload.businessHours)) return "businessHours debe ser un arreglo.";
+    if (payload.businessHours.length > MAX_BUSINESS_HOURS) return `businessHours admite máximo ${MAX_BUSINESS_HOURS} turnos.`;
+    // Turnos del mismo día que se enciman.
+    const byDay = new Map();
+    for (const item of payload.businessHours) {
+      if (!isPlainObject(item) || item.closed || !TIME_PATTERN.test(String(item.open)) || !TIME_PATTERN.test(String(item.close))) continue;
+      const list = byDay.get(Number(item.day)) || [];
+      if (list.some((r) => item.open < r.close && r.open < item.close)) return "Hay turnos del mismo día que se enciman.";
+      list.push(item);
+      byDay.set(Number(item.day), list);
+    }
+  }
+  if (payload.holidays !== undefined) {
+    if (!Array.isArray(payload.holidays)) return "holidays debe ser un arreglo.";
+    if (payload.holidays.length > MAX_HOLIDAYS) return `holidays admite máximo ${MAX_HOLIDAYS} fechas.`;
+  }
+  if (payload.location !== undefined) {
+    const value = payload.location;
+    if (!isPlainObject(value)) return "location debe ser un objeto.";
+    const address = asTrimmedString(value.address);
+    if (address.length > 400) return "location.address excede 400 caracteres.";
+    const coord = (raw, min, max, label) => {
+      if (raw === undefined || raw === null || raw === "") return { value: null };
+      const num = Number(raw);
+      return Number.isFinite(num) && num >= min && num <= max ? { value: num } : { error: `location.${label} fuera de rango.` };
+    };
+    const lat = coord(value.lat, -90, 90, "lat");
+    if (lat.error) return lat.error;
+    const lng = coord(value.lng, -180, 180, "lng");
+    if (lng.error) return lng.error;
+    const mapsUrl = asTrimmedString(value.mapsUrl);
+    if (mapsUrl && !/^https?:\/\/\S+$/i.test(mapsUrl)) return "location.mapsUrl debe ser una URL http(s).";
+    if (mapsUrl.length > 500) return "location.mapsUrl excede 500 caracteres.";
+    payload.location = { address, lat: lat.value, lng: lng.value, mapsUrl };
+  }
+  if (payload.whatsappButton !== undefined) {
+    const value = payload.whatsappButton;
+    if (!isPlainObject(value)) return "whatsappButton debe ser un objeto.";
+    const phone = asTrimmedString(value.phone).replace(/\D/g, "");
+    const enabled = Boolean(value.enabled);
+    if (enabled && (phone.length < 10 || phone.length > 15)) return "whatsappButton.phone necesita lada de país y número (10 a 15 dígitos, ej. 525512345678).";
+    const defaultMessage = asTrimmedString(value.defaultMessage);
+    const itemMessage = asTrimmedString(value.itemMessage);
+    if (defaultMessage.length > 300 || itemMessage.length > 300) return "Los mensajes de WhatsApp admiten máximo 300 caracteres.";
+    payload.whatsappButton = {
+      enabled,
+      phone,
+      defaultMessage: defaultMessage || "Hola, tengo una pregunta.",
+      itemMessage: itemMessage || "Hola, me interesa: {item}",
+    };
+  }
+  for (const field of LEGAL_TEXT_FIELDS) {
+    if (payload[field] === undefined) continue;
+    if (typeof payload[field] !== "string") return `${field} debe ser texto.`;
+    payload[field] = payload[field].trim();
+    if (payload[field].length > LEGAL_TEXT_MAX) return `${field} excede ${LEGAL_TEXT_MAX.toLocaleString("es-MX")} caracteres.`;
+  }
   return null;
 };
 
@@ -872,6 +1077,9 @@ const validateStoreConfigPayload = (sendError) => (req, res, next) => {
     validateStoreConfigArrayField(payload, "faqs", validateFaqItem) ||
     validateStoreConfigArrayField(payload, "teamMembers", validateTeamMemberItem) ||
     validateStoreConfigArrayField(payload, "testimonials", validateTestimonialItem) ||
+    validateStoreConfigArrayField(payload, "businessHours", validateBusinessHoursItem) ||
+    validateStoreConfigArrayField(payload, "holidays", validateHolidayItem) ||
+    validateContactExtras(payload) ||
     validateStoreConfigArrayField(payload, "pickupPoints", validatePickupPointItem) ||
     validateStoreConfigArrayField(payload, "paymentMethods", validatePaymentMethodItem);
   if (arrayFieldError) {
@@ -880,6 +1088,24 @@ const validateStoreConfigPayload = (sendError) => (req, res, next) => {
 
   if (payload.homeDeliveryEnabled !== undefined && typeof payload.homeDeliveryEnabled !== "boolean") {
     return sendError(res, 400, "VALIDATION_ERROR", "homeDeliveryEnabled debe ser boolean.");
+  }
+
+  if (payload.lowStockAlerts !== undefined && typeof payload.lowStockAlerts !== "boolean") {
+    return sendError(res, 400, "VALIDATION_ERROR", "lowStockAlerts debe ser boolean.");
+  }
+  if (payload.customerProofUpload !== undefined && typeof payload.customerProofUpload !== "boolean") {
+    return sendError(res, 400, "VALIDATION_ERROR", "customerProofUpload debe ser boolean.");
+  }
+
+  if (payload.orderNotifications !== undefined) {
+    const value = payload.orderNotifications;
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      return sendError(res, 400, "VALIDATION_ERROR", "orderNotifications debe ser un objeto.");
+    }
+    // Las claves que no vengan quedan encendidas (default del esquema).
+    req.body.orderNotifications = Object.fromEntries(
+      ORDER_NOTIFICATION_KEYS.map((key) => [key, value[key] === undefined ? true : Boolean(value[key])])
+    );
   }
 
   return next();
@@ -904,6 +1130,9 @@ function registerRoutes(app, ctx) {
       // diferencia de legalIdentity. Se envían al comprador por correo desde
       // el servidor (ver modules/orders.js), no vía este endpoint.
       delete config.speiPayment;
+      // Configuración interna de correos, no le sirve al storefront.
+      delete config.orderNotifications;
+      delete config.lowStockAlerts;
       // Entrega y pago: solo lo activo (y los métodos por default si la
       // tienda no ha configurado ninguno), con la forma que usa el checkout.
       Object.assign(config, publicCheckoutOptions(config));
@@ -929,9 +1158,10 @@ function registerRoutes(app, ctx) {
     try {
       const allowedFields = [
         "storeName", "storeSlug", "contactEmail", "contactPhone", "logoUrl", "theme", "homeBlocks",
-        "isActive", "socialLinks", "legalIdentity", "speiPayment", "maxUnitsPerProduct", "shipping", "homeDeliveryEnabled", "pickupPoints",
+        "isActive", "socialLinks", "legalIdentity", "speiPayment", "maxUnitsPerProduct", "shipping", "orderNotifications", "lowStockAlerts", "customerProofUpload", "homeDeliveryEnabled", "pickupPoints",
         "paymentMethods", "heroSlides", "metrics", "commands", "services",
         "pricingPlans", "commonPlanChecks", "faqs", "teamMembers", "testimonials",
+        "businessHours", "holidays", "location", "whatsappButton", ...LEGAL_TEXT_FIELDS,
       ];
 
       const updateData = {};
