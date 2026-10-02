@@ -1,11 +1,14 @@
 // src/components/account/AccountOrders.jsx — "Mis pedidos": lista y detalle
-// (estado en línea de tiempo, productos, envío, entrega, pago, comprar de
-// nuevo y comprobante PDF).
+// (estado en línea de tiempo, productos, envío, entrega, pago con el
+// comprobante de transferencia, comprar de nuevo y ticket PDF).
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { formatMxn } from '../../hooks/useCart';
-import { formatDate, orderStatusLabel, ORDER_STATUS_SEQUENCE } from '../../hooks/useAccount';
+import { formatDate, orderStatusLabel, orderStatusSequence, isAwaitingPayment } from '../../hooks/useAccount';
 import { formatOrderFolio, mapsHref } from '../../hooks/useCheckout';
+import { usePaymentProofUpload } from '../../hooks/useOrderAccess';
+import { useStoreConfig } from '../../hooks/useStoreConfig';
+import PaymentProofPanel from '../PaymentProofPanel';
 
 const LEGACY_PAYMENT_LABELS = { transfer: 'Transferencia / SPEI', pickup: 'Pago al recoger' };
 
@@ -26,10 +29,11 @@ const StatusTimeline = ({ order }) => {
       </p>
     );
   }
-  const current = ORDER_STATUS_SEQUENCE.indexOf(order.status);
+  const sequence = orderStatusSequence(order);
+  const current = sequence.indexOf(order.status);
   return (
     <ol className="acc-timeline" aria-label="Estado del pedido">
-      {ORDER_STATUS_SEQUENCE.map((status, i) => (
+      {sequence.map((status, i) => (
         <li key={status} className={i < current ? 'is-done' : i === current ? 'is-current' : ''} aria-current={i === current ? 'step' : undefined}>
           <span className="acc-timeline-dot" aria-hidden="true">
             {i <= current ? <i className="fa-solid fa-check" /> : null}
@@ -43,6 +47,14 @@ const StatusTimeline = ({ order }) => {
 
 const OrderDetail = ({ orders }) => {
   const order = orders.selected;
+  const { config } = useStoreConfig();
+  const uploader = usePaymentProofUpload({ orderId: order._id, getHeaders: orders.authHeader, onUploaded: orders.reload });
+  // Comprobante: solo pagos por transferencia. Se puede subir si la tienda lo
+  // activó (StoreConfig.customerProofUpload) y el pedido espera su pago; los
+  // que ya se mandaron se muestran siempre.
+  const isSpei = order.paymentMethodType ? order.paymentMethodType === 'spei' : order.paymentMethod === 'transfer';
+  const proofs = order.paymentProofs || [];
+  const canUploadProof = isSpei && isAwaitingPayment(order) && Boolean(config?.customerProofUpload);
   const a = order.shippingAddress;
   const point = order.deliveryMethod === 'pickup' ? order.pickupPoint : null;
   const paymentLabel = order.paymentMethodLabel || LEGACY_PAYMENT_LABELS[order.paymentMethod] || order.paymentMethod;
@@ -115,6 +127,7 @@ const OrderDetail = ({ orders }) => {
               </span>
             ) : null}
           </p>
+          {isSpei ? <PaymentProofPanel proofs={proofs} canUpload={canUploadProof} uploader={uploader} /> : null}
         </div>
       </div>
 
@@ -157,7 +170,7 @@ const OrderDetail = ({ orders }) => {
             <i className="fa-solid fa-rotate-right" aria-hidden="true" /> Comprar de nuevo
           </button>
           <button type="button" className="acc-btn acc-btn--ghost" onClick={() => orders.downloadReceipt(order)} disabled={orders.isDownloadingReceipt}>
-            <i className="fa-regular fa-file-pdf" aria-hidden="true" /> {orders.isDownloadingReceipt ? 'Abriendo…' : 'Comprobante PDF'}
+            <i className="fa-regular fa-file-pdf" aria-hidden="true" /> {orders.isDownloadingReceipt ? 'Abriendo…' : 'Descarga tu ticket'}
           </button>
         </div>
       </div>

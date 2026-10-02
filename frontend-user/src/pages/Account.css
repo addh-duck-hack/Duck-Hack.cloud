@@ -321,6 +321,12 @@
   color: #7a5200;
 }
 
+/* Comprobante de pago enviado, en revisión por la tienda. */
+.acc-status.is-payment_review {
+  background-color: #e8f0fb;
+  color: #1c4a86;
+}
+
 .acc-status.is-confirmed,
 .acc-status.is-processing,
 .acc-status.is-shipped {
@@ -959,4 +965,58 @@ a.acc-fav-name:hover {
   .acc-nav-item {
     transition: none;
   }
+}
+
+/* ---- Comprobante de pago (components/PaymentProofPanel.jsx) ---- */
+.acc-proofs {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+}
+
+.acc-proof-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.acc-proof-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  font-size: 0.92rem;
+}
+
+.acc-proof-list small {
+  display: block;
+  margin-top: 2px;
+  color: #8c1d18;
+}
+
+.acc-proof-form {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
+.acc-proof-form label {
+  display: grid;
+  gap: 2px;
+  font-weight: 700;
+}
+
+.acc-proof-form label small {
+  font-weight: 400;
+  color: var(--color-muted);
+}
+
+.acc-proof-form input[type='file'] {
+  max-width: 100%;
+  font-size: 0.9rem;
 }

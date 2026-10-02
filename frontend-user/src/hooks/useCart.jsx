@@ -295,7 +295,9 @@ export const CartProvider = ({ children }) => {
         headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
         body: JSON.stringify(payload),
       });
-      return data.order;
+      // `accessToken`: el orderAccessToken del pedido, para que la confirmación
+      // lleve a la página del pedido (/pedido/:id) aunque sea invitado.
+      return { ...data.order, accessToken: data.orderAccessToken };
     },
     [lines]
   );

@@ -1,8 +1,8 @@
 // src/hooks/useAccount.js
 //
 // Lógica de "Mi cuenta" (/mi-cuenta), sin UI: datos personales, contraseña,
-// libreta de direcciones, pedidos (detalle, comprar de nuevo, comprobante
-// PDF), lista de deseos (cruzada con el catálogo), cerrar sesión y eliminar
+// libreta de direcciones, pedidos (detalle, comprar de nuevo, ticket PDF y
+// comprobante de pago), lista de deseos (cruzada con el catálogo), cerrar sesión y eliminar
 // cuenta. La sección activa la maneja la página (?seccion=).
 //
 // Los datos completos se cargan con GET /api/users/:id porque auth.user (lo
@@ -27,9 +27,11 @@ export const ACCOUNT_SECTIONS = [
 
 const MIN_PASSWORD = 6; // mismo mínimo que modules/auth.js
 
+// Mismos estados que packages/core-api/modules/orders.js#ORDER_STATUSES.
 export const ORDER_STATUS_LABELS = {
-  pending: 'Pendiente',
-  confirmed: 'Confirmado',
+  pending: 'Pendiente de pago',
+  payment_review: 'Comprobante en revisión',
+  confirmed: 'Pago confirmado',
   processing: 'En preparación',
   shipped: 'Enviado',
   delivered: 'Entregado',
@@ -38,6 +40,17 @@ export const ORDER_STATUS_LABELS = {
 
 // "cancelled" no forma parte de la secuencia — se muestra aparte.
 export const ORDER_STATUS_SEQUENCE = ['pending', 'confirmed', 'processing', 'shipped', 'delivered'];
+
+// Pasos de la línea de tiempo de un pedido: "Comprobante en revisión" solo
+// aparece en los pedidos que lo usan (pagados por transferencia con
+// comprobante), para no agregarle un paso vacío a los demás.
+export const orderStatusSequence = (order) =>
+  order?.status === 'payment_review' || (order?.paymentProofs || []).length > 0
+    ? ['pending', 'payment_review', ...ORDER_STATUS_SEQUENCE.slice(1)]
+    : ORDER_STATUS_SEQUENCE;
+
+// El pedido sigue esperando que el cliente pague (y mande su comprobante).
+export const isAwaitingPayment = (order) => ['pending', 'payment_review'].includes(order?.status);
 
 // Al recoger en punto de venta, "enviado" significa que ya está listo.
 const PICKUP_STATUS_LABELS = { shipped: 'Listo para recoger', delivered: 'Recogido' };
@@ -363,8 +376,8 @@ export const useAccount = () => {
     }
   };
 
-  // El PDF exige Bearer token, así que no puede ser un <a href>: se trae
-  // como blob y se abre en una pestaña nueva.
+  // Ticket del pedido. El PDF exige Bearer token, así que no puede ser un
+  // <a href>: se trae como blob y se abre en una pestaña nueva.
   const downloadReceipt = async (order) => {
     setDownloadError('');
     setIsDownloadingReceipt(true);
@@ -372,12 +385,12 @@ export const useAccount = () => {
       const response = await fetch(`${getApiBaseUrl()}/api/orders/${order._id}/pdf`, { headers: authHeader() });
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
-        throw new Error(payload?.error?.message || 'No fue posible descargar el comprobante.');
+        throw new Error(payload?.error?.message || 'No fue posible descargar tu ticket.');
       }
       const blob = await response.blob();
       window.open(window.URL.createObjectURL(blob), '_blank');
     } catch (err) {
-      setDownloadError(err.message || 'No fue posible descargar el comprobante.');
+      setDownloadError(err.message || 'No fue posible descargar tu ticket.');
     } finally {
       setIsDownloadingReceipt(false);
     }
@@ -502,6 +515,8 @@ export const useAccount = () => {
       reorder,
       reorderMessage,
       reorderError,
+      reload: loadOrders,
+      authHeader,
       downloadReceipt,
       isDownloadingReceipt,
       downloadError,

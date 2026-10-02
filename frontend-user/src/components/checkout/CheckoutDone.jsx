@@ -4,9 +4,17 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { formatMxn } from '../../hooks/useCart';
 import { mapsHref } from '../../hooks/useCheckout';
+import { rememberOrderToken } from '../../hooks/useOrderAccess';
+import { useStoreConfig } from '../../hooks/useStoreConfig';
 
 const CheckoutDone = ({ co }) => {
   const { order, orderFolio, auth } = co;
+  const { config } = useStoreConfig();
+  // Transferencia + la tienda deja subir el comprobante desde el sitio: se
+  // guarda el token del pedido (no va en la URL) y se ofrece la página del
+  // pedido, que también sirve para invitados.
+  const canUploadProof = order.paymentMethodType === 'spei' && Boolean(config?.customerProofUpload) && Boolean(order.accessToken);
+  const goToOrderPage = () => rememberOrderToken(order._id, order.accessToken);
   const firstName = String(order.customerName || '').split(' ')[0];
   const point = order.deliveryMethod === 'pickup' ? order.pickupPoint : null;
   const a = order.shippingAddress;
@@ -41,6 +49,11 @@ const CheckoutDone = ({ co }) => {
           ) : (
             <p>{order.paymentInstructions || 'Te contactaremos para coordinar el pago de tu pedido.'}</p>
           )}
+          {canUploadProof ? (
+            <Link to={`/pedido/${order._id}`} className="co-btn co-btn--solid" onClick={goToOrderPage}>
+              <i className="fa-solid fa-upload" aria-hidden="true" /> Subir mi comprobante
+            </Link>
+          ) : null}
         </div>
 
         <div className="co-done-card">

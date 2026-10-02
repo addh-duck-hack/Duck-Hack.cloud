@@ -19,6 +19,7 @@ import PrivacyNotice from './pages/PrivacyNotice';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Account from './pages/Account';
+import OrderStatus from './pages/OrderStatus';
 import VerifyEmail from './pages/VerifyEmail';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
@@ -53,6 +54,8 @@ const App = () => (
               {/* Enlace del correo de verificación (dentro de AppShell, con barra y footer). */}
               <Route path="/users/verify" element={<VerifyEmail />} />
               <Route path="/mi-cuenta" element={<Account />} />
+              {/* Página del pedido: el enlace "Subir mi comprobante" del correo de confirmación. */}
+              <Route path="/pedido/:id" element={<OrderStatus />} />
               {/* Cualquier otra ruta: 404 con barra, CTA y footer. */}
               <Route path="*" element={<NotFound />} />
             </Route>
