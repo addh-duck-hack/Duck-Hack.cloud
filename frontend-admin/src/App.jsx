@@ -28,6 +28,7 @@ import CategoryList from "./components/CategoryList";
 import CategoryForm from "./components/CategoryForm";
 import CouponList from "./components/CouponList";
 import CouponForm from "./components/CouponForm";
+import ReviewList from "./components/ReviewList";
 import InventoryList from "./components/InventoryList";
 import InventoryForm from "./components/InventoryForm";
 import OrderList from "./components/OrderList";
@@ -199,6 +200,10 @@ const AppRoutes = () => {
             <Route
               path="coupons/:id/edit"
               element={gate("coupons", <CouponForm />)}
+            />
+            <Route
+              path="reviews"
+              element={gate("reviews", <ReviewList />)}
             />
             <Route
               path="inventory"
