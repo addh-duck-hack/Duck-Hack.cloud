@@ -36,7 +36,10 @@ vault, not in this repo).
   in the private uploads dir) uploaded by staff, the owner, or a guest with
   the `X-Order-Token` returned at checkout; staff approves (→ `confirmed`,
   stock is deducted) or rejects with a reason. Status `payment_review` sits
-  between `pending` and `confirmed`. `shipment` (carrier/tracking) and status
+  between `pending` and `confirmed`. Stock follows the status
+  (`syncInventoryForOrder`, `Order.inventoryDeducted`): deducted on entering
+  any paid-or-later status, returned on going back to pending/payment_review/
+  cancelled or deleting the order (atomic flag, no double deduction). `shipment` (carrier/tracking) and status
   emails to the customer, gated by `StoreConfig.orderNotifications`. With
   `StoreConfig.customerProofUpload` on, the confirmation email links to the
   storefront's order page `FRONTEND_URL/pedido/<id>?token=…`, which reads

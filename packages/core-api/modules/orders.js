@@ -65,6 +65,11 @@ const statusesFor = (deliveryMethod) => {
 };
 // Solo se aceptan comprobantes mientras el pedido espera su pago.
 const AWAITING_PAYMENT_STATUSES = ["pending", "payment_review"];
+// Estados en los que lo vendido ya salió del inventario: del pago en
+// adelante, sea cual sea el camino (un pedido "pago al recoger" puede saltar
+// de pending a ready_for_pickup sin pasar por confirmed). Ver
+// syncInventoryForOrder.
+const DEDUCTED_STATUSES = ["confirmed", "processing", "shipped", "delivered", "ready_for_pickup", "picked_up"];
 const MAX_PAYMENT_PROOFS = 10;
 
 // Mismo set de campos que User.addresses en modules/auth.js — así una
@@ -217,6 +222,11 @@ const orderSchema = new mongoose.Schema(
     // Recoger en tienda: se ponen solas al pasar a ready_for_pickup / picked_up.
     readyForPickupAt: { type: Date },
     pickedUpAt: { type: Date },
+    // true = lo vendido ya se descontó del inventario. Lo maneja solo
+    // syncInventoryForOrder (nunca se acepta del cliente); antes se deducía de
+    // si el estado era "confirmed", y el stock regresaba al avanzar a
+    // processing/shipped.
+    inventoryDeducted: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
@@ -273,10 +283,14 @@ const validateCreatePayload = (sendError) => (req, res, next) => {
   req.body.items = normalizedItems;
 
   // status/total/shippingCost/productName/unitPrice/subtotal se calculan en
-  // el handler, nunca se aceptan del cliente.
-  delete req.body.status;
-  delete req.body.total;
-  delete req.body.shippingCost;
+  // el handler, nunca se aceptan del cliente — tampoco lo que solo pone el
+  // servidor después (inventario, comprobantes, guía, fechas de recoger).
+  for (const field of [
+    "status", "total", "shippingCost", "inventoryDeducted", "paymentProofs",
+    "shipment", "readyForPickupAt", "pickedUpAt",
+  ]) {
+    delete req.body[field];
+  }
 
   return next();
 };
@@ -449,7 +463,8 @@ const buildOrderItems = async (Product, requestedItems, { requireActive }) => {
 // Mismo criterio que GET /api/products/public#maxQty, que es lo que el
 // storefront ya limita; esto es la red por si llega un payload a mano o el
 // inventario bajó mientras el cliente tenía la canasta abierta. Solo lee el
-// inventario — se descuenta hasta confirmar el pedido (adjustInventoryForOrder).
+// inventario — se descuenta cuando el pedido pasa a pagado o a un estado
+// posterior (syncInventoryForOrder).
 const checkPublicQuantities = async (Inventory, items, purchaseLimit) => {
   const units = new Map();
   const stockUnits = new Map();
@@ -629,14 +644,12 @@ const notifyOrder = (order, kind, deps) => {
 // Correo al cliente según el estado nuevo (los demás estados no avisan).
 const STATUS_NOTIFICATIONS = ["confirmed", "shipped", "delivered", "ready_for_pickup", "picked_up", "cancelled"];
 
-// Ajusta el inventario de cada producto (o variante) del pedido — sign=-1 al confirmar
-// (se descuenta lo vendido), sign=+1 al salir de "confirmed" hacia cualquier
-// otro estado (se regresa el stock — decisión explícita: un pedido
-// confirmado por error, o cancelado después de confirmado, no debe dejar el
-// inventario descuadrado). Nunca bloquea la actualización del pedido, que ya
-// se guardó antes de llamar esto — best-effort: si Inventory no está
-// montado, o un producto no tiene registro de inventario, ese renglón
-// simplemente se ignora.
+// Ajusta el inventario de cada producto (o variante) del pedido — sign=-1
+// descuenta lo vendido, sign=+1 lo regresa. Lo llama syncInventoryForOrder,
+// que decide cuándo. Nunca bloquea la actualización del pedido, que ya se
+// guardó antes de llamar esto — best-effort: si Inventory no está montado, o
+// un producto no tiene registro de inventario, ese renglón simplemente se
+// ignora.
 const adjustInventoryForOrder = async (mongooseConnection, order, sign) => {
   const Inventory = mongooseConnection.models.Inventory;
   if (!Inventory) return;
@@ -670,6 +683,36 @@ const adjustInventoryForOrder = async (mongooseConnection, order, sign) => {
   // Un solo correo con todo lo que quedó en su mínimo o agotado (sin await:
   // no retrasa la respuesta del pedido).
   notifyStockAlerts(mongooseConnection, changes);
+};
+
+// Deja el inventario de acuerdo con el estado del pedido (ya guardado): en
+// DEDUCTED_STATUSES lo vendido debe estar descontado; en pending,
+// payment_review o cancelled, no. El cambio del marcador inventoryDeducted
+// es atómico (updateOne condicionado): si dos peticiones llegan a la vez,
+// solo una mueve el stock. `{ release: true }` regresa el stock sin importar
+// el estado (al borrar el pedido).
+const syncInventoryForOrder = async (Order, mongooseConnection, order, { release = false } = {}) => {
+  const shouldBeDeducted = !release && DEDUCTED_STATUSES.includes(order.status);
+  const result = await Order.updateOne(
+    { _id: order._id, inventoryDeducted: shouldBeDeducted ? { $ne: true } : true },
+    { $set: { inventoryDeducted: shouldBeDeducted } }
+  );
+  if (result.modifiedCount !== 1) return; // ya estaba como debía
+  order.inventoryDeducted = shouldBeDeducted;
+  await adjustInventoryForOrder(mongooseConnection, order, shouldBeDeducted ? -1 : 1);
+};
+
+// Pedidos de antes de inventoryDeducted (el campo no existe en la BD; Mongoose
+// lo lee como false por default): con la regla vieja, el stock solo estaba
+// descontado si el pedido estaba en "confirmed". Se fija eso ANTES de cambiar
+// el estado, para que syncInventoryForOrder no vuelva a descontar lo que ya
+// estaba descontado. Así no hace falta correr el script de migración antes
+// de usar el backend nuevo (el script queda para listar lo que revisar).
+const backfillInventoryFlag = async (Order, order) => {
+  if (!order.$isDefault("inventoryDeducted")) return;
+  const legacyDeducted = order.status === "confirmed";
+  await Order.updateOne({ _id: order._id, inventoryDeducted: { $exists: false } }, { $set: { inventoryDeducted: legacyDeducted } });
+  order.inventoryDeducted = legacyDeducted;
 };
 
 function registerRoutes(app, ctx) {
@@ -1002,6 +1045,7 @@ function registerRoutes(app, ctx) {
       // DELETE; el detalle (GET) es lo único que hoy lo muestra en el admin.
       const order = await Order.findById(req.params.id).populate("customer", "name email");
       if (!order) return sendError(res, 404, "ORDER_NOT_FOUND", "Pedido no encontrado.");
+      await backfillInventoryFlag(Order, order);
       req.order = order;
       return next();
     } catch (error) {
@@ -1125,14 +1169,8 @@ function registerRoutes(app, ctx) {
         }
         await req.order.save();
 
-        // Ajuste de inventario SOLO en la transición hacia/desde "confirmed"
-        // — nunca al volver a guardar un pedido que ya estaba (o sigue sin
-        // estar) confirmado. Ver adjustInventoryForOrder arriba.
-        const nowConfirmed = req.order.status === "confirmed";
-        const wasConfirmed = previousStatus === "confirmed";
-        if (nowConfirmed !== wasConfirmed) {
-          await adjustInventoryForOrder(mongooseConnection, req.order, nowConfirmed ? -1 : 1);
-        }
+        // Inventario según el estado nuevo (ver syncInventoryForOrder).
+        await syncInventoryForOrder(Order, mongooseConnection, req.order);
         if (statusChanged && STATUS_NOTIFICATIONS.includes(req.order.status)) {
           notifyOrder(req.order, req.order.status, { mongooseConnection });
         }
@@ -1185,8 +1223,8 @@ function registerRoutes(app, ctx) {
         }
         await req.order.save();
 
+        await syncInventoryForOrder(Order, mongooseConnection, req.order);
         if (req.order.status === "confirmed" && previousStatus !== "confirmed") {
-          await adjustInventoryForOrder(mongooseConnection, req.order, -1);
           notifyOrder(req.order, "confirmed", { mongooseConnection });
         }
         if (decision === "reject") notifyOrder(req.order, "proof_rejected", { mongooseConnection, reason });
@@ -1222,6 +1260,8 @@ function registerRoutes(app, ctx) {
   router.delete("/:id", validateObjectIdParam("id"), canWrite, ensureOrderExists, async (req, res) => {
     try {
       const proofFiles = (req.order.paymentProofs || []).map((p) => p.fileName);
+      // Si lo vendido ya se había descontado, regresa al inventario.
+      await syncInventoryForOrder(Order, mongooseConnection, req.order, { release: true });
       await req.order.deleteOne();
       await Promise.all(proofFiles.map(discardProofFile));
       return res.status(200).json({ message: "Pedido eliminado." });
