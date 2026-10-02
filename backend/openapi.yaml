@@ -2762,6 +2762,7 @@ paths:
                 source: { type: string, enum: [phone, walk_in] }
                 status: { type: string, enum: [confirmed, pending] }
                 force: { type: boolean }
+                notifyCustomer: { type: boolean, default: true, description: false = no mandar el correo a la clienta. }
               required: [services, specialist, start, customerName]
       responses:
         "201":
@@ -2813,6 +2814,12 @@ paths:
                 staffNotes: { type: string }
                 cancelReason: { type: string }
                 force: { type: boolean }
+                notifyCustomer:
+                  type: boolean
+                  default: true
+                  description: >-
+                    Un solo correo a la clienta por cambio (cancelada > reprogramada > confirmada);
+                    false = sin correo. Notas, contacto y completada/no asistió no mandan correo.
       responses:
         "200":
           description: Actualizada
@@ -2880,7 +2887,9 @@ paths:
         Bearer opcional de clienta (la cita queda en su cuenta). "any" asigna a la especialista
         con menos citas ese día. Un candado por especialista evita citas empalmadas; dentro
         se vuelve a revisar la disponibilidad. Estado `confirmed` o `pending` según
-        `autoConfirm`. Devuelve `appointmentAccessToken` (header X-Appointment-Token para
+        `autoConfirm`. Manda el correo a la clienta (.ics + Google Calendar + enlace
+        FRONTEND_URL/cita/<id>?token=…, ruta que cada storefront debe implementar) y el aviso
+        al negocio. Devuelve `appointmentAccessToken` (header X-Appointment-Token para
         ver/cancelar/reprogramar sin cuenta; vence 30 días después de la cita). Rate limit 20 / 10 min.
       requestBody:
         required: true
@@ -6990,7 +6999,9 @@ components:
         minHoursToChange: { type: integer, description: La clienta cancela o reprograma hasta N horas antes. }
         allowAnySpecialist: { type: boolean }
         timezone: { type: string, example: America/Mexico_City }
-        notifyEmail: { type: string, description: Vacío = correo de contacto de la tienda. }
+        notifyEmail: { type: string, description: Vacío = correo de contacto de la tienda (contactEmail) o CONTACT_EMAIL_TO. }
+        emailCustomer: { type: boolean, description: "Correos a la clienta (agendada, confirmada, reprogramada, cancelada) con .ics y enlace a Google Calendar." }
+        emailBusiness: { type: boolean, description: Avisos al negocio cuando la clienta agenda, cancela o reprograma desde el sitio. }
 
     ServiceRequest:
       type: object

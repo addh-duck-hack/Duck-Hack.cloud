@@ -62,6 +62,17 @@ vault, not in this repo).
   the slot is re-checked only when time/specialist/services change or a
   cancelled one is reactivated). A collaborator only sees and edits her own
   specialist's appointments.
+  Emails (2.5): to the customer on booked / confirmed / rescheduled /
+  cancelled, with an `.ics` attachment (`lib/ics.js`: stable UID per
+  appointment, SEQUENCE bumps on each reschedule/cancel, `METHOD:CANCEL`
+  when cancelled, 1 h alarm) and a Google Calendar link; the "Ver mi cita"
+  link is `FRONTEND_URL/cita/<id>?token=…` — every storefront that sells
+  appointments must implement that route (reads `GET /public/:id` with
+  `X-Appointment-Token`). Business notice (to `notifyEmail` → StoreConfig
+  `contactEmail` → `CONTACT_EMAIL_TO`) when the customer books, cancels or
+  reschedules; optional `ADMIN_URL` adds an "Abrir la agenda" button.
+  Toggles `emailCustomer` / `emailBusiness` in settings; staff can skip one
+  change with `notifyCustomer: false`. Fire-and-forget, never fails the request.
 - `modules/products.js` — product catalog (`/api/products`). Optional
   variants (`options` + `variants`, logic in `lib/variants.js`): each variant
   has its own SKU, stock and optional price/image; `lib/purchaseLimits.js
