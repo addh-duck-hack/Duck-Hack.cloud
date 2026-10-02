@@ -46,10 +46,23 @@ const { hasVariants, findVariant, variantLabel, variantPricing, stockKey } = req
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // payment_review = el cliente (o la tienda) subió un comprobante y falta
-// validarlo en el panel (POST /:id/payment-proofs/:proofId/review). Flujo
-// habitual: pending → payment_review → confirmed → processing → shipped →
-// delivered; cancelled en cualquier momento.
-const ORDER_STATUSES = ["pending", "payment_review", "confirmed", "processing", "shipped", "delivered", "cancelled"];
+// validarlo en el panel (POST /:id/payment-proofs/:proofId/review). El final
+// depende de la entrega:
+//   envío a domicilio: … → processing → shipped → delivered
+//   recoger en tienda: … → processing → ready_for_pickup → picked_up
+// (pending → payment_review → confirmed → processing es común; cancelled en
+// cualquier momento). Un pedido solo acepta los estados de su entrega
+// (statusesFor), así uno para recoger nunca queda "Enviado".
+const ORDER_STATUSES = [
+  "pending", "payment_review", "confirmed", "processing",
+  "shipped", "delivered", "ready_for_pickup", "picked_up", "cancelled",
+];
+const SHIPPING_ONLY_STATUSES = ["shipped", "delivered"];
+const PICKUP_ONLY_STATUSES = ["ready_for_pickup", "picked_up"];
+const statusesFor = (deliveryMethod) => {
+  const exclude = deliveryMethod === "pickup" ? SHIPPING_ONLY_STATUSES : PICKUP_ONLY_STATUSES;
+  return ORDER_STATUSES.filter((s) => !exclude.includes(s));
+};
 // Solo se aceptan comprobantes mientras el pedido espera su pago.
 const AWAITING_PAYMENT_STATUSES = ["pending", "payment_review"];
 const MAX_PAYMENT_PROOFS = 10;
@@ -201,6 +214,9 @@ const orderSchema = new mongoose.Schema(
     // Comprobantes de pago (lib/paymentProofs.js), en orden de subida.
     paymentProofs: { type: [paymentProofSchema], default: [] },
     shipment: { type: shipmentSchema },
+    // Recoger en tienda: se ponen solas al pasar a ready_for_pickup / picked_up.
+    readyForPickupAt: { type: Date },
+    pickedUpAt: { type: Date },
   },
   { timestamps: true }
 );
@@ -572,7 +588,7 @@ const sendCheckoutEmails = async (order, { mongooseConnection, generateOrderPdf 
 
 // Aviso por correo de un cambio del pedido (lib/emailTemplates.js
 // #orderStatusEmailTemplate). `kind` = confirmed | proof_rejected | shipped |
-// delivered | cancelled (al cliente) o proof_uploaded (a la tienda). Respeta
+// delivered | ready_for_pickup | picked_up | cancelled (al cliente) o proof_uploaded (a la tienda). Respeta
 // StoreConfig.orderNotifications (todo encendido por default). Igual que los
 // correos del checkout: best-effort, se llama sin await y nunca tumba la
 // respuesta.
@@ -581,6 +597,8 @@ const NOTIFICATION_KEY_BY_KIND = {
   proof_rejected: "proofRejected",
   shipped: "shipped",
   delivered: "delivered",
+  ready_for_pickup: "readyForPickup",
+  picked_up: "pickedUp",
   cancelled: "cancelled",
   proof_uploaded: "proofUploaded",
 };
@@ -609,7 +627,7 @@ const notifyOrder = (order, kind, deps) => {
 };
 
 // Correo al cliente según el estado nuevo (los demás estados no avisan).
-const STATUS_NOTIFICATIONS = ["confirmed", "shipped", "delivered", "cancelled"];
+const STATUS_NOTIFICATIONS = ["confirmed", "shipped", "delivered", "ready_for_pickup", "picked_up", "cancelled"];
 
 // Ajusta el inventario de cada producto (o variante) del pedido — sign=-1 al confirmar
 // (se descuenta lo vendido), sign=+1 al salir de "confirmed" hacia cualquier
@@ -1074,7 +1092,20 @@ function registerRoutes(app, ctx) {
           const current = req.order.shipment ? req.order.shipment.toObject() : {};
           req.order.shipment = { ...current, ...req.body.shipment };
         }
+        if (!statusesFor(req.order.deliveryMethod).includes(req.order.status)) {
+          const allowed = statusesFor(req.order.deliveryMethod).join(", ");
+          return sendError(
+            res,
+            400,
+            "STATUS_NOT_FOR_DELIVERY_METHOD",
+            req.order.deliveryMethod === "pickup"
+              ? `Un pedido para recoger en tienda usa "Listo para recoger" y "Recogido", no "Enviado"/"Entregado". Estados válidos: ${allowed}.`
+              : `Un pedido con envío a domicilio usa "Enviado" y "Entregado". Estados válidos: ${allowed}.`
+          );
+        }
         const statusChanged = req.order.status !== previousStatus;
+        if (statusChanged && req.order.status === "ready_for_pickup" && !req.order.readyForPickupAt) req.order.readyForPickupAt = new Date();
+        if (statusChanged && req.order.status === "picked_up" && !req.order.pickedUpAt) req.order.pickedUpAt = new Date();
         if (statusChanged && req.order.status === "shipped" && !req.order.shipment?.shippedAt) {
           req.order.shipment = { ...(req.order.shipment ? req.order.shipment.toObject() : {}), shippedAt: new Date() };
         }
@@ -1203,6 +1234,8 @@ function registerRoutes(app, ctx) {
 }
 
 module.exports = {
+  ORDER_STATUSES,
+  statusesFor,
   name: "orders",
   registerRoutes,
   models: { Order: orderSchema },

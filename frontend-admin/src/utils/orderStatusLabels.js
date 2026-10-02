@@ -1,7 +1,19 @@
 // Compartido entre OrderList.jsx y OrderDetail.jsx.
 // Mismo orden y claves que ORDER_STATUSES en packages/core-api/modules/orders.js.
 // payment_review = hay un comprobante de pago por revisar (OrderDetail).
-export const ORDER_STATUSES = ["pending", "payment_review", "confirmed", "processing", "shipped", "delivered", "cancelled"];
+// shipped/delivered son solo de envío a domicilio y ready_for_pickup/picked_up
+// solo de recoger en tienda (statusesFor; el backend rechaza la mezcla).
+export const ORDER_STATUSES = [
+  "pending", "payment_review", "confirmed", "processing",
+  "shipped", "delivered", "ready_for_pickup", "picked_up", "cancelled",
+];
+
+const SHIPPING_ONLY = ["shipped", "delivered"];
+const PICKUP_ONLY = ["ready_for_pickup", "picked_up"];
+export const statusesFor = (deliveryMethod) => {
+  const exclude = deliveryMethod === "pickup" ? SHIPPING_ONLY : PICKUP_ONLY;
+  return ORDER_STATUSES.filter((s) => !exclude.includes(s));
+};
 
 export const ORDER_STATUS_LABELS = {
   pending: { label: "Pendiente de pago", color: "yellow" },
@@ -10,6 +22,8 @@ export const ORDER_STATUS_LABELS = {
   processing: { label: "En proceso", color: "blue" },
   shipped: { label: "Enviado", color: "blue" },
   delivered: { label: "Entregado", color: "green" },
+  ready_for_pickup: { label: "Listo para recoger", color: "blue" },
+  picked_up: { label: "Recogido", color: "green" },
   cancelled: { label: "Cancelado", color: "red" },
 };
 

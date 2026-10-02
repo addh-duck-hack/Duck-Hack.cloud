@@ -531,7 +531,8 @@ const formatShippingAddressLine = (addr) => {
 };
 
 // Avisos del pedido después de creado (order-notify): pago validado,
-// comprobante rechazado, enviado (con guía), entregado y cancelado — al
+// comprobante rechazado, enviado (con guía), entregado, listo para recoger
+// (con el punto de venta), recogido y cancelado — al
 // cliente — y "comprobante recibido" — a la tienda. Los dispara
 // modules/orders.js; cuáles se mandan lo decide StoreConfig.orderNotifications.
 const ORDER_STATUS_EMAILS = {
@@ -549,6 +550,16 @@ const ORDER_STATUS_EMAILS = {
     subject: (n) => `Tu pedido #${n} va en camino`,
     title: "Tu pedido va en camino",
     intro: () => "Ya enviamos tu pedido. Con el número de guía puedes rastrearlo con la paquetería.",
+  },
+  ready_for_pickup: {
+    subject: (n) => `Tu pedido #${n} está listo para recoger`,
+    title: "Tu pedido está listo para recoger",
+    intro: () => "Ya puedes pasar por tu pedido. Te esperamos en el punto de venta que elegiste.",
+  },
+  picked_up: {
+    subject: (n) => `Pedido #${n} recogido`,
+    title: "Recogiste tu pedido",
+    intro: (store) => `Tu pedido aparece como recogido. ¡Gracias por comprar en ${store}!`,
   },
   delivered: {
     subject: (n) => `Pedido #${n} entregado`,
@@ -584,6 +595,13 @@ const orderStatusEmailTemplate = ({ kind, order, storeConfig, logoAbsoluteUrl, r
     if (shipment.trackingNumber) details.push({ label: "Número de guía", value: shipment.trackingNumber });
   }
   if (kind === "proof_uploaded") details.push({ label: "Cliente", value: `${order.customerName} (${order.customerEmail})` });
+  // Dónde y cuándo recoger (copia del punto de venta guardada en el pedido).
+  if (kind === "ready_for_pickup" && order.pickupPoint?.name) {
+    details.push({ label: "Dónde", value: order.pickupPoint.name });
+    if (order.pickupPoint.address) details.push({ label: "Dirección", value: order.pickupPoint.address });
+    if (order.pickupPoint.schedule) details.push({ label: "Horario", value: order.pickupPoint.schedule });
+    if (order.pickupPoint.instructions) details.push({ label: "Indicaciones", value: order.pickupPoint.instructions });
+  }
 
   const trackingUrl = kind === "shipped" && /^https?:\/\//i.test(shipment.trackingUrl || "") ? shipment.trackingUrl : undefined;
   // Comprobante rechazado: botón para subir otro, si la tienda lo permite.
