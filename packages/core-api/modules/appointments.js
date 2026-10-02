@@ -32,6 +32,15 @@
 // fuera del horario o sobre un bloqueo responde 409 OUTSIDE_HOURS y con
 // `force: true` lo permite. Empalmada con otra cita, nunca (409 SLOT_TAKEN).
 //
+// 2.5 — avisos por correo (lib/emailTemplates.js + lib/ics.js): a la clienta
+// al agendar, confirmar, reprogramar o cancelar (con .ics y enlace a Google
+// Calendar; con enlace a su cita si hay FRONTEND_URL: FRONTEND_URL/cita/<id>
+// ?token=…, contrato con cada storefront) y al negocio cuando agenda,
+// cancela o reprograma la clienta. Encendidos por default
+// (AppointmentSettings.emailCustomer / emailBusiness); el staff puede no
+// avisar en un cambio puntual (`notifyCustomer: false`). Best-effort: nunca
+// tumban la respuesta.
+//
 // Quién administra: dentro del permiso `appointments`, especialistas,
 // ajustes y bloqueos de todo el negocio son de "encargadas" (super_admin y
 // store_admin). Una collaborator solo ve su especialista y bloquea su propio
@@ -51,6 +60,9 @@ const { ROLES, extractBearerToken } = require("../lib/authMiddleware");
 const { createModuleAuthorizer } = require("../lib/permissions");
 const { createRateLimiter } = require("../lib/rateLimit");
 const { verifyAccessToken, signAppointmentAccessToken, verifyAppointmentAccessToken } = require("../lib/jwt");
+const { sendMail } = require("../lib/mailer");
+const { appointmentEmailTemplate, appointmentBusinessEmailTemplate } = require("../lib/emailTemplates");
+const { buildIcs, googleCalendarUrl } = require("../lib/ics");
 const { MINUTE, isValidDate, addDays, localToUtc, utcToLocal, overlaps, workingWindows, slotsForDay } = require("../lib/availability");
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -128,6 +140,8 @@ const DEFAULT_SETTINGS = Object.freeze({
   allowAnySpecialist: true,
   timezone: "America/Mexico_City",
   notifyEmail: "",
+  emailCustomer: true,
+  emailBusiness: true,
 });
 
 const appointmentSettingsSchema = new mongoose.Schema(
@@ -149,6 +163,10 @@ const appointmentSettingsSchema = new mongoose.Schema(
     timezone: { type: String, trim: true, default: DEFAULT_SETTINGS.timezone },
     // Aviso al negocio de cada cita; vacío = el correo de contacto de la tienda.
     notifyEmail: { type: String, trim: true, lowercase: true, maxlength: 160, default: "" },
+    // Correos a la clienta (agendada, confirmada, reprogramada, cancelada) y
+    // avisos al negocio.
+    emailCustomer: { type: Boolean, default: DEFAULT_SETTINGS.emailCustomer },
+    emailBusiness: { type: Boolean, default: DEFAULT_SETTINGS.emailBusiness },
     // Último folio de cita (se incrementa de forma atómica al agendar).
     lastAppointmentNumber: { type: Number, default: 0 },
   },
@@ -320,7 +338,7 @@ const validateSettingsPayload = (sendError) => (req, res, next) => {
   if (out.slotStepMin !== undefined && ![5, 10, 15, 20, 30, 60].includes(out.slotStepMin)) {
     return sendError(res, 400, "VALIDATION_ERROR", "slotStepMin debe ser 5, 10, 15, 20, 30 o 60.");
   }
-  for (const flag of ["autoConfirm", "allowAnySpecialist"]) {
+  for (const flag of ["autoConfirm", "allowAnySpecialist", "emailCustomer", "emailBusiness"]) {
     if (payload[flag] !== undefined) out[flag] = Boolean(payload[flag]);
   }
   if (payload.timezone !== undefined) {
@@ -401,13 +419,120 @@ function registerRoutes(app, ctx) {
   // Reglas que el storefront necesita para el calendario de agendar.
   router.get("/settings/public", async (req, res) => {
     try {
-      const { notifyEmail, autoConfirm, ...publicSettings } = await getSettings(mongooseConnection);
+      // eslint-disable-next-line no-unused-vars
+      const { notifyEmail, autoConfirm, emailCustomer, emailBusiness, ...publicSettings } = await getSettings(mongooseConnection);
       return res.status(200).json(publicSettings);
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al consultar los ajustes de la agenda.");
     }
   });
 
+
+
+  // ================= Avisos por correo (2.5) =================
+
+  const formatWhen = (date, timezone) =>
+    new Intl.DateTimeFormat("es-MX", { timeZone: timezone, dateStyle: "full", timeStyle: "short" }).format(new Date(date));
+
+  // Página de la cita en el storefront (contrato: FRONTEND_URL/cita/<id>?token=…,
+  // que lee GET /public/:id con X-Appointment-Token). null sin FRONTEND_URL.
+  const APPOINTMENT_PAGE_PATH = "/cita";
+  const customerAppointmentUrl = (appointment) => {
+    const base = (process.env.FRONTEND_URL || "").replace(/\/+$/, "");
+    if (!base) return null;
+    const token = signAppointmentAccessToken({ appointmentId: appointment._id, validUntil: appointment.end });
+    return `${base}${APPOINTMENT_PAGE_PATH}/${appointment._id}?token=${encodeURIComponent(token)}`;
+  };
+
+  const loadBranding = async () => {
+    const StoreConfig = mongooseConnection.models.StoreConfig;
+    const config = StoreConfig
+      ? await StoreConfig.findOne({ singletonKey: "default" }).select("storeName logoUrl theme contactEmail location").lean()
+      : null;
+    const backendPublicUrl = (process.env.BACKEND_PUBLIC_URL || "").replace(/\/+$/, "");
+    return {
+      branding: {
+        storeName: config?.storeName || "Duck-Hack",
+        logoUrl: backendPublicUrl && config?.logoUrl ? `${backendPublicUrl}/${String(config.logoUrl).replace(/^\/+/, "")}` : undefined,
+        accent: config?.theme?.accentColor,
+      },
+      address: config?.location?.address || "",
+      contactEmail: config?.contactEmail || "",
+    };
+  };
+
+  // kind (clienta): booked | confirmed | rescheduled | cancelled.
+  // business: new | rescheduled | cancelled (solo lo que hace la clienta).
+  const sendAppointmentEmails = async (appointment, { customer: customerKind, business: businessKind, previousStart, reason }) => {
+    const settings = await getSettings(mongooseConnection);
+    const { branding, address, contactEmail } = await loadBranding();
+    const when = formatWhen(appointment.start, settings.timezone);
+
+    if (customerKind && settings.emailCustomer && appointment.customerEmail) {
+      const kind = customerKind === "booked" && appointment.status === "pending" ? "booked_pending" : customerKind;
+      const cancelled = kind === "cancelled";
+      const summary = `${appointment.services.map((sv) => sv.name).join(" + ")} — ${branding.storeName}`;
+      const manageUrl = customerAppointmentUrl(appointment);
+      const description = [
+        `Con ${appointment.specialistName}`,
+        `Folio #${appointment.appointmentNumber}`,
+        manageUrl ? `Ver o cambiar tu cita: ${manageUrl}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n");
+      const event = { start: appointment.start, end: appointment.end, summary, description, location: address };
+      // UID estable por cita; SEQUENCE sube con cada reprogramación y al cancelar.
+      const sequence = appointment.history.filter((h) => h.type === "rescheduled").length + (cancelled ? 1 : 0);
+      const ics = buildIcs({
+        ...event,
+        uid: `appointment-${appointment._id}@duck-hack.cloud`,
+        sequence,
+        url: manageUrl || undefined,
+        organizerName: branding.storeName,
+        method: cancelled ? "CANCEL" : "PUBLISH",
+      });
+      const { subject, html, text } = appointmentEmailTemplate({
+        kind,
+        appointment,
+        when,
+        address,
+        branding,
+        manageUrl: cancelled ? null : manageUrl,
+        googleUrl: googleCalendarUrl(event),
+        reason,
+        changeHours: settings.minHoursToChange,
+      });
+      await sendMail({
+        to: appointment.customerEmail,
+        subject,
+        text,
+        html,
+        attachments: [{ filename: `cita-${appointment.appointmentNumber}.ics`, content: ics, contentType: `text/calendar; charset=utf-8; method=${cancelled ? "CANCEL" : "PUBLISH"}` }],
+      });
+    }
+
+    const businessTo = settings.notifyEmail || contactEmail || process.env.CONTACT_EMAIL_TO || process.env.EMAIL_USER;
+    if (businessKind && settings.emailBusiness && businessTo) {
+      const adminBase = (process.env.ADMIN_URL || "").replace(/\/+$/, "");
+      const { subject, html, text } = appointmentBusinessEmailTemplate({
+        kind: businessKind,
+        appointment,
+        when,
+        previousWhen: previousStart ? formatWhen(previousStart, settings.timezone) : null,
+        branding,
+        adminUrl: adminBase ? `${adminBase}/#/admin/appointments` : null,
+        reason,
+      });
+      await sendMail({ to: businessTo, subject, text, html });
+    }
+  };
+
+  // Sin await desde los handlers: un correo fallido no tumba la cita.
+  const notifyAppointment = (appointment, kinds) => {
+    sendAppointmentEmails(appointment, kinds).catch((error) => {
+      console.error(`No fue posible enviar los avisos de la cita ${appointment.appointmentNumber ?? appointment._id}:`, error.message);
+    });
+  };
 
   // ================= Motor de citas (2.3) =================
 
@@ -764,6 +889,7 @@ function registerRoutes(app, ctx) {
       if (!appointment) {
         return sendError(res, 409, "SLOT_TAKEN", "Ese horario ya no está disponible. Elige otro, por favor.");
       }
+      notifyAppointment(appointment, { customer: "booked", business: "new" });
       return res.status(201).json({
         message: appointment.status === "confirmed" ? "¡Tu cita está agendada!" : "Recibimos tu cita; te avisaremos cuando la confirmemos.",
         appointment: customerView(appointment, settings),
@@ -843,6 +969,7 @@ function registerRoutes(app, ctx) {
       appointment.cancelReason = asTrimmedString(req.body?.reason).slice(0, 300);
       appointment.history.push({ type: "status", from, to: "cancelled", by: "customer" });
       await appointment.save();
+      notifyAppointment(appointment, { customer: "cancelled", business: "cancelled", reason: appointment.cancelReason });
       return res.status(200).json({ message: "Tu cita se canceló.", appointment: customerView(appointment, settings) });
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al cancelar la cita.");
@@ -900,6 +1027,7 @@ function registerRoutes(app, ctx) {
         },
       });
       if (!updated) return sendError(res, 409, "SLOT_TAKEN", "Ese horario ya no está disponible. Elige otro, por favor.");
+      notifyAppointment(updated, { customer: "rescheduled", business: "rescheduled", previousStart: before.start });
       return res.status(200).json({
         message: "Tu cita se reprogramó.",
         appointment: customerView(updated, settings),
@@ -1318,6 +1446,7 @@ function registerRoutes(app, ctx) {
         });
       });
       if (!appointment) return sendSlotProblem(res, problem);
+      if (payload.notifyCustomer !== false) notifyAppointment(appointment, { customer: "booked" });
       await appointment.populate("specialist", "name color");
       return res.status(201).json({ message: "Cita agendada.", appointment: staffView(appointment) });
     } catch (error) {
@@ -1433,6 +1562,7 @@ function registerRoutes(app, ctx) {
         return appointment.save();
       };
 
+      const previous = { start: appointment.start, status: appointment.status, specialist: String(appointment.specialist) };
       let problem = null;
       const saved = needsSlotCheck
         ? await withSpecialistLock(specialist._id, async () => {
@@ -1441,6 +1571,15 @@ function registerRoutes(app, ctx) {
           })
         : await apply();
       if (!saved) return sendSlotProblem(res, problem);
+      // Aviso a la clienta (uno solo): cancelada > reprogramada > confirmada.
+      if (payload.notifyCustomer !== false) {
+        const moved = +saved.start !== +previous.start || String(saved.specialist) !== previous.specialist;
+        let kind = null;
+        if (saved.status === "cancelled" && previous.status !== "cancelled") kind = "cancelled";
+        else if (moved && ["pending", "confirmed"].includes(saved.status)) kind = "rescheduled";
+        else if (saved.status === "confirmed" && ["pending", "cancelled"].includes(previous.status)) kind = "confirmed";
+        if (kind) notifyAppointment(saved, { customer: kind, reason: kind === "cancelled" ? saved.cancelReason : undefined });
+      }
       await saved.populate("specialist", "name color");
       return res.status(200).json({ message: "Cita actualizada.", appointment: staffView(saved) });
     } catch (error) {

@@ -53,6 +53,9 @@ const AppointmentDialog = ({ appointment, initialStart, initialSpecialist, speci
     cancelReason: "",
   }));
   const [addService, setAddService] = useState("");
+  // Aviso por correo a la clienta en este cambio (si tiene correo y los
+  // correos están encendidos en Ajustes de agenda).
+  const [notifyCustomer, setNotifyCustomer] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -95,7 +98,7 @@ const AppointmentDialog = ({ appointment, initialStart, initialSpecialist, speci
     setIsSaving(true);
     setError("");
     try {
-      const payload = force ? { ...body, force: true } : body;
+      const payload = { ...body, notifyCustomer, ...(force ? { force: true } : {}) };
       const { data } = isEditing
         ? await axios.put(`${baseUrl}/api/appointments/${appointment._id}`, payload, { headers: getAuthHeaders() })
         : await axios.post(`${baseUrl}/api/appointments`, payload, { headers: getAuthHeaders() });
@@ -293,6 +296,13 @@ const AppointmentDialog = ({ appointment, initialStart, initialSpecialist, speci
               </label>
             </div>
           </fieldset>
+
+          {form.customerEmail ? (
+            <label className="agenda-notify">
+              <input type="checkbox" checked={notifyCustomer} onChange={(e) => setNotifyCustomer(e.target.checked)} />
+              Avisar a la clienta por correo
+            </label>
+          ) : null}
 
           <footer className="agenda-dialog-foot">
             {!isClosed ? (

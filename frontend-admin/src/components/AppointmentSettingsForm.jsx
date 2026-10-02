@@ -48,6 +48,8 @@ const AppointmentSettingsForm = () => {
       const payload = {
         autoConfirm: form.autoConfirm,
         allowAnySpecialist: form.allowAnySpecialist,
+        emailCustomer: form.emailCustomer,
+        emailBusiness: form.emailBusiness,
         slotStepMin: Number(form.slotStepMin),
         minNoticeMin: Math.round(Number(form.minNoticeHours) * 60),
         maxDaysAhead: Number(form.maxDaysAhead),
@@ -116,6 +118,18 @@ const AppointmentSettingsForm = () => {
             <small>Cancelar o reprogramar desde el sitio.</small>
           </label>
         </div>
+
+        <fieldset style={{ marginTop: "0.75rem" }}>
+          <legend>Correos</legend>
+          <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <input type="checkbox" name="emailCustomer" checked={form.emailCustomer} onChange={handleChange} style={{ width: "auto" }} />
+            Avisar a la clienta cuando su cita se agenda, confirma, cambia de horario o se cancela (con archivo de calendario)
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <input type="checkbox" name="emailBusiness" checked={form.emailBusiness} onChange={handleChange} style={{ width: "auto" }} />
+            Avisar al negocio cuando una clienta agenda, cancela o reprograma desde el sitio
+          </label>
+        </fieldset>
 
         <div className="form-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
           <label>

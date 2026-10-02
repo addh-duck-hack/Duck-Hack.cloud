@@ -350,6 +350,18 @@
   color: var(--primary-color);
 }
 
+.agenda-notify {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.agenda-notify input {
+  width: auto;
+}
+
 .agenda-dialog-foot {
   display: flex;
   gap: 0.75rem;

@@ -28,9 +28,10 @@ const escapeHtml = (value = "") =>
 // Correo de una acción de cuenta (verificar correo, restablecer contraseña) o
 // aviso de un pedido: encabezado con la marca de la tienda, saludo, párrafo,
 // renglones opcionales "Etiqueta: valor" (`details`) y, si hay `url`, un botón
-// con el enlace en texto por si el botón no funciona. `accent` es
-// theme.accentColor de la tienda (si es un hex válido).
-const accountActionEmailTemplate = ({ storeName, logoUrl, accent, title, name, intro, details = [], ctaLabel, url, note, footnote }) => {
+// con el enlace en texto por si el botón no funciona. `links` = enlaces
+// secundarios [{ label, url }] bajo el botón (p. ej. "Agregar a Google
+// Calendar"). `accent` es theme.accentColor de la tienda (si es un hex válido).
+const accountActionEmailTemplate = ({ storeName, logoUrl, accent, title, name, intro, details = [], ctaLabel, url, links = [], note, footnote }) => {
   const brandName = storeName || "Duck-Hack";
   const color = accent && /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/.test(accent) ? accent : BRAND.action;
   const safeName = escapeHtml(name || "");
@@ -78,6 +79,9 @@ const accountActionEmailTemplate = ({ storeName, logoUrl, accent, title, name, i
                     </td>
                   </tr>
                 </table>` : ""}
+                ${links.length ? `<p style="margin:16px 0 0; font-family:${bodyFont}; font-size:14px; line-height:1.8;">${links
+                  .map((l) => `<a href="${l.url}" style="color:${color}; text-decoration:underline;">${escapeHtml(l.label)}</a>`)
+                  .join("<br />")}</p>` : ""}
                 ${note ? `<p style="margin:20px 0 0; font-family:${bodyFont}; font-size:13px; line-height:1.5; color:${BRAND.textDim};">${escapeHtml(note)}</p>` : ""}
                 ${url ? `<p style="margin:24px 0 0; font-family:${bodyFont}; font-size:13px; line-height:1.5; color:${BRAND.textDim};">
                   Si el botón no funciona, copia y pega este enlace en tu navegador:<br />
@@ -103,7 +107,7 @@ const accountActionEmailTemplate = ({ storeName, logoUrl, accent, title, name, i
   const text = `${greeting}
 
 ${intro}
-${detailsText ? `\n${detailsText}\n` : ""}${url ? `${url}\n` : ""}${note ? `\n${note}\n` : ""}
+${detailsText ? `\n${detailsText}\n` : ""}${url ? `${ctaLabel ? `${ctaLabel}: ` : ""}${url}\n` : ""}${links.map((l) => `${l.label}: ${l.url}\n`).join("")}${note ? `\n${note}\n` : ""}
 ${footnote}`;
 
   return { html, text };
@@ -667,7 +671,108 @@ const lowStockEmailTemplate = ({ items, storeConfig, logoAbsoluteUrl }) => {
   return { subject, html, text };
 };
 
+
+// ---- Citas (Fase 2.5, modules/appointments.js) ----
+// `when` ya viene formateado en la zona de la tienda ("jueves, 15 de octubre
+// de 2026, 10:30"). La invitada recibe el enlace a su cita (`manageUrl`) si
+// el storefront lo tiene (FRONTEND_URL).
+const APPOINTMENT_EMAILS = {
+  booked: {
+    subject: (n, store) => `Tu cita está agendada — ${store}`,
+    title: "¡Tu cita está agendada!",
+    intro: (store) => `Te esperamos en ${store}. Estos son los datos de tu cita:`,
+  },
+  booked_pending: {
+    subject: (n, store) => `Recibimos tu cita — ${store}`,
+    title: "Recibimos tu cita",
+    intro: (store) => `Gracias por agendar en ${store}. Te avisaremos por correo en cuanto la confirmemos; tu horario ya quedó apartado.`,
+  },
+  confirmed: {
+    subject: (n, store) => `Tu cita está confirmada — ${store}`,
+    title: "Tu cita está confirmada",
+    intro: (store) => `${store} confirmó tu cita. Te esperamos:`,
+  },
+  rescheduled: {
+    subject: (n, store) => `Tu cita cambió de horario — ${store}`,
+    title: "Tu cita cambió de horario",
+    intro: () => "Tu cita quedó en el nuevo horario. Actualiza tu calendario con el archivo adjunto:",
+  },
+  cancelled: {
+    subject: (n, store) => `Tu cita se canceló — ${store}`,
+    title: "Tu cita se canceló",
+    intro: () => "Tu cita se canceló. Si quieres, agenda otra cuando gustes.",
+  },
+};
+
+const appointmentDetails = ({ appointment, when, address }) =>
+  [
+    { label: "Folio", value: `#${appointment.appointmentNumber}` },
+    { label: "Cuándo", value: when },
+    { label: appointment.services.length > 1 ? "Servicios" : "Servicio", value: appointment.services.map((s) => s.name).join(" + ") },
+    { label: "Con", value: appointment.specialistName },
+    { label: "Duración", value: `${appointment.durationMin} min` },
+    { label: "Total", value: formatCurrency(appointment.total) },
+    address ? { label: "Dónde", value: address } : null,
+  ].filter(Boolean);
+
+const appointmentEmailTemplate = ({ kind, appointment, when, address, branding, manageUrl, googleUrl, reason, changeHours }) => {
+  const config = APPOINTMENT_EMAILS[kind];
+  const store = branding.storeName || "Duck-Hack";
+  const isCancelled = kind === "cancelled";
+  const notes = [];
+  if (isCancelled && reason) notes.push(`Motivo: ${reason}`);
+  if (!isCancelled && changeHours) notes.push(`Puedes cancelar o reprogramar hasta ${changeHours} horas antes.`);
+  const { html, text } = accountActionEmailTemplate({
+    ...branding,
+    title: config.title,
+    name: appointment.customerName,
+    intro: config.intro(store),
+    details: appointmentDetails({ appointment, when, address }),
+    ctaLabel: isCancelled ? "Agendar otra cita" : "Ver mi cita",
+    url: manageUrl || undefined,
+    links: !isCancelled && googleUrl ? [{ label: "Agregar a Google Calendar", url: googleUrl }] : [],
+    note: notes.join(" ") || undefined,
+    footnote: isCancelled ? `${store}` : "Adjuntamos el archivo de calendario (.ics) para Apple Calendar u Outlook.",
+  });
+  return { subject: config.subject(appointment.appointmentNumber, store), html, text };
+};
+
+// Aviso al negocio: cita nueva desde el sitio, o cancelada / reprogramada
+// por la clienta.
+const APPOINTMENT_BUSINESS_EMAILS = {
+  new: { subject: (a) => `Nueva cita #${a.appointmentNumber} — ${a.customerName}`, title: "Nueva cita", intro: "Se agendó una cita desde el sitio:" },
+  cancelled: { subject: (a) => `Cita #${a.appointmentNumber} cancelada por la clienta`, title: "La clienta canceló su cita", intro: "Este horario quedó libre:" },
+  rescheduled: { subject: (a) => `Cita #${a.appointmentNumber} reprogramada por la clienta`, title: "La clienta cambió su cita", intro: "La cita quedó en este nuevo horario:" },
+};
+
+const appointmentBusinessEmailTemplate = ({ kind, appointment, when, previousWhen, branding, adminUrl, reason }) => {
+  const config = APPOINTMENT_BUSINESS_EMAILS[kind];
+  const details = [
+    ...appointmentDetails({ appointment, when }),
+    { label: "Clienta", value: appointment.customerName },
+    appointment.customerPhone ? { label: "Teléfono", value: appointment.customerPhone } : null,
+    appointment.customerEmail ? { label: "Correo", value: appointment.customerEmail } : null,
+    previousWhen ? { label: "Antes", value: previousWhen } : null,
+    appointment.notes ? { label: "Notas", value: appointment.notes } : null,
+    reason ? { label: "Motivo", value: reason } : null,
+    { label: "Estado", value: appointment.status === "pending" ? "Por confirmar" : appointment.status === "cancelled" ? "Cancelada" : "Confirmada" },
+  ].filter(Boolean);
+  const { html, text } = accountActionEmailTemplate({
+    ...branding,
+    title: config.title,
+    intro: config.intro,
+    details,
+    ctaLabel: adminUrl ? "Abrir la agenda" : undefined,
+    url: adminUrl || undefined,
+    note: appointment.status === "pending" && kind === "new" ? "Está por confirmar: confírmala desde la agenda del panel." : undefined,
+    footnote: "Aviso automático de la agenda.",
+  });
+  return { subject: config.subject(appointment), html, text };
+};
+
 module.exports = {
+  appointmentEmailTemplate,
+  appointmentBusinessEmailTemplate,
   resolveSpeiAccount,
   paymentTypeOf,
   lowStockEmailTemplate,
