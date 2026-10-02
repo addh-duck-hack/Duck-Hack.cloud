@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const { sendError } = require("../utils/httpResponses");
 const { HOSTING_PLANS, HOSTING_PLAN_IDS } = require("../utils/hostingPlans");
+const { phone } = require("@duck-hack/core-api");
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -57,11 +58,10 @@ const validateAgencyClientPayload = (req, res, next) => {
   }
 
   if (payload.contactPhone !== undefined) {
-    const contactPhone = asTrimmedString(payload.contactPhone);
-    if (contactPhone.length > 30) {
-      return badRequest(res, "VALIDATION_ERROR", "contactPhone excede 30 caracteres.");
-    }
-    req.body.contactPhone = contactPhone;
+    // 10 dígitos de México (packages/core-api/lib/phone.js).
+    const contactPhone = phone.parseMxPhone(payload.contactPhone, { label: "El teléfono de contacto" });
+    if (contactPhone.error) return badRequest(res, "VALIDATION_ERROR", contactPhone.error);
+    req.body.contactPhone = contactPhone.value;
   }
 
   if (payload.siteUrl !== undefined) {

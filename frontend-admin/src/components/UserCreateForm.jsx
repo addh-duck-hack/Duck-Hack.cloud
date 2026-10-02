@@ -10,6 +10,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { ROLES, ROLE_LABELS, assignableRolesFor } from "../utils/roles";
+import PhoneInput from "./PhoneInput";
 
 const INITIAL_FORM = { name: "", email: "", password: "", phone: "", role: ROLES.COLLABORATOR };
 
@@ -91,14 +92,7 @@ const UserCreateForm = () => {
 
         <label>
           Teléfono (opcional)
-          <input
-            type="tel"
-            name="phone"
-            value={form.phone}
-            onChange={handleChange}
-            maxLength={40}
-            placeholder="55 1234 5678"
-          />
+          <PhoneInput name="phone" value={form.phone} onChange={handleChange} />
         </label>
 
         <label>

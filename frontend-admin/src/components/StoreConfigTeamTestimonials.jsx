@@ -10,7 +10,7 @@ const TEAM_MEMBER_FIELDS = [
   // Sin límite de caracteres: admite HTML básico (<p>, <b>, <h1>...).
   { name: "bio", label: "Bio (admite HTML básico)", type: "textarea", rows: 8, fullWidth: true },
   { name: "email", label: "Email", type: "email", maxLength: 160 },
-  { name: "phone", label: "Teléfono (10 dígitos)", type: "tel", maxLength: 10, digitsOnly: true, placeholder: "5512345678" },
+  { name: "phone", label: "Teléfono (10 dígitos)", type: "mxPhone" },
   { name: "photoUrl", label: "Foto", type: "image", fullWidth: true },
   { name: "isActive", label: "Activo", type: "boolean" },
 ];

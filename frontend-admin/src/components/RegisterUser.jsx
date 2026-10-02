@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
+import PhoneInput from "./PhoneInput";
 
 const RegisterUser = ({ onBack }) => {
   const [userData, setUserData] = useState({
@@ -113,14 +114,7 @@ const RegisterUser = ({ onBack }) => {
           onChange={handleChange}
           required
         />
-        <input
-          type="tel"
-          name="phone"
-          placeholder="Teléfono (opcional)"
-          aria-label="Teléfono (opcional)"
-          value={userData.phone}
-          onChange={handleChange}
-        />
+        <PhoneInput name="phone" placeholder="Teléfono (opcional, 10 dígitos)" aria-label="Teléfono (opcional)" value={userData.phone} onChange={handleChange} />
         {/* El rol se asigna por defecto en backend como 'customer' */}
         <button type="submit" disabled={userData.password !== userData.confirmPassword}>Registrar</button>
       </form>

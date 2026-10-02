@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import MediaField from "./MediaField";
 import { FA_ICON_DATALIST_ID, FA_ICON_SUGGESTIONS } from "../utils/faIconSuggestions";
+import PhoneInput from "./PhoneInput";
 
 // Chips add/remove para un campo de tipo "stringList" (ej. extraFeatures de
 // un plan de precios). Mismo patrón visual que dockerContainers en
@@ -207,6 +208,16 @@ const renderField = (field, item, onItemChange) => {
     if (field.digitsOnly) return raw.replace(/\D/g, "").slice(0, field.maxLength || undefined);
     return raw;
   };
+
+  // Teléfono de México (10 dígitos), ver PhoneInput.
+  if (field.type === "mxPhone") {
+    return (
+      <label key={field.name} style={{ gridColumn: field.fullWidth ? "1 / span 2" : undefined }}>
+        {field.label}
+        <PhoneInput name={field.name} value={value ?? ""} required={field.required} onChange={(e) => onItemChange(field.name, e.target.value)} />
+      </label>
+    );
+  }
 
   return (
     <label key={field.name} style={{ gridColumn: field.fullWidth ? "1 / span 2" : undefined }}>

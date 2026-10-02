@@ -4,6 +4,7 @@ import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatDuration } from "./ServiceList";
 import { APPOINTMENT_STATUS_LABELS, formatDateTime } from "../utils/schedule";
+import PhoneInput from "./PhoneInput";
 
 // Alta y detalle de una cita desde la agenda del panel
 // (packages/core-api/modules/appointments.js, 2.4). Una cita puede llevar
@@ -267,7 +268,7 @@ const AppointmentDialog = ({ appointment, initialStart, initialSpecialist, speci
               </label>
               <label>
                 Teléfono
-                <input type="tel" value={form.customerPhone} onChange={set("customerPhone")} placeholder="10 dígitos" />
+                <PhoneInput name="customerPhone" value={form.customerPhone} onChange={set("customerPhone")} />
               </label>
               <label>
                 Correo (opcional)

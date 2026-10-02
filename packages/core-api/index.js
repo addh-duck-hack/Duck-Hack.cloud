@@ -13,6 +13,7 @@ const media = require("./modules/media");
 const appHome = require("./modules/appHome");
 const permissions = require("./modules/permissions");
 const permissionsLib = require("./lib/permissions");
+const phoneLib = require("./lib/phone");
 
 // Cada app's backend (ver backend/server.js) monta los módulos de esta
 // lista. Agrega uno nuevo requiriéndolo aquí y añadiéndolo al arreglo — nada
@@ -40,6 +41,9 @@ module.exports = {
   // backend/ que no viven aquí (AgencyClient/Accounting/Invoices) arman sus
   // middlewares con permissions.createModuleAuthorizer({ mongooseConnection,
   // sendError }) — ver lib/permissions.js.
+  // Teléfonos de México a 10 dígitos (lib/phone.js), para los validadores de
+  // backend/ (AgencyClient).
+  phone: phoneLib,
   permissions: {
     createModuleAuthorizer: permissionsLib.createModuleAuthorizer,
     PERMISSION_MODULES: permissionsLib.PERMISSION_MODULES,

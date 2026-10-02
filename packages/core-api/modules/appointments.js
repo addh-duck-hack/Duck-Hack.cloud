@@ -61,6 +61,7 @@ const { createModuleAuthorizer } = require("../lib/permissions");
 const { createRateLimiter } = require("../lib/rateLimit");
 const { verifyAccessToken, signAppointmentAccessToken, verifyAppointmentAccessToken } = require("../lib/jwt");
 const { sendMail } = require("../lib/mailer");
+const { normalizeMxPhone } = require("../lib/phone");
 const { appointmentEmailTemplate, appointmentBusinessEmailTemplate } = require("../lib/emailTemplates");
 const { buildIcs, googleCalendarUrl } = require("../lib/ics");
 const { MINUTE, isValidDate, addDays, localToUtc, utcToLocal, overlaps, workingWindows, slotsForDay } = require("../lib/availability");
@@ -827,7 +828,7 @@ function registerRoutes(app, ctx) {
   const validateContact = (payload) => {
     const customerName = asTrimmedString(payload.customerName);
     const customerEmail = asTrimmedString(payload.customerEmail).toLowerCase();
-    const customerPhone = String(payload.customerPhone || "").replace(/\D/g, "");
+    const customerPhone = normalizeMxPhone(payload.customerPhone);
     if (!customerName || customerName.length > 120) return { error: "Escribe tu nombre." };
     if (!EMAIL_REGEX.test(customerEmail) || customerEmail.length > 160) return { error: "Escribe un correo válido." };
     if (!PHONE_DIGITS.test(customerPhone)) return { error: "Escribe un teléfono de 10 dígitos." };
@@ -1387,7 +1388,7 @@ function registerRoutes(app, ctx) {
       out.customerEmail = email;
     }
     if (payload.customerPhone !== undefined) {
-      const phone = String(payload.customerPhone || "").replace(/\D/g, "");
+      const phone = normalizeMxPhone(payload.customerPhone);
       if (phone && !PHONE_DIGITS.test(phone)) return { error: "El teléfono debe tener 10 dígitos." };
       out.customerPhone = phone;
     }
