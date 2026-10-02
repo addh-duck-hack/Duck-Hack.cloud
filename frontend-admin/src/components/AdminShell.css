@@ -8,6 +8,9 @@
 
 /* ---- rail (sidebar) ---- */
 .rail {
+  /* border-box: el padding va dentro de los 100vh; si no, el rail mide 2.8rem
+     más que la pantalla y la página entera hace scroll. */
+  box-sizing: border-box;
   background: var(--form-background-color);
   border-right: 1px solid var(--input-border-color);
   padding: 1.4rem 1.1rem;
@@ -16,6 +19,16 @@
   position: sticky;
   top: 0;
   height: 100vh;
+  /* En móvil, el alto real visible (sin la barra del navegador). */
+  height: 100dvh;
+}
+
+/* Lo fijo del rail no se encoge; solo la navegación hace scroll si no cabe. */
+.rail-brand,
+.rail-label,
+.rail-actions,
+.rail-foot {
+  flex-shrink: 0;
 }
 
 .rail-brand {
