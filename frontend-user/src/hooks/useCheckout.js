@@ -12,12 +12,14 @@
 // pago" del admin, GET /api/store-config/public). El pedido va por
 // POST /api/orders/public (useCart#submitOrder), que valida todo contra la
 // misma configuración y recalcula envío y total. Sin pasarela de pago: entra
-// "pendiente" y la tienda confirma el pago a mano.
+// "pendiente" y la tienda confirma el pago a mano. El cupón (useCoupon) se
+// puede aplicar en cualquier paso desde el resumen.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch } from '../utils/apiClient';
 import { EMPTY_SHIPPING_ADDRESS, SHIPPING_ADDRESS_FIELDS, pickShippingAddress } from '../utils/address';
 import { useAuth } from './useAuth';
 import { useCart } from './useCart';
+import { useCoupon } from './useCoupon';
 import { useStoreConfig } from './useStoreConfig';
 import { useLoginForm, useRegisterForm } from './useAuthForms';
 
@@ -143,9 +145,21 @@ export const useCheckout = () => {
     }
   }, [availablePaymentMethods, paymentMethodId]);
 
-  // ---- Totales según la entrega ----
-  const shipping = deliveryMethod ? cart.shippingFor(deliveryMethod) : null;
-  const total = cart.subtotal + (shipping || 0);
+  // ---- Cupón ----
+  // El correo solo con sesión (es estable): el límite por cliente de un
+  // invitado lo revisa el backend al confirmar.
+  const coupon = useCoupon({
+    subtotal: cart.subtotal,
+    deliveryMethod,
+    customerEmail: auth.isAuthenticated ? auth.user?.email : '',
+  });
+
+  // ---- Totales según la entrega y el cupón (mismo cálculo que el backend) ----
+  const itemsTotal = Math.max(0, cart.subtotal - coupon.discount);
+  const shippingOptions = { itemsTotal, freeShipping: coupon.freeShipping };
+  const homeShipping = cart.shippingFor('shipping', shippingOptions);
+  const shipping = deliveryMethod ? cart.shippingFor(deliveryMethod, shippingOptions) : null;
+  const total = itemsTotal + (shipping || 0);
 
   // ---- Tus datos ----
   // Al corregir un campo se quita el aviso del paso (se vuelve a validar al
@@ -340,7 +354,7 @@ export const useCheckout = () => {
     setStepError('');
     setIsSubmitting(true);
     try {
-      const summary = { count: cart.count, subtotal: cart.subtotal, savings: cart.savings };
+      const summary = { count: cart.count, subtotal: cart.subtotal, savings: cart.savings, coupon: coupon.applied };
       const created = await cart.submitOrder({
         ...contact,
         shippingAddress,
@@ -348,12 +362,21 @@ export const useCheckout = () => {
         pickupPointId: pickupPoint?._id,
         paymentMethod: paymentMethod._id,
         notes,
+        couponCode: coupon.applied?.code,
       });
       setPlacedSummary(summary);
       setOrder(created);
       cart.clear();
       setStep(DONE_STEP);
     } catch (err) {
+      // Cupón que dejó de servir entre la vista previa y el pedido (vencido,
+      // agotado, límite por cliente…): se quita para que el total mostrado
+      // vuelva a ser el real y el cliente confirme sabiendo cuánto paga.
+      if (String(err.code || '').startsWith('COUPON_') && coupon.applied) {
+        coupon.remove();
+        setStepError(`${err.message} Quitamos el cupón: revisa el total y confirma de nuevo.`);
+        return;
+      }
       setStepError(err.message || 'No fue posible enviar tu pedido. Intenta de nuevo.');
     } finally {
       setIsSubmitting(false);
@@ -374,8 +397,13 @@ export const useCheckout = () => {
     stepError,
 
     // Totales según la entrega elegida (shipping null = aún sin elegir).
+    // `itemsTotal` = productos − cupón; `homeShipping` = lo que costaría el
+    // envío a domicilio (para mostrarlo antes de elegir).
     shipping,
+    homeShipping,
+    itemsTotal,
     total,
+    coupon,
 
     // Entrega
     deliveryMethod,

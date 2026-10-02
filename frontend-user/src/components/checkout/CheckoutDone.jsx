@@ -101,6 +101,12 @@ const CheckoutDone = ({ co }) => {
               <span>{formatMxn(item.subtotal)}</span>
             </li>
           ))}
+          {order.discount?.amount ? (
+            <li className="co-done-discount">
+              <span>Cupón {order.discount.code}</span>
+              <span>−{formatMxn(order.discount.amount)}</span>
+            </li>
+          ) : null}
           <li>
             <span>Envío</span>
             <span>{order.shippingCost ? formatMxn(order.shippingCost) : 'Gratis'}</span>

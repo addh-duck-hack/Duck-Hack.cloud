@@ -4,9 +4,10 @@ import React from 'react';
 import { formatMxn } from '../../hooks/useCart';
 import { mapsHref } from '../../hooks/useCheckout';
 
-const shippingNote = (cart) => {
+const shippingNote = (co) => {
+  const { cart } = co;
   if (!cart.shippingEnabled) return 'Gratis';
-  if (cart.shipping === 0) return 'Gratis en este pedido';
+  if (co.homeShipping === 0) return 'Gratis en este pedido';
   return cart.freeShippingFrom
     ? `${formatMxn(cart.shippingCost)} · gratis desde ${formatMxn(cart.freeShippingFrom)}`
     : formatMxn(cart.shippingCost);
@@ -41,7 +42,7 @@ const StepDelivery = ({ co }) => {
               <strong>Envío a domicilio</strong>
               <span>Lo llevamos a la dirección que elijas.</span>
             </span>
-            <span className="co-option-meta">{shippingNote(cart)}</span>
+            <span className="co-option-meta">{shippingNote(co)}</span>
           </label>
         ) : null}
 

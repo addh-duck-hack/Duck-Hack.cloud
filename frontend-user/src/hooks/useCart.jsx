@@ -260,6 +260,7 @@ export const CartProvider = ({ children }) => {
       pickupPointId,
       paymentMethod,
       notes,
+      couponCode,
     }) => {
       const linesWithOptions = lines.filter((l) => !l.variantId && optionsKey(l.options));
       const optionsNote = linesWithOptions.length
@@ -277,6 +278,8 @@ export const CartProvider = ({ children }) => {
       };
       if (customerPhone) payload.customerPhone = customerPhone;
       if (deliveryMethod === 'pickup' && pickupPointId) payload.pickupPointId = pickupPointId;
+      // El backend vuelve a validar el cupón y calcula el descuento él mismo.
+      if (couponCode) payload.couponCode = couponCode;
       // La dirección solo va con envío a domicilio.
       if (deliveryMethod !== 'pickup' && shippingAddress) payload.shippingAddress = shippingAddress;
       // Notas del cliente + el detalle de opciones por producto (Order.items
@@ -310,15 +313,20 @@ export const CartProvider = ({ children }) => {
     const savings = lines.reduce((sum, l) => sum + lineSavingOf(l), 0);
     // Envío asumiendo entrega a domicilio; recoger en punto de venta es 0
     // (ver shippingFor).
-    const shipping =
-      !shippingEnabled || subtotal === 0 || (freeShippingFrom && subtotal >= freeShippingFrom) ? 0 : shippingCost;
+    // Con cupón, `itemsTotal` es el subtotal ya menos el descuento: la meta de
+    // envío gratis se mide contra él, igual que en el backend
+    // (packages/core-api/modules/orders.js#POST /public).
+    const shippingOf = (itemsTotal) =>
+      !shippingEnabled || itemsTotal <= 0 || (freeShippingFrom && itemsTotal >= freeShippingFrom) ? 0 : shippingCost;
+    const shipping = shippingOf(subtotal);
     return {
       lines,
       count,
       subtotal,
       shipping,
       total: subtotal + shipping,
-      shippingFor: (deliveryMethod) => (deliveryMethod === 'pickup' ? 0 : shipping),
+      shippingFor: (deliveryMethod, { itemsTotal = subtotal, freeShipping = false } = {}) =>
+        deliveryMethod === 'pickup' || freeShipping ? 0 : shippingOf(itemsTotal),
       savings,
       regularSubtotal: subtotal + savings,
       // Config de envío: `freeShippingFrom` es null si nunca es gratis; la meta

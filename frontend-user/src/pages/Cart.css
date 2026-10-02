@@ -665,6 +665,130 @@
   font-size: 0.9rem;
 }
 
+/* ---- Cupón ---- */
+.co-coupon {
+  margin-top: 16px;
+}
+
+.co-coupon-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.co-coupon-toggle:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.co-coupon-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.co-coupon-row {
+  display: flex;
+  gap: 8px;
+}
+
+.co-coupon-row input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.co-coupon-row input::placeholder {
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.co-coupon-row input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 20%, transparent);
+}
+
+.co-coupon-row input[aria-invalid='true'] {
+  border-color: #8c1d18;
+}
+
+.co-coupon-apply {
+  height: 44px;
+  padding: 0 18px;
+  flex-shrink: 0;
+}
+
+.co-coupon-error {
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+  color: #8c1d18;
+}
+
+.co-coupon--applied {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px dashed var(--color-accent);
+  border-radius: 12px;
+}
+
+.co-coupon--applied p {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--color-text);
+}
+
+.co-coupon--applied i {
+  margin-top: 0.2em;
+  color: var(--color-accent);
+}
+
+.co-coupon--applied small {
+  display: block;
+  color: var(--color-muted);
+}
+
+.co-coupon-remove {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-muted);
+  font: inherit;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.co-coupon-remove:hover {
+  color: var(--color-text);
+}
+
 .co-summary-goal {
   margin-top: 16px;
 }
@@ -934,6 +1058,11 @@
 
 .co-done-items small {
   color: var(--color-muted);
+}
+
+.co-done-items .co-done-discount {
+  color: var(--color-accent);
+  font-weight: 600;
 }
 
 .co-done-items .co-done-total {
