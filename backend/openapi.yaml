@@ -6449,9 +6449,21 @@ components:
               type: string
               maxLength: 300
               description: "{item} se reemplaza por el servicio o producto."
+        privacyNotice:
+          type: string
+          maxLength: 50000
+          description: >-
+            Aviso de privacidad (HTML básico). Vacío = el storefront muestra su
+            aviso por defecto, armado con legalIdentity.
+        legalNotice:
+          type: string
+          maxLength: 50000
+          description: >-
+            Aviso legal (HTML básico). Vacío = el storefront muestra su aviso por
+            defecto, armado con legalIdentity.
         returnsPolicy:
           type: string
-          maxLength: 20000
+          maxLength: 50000
           description: Política de devoluciones (HTML básico). Vacío = sin página.
         isActive:
           type: boolean
