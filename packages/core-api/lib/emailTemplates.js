@@ -600,7 +600,10 @@ const orderStatusEmailTemplate = ({ kind, order, storeConfig, logoAbsoluteUrl, r
     details.push({ label: "Dónde", value: order.pickupPoint.name });
     if (order.pickupPoint.address) details.push({ label: "Dirección", value: order.pickupPoint.address });
     if (order.pickupPoint.schedule) details.push({ label: "Horario", value: order.pickupPoint.schedule });
-    if (order.pickupPoint.instructions) details.push({ label: "Indicaciones", value: order.pickupPoint.instructions });
+    // Las "indicaciones" del punto de venta se escriben para el checkout
+    // (antes de confirmar: "te avisaremos cuándo pasar…") y aquí confundirían;
+    // en este correo ya puede pasar, así que va qué llevar.
+    details.push({ label: "Qué llevar", value: "Puede pasar a recoger con el número del pedido y una identificación oficial." });
   }
 
   const trackingUrl = kind === "shipped" && /^https?:\/\//i.test(shipment.trackingUrl || "") ? shipment.trackingUrl : undefined;
