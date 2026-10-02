@@ -28,9 +28,11 @@ tags:
   - name: Infra
   - name: Products
   - name: Categories
-    description: Categorías del catálogo (mismos permisos que el módulo products)
+    description: Categorías del catálogo. Permisos según `kind` — product como el módulo products, service como el módulo services
   - name: Inventory
   - name: Orders
+  - name: Services
+    description: Catálogo de servicios con duración y precio (módulo services; Citas lo lee)
   - name: Coupons
     description: Cupones de descuento (módulo coupons de los permisos por tienda)
   - name: Reviews
@@ -2270,7 +2272,10 @@ paths:
       tags: [Categories]
       summary: Listar categorías (staff)
       operationId: listCategories
-      description: Lectura con el módulo `products`, o con `inventory`, `orders` o `appConfig` aunque Productos no esté contratado. Trae `productCount`.
+      description: >-
+        Con `kind=product`, lectura con el módulo `products`, o con `inventory`, `orders` o
+        `appConfig` aunque Productos no esté contratado. Con `kind=service`, con `services` o
+        `appointments`. Trae `productCount` (productos o servicios de la categoría, según el kind).
       parameters:
         - in: query
           name: kind
@@ -2367,7 +2372,7 @@ paths:
       tags: [Categories]
       summary: Actualizar categoría
       operationId: updateCategory
-      description: Módulo `products`. `kind` no se puede cambiar. Cambiar el slug no actualiza las secciones del home de la app que lo usan.
+      description: Módulo `products` (o `services` si la categoría es kind service). `kind` no se puede cambiar. Cambiar el slug no actualiza las secciones del home de la app que lo usan.
       requestBody:
         required: true
         content:
@@ -2387,14 +2392,14 @@ paths:
       tags: [Categories]
       summary: Eliminar categoría
       operationId: deleteCategory
-      description: Módulo `products`. Bloqueado (409 CATEGORY_HAS_PRODUCTS) si algún producto la usa.
+      description: Módulo `products` (o `services` si es kind service). Bloqueado (409 CATEGORY_HAS_PRODUCTS / CATEGORY_HAS_SERVICES) si algún producto o servicio la usa.
       responses:
         "200":
           description: Eliminada
         "404":
           description: CATEGORY_NOT_FOUND
         "409":
-          description: CATEGORY_HAS_PRODUCTS
+          description: CATEGORY_HAS_PRODUCTS o CATEGORY_HAS_SERVICES
 
   /api/products:
     get:
@@ -2571,6 +2576,132 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           $ref: "#/components/responses/InternalServerError"
+
+  /api/services/public:
+    get:
+      tags: [Services]
+      summary: Catálogo público de servicios
+      operationId: listPublicServices
+      security: []
+      description: Activos y con categoría activa (o sin categoría), ordenados por categoría y luego por servicio. No expone anticipo ni tiempo entre citas.
+      parameters:
+        - { in: query, name: category, schema: { type: string }, description: Id o slug de una categoría kind service. }
+        - { in: query, name: bookable, schema: { type: string, enum: ["true"] }, description: Solo los que se agendan en línea. }
+      responses:
+        "200":
+          description: Servicios
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PublicService"
+
+  /api/services/public/{id}:
+    get:
+      tags: [Services]
+      summary: Servicio público
+      operationId: getPublicService
+      security: []
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Servicio
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicService"
+        "404":
+          description: SERVICE_NOT_FOUND (no existe, inactivo o de categoría inactiva)
+
+  /api/services:
+    get:
+      tags: [Services]
+      summary: Listar servicios (staff)
+      operationId: listServices
+      description: Módulo `services`, o `appointments` aunque Servicios no esté contratado.
+      parameters:
+        - { in: query, name: isActive, schema: { type: string, enum: ["true", "false"] } }
+        - { in: query, name: category, schema: { type: string } }
+      responses:
+        "200":
+          description: Servicios (categoría poblada)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Service"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Services]
+      summary: Crear servicio
+      operationId: createService
+      description: Módulo `services`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceRequest"
+      responses:
+        "201":
+          description: Creado
+        "400":
+          description: VALIDATION_ERROR o CATEGORY_NOT_FOUND (la categoría debe ser kind service)
+
+  /api/services/{id}:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string } }
+    get:
+      tags: [Services]
+      summary: Obtener servicio
+      operationId: getService
+      responses:
+        "200":
+          description: Servicio
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Service"
+        "404":
+          description: SERVICE_NOT_FOUND
+    put:
+      tags: [Services]
+      summary: Actualizar servicio
+      operationId: updateService
+      description: Módulo `services`. Solo cambia lo que se manda.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceRequest"
+      responses:
+        "200":
+          description: Actualizado
+        "400":
+          description: VALIDATION_ERROR o CATEGORY_NOT_FOUND
+        "404":
+          description: SERVICE_NOT_FOUND
+    delete:
+      tags: [Services]
+      summary: Eliminar servicio
+      operationId: deleteService
+      description: Módulo `services`. Bloqueado (409 SERVICE_IN_USE) si alguna cita lo usa; en ese caso se desactiva. Se quita de las especialistas que lo hacían.
+      responses:
+        "200":
+          description: Eliminado
+        "409":
+          description: SERVICE_IN_USE
 
   /api/coupons/validate:
     post:
@@ -4225,7 +4356,7 @@ components:
     PermissionModuleKey:
       type: string
       description: Módulo del panel sujeto a permisos por tienda
-      enum: [panel, storeConfig, appConfig, products, inventory, orders, coupons, reviews, media, users, agencyClients, accounting, invoices]
+      enum: [panel, storeConfig, appConfig, services, products, inventory, orders, coupons, reviews, media, users, agencyClients, accounting, invoices]
 
     StorePermissions:
       type: object
@@ -6212,6 +6343,53 @@ components:
           type: string
           format: date-time
       required: [_id, customerName, customerEmail, items, status, total]
+
+    ServiceRequest:
+      type: object
+      properties:
+        name: { type: string, maxLength: 120 }
+        category: { type: string, nullable: true, description: Id de Category kind service; null o "" = sin categoría. }
+        description: { type: string, maxLength: 5000, description: HTML básico. }
+        durationMin: { type: integer, minimum: 5, maximum: 600 }
+        bufferMin: { type: integer, minimum: 0, maximum: 240, description: Tiempo libre después del servicio. En una cita con varios servicios cuenta el mayor, una vez. }
+        price: { type: number, minimum: 0 }
+        priceFrom: { type: boolean, description: Mostrar como "Desde $". }
+        image: { type: string }
+        bookableOnline: { type: boolean }
+        deposit:
+          type: object
+          description: Anticipo (se cobra cuando se activen los anticipos SPEI).
+          properties:
+            type: { type: string, enum: [none, fixed, percent] }
+            value: { type: number, minimum: 0 }
+        sortOrder: { type: integer, minimum: 0 }
+        isActive: { type: boolean }
+      required: [name, durationMin, price]
+
+    Service:
+      allOf:
+        - $ref: "#/components/schemas/ServiceRequest"
+        - type: object
+          properties:
+            _id: { type: string }
+            createdAt: { type: string, format: date-time }
+
+    PublicService:
+      type: object
+      properties:
+        _id: { type: string }
+        name: { type: string }
+        category:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/PublicCategory"
+        description: { type: string }
+        durationMin: { type: integer }
+        price: { type: number }
+        priceFrom: { type: boolean }
+        image: { type: string }
+        bookableOnline: { type: boolean }
+        sortOrder: { type: integer }
 
     ReviewRequest:
       type: object

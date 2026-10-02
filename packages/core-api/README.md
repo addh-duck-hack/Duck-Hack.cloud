@@ -19,9 +19,17 @@ vault, not in this repo).
   reads).
 - `modules/categories.js` — catalog categories (`/api/categories`), with
   image, `featured`, `sortOrder` and a `slug` (what the app home sections and
-  `?category=` use). `kind` = `product` today (`service` reserved for the
-  appointments module). Same permission key as products — not a module of
-  its own. Mounted before products (`Product.category` refs `Category`).
+  `?category=` use). `kind` = `product` or `service`; not a module of its
+  own — permissions follow the kind (`products` / `services`). Mounted before
+  products and services (both ref `Category`).
+- `modules/services.js` — service catalog (`/api/services`, permission key
+  `services`, sellable without appointments): category (kind `service`),
+  duration, buffer (free time after), price / "from" price, image,
+  `bookableOnline`, `deposit` (stored now, charged with the SPEI deposits).
+  Public `GET /public` (active, ordered by category then service, no
+  deposit/buffer). A service used in appointments can't be deleted (409).
+  Appointments with several services add up the durations and keep the
+  largest buffer.
 - `modules/products.js` — product catalog (`/api/products`). Optional
   variants (`options` + `variants`, logic in `lib/variants.js`): each variant
   has its own SKU, stock and optional price/image; `lib/purchaseLimits.js
