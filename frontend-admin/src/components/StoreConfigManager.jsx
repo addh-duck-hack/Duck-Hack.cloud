@@ -3,6 +3,7 @@ import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import MediaField from "./MediaField";
 import StoreConfigTabs from "./StoreConfigTabs";
+import PhoneInput from "./PhoneInput";
 
 const initialState = {
   storeName: "",
@@ -217,7 +218,7 @@ const StoreConfigManager = () => {
 
           <label>
             Teléfono de contacto
-            <input type="tel" name="contactPhone" value={form.contactPhone} onChange={handleChange} />
+            <PhoneInput name="contactPhone" value={form.contactPhone} onChange={handleChange} />
           </label>
         </div>
 

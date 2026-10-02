@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import StoreConfigTabs from "./StoreConfigTabs";
+import PhoneInput from "./PhoneInput";
 
 const initialState = {
   legalName: "",
@@ -144,7 +145,7 @@ const StoreConfigLegal = () => {
           </label>
           <label>
             Teléfono de contacto legal
-            <input type="tel" name="legalPhone" value={form.legalPhone} onChange={handleChange} maxLength={30} />
+            <PhoneInput name="legalPhone" value={form.legalPhone} onChange={handleChange} />
           </label>
           <label style={{ gridColumn: "1 / -1" }}>
             Domicilio legal

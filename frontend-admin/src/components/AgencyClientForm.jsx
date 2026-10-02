@@ -3,6 +3,7 @@ import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { HOSTING_PLANS, HOSTING_PLAN_IDS, formatMxn } from "../utils/hostingPlans";
+import PhoneInput from "./PhoneInput";
 
 const initialState = {
   businessName: "",
@@ -183,7 +184,7 @@ const AgencyClientForm = () => {
 
           <label>
             Teléfono de contacto
-            <input type="tel" name="contactPhone" value={form.contactPhone} onChange={handleChange} />
+            <PhoneInput name="contactPhone" value={form.contactPhone} onChange={handleChange} />
           </label>
 
           <label>

@@ -25,6 +25,7 @@ const {
   getOrCreateModel,
 } = require("../lib/moduleHelpers");
 const { createRateLimiter } = require("../lib/rateLimit");
+const { parseMxPhone } = require("../lib/phone");
 const { getPurchaseLimit } = require("../lib/purchaseLimits");
 const { shippingSettingsOf, computeShippingCost } = require("../lib/shipping");
 const { DELIVERY_METHODS, resolveCheckout } = require("../lib/checkoutOptions");
@@ -252,6 +253,19 @@ const orderSchema = new mongoose.Schema(
 orderSchema.index({ status: 1 });
 orderSchema.index({ customer: 1 });
 
+// Dirección normalizada en req.body; el teléfono (si viene) a 10 dígitos
+// (lib/phone.js). Devuelve el mensaje de error o null.
+const applyShippingAddress = (req, rawAddress) => {
+  const address = normalizeShippingAddress(rawAddress);
+  if (address && address.phone) {
+    const phone = parseMxPhone(address.phone, { label: "El teléfono de la dirección de envío" });
+    if (phone.error) return phone.error;
+    address.phone = phone.value;
+  }
+  req.body.shippingAddress = address;
+  return null;
+};
+
 const validateCreatePayload = (sendError) => (req, res, next) => {
   const payload = req.body || {};
 
@@ -265,8 +279,15 @@ const validateCreatePayload = (sendError) => (req, res, next) => {
   }
   req.body.customerEmail = customerEmail;
 
-  if (payload.customerPhone !== undefined) req.body.customerPhone = asTrimmedString(payload.customerPhone);
-  if (payload.shippingAddress !== undefined) req.body.shippingAddress = normalizeShippingAddress(payload.shippingAddress);
+  if (payload.customerPhone !== undefined) {
+    const phone = parseMxPhone(payload.customerPhone, { label: "El teléfono del cliente" });
+    if (phone.error) return sendError(res, 400, "VALIDATION_ERROR", phone.error);
+    req.body.customerPhone = phone.value;
+  }
+  if (payload.shippingAddress !== undefined) {
+    const addressError = applyShippingAddress(req, payload.shippingAddress);
+    if (addressError) return sendError(res, 400, "VALIDATION_ERROR", addressError);
+  }
   if (payload.notes !== undefined) req.body.notes = asTrimmedString(payload.notes);
 
   if (payload.customer !== undefined && payload.customer !== "") {
@@ -324,7 +345,10 @@ const validateUpdatePayload = (sendError) => (req, res, next) => {
     }
     req.body.status = status;
   }
-  if (payload.shippingAddress !== undefined) req.body.shippingAddress = normalizeShippingAddress(payload.shippingAddress);
+  if (payload.shippingAddress !== undefined) {
+    const addressError = applyShippingAddress(req, payload.shippingAddress);
+    if (addressError) return sendError(res, 400, "VALIDATION_ERROR", addressError);
+  }
   if (payload.notes !== undefined) req.body.notes = asTrimmedString(payload.notes);
   if (payload.shipment !== undefined) {
     const shipment = payload.shipment;

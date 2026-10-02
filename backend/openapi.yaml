@@ -5,6 +5,11 @@ info:
   description: >
     API base del proyecto CRM/eCommerce (estado actual).
     Incluye autenticación, gestión de usuarios, contacto por correo y archivos públicos.
+    Teléfonos (usuarios, direcciones, pedidos, citas, contacto/legal/SPEI/equipo de la
+    tienda, clientes de la agencia): 10 dígitos de México. Se aceptan espacios, guiones y el
+    prefijo +52 / 52 / 521, y se guardan solo los 10 dígitos; otro largo → 400
+    VALIDATION_ERROR. WhatsApp (whatsappButton.phone) se manda a 10 dígitos y se guarda
+    con el país (52 + 10) para los enlaces wa.me.
 servers:
   - url: https://{apiHost}
     description: Backend desplegado de una tienda (un backend por tienda)

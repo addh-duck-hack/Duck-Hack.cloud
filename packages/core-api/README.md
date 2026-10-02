@@ -96,6 +96,10 @@ vault, not in this repo).
   storefront's order page `FRONTEND_URL/pedido/<id>?token=…`, which reads
   `GET /:id/summary` (and the ticket `GET /:id/pdf`) with `X-Order-Token` —
   every storefront that turns it on must implement that route.
+- `lib/phone.js` — Mexican phones, 10 digits: `normalizeMxPhone` (strips
+  separators and a 52/521 prefix), `parseMxPhone(value, { required, label })`
+  → `{ value }` | `{ error }`, `toWhatsappPhone` (stores 52 + 10). Used by
+  every module that stores a phone, and exported as `phone` for `backend/`.
 - `modules/coupons.js` — discount coupons (`/api/coupons`, permission key
   `coupons`): amount / percent / free shipping, minimum purchase, validity
   window, total and per-customer use limits. Rules in `lib/coupons.js`

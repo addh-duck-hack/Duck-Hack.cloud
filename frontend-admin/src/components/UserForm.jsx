@@ -12,6 +12,7 @@ import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatCalendarDate } from "../utils/formatCalendarDate";
 import { getCurrentUserId } from "../utils/currentUser";
 import { ROLE_LABELS, assignableRolesFor } from "../utils/roles";
+import PhoneInput from "./PhoneInput";
 
 const formatDate = (value) => formatCalendarDate(value) || "—";
 
@@ -141,13 +142,7 @@ const UserForm = () => {
 
         <label>
           Teléfono (opcional)
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            maxLength={40}
-            placeholder="55 1234 5678"
-          />
+          <PhoneInput name="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
         </label>
 
         <label>
