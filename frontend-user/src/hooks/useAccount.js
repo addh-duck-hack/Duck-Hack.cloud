@@ -35,30 +35,44 @@ export const ORDER_STATUS_LABELS = {
   processing: 'En preparación',
   shipped: 'Enviado',
   delivered: 'Entregado',
+  ready_for_pickup: 'Listo para recoger',
+  picked_up: 'Recogido',
   cancelled: 'Cancelado',
 };
 
-// "cancelled" no forma parte de la secuencia — se muestra aparte.
-export const ORDER_STATUS_SEQUENCE = ['pending', 'confirmed', 'processing', 'shipped', 'delivered'];
+// Final del pedido según la entrega (el backend solo acepta los de cada una):
+// envío a domicilio → Enviado, Entregado; recoger en tienda → Listo para
+// recoger, Recogido.
+const FINAL_STEPS = { shipping: ['shipped', 'delivered'], pickup: ['ready_for_pickup', 'picked_up'] };
+const finalStepsOf = (order) => (order?.deliveryMethod === 'pickup' ? FINAL_STEPS.pickup : FINAL_STEPS.shipping);
 
-// Pasos de la línea de tiempo de un pedido: "Comprobante en revisión" solo
-// aparece en los pedidos que lo usan (pagados por transferencia con
-// comprobante), para no agregarle un paso vacío a los demás.
-export const orderStatusSequence = (order) =>
-  order?.status === 'payment_review' || (order?.paymentProofs || []).length > 0
-    ? ['pending', 'payment_review', ...ORDER_STATUS_SEQUENCE.slice(1)]
-    : ORDER_STATUS_SEQUENCE;
+// "cancelled" no forma parte de la secuencia — se muestra aparte.
+export const ORDER_STATUS_SEQUENCE = ['pending', 'confirmed', 'processing', ...FINAL_STEPS.shipping];
+
+// Pasos de la línea de tiempo de un pedido, con el final de su entrega.
+// "Comprobante en revisión" solo aparece en los pedidos que lo usan (pagados
+// por transferencia con comprobante), para no agregarle un paso vacío a los
+// demás.
+export const orderStatusSequence = (order) => [
+  'pending',
+  ...(order?.status === 'payment_review' || (order?.paymentProofs || []).length > 0 ? ['payment_review'] : []),
+  'confirmed',
+  'processing',
+  ...finalStepsOf(order),
+];
 
 // El pedido sigue esperando que el cliente pague (y mande su comprobante).
 export const isAwaitingPayment = (order) => ['pending', 'payment_review'].includes(order?.status);
 
-// Al recoger en punto de venta, "enviado" significa que ya está listo.
+// Pedidos para recoger anteriores a sus estados propios (si la tienda aún no
+// corrió backend/scripts/migrate-pickup-statuses.mongo.js): "enviado" era
+// "listo para recoger" y "entregado", "recogido".
 const PICKUP_STATUS_LABELS = { shipped: 'Listo para recoger', delivered: 'Recogido' };
 
 export const orderStatusLabel = (status, deliveryMethod) =>
   (deliveryMethod === 'pickup' && PICKUP_STATUS_LABELS[status]) || ORDER_STATUS_LABELS[status] || status;
 
-export const isOrderActive = (order) => !['delivered', 'cancelled'].includes(order?.status);
+export const isOrderActive = (order) => !['delivered', 'picked_up', 'cancelled'].includes(order?.status);
 
 export const formatDate = (value) => {
   const date = new Date(value);

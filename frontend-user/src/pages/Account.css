@@ -329,12 +329,14 @@
 
 .acc-status.is-confirmed,
 .acc-status.is-processing,
-.acc-status.is-shipped {
+.acc-status.is-shipped,
+.acc-status.is-ready_for_pickup {
   background-color: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg));
   color: var(--color-accent);
 }
 
-.acc-status.is-delivered {
+.acc-status.is-delivered,
+.acc-status.is-picked_up {
   background-color: #e8f5ec;
   color: #1d5b33;
 }
