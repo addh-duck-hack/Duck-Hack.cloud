@@ -11,7 +11,7 @@ export const MODULE_NAV = [
     key: "services",
     items: [
       { path: "/admin/services", label: "Servicios" },
-      { path: "/admin/service-categories", label: "Categorías de servicios" },
+      { path: "/admin/service-categories", label: "Categorías" },
     ],
   },
   {
@@ -37,6 +37,43 @@ export const MODULE_NAV = [
   },
   { key: "invoices", items: [{ path: "/admin/invoices", label: "Facturación" }] },
 ];
+
+// Grupos del menú lateral (AdminShell.jsx): cada grupo junta las entradas de
+// varios módulos. Un grupo del que el usuario solo ve una entrada se muestra
+// como enlace suelto; sin `label`, sus entradas van sueltas siempre. `superOnly`
+// son entradas que no son módulo asignable (solo super_admin). `bottom` = va
+// abajo, en la sección de sesión (junto a "Cerrar sesión"), no en la navegación.
+export const NAV_GROUPS = [
+  { id: "panel", modules: ["panel"] },
+  { id: "config", label: "Configuración", icon: "fa-solid fa-gear", modules: ["storeConfig", "appConfig"] },
+  { id: "services", label: "Servicios", icon: "fa-solid fa-spa", modules: ["services"] },
+  {
+    id: "store",
+    label: "Tienda",
+    icon: "fa-solid fa-store",
+    modules: ["products", "inventory", "orders", "coupons", "reviews"],
+  },
+  { id: "media", modules: ["media"] },
+  {
+    id: "users",
+    label: "Usuarios",
+    icon: "fa-solid fa-users",
+    modules: ["users"],
+    superOnly: [{ path: "/admin/permissions", label: "Permisos" }],
+    bottom: true,
+  },
+  { id: "agency", label: "Agencia", icon: "fa-solid fa-briefcase", modules: ["agencyClients", "accounting", "invoices"] },
+];
+
+// Menú ya filtrado por permisos: [{ id, label, icon, items }], sin grupos vacíos.
+export const navGroupsFor = (can, isSuperAdmin) =>
+  NAV_GROUPS.map((group) => ({
+    ...group,
+    items: [
+      ...group.modules.flatMap((key) => (can(key) ? MODULE_NAV.find((module) => module.key === key)?.items || [] : [])),
+      ...(isSuperAdmin ? group.superOnly || [] : []),
+    ],
+  })).filter((group) => group.items.length > 0);
 
 // Primera pantalla de quien no tiene el Panel (el índice /admin): Pedidos si lo
 // tiene, como antes; si no, su primer módulo permitido; null = ninguno.

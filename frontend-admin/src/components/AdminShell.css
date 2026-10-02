@@ -59,6 +59,65 @@
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
+  /* Con varios grupos abiertos el menú puede pasar del alto de la pantalla. */
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* ---- Grupos del menú (Configuración, Tienda, Agencia…) ---- */
+.rail-group-toggle {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--placeholder-color);
+  padding: 0.62rem 0.6rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.rail-group-toggle:hover {
+  background: var(--input-background-color);
+  color: var(--text-color);
+}
+
+.rail-group-toggle:focus-visible {
+  outline: 2px solid var(--link-color);
+  outline-offset: 1px;
+}
+
+.rail-group.has-active .rail-group-toggle {
+  color: var(--text-color);
+}
+
+.rail-group-icon {
+  width: 14px;
+  font-size: 0.75rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.rail-group-chevron {
+  margin-left: auto;
+  font-size: 0.65rem;
+  transition: transform 0.2s ease;
+}
+
+.rail-group.open .rail-group-chevron {
+  transform: rotate(180deg);
+}
+
+.rail-group-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin: 0.1rem 0 0.35rem 0.85rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--input-border-color);
 }
 
 .rail-nav a {
