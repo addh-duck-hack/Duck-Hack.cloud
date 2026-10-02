@@ -45,6 +45,12 @@ vault, not in this repo).
   storefront's order page `FRONTEND_URL/pedido/<id>?token=…`, which reads
   `GET /:id/summary` (and the ticket `GET /:id/pdf`) with `X-Order-Token` —
   every storefront that turns it on must implement that route.
+- `modules/coupons.js` — discount coupons (`/api/coupons`, permission key
+  `coupons`): amount / percent / free shipping, minimum purchase, validity
+  window, total and per-customer use limits. Rules in `lib/coupons.js`
+  (`resolveCoupon` for both the public `POST /validate` preview and the
+  checkout's `couponCode`; uses reserved atomically at checkout and released
+  when the order is cancelled or deleted, `Order.discount.counted`).
 - `modules/media.js` — admin media library over the `uploads/` folder
   (`/api/media`): lists files from disk, uploads images/GIF/MP4/WebM, edits
   title + alt text (stored in the `Media` collection, the file itself is never
