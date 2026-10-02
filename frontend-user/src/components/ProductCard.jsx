@@ -2,7 +2,7 @@
 //
 // Tarjeta de producto de la tienda (reutilizable en otras listas): imagen
 // cuadrada (con cruce a la segunda imagen al pasar el mouse), "Ahorra $X" si
-// hay descuento, nombre, línea de atributos, precio y botón "Agregar" que se
+// hay descuento, nombre, estrellas (si tiene reseñas), línea de atributos, precio y botón "Agregar" que se
 // vuelve selector − n + cuando el producto ya está en la canasta. El + se
 // detiene en el tope de compra (useCart().limitOf) y abajo aparece el aviso.
 //
@@ -16,6 +16,7 @@ import { htmlToText } from '../utils/htmlExcerpt';
 import { savingOf } from '../utils/price';
 import StoreImage from './StoreImage';
 import QtyLimitNote from './QtyLimitNote';
+import RatingStars from './RatingStars';
 import './ProductCard.css';
 
 const CARD_ATTRIBUTES = 2;
@@ -46,6 +47,9 @@ const ProductCard = ({ product }) => {
         <h3 className="product-card-name">
           <Link to={href}>{product.name}</Link>
         </h3>
+        {product.ratingCount ? (
+          <RatingStars value={product.ratingAvg} count={product.ratingCount} size="sm" className="product-card-rating" />
+        ) : null}
         {attributes.length ? (
           <dl className="product-card-specs">
             {attributes.map((attr, i) => (

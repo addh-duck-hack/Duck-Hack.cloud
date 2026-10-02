@@ -1,6 +1,8 @@
 // src/components/account/AccountOrders.jsx — "Mis pedidos": lista y detalle
 // (estado en línea de tiempo, productos, envío, entrega, pago con el
-// comprobante de transferencia, comprar de nuevo y ticket PDF).
+// comprobante de transferencia, comprar de nuevo y ticket PDF). En pedidos
+// entregados o recogidos, cada producto lleva "Calificar" (o "Ya calificaste")
+// hacia la sección de reseñas de su ficha.
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { formatMxn } from '../../hooks/useCart';
@@ -9,6 +11,30 @@ import { formatOrderFolio, mapsHref } from '../../hooks/useCheckout';
 import { usePaymentProofUpload } from '../../hooks/useOrderAccess';
 import { useStoreConfig } from '../../hooks/useStoreConfig';
 import PaymentProofPanel from '../PaymentProofPanel';
+import { useMyReviews } from '../../hooks/useReviews';
+
+// Estados en los que el cliente ya tiene el producto y puede calificarlo
+// (mismo criterio que el backend, modules/reviews.js).
+const RECEIVED_STATUSES = ['delivered', 'picked_up'];
+
+const ReviewLink = ({ item, review }) => {
+  const productId = item.product?._id || item.product;
+  if (!productId) return null;
+  const href = `/tienda/${productId}#resenas`;
+  if (review) {
+    return (
+      <Link to={href} className="acc-review-link acc-review-link--done">
+        <i className="fa-solid fa-star" aria-hidden="true" /> Ya calificaste
+        {review.status === 'pending' ? ' · en revisión' : review.status === 'rejected' ? ' · no publicada' : ''}
+      </Link>
+    );
+  }
+  return (
+    <Link to={href} className="acc-review-link">
+      <i className="fa-regular fa-star" aria-hidden="true" /> Calificar
+    </Link>
+  );
+};
 
 const LEGACY_PAYMENT_LABELS = { transfer: 'Transferencia / SPEI', pickup: 'Pago al recoger' };
 
@@ -48,6 +74,8 @@ const StatusTimeline = ({ order }) => {
 const OrderDetail = ({ orders }) => {
   const order = orders.selected;
   const { config } = useStoreConfig();
+  const myReviews = useMyReviews();
+  const canReview = RECEIVED_STATUSES.includes(order.status);
   const uploader = usePaymentProofUpload({ orderId: order._id, getHeaders: orders.authHeader, onUploaded: orders.reload });
   // Comprobante: solo pagos por transferencia. Se puede subir si la tienda lo
   // activó (StoreConfig.customerProofUpload) y el pedido espera su pago; los
@@ -149,8 +177,11 @@ const OrderDetail = ({ orders }) => {
         <ul className="acc-items">
           {(order.items || []).map((item, i) => (
             <li key={`${i}-${item.productName}`}>
-              <span>
-                {item.productName} <small>×{item.quantity}</small>
+              <span className="acc-items-name">
+                <span>
+                  {item.productName} <small>×{item.quantity}</small>
+                </span>
+                {canReview ? <ReviewLink item={item} review={myReviews[String(item.product?._id || item.product)]} /> : null}
               </span>
               <span className="acc-items-price">
                 {item.compareAtPrice ? <s>{formatMxn(item.compareAtPrice * item.quantity)}</s> : null}

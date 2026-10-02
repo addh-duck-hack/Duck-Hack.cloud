@@ -142,6 +142,9 @@ const normalizeApiProduct = (p) => {
       : [],
     maxQty,
     purchaseLimit,
+    // Reseñas aprobadas (las calcula el backend al moderar, modules/reviews.js).
+    ratingAvg: Number(p.ratingAvg) || 0,
+    ratingCount: Number(p.ratingCount) || 0,
     meta: p.meta,
     origin: p.origin,
     roast: p.roast,

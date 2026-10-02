@@ -1,0 +1,378 @@
+/* Sección "Reseñas" de la ficha (ProductReviews.jsx). Usa .pd-section-title y
+   .pd-btn de pages/ProductDetail.css. */
+.prv {
+  width: var(--topbar-floating-width);
+  margin: 0 auto;
+  padding: 56px 0 72px;
+  border-top: 1px solid var(--color-border);
+  /* Que la barra fija no tape el título al llegar con #resenas. */
+  scroll-margin-top: 96px;
+}
+
+.prv-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+  gap: 64px;
+  align-items: start;
+}
+
+/* ---- Resumen ---- */
+.prv-summary {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+
+.prv-average {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+}
+
+.prv-average strong {
+  font-family: var(--font-heading);
+  font-size: 3rem;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--color-text);
+}
+
+.prv-average span,
+.prv-total {
+  color: var(--color-muted);
+  font-size: 0.95rem;
+}
+
+.prv-total {
+  margin: 0;
+}
+
+.prv-bars {
+  list-style: none;
+  width: 100%;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.prv-bars li {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+
+.prv-bars i {
+  font-size: 0.7rem;
+  color: var(--color-accent);
+}
+
+.prv-bar {
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background-color: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  overflow: hidden;
+}
+
+.prv-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background-color: var(--color-accent);
+}
+
+.prv-bar-count {
+  text-align: right;
+}
+
+.prv-empty,
+.prv-cta {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.prv-cta {
+  margin-top: 24px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background-color: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg));
+  font-size: 0.95rem;
+}
+
+.prv-cta a {
+  color: var(--color-accent);
+  font-weight: 700;
+}
+
+/* ---- Formulario / mi reseña ---- */
+.prv-form,
+.prv-mine {
+  margin-top: 28px;
+  padding: 22px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  display: grid;
+  gap: 14px;
+}
+
+.prv-form h3,
+.prv-mine h3 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1.2rem;
+  font-weight: 400;
+}
+
+.prv-picker {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.prv-picker legend {
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.prv-picker-stars {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.prv-picker-stars label {
+  position: relative;
+  display: inline-flex;
+  padding: 2px;
+  font-size: 1.6rem;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.prv-picker-stars label.is-on {
+  color: var(--color-accent);
+}
+
+.prv-picker-stars input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.prv-picker-stars label:has(input:focus-visible) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.prv-picker-label {
+  margin-left: 8px;
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}
+
+.prv-field {
+  display: grid;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.prv-field textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+  font-weight: 400;
+  font-size: 0.95rem;
+  resize: vertical;
+}
+
+.prv-field textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 20%, transparent);
+}
+
+.prv-field small {
+  justify-self: end;
+  font-weight: 400;
+  color: var(--color-muted);
+}
+
+.prv-form-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.prv-form .pd-btn {
+  height: 46px;
+}
+
+.prv-note {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--color-muted);
+}
+
+.prv-error {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #8c1d18;
+}
+
+.prv-success {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background-color: #e8f5ec;
+  color: #1d5c32;
+  font-size: 0.9rem;
+}
+
+.prv-link {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.prv-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.prv-mine-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.prv-status {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background-color: var(--color-placeholder);
+  color: var(--color-text);
+}
+
+.prv-status--approved {
+  background-color: #e8f5ec;
+  color: #1d5c32;
+}
+
+.prv-status--rejected {
+  background-color: #fdecea;
+  color: #8c1d18;
+}
+
+/* ---- Lista ---- */
+.prv-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.prv-item {
+  padding: 20px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.prv-item:first-child {
+  padding-top: 0;
+}
+
+.prv-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.prv-item-head time {
+  font-size: 0.82rem;
+  color: var(--color-muted);
+}
+
+.prv-comment {
+  margin: 10px 0 0;
+  line-height: 1.6;
+  color: var(--color-text);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.prv-mine .prv-comment {
+  margin: 0;
+}
+
+.prv-author {
+  margin: 10px 0 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.prv-author span {
+  font-weight: 400;
+  color: var(--color-muted);
+}
+
+.prv-more {
+  margin-top: 20px;
+  height: 44px;
+  padding: 0 22px;
+  border: 1px solid var(--color-accent);
+  border-radius: 999px;
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.prv-more:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+@media (max-width: 900px) {
+  .prv-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 40px;
+  }
+}
+
+@media (max-width: 600px) {
+  .prv {
+    padding: 40px 0 56px;
+  }
+
+  .prv-form,
+  .prv-mine {
+    padding: 18px;
+  }
+}

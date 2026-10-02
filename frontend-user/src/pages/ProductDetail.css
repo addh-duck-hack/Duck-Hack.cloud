@@ -131,6 +131,23 @@
   margin: 0;
 }
 
+/* Promedio de reseñas bajo el nombre; lleva a la sección #resenas. */
+.pd-rating {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+  color: var(--color-muted);
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.pd-rating:hover span {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .pd-highlights {
   margin: 16px 0 0;
   display: grid;

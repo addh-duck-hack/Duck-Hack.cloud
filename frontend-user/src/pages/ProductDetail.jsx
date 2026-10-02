@@ -4,7 +4,7 @@
 // atributos destacados, precio/ahorro, opciones, cantidad + "Agregar a la
 // canasta", favoritos, aviso de envío gratis y sellos de confianza) →
 // Descripción (HTML vía RichText) | Ficha con todos los atributos →
-// relacionados. La lógica vive en useProductDetail / useRelatedProducts.
+// Reseñas (ProductReviews, #resenas) → relacionados. La lógica vive en useProductDetail / useRelatedProducts.
 import React from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { usePageMeta } from '../hooks/usePageMeta';
@@ -17,6 +17,8 @@ import StoreImage from '../components/StoreImage';
 import RichText from '../components/RichText';
 import ProductCard from '../components/ProductCard';
 import QtyLimitNote from '../components/QtyLimitNote';
+import RatingStars from '../components/RatingStars';
+import ProductReviews from '../components/ProductReviews';
 import { useStoreConfig } from '../hooks/useStoreConfig';
 import { whatsappButtonHref } from '../utils/links';
 import './ProductDetail.css';
@@ -144,6 +146,16 @@ const ProductDetail = () => {
           <h1 id="pd-title" className="pd-title">
             {product.name}
           </h1>
+
+          {product.ratingCount ? (
+            <a href="#resenas" className="pd-rating">
+              <RatingStars value={product.ratingAvg} />
+              <span>
+                {product.ratingAvg.toLocaleString('es-MX', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ·{' '}
+                {product.ratingCount} {product.ratingCount === 1 ? 'reseña' : 'reseñas'}
+              </span>
+            </a>
+          ) : null}
 
           {highlights.length ? (
             <dl className="pd-highlights">
@@ -301,6 +313,8 @@ const ProductDetail = () => {
           ) : null}
         </section>
       ) : null}
+
+      <ProductReviews productId={product.id} />
 
       {/* ---- Relacionados ---- */}
       {related.length ? (

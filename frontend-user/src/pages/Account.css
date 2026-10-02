@@ -438,6 +438,33 @@
   color: var(--color-muted);
 }
 
+.acc-items-name {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.acc-review-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-accent);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.acc-review-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.acc-review-link--done {
+  color: var(--color-muted);
+  font-weight: 400;
+}
+
 .acc-items-price {
   display: flex;
   align-items: baseline;
