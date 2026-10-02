@@ -25,6 +25,7 @@ const PERMISSION_MODULES = [
   { key: "storeConfig", label: "Configurar tienda" },
   { key: "appConfig", label: "Configurar App" },
   { key: "services", label: "Servicios" },
+  { key: "appointments", label: "Citas" },
   { key: "products", label: "Productos" },
   { key: "inventory", label: "Inventario" },
   { key: "orders", label: "Pedidos" },
@@ -43,7 +44,8 @@ const DEFAULT_PERMISSIONS = Object.freeze({
   enabledModules: [...MODULE_KEYS],
   roles: {
     [ROLES.STORE_ADMIN]: MODULE_KEYS.filter((key) => key !== "panel" && key !== "appConfig"),
-    [ROLES.COLLABORATOR]: ["products", "inventory", "orders", "media"],
+    // appointments: una colaboradora solo ve su propia agenda (modules/appointments.js).
+    [ROLES.COLLABORATOR]: ["products", "inventory", "orders", "media", "appointments"],
   },
 });
 

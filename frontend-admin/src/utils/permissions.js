@@ -7,6 +7,16 @@ export const MODULE_NAV = [
   { key: "panel", items: [{ path: "/admin", label: "Panel", end: true }] },
   { key: "storeConfig", items: [{ path: "/admin/store-config", label: "Configurar tienda" }] },
   { key: "appConfig", items: [{ path: "/admin/app-config", label: "Configurar App" }] },
+  // `managers`: solo super_admin / store_admin (dentro del módulo, una
+  // collaborator solo maneja lo suyo; ver modules/appointments.js).
+  {
+    key: "appointments",
+    items: [
+      { path: "/admin/specialists", label: "Especialistas", managers: true },
+      { path: "/admin/time-blocks", label: "Bloqueos" },
+      { path: "/admin/appointment-settings", label: "Ajustes de agenda", managers: true },
+    ],
+  },
   {
     key: "services",
     items: [
@@ -46,7 +56,7 @@ export const MODULE_NAV = [
 export const NAV_GROUPS = [
   { id: "panel", modules: ["panel"] },
   { id: "config", label: "Configuración", icon: "fa-solid fa-gear", modules: ["storeConfig", "appConfig"] },
-  { id: "services", label: "Servicios", icon: "fa-solid fa-spa", modules: ["services"] },
+  { id: "services", label: "Servicios", icon: "fa-solid fa-spa", modules: ["appointments", "services"] },
   {
     id: "store",
     label: "Tienda",
@@ -65,20 +75,30 @@ export const NAV_GROUPS = [
   { id: "agency", label: "Agencia", icon: "fa-solid fa-briefcase", modules: ["agencyClients", "accounting", "invoices"] },
 ];
 
+const isManagerRole = (role) => role === "super_admin" || role === "store_admin";
+
+// Entradas de un módulo que este rol ve (sin las `managers` si no lo es).
+const visibleItems = (key, role) =>
+  (MODULE_NAV.find((module) => module.key === key)?.items || []).filter((item) => !item.managers || isManagerRole(role));
+
 // Menú ya filtrado por permisos: [{ id, label, icon, items }], sin grupos vacíos.
-export const navGroupsFor = (can, isSuperAdmin) =>
+export const navGroupsFor = (can, isSuperAdmin, role) =>
   NAV_GROUPS.map((group) => ({
     ...group,
     items: [
-      ...group.modules.flatMap((key) => (can(key) ? MODULE_NAV.find((module) => module.key === key)?.items || [] : [])),
+      ...group.modules.flatMap((key) => (can(key) ? visibleItems(key, role) : [])),
       ...(isSuperAdmin ? group.superOnly || [] : []),
     ],
   })).filter((group) => group.items.length > 0);
 
 // Primera pantalla de quien no tiene el Panel (el índice /admin): Pedidos si lo
 // tiene, como antes; si no, su primer módulo permitido; null = ninguno.
-export const firstAllowedPath = (can) => {
+export const firstAllowedPath = (can, role) => {
   if (can("orders")) return "/admin/orders";
-  const first = MODULE_NAV.find((module) => module.key !== "panel" && can(module.key));
-  return first ? first.items[0].path : null;
+  for (const module of MODULE_NAV) {
+    if (module.key === "panel" || !can(module.key)) continue;
+    const [first] = visibleItems(module.key, role);
+    if (first) return first.path;
+  }
+  return null;
 };

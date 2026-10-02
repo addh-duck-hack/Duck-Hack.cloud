@@ -30,6 +30,17 @@ vault, not in this repo).
   deposit/buffer). A service used in appointments can't be deleted (409).
   Appointments with several services add up the durations and keep the
   largest buffer.
+- `modules/appointments.js` — appointments (`/api/appointments`, permission
+  key `appointments`). So far (phase 2.2): `Specialist` (services, weekly
+  shifts, color, optional link to a collaborator/store_admin account),
+  `TimeBlock` (blocked time for one specialist or the whole business) and the
+  `AppointmentSettings` singleton (auto-confirm, slot step, min notice, max
+  days ahead, change policy, "any specialist", timezone, notify email).
+  Business hours/holidays still come from StoreConfig. Specialists, settings
+  and business-wide blocks are manager-only (super_admin/store_admin); a
+  collaborator only sees the specialist linked to her account and blocks her
+  own time. Public: `GET /specialists/public?services=` and
+  `GET /settings/public`.
 - `modules/products.js` — product catalog (`/api/products`). Optional
   variants (`options` + `variants`, logic in `lib/variants.js`): each variant
   has its own SKU, stock and optional price/image; `lib/purchaseLimits.js

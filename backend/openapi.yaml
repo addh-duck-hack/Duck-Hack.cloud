@@ -33,6 +33,11 @@ tags:
   - name: Orders
   - name: Services
     description: Catálogo de servicios con duración y precio (módulo services; Citas lo lee)
+  - name: Appointments
+    description: >-
+      Citas (módulo appointments). Especialistas, ajustes y bloqueos de todo el negocio solo
+      super_admin/store_admin (403 APPOINTMENTS_MANAGER_ONLY); una collaborator solo ve su
+      especialista (la ligada a su cuenta) y bloquea su propio horario.
   - name: Coupons
     description: Cupones de descuento (módulo coupons de los permisos por tienda)
   - name: Reviews
@@ -2703,6 +2708,228 @@ paths:
         "409":
           description: SERVICE_IN_USE
 
+  /api/appointments/specialists/public:
+    get:
+      tags: [Appointments]
+      summary: Especialistas (público)
+      operationId: listPublicSpecialists
+      security: []
+      parameters:
+        - { in: query, name: services, schema: { type: string }, description: "Ids separados por coma: solo las que hacen TODOS esos servicios." }
+      responses:
+        "200":
+          description: Activas, por orden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PublicSpecialist"
+        "400":
+          description: VALIDATION_ERROR (services no válido)
+
+  /api/appointments/settings/public:
+    get:
+      tags: [Appointments]
+      summary: Reglas de la agenda para el storefront
+      operationId: getPublicAppointmentSettings
+      security: []
+      responses:
+        "200":
+          description: Sin autoConfirm ni notifyEmail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  slotStepMin: { type: integer }
+                  minNoticeMin: { type: integer }
+                  maxDaysAhead: { type: integer }
+                  minHoursToChange: { type: integer }
+                  allowAnySpecialist: { type: boolean }
+                  timezone: { type: string }
+
+  /api/appointments/settings:
+    get:
+      tags: [Appointments]
+      summary: Ajustes de la agenda
+      operationId: getAppointmentSettings
+      description: Módulo `appointments` (cualquier rol con el módulo).
+      responses:
+        "200":
+          description: Ajustes efectivos (los guardados sobre los defaults)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppointmentSettings"
+    put:
+      tags: [Appointments]
+      summary: Guardar ajustes de la agenda
+      operationId: updateAppointmentSettings
+      description: Solo super_admin/store_admin. Solo cambia lo que se manda.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppointmentSettings"
+      responses:
+        "200":
+          description: Guardado
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          description: APPOINTMENTS_MANAGER_ONLY o MODULE_NOT_ALLOWED
+
+  /api/appointments/specialists:
+    get:
+      tags: [Appointments]
+      summary: Listar especialistas (staff)
+      operationId: listSpecialists
+      description: Encargadas ven todas; una collaborator, solo la ligada a su cuenta.
+      parameters:
+        - { in: query, name: isActive, schema: { type: string, enum: ["true"] } }
+      responses:
+        "200":
+          description: Con cuenta y servicios poblados
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Specialist"
+    post:
+      tags: [Appointments]
+      summary: Crear especialista
+      operationId: createSpecialist
+      description: Solo super_admin/store_admin.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SpecialistRequest"
+      responses:
+        "201":
+          description: Creada
+        "400":
+          description: VALIDATION_ERROR (turnos al revés o encimados, color), USER_NOT_LINKABLE o SERVICE_NOT_FOUND
+        "409":
+          description: USER_ALREADY_LINKED
+
+  /api/appointments/specialists/linkable-users:
+    get:
+      tags: [Appointments]
+      summary: Cuentas de staff que se pueden ligar
+      operationId: listLinkableUsers
+      description: Solo super_admin/store_admin. Colaboradoras y administradoras, con `linkedTo` si ya están ligadas.
+      responses:
+        "200":
+          description: Cuentas
+
+  /api/appointments/specialists/{id}:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string } }
+    get:
+      tags: [Appointments]
+      summary: Obtener especialista
+      operationId: getSpecialist
+      responses:
+        "200":
+          description: Especialista
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Specialist"
+        "404":
+          description: SPECIALIST_NOT_FOUND (o no es la suya, para una collaborator)
+    put:
+      tags: [Appointments]
+      summary: Actualizar especialista
+      operationId: updateSpecialist
+      description: "Solo super_admin/store_admin. `user: null` la desliga."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SpecialistRequest"
+      responses:
+        "200":
+          description: Actualizada
+        "409":
+          description: USER_ALREADY_LINKED
+    delete:
+      tags: [Appointments]
+      summary: Eliminar especialista
+      operationId: deleteSpecialist
+      description: Solo super_admin/store_admin. Borra también sus bloqueos. Con citas, 409 (se desactiva).
+      responses:
+        "200":
+          description: Eliminada
+        "409":
+          description: SPECIALIST_HAS_APPOINTMENTS
+
+  /api/appointments/blocks:
+    get:
+      tags: [Appointments]
+      summary: Bloqueos de horario
+      operationId: listTimeBlocks
+      description: Los que se cruzan con [from, to). Collaborator ve los suyos y los de todo el negocio.
+      parameters:
+        - { in: query, name: from, schema: { type: string, format: date-time } }
+        - { in: query, name: to, schema: { type: string, format: date-time } }
+        - { in: query, name: specialist, schema: { type: string }, description: Los de esa especialista y los de todo el negocio. }
+      responses:
+        "200":
+          description: Bloqueos (especialista poblada)
+    post:
+      tags: [Appointments]
+      summary: Bloquear horario
+      operationId: createTimeBlock
+      description: "`specialist: null` = todo el negocio (solo encargadas). Una collaborator bloquea siempre su propia especialista."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                specialist: { type: string, nullable: true }
+                start: { type: string, format: date-time }
+                end: { type: string, format: date-time }
+                reason: { type: string, maxLength: 120 }
+              required: [start, end]
+      responses:
+        "201":
+          description: Creado
+        "400":
+          description: VALIDATION_ERROR o SPECIALIST_NOT_FOUND
+        "403":
+          description: NOT_A_SPECIALIST o APPOINTMENTS_MANAGER_ONLY
+
+  /api/appointments/blocks/{id}:
+    delete:
+      tags: [Appointments]
+      summary: Quitar bloqueo
+      operationId: deleteTimeBlock
+      description: Collaborator solo los de su especialista.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Eliminado
+        "403":
+          description: APPOINTMENTS_MANAGER_ONLY
+        "404":
+          description: BLOCK_NOT_FOUND
+
   /api/coupons/validate:
     post:
       tags: [Coupons]
@@ -4356,7 +4583,7 @@ components:
     PermissionModuleKey:
       type: string
       description: Módulo del panel sujeto a permisos por tienda
-      enum: [panel, storeConfig, appConfig, services, products, inventory, orders, coupons, reviews, media, users, agencyClients, accounting, invoices]
+      enum: [panel, storeConfig, appConfig, services, appointments, products, inventory, orders, coupons, reviews, media, users, agencyClients, accounting, invoices]
 
     StorePermissions:
       type: object
@@ -6343,6 +6570,61 @@ components:
           type: string
           format: date-time
       required: [_id, customerName, customerEmail, items, status, total]
+
+    WeeklyShift:
+      type: object
+      properties:
+        day: { type: integer, minimum: 0, maximum: 6, description: 0 = domingo. }
+        open: { type: string, example: "10:00" }
+        close: { type: string, example: "19:00" }
+      required: [day, open, close]
+
+    SpecialistRequest:
+      type: object
+      properties:
+        name: { type: string, maxLength: 100 }
+        photoUrl: { type: string }
+        bio: { type: string, maxLength: 2000 }
+        color: { type: string, example: "#4abdfc" }
+        user: { type: string, nullable: true, description: Cuenta collaborator/store_admin (una por especialista). }
+        services: { type: array, items: { type: string } }
+        weeklyHours:
+          type: array
+          description: Turnos (hasta 4 por día, sin encimarse); día sin turnos = descanso.
+          items:
+            $ref: "#/components/schemas/WeeklyShift"
+        sortOrder: { type: integer }
+        isActive: { type: boolean }
+      required: [name]
+
+    Specialist:
+      allOf:
+        - $ref: "#/components/schemas/SpecialistRequest"
+        - type: object
+          properties:
+            _id: { type: string }
+
+    PublicSpecialist:
+      type: object
+      properties:
+        _id: { type: string }
+        name: { type: string }
+        photoUrl: { type: string }
+        bio: { type: string }
+        services: { type: array, items: { type: string } }
+        sortOrder: { type: integer }
+
+    AppointmentSettings:
+      type: object
+      properties:
+        autoConfirm: { type: boolean, description: "false = las citas del sitio entran Por confirmar." }
+        slotStepMin: { type: integer, enum: [5, 10, 15, 20, 30, 60] }
+        minNoticeMin: { type: integer, description: Anticipación mínima para agendar en línea. }
+        maxDaysAhead: { type: integer }
+        minHoursToChange: { type: integer, description: La clienta cancela o reprograma hasta N horas antes. }
+        allowAnySpecialist: { type: boolean }
+        timezone: { type: string, example: America/Mexico_City }
+        notifyEmail: { type: string, description: Vacío = correo de contacto de la tienda. }
 
     ServiceRequest:
       type: object

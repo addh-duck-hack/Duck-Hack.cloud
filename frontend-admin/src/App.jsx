@@ -31,6 +31,11 @@ import CouponForm from "./components/CouponForm";
 import ReviewList from "./components/ReviewList";
 import ServiceList from "./components/ServiceList";
 import ServiceForm from "./components/ServiceForm";
+import SpecialistList from "./components/SpecialistList";
+import SpecialistForm from "./components/SpecialistForm";
+import TimeBlockList from "./components/TimeBlockList";
+import AppointmentSettingsForm from "./components/AppointmentSettingsForm";
+import { isAgendaManager } from "./utils/schedule";
 import InventoryList from "./components/InventoryList";
 import InventoryForm from "./components/InventoryForm";
 import OrderList from "./components/OrderList";
@@ -69,11 +74,17 @@ const AppRoutes = () => {
     if (permissionsLoading) return <Loader />;
     return can(key) ? element : <Navigate to="/admin" replace />;
   };
+  // Dentro de Citas: especialistas y ajustes solo para la administración
+  // (super_admin / store_admin); el backend lo vuelve a revisar.
+  const gateManagers = (key, element) => {
+    if (permissionsLoading) return <Loader />;
+    return can(key) && isAgendaManager(role) ? element : <Navigate to="/admin" replace />;
+  };
   // "Permisos": siempre solo super_admin.
   const superOnly = (element) => (isSuperAdmin ? element : <Navigate to="/admin" replace />);
   const landing = () => {
     if (permissionsLoading) return <Loader />;
-    const path = firstAllowedPath(can);
+    const path = firstAllowedPath(can, role);
     return path ? <Navigate to={path} replace /> : <NoModules />;
   };
 
@@ -190,6 +201,26 @@ const AppRoutes = () => {
             <Route
               path="categories/:id/edit"
               element={gate("products", <CategoryForm />)}
+            />
+            <Route
+              path="specialists"
+              element={gateManagers("appointments", <SpecialistList />)}
+            />
+            <Route
+              path="specialists/new"
+              element={gateManagers("appointments", <SpecialistForm />)}
+            />
+            <Route
+              path="specialists/:id/edit"
+              element={gateManagers("appointments", <SpecialistForm />)}
+            />
+            <Route
+              path="time-blocks"
+              element={gate("appointments", <TimeBlockList />)}
+            />
+            <Route
+              path="appointment-settings"
+              element={gateManagers("appointments", <AppointmentSettingsForm />)}
             />
             <Route
               path="services"
