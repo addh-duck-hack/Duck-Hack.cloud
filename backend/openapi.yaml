@@ -5811,6 +5811,14 @@ components:
             $ref: "#/components/schemas/PaymentProof"
         shipment:
           $ref: "#/components/schemas/OrderShipment"
+        inventoryDeducted:
+          type: boolean
+          readOnly: true
+          description: >-
+            true = lo vendido ya salió del inventario. Se descuenta al entrar a
+            confirmed, processing, shipped, delivered, ready_for_pickup o
+            picked_up, y se regresa al volver a pending/payment_review/cancelled
+            o al borrar el pedido. Nunca se acepta del cliente.
         readyForPickupAt:
           type: string
           format: date-time
