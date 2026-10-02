@@ -2708,6 +2708,119 @@ paths:
         "409":
           description: SERVICE_IN_USE
 
+  /api/appointments:
+    get:
+      tags: [Appointments]
+      summary: Agenda del panel (por rango)
+      operationId: listAppointments
+      description: >-
+        Módulo `appointments`. Citas que se cruzan con [from, to) (hasta 62 días). Una
+        collaborator solo ve las de su especialista (sin especialista ligada, lista vacía).
+      parameters:
+        - { in: query, name: from, required: true, schema: { type: string, format: date-time } }
+        - { in: query, name: to, required: true, schema: { type: string, format: date-time } }
+        - { in: query, name: specialist, schema: { type: string } }
+        - { in: query, name: status, schema: { type: string }, description: "Uno o varios separados por coma." }
+      responses:
+        "200":
+          description: Citas (con la especialista y su color)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Appointment" }
+        "400":
+          description: VALIDATION_ERROR (rango)
+    post:
+      tags: [Appointments]
+      summary: Alta manual (teléfono / mostrador)
+      operationId: createAppointment
+      description: >-
+        Módulo `appointments` (collaborator solo en su agenda). Sin anticipación, límite de días
+        ni paso; cualquier servicio activo (también los que no se agendan en línea). Fuera del
+        horario de la especialista o sobre un bloqueo → 409 OUTSIDE_HOURS; con un servicio que
+        ella no tiene asignado → 409 SPECIALIST_DOESNT_DO_SERVICE; con `force: true` se guarda
+        igual. Empalmada con otra cita, nunca (409 SLOT_TAKEN).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                services: { type: array, items: { type: string }, maxItems: 5 }
+                specialist: { type: string }
+                start: { type: string, format: date-time }
+                customerName: { type: string }
+                customerEmail: { type: string, description: Opcional. }
+                customerPhone: { type: string, description: "Opcional, 10 dígitos." }
+                notes: { type: string }
+                staffNotes: { type: string }
+                source: { type: string, enum: [phone, walk_in] }
+                status: { type: string, enum: [confirmed, pending] }
+                force: { type: boolean }
+              required: [services, specialist, start, customerName]
+      responses:
+        "201":
+          description: Agendada
+        "403":
+          description: APPOINTMENTS_MANAGER_ONLY (collaborator en agenda ajena)
+        "409":
+          description: SLOT_TAKEN, OUTSIDE_HOURS o SPECIALIST_DOESNT_DO_SERVICE
+
+  /api/appointments/{id}:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string } }
+    get:
+      tags: [Appointments]
+      summary: Detalle de una cita (staff)
+      operationId: getAppointment
+      responses:
+        "200":
+          description: Cita
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Appointment" }
+        "404":
+          description: APPOINTMENT_NOT_FOUND (o de otra especialista, para una collaborator)
+    put:
+      tags: [Appointments]
+      summary: Actualizar cita (staff)
+      operationId: updateAppointment
+      description: >-
+        Cualquiera de start, specialist, services (recalcula fin y total), status, datos de
+        contacto, notes, staffNotes, cancelReason, force. Si cambia horario, especialista o
+        servicios, o se reactiva una cancelada, se revisa el lugar (mismas reglas que el alta);
+        lo demás se guarda directo. Queda en `history`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                start: { type: string, format: date-time }
+                specialist: { type: string }
+                services: { type: array, items: { type: string } }
+                status: { type: string, enum: [pending, confirmed, completed, no_show, cancelled] }
+                customerName: { type: string }
+                customerEmail: { type: string }
+                customerPhone: { type: string }
+                notes: { type: string }
+                staffNotes: { type: string }
+                cancelReason: { type: string }
+                force: { type: boolean }
+      responses:
+        "200":
+          description: Actualizada
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: SLOT_TAKEN, OUTSIDE_HOURS o SPECIALIST_DOESNT_DO_SERVICE
+
   /api/appointments/availability:
     get:
       tags: [Appointments]
@@ -6760,6 +6873,36 @@ components:
           type: string
           format: date-time
       required: [_id, customerName, customerEmail, items, status, total]
+
+    Appointment:
+      allOf:
+        - $ref: "#/components/schemas/CustomerAppointment"
+        - type: object
+          properties:
+            bufferMin: { type: integer }
+            blockedUntil: { type: string, format: date-time }
+            specialist:
+              type: object
+              properties:
+                _id: { type: string }
+                name: { type: string }
+                color: { type: string }
+            customer: { type: string, nullable: true }
+            source: { type: string, enum: [web, phone, walk_in] }
+            staffNotes: { type: string }
+            cancelledBy: { type: string, nullable: true, enum: [customer, staff] }
+            cancelReason: { type: string }
+            history:
+              type: array
+              items:
+                type: object
+                properties:
+                  type: { type: string, enum: [rescheduled, status] }
+                  from: {}
+                  to: {}
+                  by: { type: string, enum: [customer, staff, system] }
+                  user: { type: string, nullable: true }
+                  at: { type: string, format: date-time }
 
     CustomerAppointment:
       type: object
