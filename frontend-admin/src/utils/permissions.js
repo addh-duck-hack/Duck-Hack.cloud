@@ -12,6 +12,7 @@ export const MODULE_NAV = [
   {
     key: "appointments",
     items: [
+      { path: "/admin/appointments", label: "Agenda" },
       { path: "/admin/specialists", label: "Especialistas", managers: true },
       { path: "/admin/time-blocks", label: "Bloqueos" },
       { path: "/admin/appointment-settings", label: "Ajustes de agenda", managers: true },

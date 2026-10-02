@@ -53,6 +53,15 @@ vault, not in this repo).
   (`X-Appointment-Token`, valid until 30 days after the appointment),
   `GET /public/:id`, `POST /public/:id/cancel|reschedule` (policy
   `minHoursToChange`) and `GET /mine`.
+  Staff agenda (2.4): `GET /?from=&to=` (FullCalendar range, max 62 days),
+  `POST /` manual booking (phone/walk-in; no notice/step limits, any active
+  service; outside hours or over a block → `409 OUTSIDE_HOURS`, service the
+  specialist doesn't do → `409 SPECIALIST_DOESNT_DO_SERVICE`, both
+  overridable with `force: true`; overlapping another appointment → never),
+  `GET/PUT /:id` (reschedule, specialist, services, status, contact, notes;
+  the slot is re-checked only when time/specialist/services change or a
+  cancelled one is reactivated). A collaborator only sees and edits her own
+  specialist's appointments.
 - `modules/products.js` — product catalog (`/api/products`). Optional
   variants (`options` + `variants`, logic in `lib/variants.js`): each variant
   has its own SKU, stock and optional price/image; `lib/purchaseLimits.js

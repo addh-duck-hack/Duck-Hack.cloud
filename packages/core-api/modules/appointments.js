@@ -26,6 +26,12 @@
 //   la invitada usa el token de la cita (X-Appointment-Token). Cancelar o
 //   reprogramar respeta `minHoursToChange`.
 //
+// 2.4 — agenda del panel: listado por rango (para FullCalendar), alta
+// manual (teléfono/mostrador), reprogramar, cambiar estado, servicios y
+// notas. El staff no tiene anticipación mínima ni límite de días ni paso;
+// fuera del horario o sobre un bloqueo responde 409 OUTSIDE_HOURS y con
+// `force: true` lo permite. Empalmada con otra cita, nunca (409 SLOT_TAKEN).
+//
 // Quién administra: dentro del permiso `appointments`, especialistas,
 // ajustes y bloqueos de todo el negocio son de "encargadas" (super_admin y
 // store_admin). Una collaborator solo ve su especialista y bloquea su propio
@@ -45,7 +51,7 @@ const { ROLES, extractBearerToken } = require("../lib/authMiddleware");
 const { createModuleAuthorizer } = require("../lib/permissions");
 const { createRateLimiter } = require("../lib/rateLimit");
 const { verifyAccessToken, signAppointmentAccessToken, verifyAppointmentAccessToken } = require("../lib/jwt");
-const { MINUTE, isValidDate, addDays, localToUtc, utcToLocal, overlaps, slotsForDay } = require("../lib/availability");
+const { MINUTE, isValidDate, addDays, localToUtc, utcToLocal, overlaps, workingWindows, slotsForDay } = require("../lib/availability");
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 const COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
@@ -188,7 +194,9 @@ const appointmentSchema = new mongoose.Schema(
     // Cuenta de la clienta (si agendó con sesión). Nunca se toma del payload.
     customer: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     customerName: { type: String, required: true, trim: true, maxlength: 120 },
-    customerEmail: { type: String, required: true, trim: true, lowercase: true, maxlength: 160 },
+    // Opcional en las citas que da de alta el negocio (teléfono/mostrador);
+    // el sitio siempre lo pide.
+    customerEmail: { type: String, trim: true, lowercase: true, maxlength: 160, default: "" },
     customerPhone: { type: String, trim: true, maxlength: 10 },
     start: { type: Date, required: true },
     end: { type: Date, required: true },
@@ -1143,6 +1151,301 @@ function registerRoutes(app, ctx) {
       return res.status(200).json({ message: "Bloqueo eliminado." });
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al eliminar el bloqueo.");
+    }
+  });
+
+
+  // ================= Agenda del panel (2.4) =================
+
+  // Vista de staff (todo, con el color de la especialista).
+  const staffView = (a) => {
+    const doc = sanitizeDoc(a);
+    if (a.specialist && a.specialist.color) {
+      doc.specialist = { _id: a.specialist._id, name: a.specialist.name, color: a.specialist.color };
+    }
+    return doc;
+  };
+
+  // ¿Qué impide poner esta cita aquí? (staff) → null | "overlap" | "outside".
+  // overlap = choca con otra cita no cancelada (contando los tiempos entre
+  // citas); outside = fuera del horario negocio ∩ especialista, en festivo o
+  // sobre un bloqueo.
+  const staffSlotProblem = async ({ specialist, startMs, durationMin, bufferMin, settings, excludeId, force }) => {
+    const occupied = { start: startMs, end: startMs + (durationMin + bufferMin) * MINUTE };
+    const filter = {
+      specialist: specialist._id,
+      status: { $ne: "cancelled" },
+      start: { $lt: new Date(occupied.end) },
+      blockedUntil: { $gt: new Date(occupied.start) },
+    };
+    if (excludeId) filter._id = { $ne: excludeId };
+    if (await Appointment.exists(filter)) return "overlap";
+    if (force) return null;
+    const dateStr = utcToLocal(startMs, settings.timezone).date;
+    const { businessHours, holidays } = await loadStoreHours();
+    const windows = workingWindows({ dateStr, timezone: settings.timezone, businessHours, holidays, weeklyHours: specialist.weeklyHours });
+    const service = { start: startMs, end: startMs + durationMin * MINUTE };
+    if (!windows.some((w) => service.start >= w.start && service.end <= w.end)) return "outside";
+    const blocked = await TimeBlock.exists({
+      specialist: { $in: [null, specialist._id] },
+      start: { $lt: new Date(occupied.end) },
+      end: { $gt: new Date(occupied.start) },
+    });
+    return blocked ? "outside" : null;
+  };
+
+  const sendSlotProblem = (res, problem) =>
+    problem === "overlap"
+      ? sendError(res, 409, "SLOT_TAKEN", "Ese horario se empalma con otra cita de la especialista.")
+      : sendError(res, 409, "OUTSIDE_HOURS", "Ese horario está fuera del horario de la especialista o bloqueado. ¿Agendar de todos modos?");
+
+  // Collaborator: solo su especialista. → { specialistId } | { none: true } (sin ligar) | {} (encargada).
+  const scopeOf = async (req) => {
+    if (isManager(req)) return {};
+    const own = await ownSpecialistOf(req);
+    return own ? { specialistId: String(own._id) } : { none: true };
+  };
+
+  const loadStaffSpecialist = async (req, id) => {
+    if (!isValidObjectId(id)) return { error: [400, "VALIDATION_ERROR", "specialist no válido."] };
+    const scope = await scopeOf(req);
+    if (scope.none || (scope.specialistId && scope.specialistId !== String(id))) {
+      return { error: [403, "APPOINTMENTS_MANAGER_ONLY", "Solo puedes manejar tu propia agenda."] };
+    }
+    const sp = await Specialist.findById(id).lean();
+    if (!sp) return { error: [400, "SPECIALIST_NOT_FOUND", "La especialista no existe."] };
+    return { specialist: sp };
+  };
+
+  // GET /?from=&to=&specialist=&status= (rango obligatorio, hasta 62 días).
+  staff.get("/", async (req, res) => {
+    try {
+      const from = new Date(req.query.from);
+      const to = new Date(req.query.to);
+      if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || to <= from) {
+        return sendError(res, 400, "VALIDATION_ERROR", "Manda from y to (fechas ISO).");
+      }
+      if (to - from > MAX_RANGE_DAYS * 24 * 60 * MINUTE) return sendError(res, 400, "VALIDATION_ERROR", `El rango puede ser de hasta ${MAX_RANGE_DAYS} días.`);
+      const filter = { start: { $lt: to }, end: { $gt: from } };
+      const scope = await scopeOf(req);
+      if (scope.none) return res.status(200).json({ items: [] });
+      if (scope.specialistId) filter.specialist = scope.specialistId;
+      else if (req.query.specialist) {
+        if (!isValidObjectId(req.query.specialist)) return sendError(res, 400, "VALIDATION_ERROR", "specialist no válido.");
+        filter.specialist = req.query.specialist;
+      }
+      if (req.query.status) {
+        const statuses = String(req.query.status).split(",").filter((st) => APPOINTMENT_STATUSES.includes(st));
+        if (statuses.length) filter.status = { $in: statuses };
+      }
+      const appointments = await Appointment.find(filter).sort({ start: 1 }).limit(2000).populate("specialist", "name color").lean();
+      return res.status(200).json({ items: appointments.map(staffView) });
+    } catch (error) {
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al listar las citas.");
+    }
+  });
+
+  // Datos de contacto en el panel: nombre obligatorio; correo y teléfono opcionales.
+  const validateStaffContact = (payload, { partial }) => {
+    const out = {};
+    if (!partial || payload.customerName !== undefined) {
+      const name = asTrimmedString(payload.customerName);
+      if (!name || name.length > 120) return { error: "Escribe el nombre de la clienta." };
+      out.customerName = name;
+    }
+    if (payload.customerEmail !== undefined) {
+      const email = asTrimmedString(payload.customerEmail).toLowerCase();
+      if (email && (!EMAIL_REGEX.test(email) || email.length > 160)) return { error: "El correo no es válido." };
+      out.customerEmail = email;
+    }
+    if (payload.customerPhone !== undefined) {
+      const phone = String(payload.customerPhone || "").replace(/\D/g, "");
+      if (phone && !PHONE_DIGITS.test(phone)) return { error: "El teléfono debe tener 10 dígitos." };
+      out.customerPhone = phone;
+    }
+    for (const [field, max] of [["notes", 500], ["staffNotes", 1000]]) {
+      if (payload[field] !== undefined) {
+        const value = asTrimmedString(payload[field]);
+        if (value.length > max) return { error: `${field} admite hasta ${max} caracteres.` };
+        out[field] = value;
+      }
+    }
+    return { contact: out };
+  };
+
+  // POST / — alta manual: { services, specialist, start, customerName,
+  // customerEmail?, customerPhone?, notes?, staffNotes?, source: phone|walk_in,
+  // status?: confirmed|pending, force? }.
+  staff.post("/", async (req, res) => {
+    try {
+      const payload = req.body || {};
+      const settings = await getSettings(mongooseConnection);
+      const { contact, error: contactError } = validateStaffContact(payload, { partial: false });
+      if (contactError) return sendError(res, 400, "VALIDATION_ERROR", contactError);
+      const startMs = Date.parse(payload.start);
+      if (Number.isNaN(startMs)) return sendError(res, 400, "VALIDATION_ERROR", "start debe ser una fecha y hora válida.");
+      const source = ["phone", "walk_in"].includes(payload.source) ? payload.source : "phone";
+      const status = payload.status === "pending" ? "pending" : "confirmed";
+
+      const resolved = await resolveServices(payload.services, { publicOnly: false });
+      if (resolved.error) return sendError(res, resolved.error.status, resolved.error.code, resolved.error.message);
+      const { specialist, error } = await loadStaffSpecialist(req, payload.specialist);
+      if (error) return sendError(res, ...error);
+      const missing = resolved.services.filter((sv) => !specialist.services.some((id) => String(id) === String(sv._id)));
+      if (missing.length && !payload.force) {
+        return sendError(res, 409, "SPECIALIST_DOESNT_DO_SERVICE", `${specialist.name} no tiene asignado: ${missing.map((sv) => sv.name).join(", ")}. ¿Agendar de todos modos?`);
+      }
+
+      let problem = null;
+      const appointment = await withSpecialistLock(specialist._id, async () => {
+        problem = await staffSlotProblem({ specialist, startMs, durationMin: resolved.durationMin, bufferMin: resolved.bufferMin, settings, force: Boolean(payload.force) });
+        if (problem) return null;
+        return Appointment.create({
+          appointmentNumber: await nextAppointmentNumber(),
+          services: resolved.services.map((sv) => ({ service: sv._id, name: sv.name, durationMin: sv.durationMin, price: sv.price })),
+          durationMin: resolved.durationMin,
+          bufferMin: resolved.bufferMin,
+          total: resolved.total,
+          specialist: specialist._id,
+          specialistName: specialist.name,
+          ...contact,
+          start: new Date(startMs),
+          end: new Date(startMs + resolved.durationMin * MINUTE),
+          blockedUntil: new Date(startMs + (resolved.durationMin + resolved.bufferMin) * MINUTE),
+          status,
+          source,
+          history: [{ type: "status", from: null, to: status, by: "staff", user: req.user.id }],
+        });
+      });
+      if (!appointment) return sendSlotProblem(res, problem);
+      await appointment.populate("specialist", "name color");
+      return res.status(201).json({ message: "Cita agendada.", appointment: staffView(appointment) });
+    } catch (error) {
+      if (error?.code === "LOCK_TIMEOUT") return sendError(res, 503, "TRY_AGAIN", error.message);
+      return handleMongooseError(sendError, res, error, "Error al agendar la cita.");
+    }
+  });
+
+  const ensureStaffAppointment = async (req, res, next) => {
+    const appointment = await Appointment.findById(req.params.id).catch(() => null);
+    if (!appointment) return sendError(res, 404, "APPOINTMENT_NOT_FOUND", "Cita no encontrada.");
+    const scope = await scopeOf(req);
+    if (scope.none || (scope.specialistId && scope.specialistId !== String(appointment.specialist))) {
+      return sendError(res, 404, "APPOINTMENT_NOT_FOUND", "Cita no encontrada.");
+    }
+    req.appointment = appointment;
+    return next();
+  };
+
+  const ID = "/:id([0-9a-fA-F]{24})";
+
+  staff.get(ID, ensureStaffAppointment, async (req, res) => {
+    await req.appointment.populate("specialist", "name color");
+    return res.status(200).json(staffView(req.appointment));
+  });
+
+  // PUT /:id — cualquiera de: { start, specialist, services, status,
+  // customerName, customerEmail, customerPhone, notes, staffNotes,
+  // cancelReason, force }. Si cambia horario, especialista o servicios (o se
+  // reactiva una cancelada), se revisa el lugar dentro del candado.
+  staff.put(ID, ensureStaffAppointment, async (req, res) => {
+    try {
+      const payload = req.body || {};
+      const settings = await getSettings(mongooseConnection);
+      const { appointment } = req;
+      const { contact, error: contactError } = validateStaffContact(payload, { partial: true });
+      if (contactError) return sendError(res, 400, "VALIDATION_ERROR", contactError);
+      if (payload.status !== undefined && !APPOINTMENT_STATUSES.includes(payload.status)) {
+        return sendError(res, 400, "VALIDATION_ERROR", `status debe ser uno de: ${APPOINTMENT_STATUSES.join(", ")}.`);
+      }
+
+      // Lo nuevo (o lo que ya tenía).
+      let startMs = +appointment.start;
+      if (payload.start !== undefined) {
+        startMs = Date.parse(payload.start);
+        if (Number.isNaN(startMs)) return sendError(res, 400, "VALIDATION_ERROR", "start debe ser una fecha y hora válida.");
+      }
+      let specialist = null;
+      const specialistChanged = payload.specialist !== undefined && String(payload.specialist) !== String(appointment.specialist);
+      if (specialistChanged || payload.start !== undefined || payload.services !== undefined) {
+        const loaded = await loadStaffSpecialist(req, specialistChanged ? payload.specialist : appointment.specialist);
+        if (loaded.error) return sendError(res, ...loaded.error);
+        specialist = loaded.specialist;
+      }
+      let resolved = null;
+      if (payload.services !== undefined) {
+        resolved = await resolveServices(payload.services, { publicOnly: false });
+        if (resolved.error) return sendError(res, resolved.error.status, resolved.error.code, resolved.error.message);
+      }
+      const nextStatus = payload.status ?? appointment.status;
+      const reactivating = appointment.status === "cancelled" && nextStatus !== "cancelled";
+      const slotChanged = startMs !== +appointment.start || specialistChanged || Boolean(resolved);
+      const needsSlotCheck = nextStatus !== "cancelled" && (slotChanged || reactivating);
+      if (needsSlotCheck && !specialist) {
+        const loaded = await loadStaffSpecialist(req, appointment.specialist);
+        if (loaded.error) return sendError(res, ...loaded.error);
+        specialist = loaded.specialist;
+      }
+      const durationMin = resolved ? resolved.durationMin : appointment.durationMin;
+      const bufferMin = resolved ? resolved.bufferMin : appointment.bufferMin;
+      if (needsSlotCheck && (specialistChanged || resolved) && !payload.force) {
+        const serviceIds = resolved ? resolved.services.map((sv) => String(sv._id)) : appointment.services.map((sv) => String(sv.service));
+        const missing = serviceIds.filter((id) => !specialist.services.some((sid) => String(sid) === id));
+        if (missing.length) {
+          return sendError(res, 409, "SPECIALIST_DOESNT_DO_SERVICE", `${specialist.name} no tiene asignados todos los servicios de la cita. ¿Guardar de todos modos?`);
+        }
+      }
+
+      const apply = async () => {
+        const before = { start: appointment.start, specialist: appointment.specialistName, status: appointment.status };
+        if (slotChanged) {
+          if (specialistChanged) {
+            appointment.specialist = specialist._id;
+            appointment.specialistName = specialist.name;
+          }
+          if (resolved) {
+            appointment.services = resolved.services.map((sv) => ({ service: sv._id, name: sv.name, durationMin: sv.durationMin, price: sv.price }));
+            appointment.total = resolved.total;
+          }
+          appointment.durationMin = durationMin;
+          appointment.bufferMin = bufferMin;
+          appointment.start = new Date(startMs);
+          appointment.end = new Date(startMs + durationMin * MINUTE);
+          appointment.blockedUntil = new Date(startMs + (durationMin + bufferMin) * MINUTE);
+          if (startMs !== +before.start || specialistChanged) {
+            appointment.history.push({ type: "rescheduled", from: { start: before.start, specialist: before.specialist }, to: { start: appointment.start, specialist: appointment.specialistName }, by: "staff", user: req.user.id });
+          }
+        }
+        if (nextStatus !== appointment.status) {
+          appointment.status = nextStatus;
+          if (nextStatus === "cancelled") {
+            appointment.cancelledAt = new Date();
+            appointment.cancelledBy = "staff";
+            appointment.cancelReason = asTrimmedString(payload.cancelReason).slice(0, 300);
+          } else if (before.status === "cancelled") {
+            appointment.cancelledAt = null;
+            appointment.cancelledBy = null;
+            appointment.cancelReason = "";
+          }
+          appointment.history.push({ type: "status", from: before.status, to: nextStatus, by: "staff", user: req.user.id });
+        }
+        Object.assign(appointment, contact);
+        return appointment.save();
+      };
+
+      let problem = null;
+      const saved = needsSlotCheck
+        ? await withSpecialistLock(specialist._id, async () => {
+            problem = await staffSlotProblem({ specialist, startMs, durationMin, bufferMin, settings, excludeId: appointment._id, force: Boolean(payload.force) });
+            return problem ? null : apply();
+          })
+        : await apply();
+      if (!saved) return sendSlotProblem(res, problem);
+      await saved.populate("specialist", "name color");
+      return res.status(200).json({ message: "Cita actualizada.", appointment: staffView(saved) });
+    } catch (error) {
+      if (error?.code === "LOCK_TIMEOUT") return sendError(res, 503, "TRY_AGAIN", error.message);
+      return handleMongooseError(sendError, res, error, "Error al actualizar la cita.");
     }
   });
 

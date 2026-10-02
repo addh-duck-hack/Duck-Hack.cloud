@@ -24,3 +24,11 @@ export const toDateTimeInput = (value) => {
 
 export const formatDateTime = (value) =>
   new Date(value).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });
+
+export const APPOINTMENT_STATUS_LABELS = {
+  pending: "Por confirmar",
+  confirmed: "Confirmada",
+  completed: "Completada",
+  no_show: "No asistió",
+  cancelled: "Cancelada",
+};

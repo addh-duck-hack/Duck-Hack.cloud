@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import { HashRouter as Router, Route, Routes, Navigate } from "react-router-dom";
 import AdminShell from "./components/AdminShell";
 import AdminMenu from "./components/AdminMenu";
@@ -48,6 +48,9 @@ import MediaLibrary from "./components/MediaLibrary";
 import AppHomeEditor from "./components/AppHomeEditor";
 import PermissionsManager from "./components/PermissionsManager";
 import Loader from "./components/Loader";
+
+// La agenda trae FullCalendar (~300 kB): se carga solo al abrirla.
+const AppointmentCalendar = lazy(() => import("./components/AppointmentCalendar"));
 import NotFound from "./components/NotFound";
 import { StoreConfigProvider } from "./hooks/useStoreConfig";
 import { PermissionsProvider, usePermissions } from "./hooks/usePermissions";
@@ -201,6 +204,15 @@ const AppRoutes = () => {
             <Route
               path="categories/:id/edit"
               element={gate("products", <CategoryForm />)}
+            />
+            <Route
+              path="appointments"
+              element={gate(
+                "appointments",
+                <Suspense fallback={<Loader />}>
+                  <AppointmentCalendar />
+                </Suspense>
+              )}
             />
             <Route
               path="specialists"
