@@ -403,9 +403,14 @@ const storeConfigSchema = new mongoose.Schema(
     holidays: { type: [holidaySchema], default: [] },
     location: { type: locationSchema, default: () => ({}) },
     whatsappButton: { type: whatsappButtonSchema, default: () => ({}) },
-    // Política de devoluciones (página legal del storefront). Admite HTML
-    // básico, igual que la bio del equipo.
-    returnsPolicy: { type: String, trim: true, maxlength: 20000, default: "" },
+    // Textos de las páginas legales del storefront (Configurar tienda →
+    // Identidad legal). Admiten HTML básico, igual que la bio del equipo.
+    // Vacío = el storefront usa su texto por defecto (aviso legal y de
+    // privacidad, armados con legalIdentity) o, en devoluciones, no muestra
+    // la página. Ver LEGAL_TEXT_FIELDS.
+    privacyNotice: { type: String, trim: true, maxlength: 50000, default: "" },
+    legalNotice: { type: String, trim: true, maxlength: 50000, default: "" },
+    returnsPolicy: { type: String, trim: true, maxlength: 50000, default: "" },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }
@@ -827,7 +832,12 @@ const validateHolidayItem = (item, index) => {
   return null;
 };
 
-// Valida y normaliza location / whatsappButton / returnsPolicy. Devuelve un
+// Textos legales en HTML básico (ver el esquema). Mismo límite para los tres:
+// un aviso de privacidad completo pasa con facilidad de 20,000 caracteres.
+const LEGAL_TEXT_FIELDS = ["privacyNotice", "legalNotice", "returnsPolicy"];
+const LEGAL_TEXT_MAX = 50000;
+
+// Valida y normaliza location / whatsappButton / textos legales. Devuelve un
 // mensaje de error o null.
 const validateContactExtras = (payload) => {
   if (payload.businessHours !== undefined) {
@@ -882,10 +892,11 @@ const validateContactExtras = (payload) => {
       itemMessage: itemMessage || "Hola, me interesa: {item}",
     };
   }
-  if (payload.returnsPolicy !== undefined) {
-    if (typeof payload.returnsPolicy !== "string") return "returnsPolicy debe ser texto.";
-    payload.returnsPolicy = payload.returnsPolicy.trim();
-    if (payload.returnsPolicy.length > 20000) return "returnsPolicy excede 20,000 caracteres.";
+  for (const field of LEGAL_TEXT_FIELDS) {
+    if (payload[field] === undefined) continue;
+    if (typeof payload[field] !== "string") return `${field} debe ser texto.`;
+    payload[field] = payload[field].trim();
+    if (payload[field].length > LEGAL_TEXT_MAX) return `${field} excede ${LEGAL_TEXT_MAX.toLocaleString("es-MX")} caracteres.`;
   }
   return null;
 };
@@ -1148,7 +1159,7 @@ function registerRoutes(app, ctx) {
         "isActive", "socialLinks", "legalIdentity", "speiPayment", "maxUnitsPerProduct", "shipping", "orderNotifications", "lowStockAlerts", "customerProofUpload", "homeDeliveryEnabled", "pickupPoints",
         "paymentMethods", "heroSlides", "metrics", "commands", "services",
         "pricingPlans", "commonPlanChecks", "faqs", "teamMembers", "testimonials",
-        "businessHours", "holidays", "location", "whatsappButton", "returnsPolicy",
+        "businessHours", "holidays", "location", "whatsappButton", ...LEGAL_TEXT_FIELDS,
       ];
 
       const updateData = {};
