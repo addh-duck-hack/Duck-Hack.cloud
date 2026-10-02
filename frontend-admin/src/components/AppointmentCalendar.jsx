@@ -20,7 +20,11 @@ import "./AppointmentCalendar.css";
 //   servicios, así que no se estira con el mouse: se cambia en el detalle.
 // - Clic o arrastre en un hueco: alta manual con esa hora. Clic en una cita:
 //   detalle (estado, servicios, notas).
-// - Los bloqueos se ven como fondo gris; se administran en "Bloqueos".
+// - Bloqueos: los de una especialista son bloques rayados con su color y
+//   "motivo · especialista"; los de todo el negocio, fondo gris "Cerrado".
+//   Clic en un bloqueo lleva a "Bloqueos".
+// - Fuera de horario, sombreado: el del negocio, o el de la especialista
+//   filtrada (así se ven sus días de descanso).
 // Las horas se muestran en la zona de esta computadora (la de la tienda).
 
 const DEFAULT_RANGE = { min: "08:00:00", max: "21:00:00" };
@@ -35,6 +39,7 @@ const AppointmentCalendar = () => {
   const [filter, setFilter] = useState("");
   const [showCancelled, setShowCancelled] = useState(false);
   const [hours, setHours] = useState(DEFAULT_RANGE);
+  const [storeHours, setStoreHours] = useState([]);
   const [dialog, setDialog] = useState(null); // { appointment } | { start, specialist }
   const [error, setError] = useState("");
 
@@ -55,6 +60,7 @@ const AppointmentCalendar = () => {
       .get(`${baseUrl}/api/store-config/public`)
       .then(({ data }) => {
         const open = (data?.businessHours || []).filter((h) => !h.closed && h.open && h.close);
+        setStoreHours(open);
         if (!open.length) return;
         const minH = Math.max(0, Math.min(...open.map((h) => Number(h.open.slice(0, 2)))) - 1);
         const maxH = Math.min(24, Math.max(...open.map((h) => Number(h.close.slice(0, 2)) + (h.close.endsWith(":00") ? 0 : 1))) + 1);
@@ -88,14 +94,29 @@ const AppointmentCalendar = () => {
             classNames: [`agenda-event--${a.status}`],
             extendedProps: { appointment: a },
           }));
-        const blocks = (blocksRes.data?.items || []).map((b) => ({
-          id: `block-${b._id}`,
-          start: b.start,
-          end: b.end,
-          display: "background",
-          classNames: ["agenda-block"],
-          title: b.reason || "Bloqueado",
-        }));
+        const blocks = (blocksRes.data?.items || []).map((b) =>
+          b.specialist
+            ? {
+                id: `block-${b._id}`,
+                start: b.start,
+                end: b.end,
+                title: `${b.reason || "Bloqueado"} · ${b.specialist.name}`,
+                editable: false,
+                classNames: ["agenda-block-event"],
+                backgroundColor: "transparent",
+                borderColor: b.specialist.color,
+                textColor: "var(--text-color)",
+                extendedProps: { block: b },
+              }
+            : {
+                id: `block-${b._id}`,
+                start: b.start,
+                end: b.end,
+                display: "background",
+                classNames: ["agenda-block"],
+                title: `Cerrado${b.reason ? `: ${b.reason}` : ""}`,
+              }
+        );
         setError("");
         success([...appointments, ...blocks]);
       } catch (err) {
@@ -125,6 +146,15 @@ const AppointmentCalendar = () => {
       setError(err.response?.data?.error?.message || "No fue posible mover la cita.");
     }
   };
+
+  // Horario que se marca como "abierto" (lo demás, sombreado): el de la
+  // especialista filtrada o el del negocio.
+  const businessHours = useMemo(() => {
+    const shifts = filter ? specialists.find((sp) => String(sp._id) === String(filter))?.weeklyHours || [] : storeHours;
+    if (filter && !shifts.length) return [{ daysOfWeek: [], startTime: "00:00", endTime: "00:00" }];
+    return shifts.length ? shifts.map((h) => ({ daysOfWeek: [h.day], startTime: h.open, endTime: h.close })) : false;
+  }, [filter, specialists, storeHours]);
+  const filteredName = filter ? specialists.find((sp) => String(sp._id) === String(filter))?.name : "";
 
   const openNew = (start) => setDialog({ start, specialist: filter || (isManager ? "" : specialists[0]?._id) });
 
@@ -178,6 +208,12 @@ const AppointmentCalendar = () => {
         </ul>
       ) : null}
 
+      <p className="agenda-hint">
+        <span className="agenda-hint-block" aria-hidden="true" /> Bloqueo de una especialista
+        <span className="agenda-hint-closed" aria-hidden="true" /> Cerrado / fuera de horario
+        {filteredName ? ` de ${filteredName} (sus días de descanso salen sombreados)` : " del negocio"}
+      </p>
+
       {error ? <div className="auth-error">{error}</div> : null}
 
       <div className="agenda-calendar">
@@ -195,6 +231,7 @@ const AppointmentCalendar = () => {
           slotLabelInterval="01:00"
           slotMinTime={hours.min}
           slotMaxTime={hours.max}
+          businessHours={businessHours}
           eventTimeFormat={{ hour: "2-digit", minute: "2-digit", hour12: false }}
           slotLabelFormat={{ hour: "2-digit", minute: "2-digit", hour12: false }}
           events={loadEvents}
@@ -211,10 +248,17 @@ const AppointmentCalendar = () => {
           eventDurationEditable={false}
           eventDrop={handleDrop}
           eventClick={(info) => {
-            const appointment = info.event.extendedProps.appointment;
+            const { appointment, block } = info.event.extendedProps;
             if (appointment) setDialog({ appointment });
+            else if (block) navigate("/admin/time-blocks");
           }}
           eventDidMount={(info) => {
+            const { block } = info.event.extendedProps;
+            if (block) {
+              info.el.style.setProperty("--block-color", block.specialist.color);
+              info.el.title = `${info.event.title}\nClic para ver los bloqueos`;
+              return;
+            }
             const a = info.event.extendedProps.appointment;
             if (a) info.el.title = `${info.event.title}\n${a.specialist?.name || a.specialistName} · ${APPOINTMENT_STATUS_LABELS[a.status]}`;
           }}

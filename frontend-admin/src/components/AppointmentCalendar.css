@@ -19,6 +19,8 @@
   --fc-event-text-color: #03141c;
   --fc-bg-event-color: #7f9aab;
   --fc-bg-event-opacity: 0.22;
+  /* Fuera de horario (businessHours de FullCalendar). */
+  --fc-non-business-color: rgba(127, 154, 171, 0.14);
 }
 
 .agenda-toolbar {
@@ -144,6 +146,61 @@
 
 .agenda-calendar .agenda-block {
   background-image: repeating-linear-gradient(45deg, rgba(127, 154, 171, 0.25) 0 4px, transparent 4px 10px);
+}
+
+/* Texto de los bloqueos de todo el negocio (FullCalendar lo deja casi
+   invisible en fondos). */
+.agenda-calendar .fc .fc-bg-event .fc-event-title {
+  color: var(--text-color);
+  font-style: normal;
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
+/* Bloqueo de una especialista: rayado con su color (--block-color lo pone
+   eventDidMount) y borde izquierdo. */
+.agenda-calendar .fc .agenda-block-event {
+  background-image: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--block-color, #7f9aab) 40%, transparent) 0 6px,
+    color-mix(in srgb, var(--block-color, #7f9aab) 15%, transparent) 6px 12px
+  );
+  border-width: 0 0 0 4px;
+  border-style: solid;
+  font-weight: 600;
+}
+
+.agenda-calendar .fc .agenda-block-event .fc-event-main {
+  color: var(--text-color);
+}
+
+/* Leyenda de bloqueos / fuera de horario. */
+.agenda-hint {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  color: var(--placeholder-color);
+}
+
+.agenda-hint-block,
+.agenda-hint-closed {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+
+.agenda-hint-block {
+  background-image: repeating-linear-gradient(135deg, rgba(74, 189, 252, 0.45) 0 3px, rgba(74, 189, 252, 0.12) 3px 6px);
+  border-left: 3px solid var(--link-color);
+}
+
+.agenda-hint-closed {
+  margin-left: 0.6rem;
+  background: rgba(127, 154, 171, 0.25);
 }
 
 /* ---- Diálogo de cita ---- */
