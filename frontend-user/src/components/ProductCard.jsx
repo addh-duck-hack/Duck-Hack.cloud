@@ -2,7 +2,8 @@
 //
 // Tarjeta de producto de la tienda (reutilizable en otras listas): imagen
 // cuadrada (con cruce a la segunda imagen al pasar el mouse), "Ahorra $X" si
-// hay descuento, nombre, estrellas (si tiene reseñas), línea de atributos, precio y botón "Agregar" que se
+// hay descuento y la calificación (si tiene reseñas) sobre la imagen, nombre,
+// línea de atributos, precio y botón "Agregar" que se
 // vuelve selector − n + cuando el producto ya está en la canasta. El + se
 // detiene en el tope de compra (useCart().limitOf) y abajo aparece el aviso.
 //
@@ -16,7 +17,6 @@ import { htmlToText } from '../utils/htmlExcerpt';
 import { savingOf } from '../utils/price';
 import StoreImage from './StoreImage';
 import QtyLimitNote from './QtyLimitNote';
-import RatingStars from './RatingStars';
 import './ProductCard.css';
 
 const CARD_ATTRIBUTES = 2;
@@ -41,14 +41,25 @@ const ProductCard = ({ product }) => {
         <StoreImage src={product.image} alt="" label="Imagen del producto" className="product-card-img" />
         {hoverImage ? <StoreImage src={hoverImage} alt="" className="product-card-img product-card-img--hover" /> : null}
         {saving ? <span className="product-card-badge">Ahorra {formatMxn(saving)}</span> : null}
+        {product.ratingCount ? (
+          <span className="product-card-badge product-card-badge--rating">
+            <i className="fa-solid fa-star" aria-hidden="true" />
+            {product.ratingAvg.toLocaleString('es-MX', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+            <small>({product.ratingCount})</small>
+          </span>
+        ) : null}
       </Link>
 
       <div className="product-card-body">
         <h3 className="product-card-name">
           <Link to={href}>{product.name}</Link>
         </h3>
+        {/* La imagen (con la calificación) está oculta a lectores de pantalla. */}
         {product.ratingCount ? (
-          <RatingStars value={product.ratingAvg} count={product.ratingCount} size="sm" className="product-card-rating" />
+          <span className="visually-hidden">
+            Calificación {product.ratingAvg.toLocaleString('es-MX', { maximumFractionDigits: 1 })} de 5, {product.ratingCount}{' '}
+            {product.ratingCount === 1 ? 'reseña' : 'reseñas'}
+          </span>
         ) : null}
         {attributes.length ? (
           <dl className="product-card-specs">

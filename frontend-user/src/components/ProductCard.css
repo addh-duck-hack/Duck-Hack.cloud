@@ -56,6 +56,27 @@
   font-weight: 700;
 }
 
+/* Calificación: esquina opuesta a "Ahorra $X". */
+.product-card-badge--rating {
+  left: auto;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--color-text);
+}
+
+.product-card-badge--rating i {
+  font-size: 0.72rem;
+  color: var(--color-accent);
+}
+
+.product-card-badge--rating small {
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--color-muted);
+}
+
 /* ---- Texto ---- */
 .product-card-body {
   display: flex;
@@ -70,10 +91,6 @@
   font-weight: 500;
   line-height: 1.2;
   margin: 0;
-}
-
-.product-card-rating {
-  margin-top: -2px;
 }
 
 .product-card-name a {
