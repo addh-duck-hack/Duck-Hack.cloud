@@ -49,7 +49,11 @@ const corsOptions = {
     return callback(new Error("CORS_ORIGIN_NOT_ALLOWED"));
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  // X-Order-Token: token de acceso a un pedido (página del pedido del
+  // storefront, ver packages/core-api/modules/orders.js#resolveOrderActor).
+  // Un header que no esté aquí lo bloquea el navegador en el preflight
+  // ("Failed to fetch"), aunque el backend lo acepte.
+  allowedHeaders: ["Content-Type", "Authorization", "X-Order-Token"],
   optionsSuccessStatus: 204,
 };
 
