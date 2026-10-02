@@ -24,6 +24,7 @@ const OrderPaymentProofs = ({ order, onChange }) => {
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [linkNotice, setLinkNotice] = useState("");
 
   const baseUrl = getApiBaseUrl();
   const getAuthHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem("token")}` });
@@ -65,6 +66,34 @@ const OrderPaymentProofs = ({ order, onChange }) => {
       setError(err.response?.data?.error?.message || "No fue posible revisar el comprobante.");
     } finally {
       setBusy(false);
+    }
+  };
+
+  // Enlace a la página del pedido para mandarlo por WhatsApp o correo (el
+  // cliente sube ahí su comprobante sin iniciar sesión).
+  const copyCustomerLink = async () => {
+    setError("");
+    setLinkNotice("");
+    try {
+      const response = await axios.get(`${baseUrl}/api/orders/${order._id}/customer-link`, { headers: getAuthHeaders() });
+      const { enabled, url, expiresIn } = response.data || {};
+      if (!url) {
+        setLinkNotice(
+          enabled
+            ? "Falta FRONTEND_URL en el backend para armar el enlace."
+            : "Activa \"El cliente sube su comprobante desde la tienda\" en Configurar tienda → Ventas y pagos."
+        );
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(url);
+        setLinkNotice(`Enlace copiado. Vence en ${expiresIn}.`);
+      } catch {
+        // Sin permiso de portapapeles: se muestra para copiarlo a mano.
+        setLinkNotice(url);
+      }
+    } catch (err) {
+      setError(err.response?.data?.error?.message || "No fue posible generar el enlace.");
     }
   };
 
@@ -185,6 +214,15 @@ const OrderPaymentProofs = ({ order, onChange }) => {
               })}
             </tbody>
           </table>
+        </div>
+      ) : null}
+
+      {AWAITING_PAYMENT.includes(order.status) ? (
+        <div style={{ marginTop: "1rem" }}>
+          <button type="button" className="btn-secondary" style={{ width: "auto" }} onClick={copyCustomerLink}>
+            <i className="fas fa-link" aria-hidden="true" /> Copiar enlace para el cliente
+          </button>
+          {linkNotice ? <p style={{ margin: "0.5rem 0 0", wordBreak: "break-all" }}>{linkNotice}</p> : null}
         </div>
       ) : null}
 

@@ -210,13 +210,45 @@ const pickupPointLines = (order) => {
 const paragraphHtml = (text) =>
   `<p style="margin:0; font-family:${bodyFont}; font-size:14px; line-height:1.6; color:${BRAND.textDim};">${escapeHtml(text).replace(/\n/g, "<br/>")}</p>`;
 
+// Tipo de pago del pedido: "spei" o "manual". Pedidos anteriores a los
+// métodos configurables: "transfer" = SPEI, "pickup" = manual.
+const paymentTypeOf = (order) => order.paymentMethodType || (order.paymentMethod === "pickup" ? "manual" : "spei");
+
+// Cuenta SPEI a la que se transfiere: la del método elegido; si no tiene
+// CLABE propia (o el pedido es de antes de los métodos configurables), la
+// cuenta general speiPayment. null si la tienda no la ha configurado. La
+// usan este correo y la página del pedido (modules/orders.js#GET /:id/summary).
+const resolveSpeiAccount = (order, storeConfig) => {
+  if (paymentTypeOf(order) !== "spei") return null;
+  const method = (storeConfig?.paymentMethods || []).find((m) => String(m._id) === String(order.paymentMethod));
+  const spei = method?.spei?.clabe ? method.spei : storeConfig?.speiPayment;
+  if (!spei?.clabe) return null;
+  return {
+    accountHolderName: spei.accountHolderName || "",
+    bank: spei.bank || "",
+    clabe: spei.clabe,
+    phone: spei.phone || "",
+  };
+};
+
+// Botón del correo (mismo estilo que accountActionEmailTemplate).
+const ctaButtonHtml = (label, url, color) => `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:16px 0 8px;">
+          <tr>
+            <td align="center" bgcolor="${color}" style="border-radius:8px;">
+              <a href="${url}" style="display:inline-block; padding:12px 24px; font-family:${monoFont}; font-size:13px; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; color:${BRAND.onAccent}; text-decoration:none; border-radius:8px;">${escapeHtml(label)}</a>
+            </td>
+          </tr>
+        </table>`;
+
 // Bloque de instrucciones de pago según el tipo de método (ver
-// lib/checkoutOptions.js): "spei" usa storeConfig.speiPayment si la tienda ya
-// lo configuró — si falta la CLABE, cae al texto genérico en vez de mostrar
-// un bloque a medias —; "manual" usa las instrucciones que escribió la
-// tienda. Pedidos anteriores: "transfer" = SPEI, "pickup" = texto fijo.
-const buildPaymentInstructions = (order, storeConfig) => {
-  const type = order.paymentMethodType || (order.paymentMethod === "pickup" ? "manual" : "spei");
+// lib/checkoutOptions.js): "spei" usa la cuenta de resolveSpeiAccount — si
+// falta la CLABE, cae al texto genérico en vez de mostrar un bloque a
+// medias —; "manual" usa las instrucciones que escribió la tienda.
+// `proofUploadUrl` (si la tienda deja subir el comprobante desde su sitio,
+// StoreConfig.customerProofUpload) agrega el botón "Subir mi comprobante";
+// responder el correo queda como alternativa.
+const buildPaymentInstructions = (order, storeConfig, { proofUploadUrl, accent = BRAND.action } = {}) => {
+  const type = paymentTypeOf(order);
   if (type === "manual") {
     const text = order.paymentInstructions ||
       (order.paymentMethod === "pickup"
@@ -225,11 +257,8 @@ const buildPaymentInstructions = (order, storeConfig) => {
     return { html: paragraphHtml(text), text };
   }
 
-  // Cuenta del método SPEI elegido; si no tiene CLABE propia (o el pedido es
-  // de antes de los métodos configurables), la cuenta general speiPayment.
-  const method = (storeConfig?.paymentMethods || []).find((m) => String(m._id) === String(order.paymentMethod));
-  const spei = method?.spei?.clabe ? method.spei : storeConfig?.speiPayment;
-  if (spei?.clabe) {
+  const spei = resolveSpeiAccount(order, storeConfig);
+  if (spei) {
     const rows = [
       spei.accountHolderName ? ["Beneficiario", spei.accountHolderName] : null,
       spei.bank ? ["Banco", spei.bank] : null,
@@ -251,12 +280,23 @@ const buildPaymentInstructions = (order, storeConfig) => {
           Realiza tu transferencia SPEI por <strong style="color:${BRAND.white};">${formatCurrency(order.total)}</strong> con los siguientes datos:
         </p>
         <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:8px;">${htmlRows}</table>
-        <p style="margin:0; font-family:${bodyFont}; font-size:13px; line-height:1.5; color:${BRAND.textDim};">
+        ${proofUploadUrl
+          ? `<p style="margin:0; font-family:${bodyFont}; font-size:13px; line-height:1.5; color:${BRAND.textDim};">
+          Una vez hecha la transferencia, sube tu comprobante para confirmar tu pedido:
+        </p>
+        ${ctaButtonHtml("Subir mi comprobante", proofUploadUrl, accent)}
+        <p style="margin:0; font-family:${bodyFont}; font-size:12px; line-height:1.5; color:${BRAND.textDim};">
+          Si el botón no funciona, copia este enlace: <a href="${proofUploadUrl}" style="color:${accent}; word-break:break-all;">${proofUploadUrl}</a><br/>
+          También puedes responder este correo con tu comprobante.
+        </p>`
+          : `<p style="margin:0; font-family:${bodyFont}; font-size:13px; line-height:1.5; color:${BRAND.textDim};">
           Una vez hecha la transferencia, envíanos tu comprobante respondiendo este correo para confirmar tu pedido.
-        </p>`,
+        </p>`}`,
       text: `Realiza tu transferencia SPEI por ${formatCurrency(order.total)} con los siguientes datos:\n` +
         rows.map(([label, value]) => `${label}: ${value}`).join("\n") +
-        `\n\nUna vez hecha la transferencia, envíanos tu comprobante respondiendo este correo para confirmar tu pedido.`,
+        (proofUploadUrl
+          ? `\n\nUna vez hecha la transferencia, sube tu comprobante para confirmar tu pedido:\n${proofUploadUrl}\nTambién puedes responder este correo con tu comprobante.`
+          : `\n\nUna vez hecha la transferencia, envíanos tu comprobante respondiendo este correo para confirmar tu pedido.`),
     };
   }
 
@@ -287,14 +327,14 @@ const buildPaymentInstructions = (order, storeConfig) => {
  * @param {{ order: object, storeConfig: object|null, logoAbsoluteUrl?: string }} params
  * @returns {{ html: string, text: string }}
  */
-const orderConfirmationEmailTemplate = ({ order, storeConfig, logoAbsoluteUrl }) => {
+const orderConfirmationEmailTemplate = ({ order, storeConfig, logoAbsoluteUrl, proofUploadUrl }) => {
   const pickup = pickupPointLines(order);
   const storeName = storeConfig?.storeName || "Tienda";
   const accent = (storeConfig?.theme?.accentColor && /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/.test(storeConfig.theme.accentColor))
     ? storeConfig.theme.accentColor
     : BRAND.action;
 
-  const payment = buildPaymentInstructions(order, storeConfig);
+  const payment = buildPaymentInstructions(order, storeConfig, { proofUploadUrl, accent });
 
   const html = `<!DOCTYPE html>
 <html lang="es">
@@ -334,7 +374,7 @@ const orderConfirmationEmailTemplate = ({ order, storeConfig, logoAbsoluteUrl })
                 ${payment.html}
 
                 <p style="margin:24px 0 0; font-family:${bodyFont}; font-size:13px; line-height:1.5; color:${BRAND.textDim};">
-                  Adjuntamos tu comprobante de pedido en PDF. Gracias por tu compra.
+                  Adjuntamos tu ticket del pedido en PDF. Gracias por tu compra.
                 </p>
               </td>
             </tr>
@@ -354,7 +394,7 @@ ${pickup.length ? `\nRecoge tu pedido:\n${pickup.join("\n")}\n` : ""}
 ¿Cómo pagar?
 ${payment.text}
 
-Adjuntamos tu comprobante de pedido en PDF. Gracias por tu compra.`;
+Adjuntamos tu ticket del pedido en PDF. Gracias por tu compra.`;
 
   return { html, text };
 };
@@ -531,7 +571,7 @@ const ORDER_STATUS_EMAILS = {
  * @param {{ kind: keyof ORDER_STATUS_EMAILS, order: object, storeConfig?: object, logoAbsoluteUrl?: string, reason?: string }} params
  * @returns {{ subject: string, html: string, text: string }}
  */
-const orderStatusEmailTemplate = ({ kind, order, storeConfig, logoAbsoluteUrl, reason }) => {
+const orderStatusEmailTemplate = ({ kind, order, storeConfig, logoAbsoluteUrl, reason, proofUploadUrl }) => {
   const copy = ORDER_STATUS_EMAILS[kind];
   if (!copy) throw new Error(`Aviso de pedido desconocido: ${kind}`);
   const storeName = storeConfig?.storeName || "Duck-Hack";
@@ -546,6 +586,8 @@ const orderStatusEmailTemplate = ({ kind, order, storeConfig, logoAbsoluteUrl, r
   if (kind === "proof_uploaded") details.push({ label: "Cliente", value: `${order.customerName} (${order.customerEmail})` });
 
   const trackingUrl = kind === "shipped" && /^https?:\/\//i.test(shipment.trackingUrl || "") ? shipment.trackingUrl : undefined;
+  // Comprobante rechazado: botón para subir otro, si la tienda lo permite.
+  const ctaUrl = kind === "proof_rejected" ? proofUploadUrl : trackingUrl;
   const { html, text } = accountActionEmailTemplate({
     storeName,
     logoUrl: logoAbsoluteUrl,
@@ -554,8 +596,8 @@ const orderStatusEmailTemplate = ({ kind, order, storeConfig, logoAbsoluteUrl, r
     name: kind === "proof_uploaded" ? "" : order.customerName,
     intro: copy.intro(storeName),
     details,
-    ctaLabel: "Rastrear mi pedido",
-    url: trackingUrl,
+    ctaLabel: kind === "proof_rejected" ? "Subir otro comprobante" : "Rastrear mi pedido",
+    url: ctaUrl,
     footnote: kind === "proof_uploaded" ? `Aviso automático de ${storeName}.` : `Este correo es un aviso automático de ${storeName} sobre tu pedido.`,
   });
   return { subject: copy.subject(number), html, text };
@@ -589,6 +631,8 @@ const lowStockEmailTemplate = ({ items, storeConfig, logoAbsoluteUrl }) => {
 };
 
 module.exports = {
+  resolveSpeiAccount,
+  paymentTypeOf,
   lowStockEmailTemplate,
   orderStatusEmailTemplate,
   verificationEmailTemplate,

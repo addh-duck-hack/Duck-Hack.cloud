@@ -380,6 +380,13 @@ const storeConfigSchema = new mongoose.Schema(
     // Correo a la tienda cuando un producto llega a su mínimo o se agota
     // (modules/inventory.js#notifyStockAlerts).
     lowStockAlerts: { type: Boolean, default: true },
+    // El cliente sube su comprobante de pago desde el sitio: el correo de
+    // confirmación (y el de comprobante rechazado) llevan el botón a
+    // FRONTEND_URL/pedido/<id>?token=… (ver modules/orders.js). Apagado por
+    // default: solo se enciende cuando el storefront de la tienda ya tiene esa
+    // página — si no, el cliente recibiría un enlace roto. Sí sale en /public,
+    // para que el storefront sepa si mostrar "Subir comprobante".
+    customerProofUpload: { type: Boolean, default: false },
     homeDeliveryEnabled: { type: Boolean, default: true },
     pickupPoints: { type: [pickupPointSchema], default: [] },
     paymentMethods: { type: [paymentMethodSchema], default: [] },
@@ -1073,6 +1080,9 @@ const validateStoreConfigPayload = (sendError) => (req, res, next) => {
   if (payload.lowStockAlerts !== undefined && typeof payload.lowStockAlerts !== "boolean") {
     return sendError(res, 400, "VALIDATION_ERROR", "lowStockAlerts debe ser boolean.");
   }
+  if (payload.customerProofUpload !== undefined && typeof payload.customerProofUpload !== "boolean") {
+    return sendError(res, 400, "VALIDATION_ERROR", "customerProofUpload debe ser boolean.");
+  }
 
   if (payload.orderNotifications !== undefined) {
     const value = payload.orderNotifications;
@@ -1135,7 +1145,7 @@ function registerRoutes(app, ctx) {
     try {
       const allowedFields = [
         "storeName", "storeSlug", "contactEmail", "contactPhone", "logoUrl", "theme", "homeBlocks",
-        "isActive", "socialLinks", "legalIdentity", "speiPayment", "maxUnitsPerProduct", "shipping", "orderNotifications", "lowStockAlerts", "homeDeliveryEnabled", "pickupPoints",
+        "isActive", "socialLinks", "legalIdentity", "speiPayment", "maxUnitsPerProduct", "shipping", "orderNotifications", "lowStockAlerts", "customerProofUpload", "homeDeliveryEnabled", "pickupPoints",
         "paymentMethods", "heroSlides", "metrics", "commands", "services",
         "pricingPlans", "commonPlanChecks", "faqs", "teamMembers", "testimonials",
         "businessHours", "holidays", "location", "whatsappButton", "returnsPolicy",

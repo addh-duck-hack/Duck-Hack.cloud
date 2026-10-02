@@ -147,6 +147,7 @@ const StoreConfigPayments = () => {
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [orderNotifications, setOrderNotifications] = useState(defaultOrderNotifications);
   const [lowStockAlerts, setLowStockAlerts] = useState(true);
+  const [customerProofUpload, setCustomerProofUpload] = useState(false);
   const [usingDefaultMethods, setUsingDefaultMethods] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -160,6 +161,7 @@ const StoreConfigPayments = () => {
     setMaxUnitsPerProduct(data?.maxUnitsPerProduct ? String(data.maxUnitsPerProduct) : "");
     setHomeDeliveryEnabled(data?.homeDeliveryEnabled !== false);
     setLowStockAlerts(data?.lowStockAlerts !== false);
+    setCustomerProofUpload(Boolean(data?.customerProofUpload));
     setOrderNotifications(
       Object.fromEntries(ORDER_NOTIFICATIONS.map(({ key }) => [key, data?.orderNotifications?.[key] !== false]))
     );
@@ -226,6 +228,7 @@ const StoreConfigPayments = () => {
           paymentMethods: paymentMethods.map(formToMethod),
           orderNotifications,
           lowStockAlerts,
+          customerProofUpload,
         },
         { headers: { ...getAuthHeaders(), "Content-Type": "application/json" } }
       );
@@ -383,6 +386,22 @@ const StoreConfigPayments = () => {
           createEmptyItem={emptyPaymentMethod}
           addButtonLabel="+ Agregar método de pago"
         />
+
+        <h4 style={{ marginTop: "2rem" }}>Comprobantes de pago</h4>
+        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <input
+            type="checkbox"
+            checked={customerProofUpload}
+            onChange={(e) => setCustomerProofUpload(e.target.checked)}
+            style={{ width: "auto" }}
+          />
+          El cliente sube su comprobante de transferencia desde la tienda
+        </label>
+        <p style={{ marginTop: 0 }}>
+          El correo de confirmación (y el de comprobante rechazado) llevan el botón "Subir mi comprobante" a la página del
+          pedido en la tienda. Actívalo solo cuando la tienda ya tenga esa página; si no, el cliente recibiría un enlace roto.
+          Apagado, el correo pide responder con el comprobante, como hasta ahora.
+        </p>
 
         <h4 style={{ marginTop: "2rem" }}>Avisos por correo del pedido</h4>
         <p>
