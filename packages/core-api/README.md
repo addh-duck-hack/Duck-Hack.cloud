@@ -37,7 +37,11 @@ vault, not in this repo).
   the `X-Order-Token` returned at checkout; staff approves (→ `confirmed`,
   stock is deducted) or rejects with a reason. Status `payment_review` sits
   between `pending` and `confirmed`. `shipment` (carrier/tracking) and status
-  emails to the customer, gated by `StoreConfig.orderNotifications`.
+  emails to the customer, gated by `StoreConfig.orderNotifications`. With
+  `StoreConfig.customerProofUpload` on, the confirmation email links to the
+  storefront's order page `FRONTEND_URL/pedido/<id>?token=…`, which reads
+  `GET /:id/summary` (and the ticket `GET /:id/pdf`) with `X-Order-Token` —
+  every storefront that turns it on must implement that route.
 - `modules/media.js` — admin media library over the `uploads/` folder
   (`/api/media`): lists files from disk, uploads images/GIF/MP4/WebM, edits
   title + alt text (stored in the `Media` collection, the file itself is never

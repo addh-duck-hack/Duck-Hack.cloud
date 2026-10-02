@@ -3219,22 +3219,145 @@ paths:
         "409":
           description: PAYMENT_PROOF_ALREADY_REVIEWED
 
+  /api/orders/{id}/summary:
+    get:
+      tags: [Orders]
+      summary: Pedido para la página del cliente en el storefront
+      operationId: getOrderSummary
+      security:
+        - bearerAuth: []
+        - orderToken: []
+      description: >
+        Lo que muestra la página del pedido del storefront
+        (FRONTEND_URL/pedido/{id}?token=…, el enlace que va en el correo de
+        confirmación cuando StoreConfig.customerProofUpload está encendido).
+        Mismos permisos que los comprobantes: staff con `orders`, dueño con
+        sesión o invitado con X-Order-Token. Sin notas internas ni datos de
+        revisión. `payment.spei` (cuenta a la que transferir) solo mientras el
+        pedido espera su pago; `canUploadProof` = pago por SPEI, esperando el
+        pago y con espacio para otro comprobante.
+      parameters:
+        - $ref: "#/components/parameters/OrderIdParam"
+        - in: header
+          name: X-Order-Token
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Resumen del pedido
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  order:
+                    type: object
+                    description: >-
+                      _id, orderNumber, createdAt, status, customerName,
+                      customerEmail, items (productName, variantLabel,
+                      quantity, unitPrice, compareAtPrice, subtotal),
+                      shippingCost, total, deliveryMethod, pickupPoint,
+                      shippingAddress, paymentMethodLabel, shipment.
+                  payment:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                        enum: [spei, manual]
+                      spei:
+                        type: object
+                        nullable: true
+                        properties:
+                          accountHolderName:
+                            type: string
+                          bank:
+                            type: string
+                          clabe:
+                            type: string
+                          phone:
+                            type: string
+                      instructions:
+                        type: string
+                        description: Solo en pagos manuales.
+                  paymentProofs:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        _id:
+                          type: string
+                        status:
+                          type: string
+                          enum: [pending, approved, rejected]
+                        mimeType:
+                          type: string
+                        uploadedAt:
+                          type: string
+                          format: date-time
+                        rejectReason:
+                          type: string
+                  canUploadProof:
+                    type: boolean
+        "401":
+          description: Sin sesión ni token válido
+        "403":
+          description: Sin permiso sobre el pedido
+        "404":
+          description: ORDER_NOT_FOUND
+
+  /api/orders/{id}/customer-link:
+    get:
+      tags: [Orders]
+      summary: Enlace a la página del pedido para el cliente
+      operationId: getOrderCustomerLink
+      description: >
+        Módulo `orders`. Enlace firmado FRONTEND_URL/pedido/{id}?token=… para
+        mandarlo al cliente (p. ej. por WhatsApp). `url` null si la tienda no
+        activó StoreConfig.customerProofUpload o falta FRONTEND_URL.
+      parameters:
+        - $ref: "#/components/parameters/OrderIdParam"
+      responses:
+        "200":
+          description: Enlace
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+                  url:
+                    type: string
+                    nullable: true
+                  expiresIn:
+                    type: string
+                    example: 30d
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /api/orders/{id}/pdf:
     get:
       tags: [Orders]
-      summary: Descargar el comprobante del pedido en PDF
+      summary: Descargar el ticket del pedido en PDF
       operationId: getOrderPdf
       description: >
-        Accesible por cualquier rol de staff, o por el cliente dueño del pedido
-        (cuenta vinculada vía `customer`, o cuenta cuyo correo coincide con
-        `customerEmail` — mismo criterio que GET /api/orders/mine). Un pedido de
-        invitado sin cuenta no se puede descargar por aquí. El PDF se genera al
+        Accesible por staff con el módulo `orders`, por el cliente dueño del
+        pedido (cuenta vinculada vía `customer`, o cuenta cuyo correo coincide
+        con `customerEmail` — mismo criterio que GET /api/orders/mine) o por el
+        invitado con su X-Order-Token (página del pedido). El PDF se genera al
         vuelo a partir del pedido y los datos de la tienda (StoreConfig) —
         nunca se guarda en disco.
       security:
         - bearerAuth: []
+        - orderToken: []
       parameters:
         - $ref: "#/components/parameters/OrderIdParam"
+        - in: header
+          name: X-Order-Token
+          required: false
+          schema:
+            type: string
       responses:
         "200":
           description: Comprobante en PDF
@@ -6242,6 +6365,15 @@ components:
             proofUploaded:
               type: boolean
               description: A la tienda, cuando el cliente sube un comprobante.
+        customerProofUpload:
+          type: boolean
+          default: false
+          description: >-
+            El cliente sube su comprobante de transferencia desde el sitio: el
+            correo de confirmación y el de comprobante rechazado llevan el
+            botón a FRONTEND_URL/pedido/{id}?token=… (GET
+            /api/orders/{id}/summary). Encenderlo solo cuando el storefront
+            tenga esa página. Sí sale en GET /public.
         lowStockAlerts:
           type: boolean
           default: true

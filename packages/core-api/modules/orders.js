@@ -31,7 +31,13 @@ const { DELIVERY_METHODS, resolveCheckout } = require("../lib/checkoutOptions");
 const { sendMail } = require("../lib/mailer");
 const { verifyAccessToken, signOrderAccessToken, verifyOrderAccessToken } = require("../lib/jwt");
 const { extractBearerToken, ROLES: AUTH_ROLES } = require("../lib/authMiddleware");
-const { orderConfirmationEmailTemplate, orderNotificationEmailTemplate, orderStatusEmailTemplate } = require("../lib/emailTemplates");
+const {
+  orderConfirmationEmailTemplate,
+  orderNotificationEmailTemplate,
+  orderStatusEmailTemplate,
+  resolveSpeiAccount,
+  paymentTypeOf,
+} = require("../lib/emailTemplates");
 const { createPaymentProofUploadMiddlewares } = require("../lib/uploads");
 const { paymentProofSchema, proofRecordFrom, findProof, streamProofFile, discardProofFile } = require("../lib/paymentProofs");
 const { createModuleAuthorizer } = require("../lib/permissions");
@@ -499,6 +505,21 @@ const renderOrderPdfBuffer = (order, storeConfig, generateOrderPdf) =>
     }
   });
 
+// Enlace a la página del pedido en el storefront, donde el cliente (invitado
+// o con cuenta) ve su pedido y sube el comprobante de pago:
+// FRONTEND_URL/pedido/<id>?token=<orderAccessToken>. Contrato con cada
+// storefront (release-*): esa ruta debe existir y leer GET /:id/summary con
+// el token en X-Order-Token. null si la tienda no lo activó
+// (StoreConfig.customerProofUpload) o falta FRONTEND_URL.
+const ORDER_PAGE_PATH = "/pedido";
+const customerOrderUrl = (order, storeConfig) => {
+  if (!storeConfig?.customerProofUpload) return null;
+  const base = (process.env.FRONTEND_URL || "").replace(/\/+$/, "");
+  if (!base) return null;
+  const token = signOrderAccessToken({ orderId: order._id });
+  return `${base}${ORDER_PAGE_PATH}/${order._id}?token=${encodeURIComponent(token)}`;
+};
+
 // Correo al cliente (con formato/marca de la tienda, detalle de productos
 // con descuento, datos de pago SPEI de la tienda, y el ticket en PDF
 // adjunto) + aviso interno a la tienda cuando entra un pedido del
@@ -514,7 +535,9 @@ const sendCheckoutEmails = async (order, { mongooseConnection, generateOrderPdf 
     ? `${backendPublicUrl}/${String(storeConfig.logoUrl).replace(/^\/+/, "")}`
     : undefined;
 
-  const { html, text } = orderConfirmationEmailTemplate({ order, storeConfig, logoAbsoluteUrl });
+  // Solo pide el comprobante si el pago es por transferencia.
+  const proofUploadUrl = paymentTypeOf(order) === "spei" ? customerOrderUrl(order, storeConfig) : null;
+  const { html, text } = orderConfirmationEmailTemplate({ order, storeConfig, logoAbsoluteUrl, proofUploadUrl });
 
   let attachments;
   if (generateOrderPdf) {
@@ -574,7 +597,8 @@ const sendOrderStatusEmail = async (order, kind, { mongooseConnection, reason } 
   const logoAbsoluteUrl = backendPublicUrl && storeConfig?.logoUrl
     ? `${backendPublicUrl}/${String(storeConfig.logoUrl).replace(/^\/+/, "")}`
     : undefined;
-  const { subject, html, text } = orderStatusEmailTemplate({ kind, order, storeConfig, logoAbsoluteUrl, reason });
+  const proofUploadUrl = kind === "proof_rejected" ? customerOrderUrl(order, storeConfig) : null;
+  const { subject, html, text } = orderStatusEmailTemplate({ kind, order, storeConfig, logoAbsoluteUrl, reason, proofUploadUrl });
   await sendMail({ to, subject, text, html });
 };
 
@@ -873,6 +897,84 @@ function registerRoutes(app, ctx) {
     }
   );
 
+  // Página del pedido en el storefront (FRONTEND_URL/pedido/<id>?token=…, ver
+  // customerOrderUrl): lo que el cliente necesita ver y nada más — sin notas
+  // internas, sin datos de quién revisó. Mismos permisos que los
+  // comprobantes (staff, dueño con sesión o invitado con X-Order-Token).
+  router.get("/:id/summary", validateObjectIdParam("id"), resolveOrderActor, async (req, res) => {
+    try {
+      const { order } = req;
+      const StoreConfig = mongooseConnection.models.StoreConfig;
+      const storeConfig = StoreConfig ? await StoreConfig.findOne({ singletonKey: "default" }).lean() : null;
+      const type = paymentTypeOf(order);
+      const awaitingPayment = AWAITING_PAYMENT_STATUSES.includes(order.status);
+      return res.status(200).json({
+        order: {
+          _id: order._id,
+          orderNumber: order.orderNumber,
+          createdAt: order.createdAt,
+          status: order.status,
+          customerName: order.customerName,
+          customerEmail: order.customerEmail,
+          items: order.items.map((i) => ({
+            productName: i.productName,
+            variantLabel: i.variantLabel,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice,
+            compareAtPrice: i.compareAtPrice,
+            subtotal: i.subtotal,
+          })),
+          shippingCost: order.shippingCost,
+          total: order.total,
+          deliveryMethod: order.deliveryMethod,
+          pickupPoint: order.pickupPoint,
+          shippingAddress: order.shippingAddress,
+          paymentMethodLabel: order.paymentMethodLabel,
+          shipment: order.shipment,
+        },
+        payment: {
+          type,
+          // Cuenta a la que transferir solo mientras se espera el pago.
+          spei: awaitingPayment ? resolveSpeiAccount(order, storeConfig) : null,
+          instructions: type === "manual" ? order.paymentInstructions || "" : "",
+        },
+        paymentProofs: (order.paymentProofs || []).map((p) => ({
+          _id: p._id,
+          status: p.status,
+          mimeType: p.mimeType,
+          uploadedAt: p.uploadedAt,
+          rejectReason: p.status === "rejected" ? p.rejectReason : undefined,
+        })),
+        canUploadProof:
+          type === "spei" && awaitingPayment && (order.paymentProofs || []).length < MAX_PAYMENT_PROOFS,
+      });
+    } catch (error) {
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al consultar el pedido.");
+    }
+  });
+
+  // Ticket del pedido en PDF — mismo criterio que GET /api/invoices/:id/pdf
+  // (facturación interna de Duck-Hack), pero con los datos de ESTA tienda
+  // (StoreConfig). Accesible por staff con `orders`, por el dueño (cuenta
+  // vinculada o mismo correo, igual que GET /mine) o por el invitado con su
+  // X-Order-Token (página del pedido).
+  router.get("/:id/pdf", validateObjectIdParam("id"), resolveOrderActor, async (req, res) => {
+    try {
+      if (!generateOrderPdf) {
+        return sendError(res, 500, "PDF_GENERATOR_NOT_AVAILABLE", "La generación de comprobantes no está disponible.");
+      }
+      const { order } = req;
+      const StoreConfig = mongooseConnection.models.StoreConfig;
+      const storeConfig = StoreConfig ? await StoreConfig.findOne({ singletonKey: "default" }).lean() : null;
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `inline; filename="pedido-${order.orderNumber ?? order._id}.pdf"`);
+      generateOrderPdf(order, storeConfig, res);
+    } catch (error) {
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al generar el comprobante.");
+    }
+  });
+
   // ---- de aquí en adelante, todo el router exige JWT de staff ----
   router.use(verifyToken);
 
@@ -1068,44 +1170,21 @@ function registerRoutes(app, ctx) {
     }
   );
 
-  // Comprobante del pedido en PDF — mismo criterio que
-  // GET /api/invoices/:id/pdf (facturación interna de Duck-Hack), pero con
-  // los datos de ESTA tienda (StoreConfig), no los de Duck-Hack. Accesible
-  // por staff o por el dueño del pedido (cuenta vinculada o mismo correo,
-  // igual que GET /mine) — un pedido de invitado sin cuenta no se puede
-  // descargar por aquí (no hay con qué autenticarse como "el invitado").
-  router.get("/:id/pdf", validateObjectIdParam("id"), async (req, res) => {
+  // Enlace a la página del pedido para mandárselo al cliente (p. ej. por
+  // WhatsApp) desde el admin. `url` null si la tienda no activó
+  // customerProofUpload o falta FRONTEND_URL.
+  router.get("/:id/customer-link", validateObjectIdParam("id"), canRead, ensureOrderExists, async (req, res) => {
     try {
-      const order = await Order.findById(req.params.id);
-      if (!order) return sendError(res, 404, "ORDER_NOT_FOUND", "Pedido no encontrado.");
-
-      const isStaff = STAFF_ROLES.includes(req.user.role) && (await hasModule(req.user.role, "orders"));
-      let isOwner = false;
-      if (!isStaff) {
-        if (order.customer && String(order.customer) === String(req.user.id)) {
-          isOwner = true;
-        } else {
-          const User = mongooseConnection.models.User;
-          const me = User && (await User.findById(req.user.id).select("email"));
-          if (me?.email && me.email === order.customerEmail) isOwner = true;
-        }
-      }
-      if (!isStaff && !isOwner) {
-        return sendError(res, 403, "FORBIDDEN", "No tienes permisos para ver este pedido.");
-      }
-
-      if (!generateOrderPdf) {
-        return sendError(res, 500, "PDF_GENERATOR_NOT_AVAILABLE", "La generación de comprobantes no está disponible.");
-      }
-
       const StoreConfig = mongooseConnection.models.StoreConfig;
       const storeConfig = StoreConfig ? await StoreConfig.findOne({ singletonKey: "default" }).lean() : null;
-
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `inline; filename="pedido-${order.orderNumber ?? order._id}.pdf"`);
-      generateOrderPdf(order, storeConfig, res);
+      const enabled = Boolean(storeConfig?.customerProofUpload);
+      return res.status(200).json({
+        enabled,
+        url: customerOrderUrl(req.order, storeConfig),
+        expiresIn: process.env.JWT_ORDER_ACCESS_EXPIRES_IN || "30d",
+      });
     } catch (error) {
-      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al generar el comprobante.");
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al generar el enlace del pedido.");
     }
   });
 
