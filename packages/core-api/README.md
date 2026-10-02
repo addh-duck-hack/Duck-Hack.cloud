@@ -51,6 +51,16 @@ vault, not in this repo).
   (`resolveCoupon` for both the public `POST /validate` preview and the
   checkout's `couponCode`; uses reserved atomically at checkout and released
   when the order is cancelled or deleted, `Order.discount.counted`).
+- `modules/reviews.js` — product reviews (`/api/reviews`, moderation under
+  permission key `reviews`). Generic `Review` model (`target.kind` "product";
+  "appointment" reserved for the post-appointment review). A logged-in
+  customer can review a product once they have a `delivered`/`picked_up`
+  order containing it (linked account or same email, like `GET
+  /api/orders/mine`); one review per customer and product, editable (goes
+  back to pending). Everything enters `pending`; approving/unpublishing/
+  deleting recalculates `Product.ratingAvg`/`ratingCount` (read-only fields,
+  ignored in product payloads). Public `GET /public?product=` shows approved
+  only, with a short name ("Ana G.") and a 1–5 distribution.
 - `modules/media.js` — admin media library over the `uploads/` folder
   (`/api/media`): lists files from disk, uploads images/GIF/MP4/WebM, edits
   title + alt text (stored in the `Media` collection, the file itself is never

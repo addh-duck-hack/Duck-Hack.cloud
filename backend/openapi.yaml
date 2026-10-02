@@ -33,6 +33,8 @@ tags:
   - name: Orders
   - name: Coupons
     description: Cupones de descuento (módulo coupons de los permisos por tienda)
+  - name: Reviews
+    description: Reseñas de producto (moderación = módulo reviews de los permisos por tienda)
   - name: StoreConfig
   - name: Permissions
     description: Permisos por tienda — módulos contratados y qué puede usar cada rol (solo super_admin los configura)
@@ -2717,6 +2719,224 @@ paths:
         "409":
           description: COUPON_IN_USE
 
+  /api/reviews/public:
+    get:
+      tags: [Reviews]
+      summary: Reseñas aprobadas de un producto
+      operationId: listPublicReviews
+      security: []
+      parameters:
+        - { in: query, name: product, required: true, schema: { type: string } }
+        - { in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 50, default: 10 } }
+      responses:
+        "200":
+          description: Más recientes primero. `customerName` es el nombre corto ("Ana G."); nunca se expone el correo.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PublicReview"
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+                  summary:
+                    type: object
+                    properties:
+                      average:
+                        type: number
+                      count:
+                        type: integer
+                      distribution:
+                        type: object
+                        description: Cuántas reseñas de cada estrella (claves "1" a "5").
+                        additionalProperties:
+                          type: integer
+        "400":
+          description: VALIDATION_ERROR (product no válido)
+
+  /api/reviews/eligibility:
+    get:
+      tags: [Reviews]
+      summary: ¿Puede el cliente calificar este producto?
+      operationId: getReviewEligibility
+      description: >
+        Con sesión. Elegible si tiene un pedido entregado (`delivered`) o
+        recogido (`picked_up`) con el producto, ligado a su cuenta o con su
+        mismo correo (igual que GET /api/orders/mine). Si ya calificó,
+        devuelve su reseña para editarla.
+      parameters:
+        - { in: query, name: product, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Resultado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eligible:
+                    type: boolean
+                  reason:
+                    type: string
+                    description: Solo si no es elegible.
+                  review:
+                    nullable: true
+                    allOf:
+                      - $ref: "#/components/schemas/OwnReview"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/reviews/mine:
+    get:
+      tags: [Reviews]
+      summary: Mis reseñas
+      operationId: listMyReviews
+      responses:
+        "200":
+          description: Reseñas del cliente con su estado (y motivo si se rechazó)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OwnReview"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/reviews/mine/{id}:
+    put:
+      tags: [Reviews]
+      summary: Editar mi reseña
+      operationId: updateMyReview
+      description: Vuelve a moderación (`pending`); si estaba publicada deja de contar en el promedio hasta que la aprueben.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewRequest"
+      responses:
+        "200":
+          description: Actualizada
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: REVIEW_NOT_FOUND (no existe o no es suya)
+
+  /api/reviews:
+    post:
+      tags: [Reviews]
+      summary: Calificar un producto
+      operationId: createReview
+      description: Con sesión; rate limit 20 / hora por IP. Entra `pending` y se publica al aprobarla en el admin.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/ReviewRequest"
+                - type: object
+                  properties:
+                    product:
+                      type: string
+                  required: [product]
+      responses:
+        "201":
+          description: Creada (pendiente)
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          description: REVIEW_NOT_ELIGIBLE (sin pedido entregado o recogido con el producto)
+        "404":
+          description: PRODUCT_NOT_FOUND
+        "409":
+          description: REVIEW_EXISTS (una por cliente y producto; editarla con PUT /mine/{id})
+        "429":
+          description: RATE_LIMIT_REVIEWS_EXCEEDED
+    get:
+      tags: [Reviews]
+      summary: Bandeja de reseñas (staff)
+      operationId: listReviews
+      description: Módulo `reviews`. Hasta 500, más recientes primero, con producto, folio del pedido y correo del cliente.
+      parameters:
+        - { in: query, name: status, schema: { type: string, enum: [pending, approved, rejected] } }
+        - { in: query, name: product, schema: { type: string } }
+      responses:
+        "200":
+          description: Reseñas + conteo por estado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Review"
+                  counts:
+                    type: object
+                    properties:
+                      pending: { type: integer }
+                      approved: { type: integer }
+                      rejected: { type: integer }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/reviews/{id}:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string } }
+    put:
+      tags: [Reviews]
+      summary: Aprobar o rechazar
+      operationId: moderateReview
+      description: Módulo `reviews`. Si cambia lo publicado, recalcula Product.ratingAvg / ratingCount.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [approved, rejected]
+                rejectionReason:
+                  type: string
+                  maxLength: 300
+                  description: Opcional; lo ve el cliente en su reseña.
+              required: [status]
+      responses:
+        "200":
+          description: Guardado
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: REVIEW_NOT_FOUND
+    delete:
+      tags: [Reviews]
+      summary: Eliminar reseña
+      operationId: deleteReview
+      description: Módulo `reviews`. El cliente puede volver a calificar el producto.
+      responses:
+        "200":
+          description: Eliminada
+        "404":
+          description: REVIEW_NOT_FOUND
+
   /api/inventory:
     get:
       tags: [Inventory]
@@ -4005,7 +4225,7 @@ components:
     PermissionModuleKey:
       type: string
       description: Módulo del panel sujeto a permisos por tienda
-      enum: [panel, storeConfig, appConfig, products, inventory, orders, coupons, media, users, agencyClients, accounting, invoices]
+      enum: [panel, storeConfig, appConfig, products, inventory, orders, coupons, reviews, media, users, agencyClients, accounting, invoices]
 
     StorePermissions:
       type: object
@@ -5488,6 +5708,14 @@ components:
           minimum: 0
         isActive:
           type: boolean
+        ratingAvg:
+          type: number
+          readOnly: true
+          description: Promedio de reseñas aprobadas (1 decimal, 0 sin reseñas). Lo calcula /api/reviews; se ignora en el payload.
+        ratingCount:
+          type: integer
+          readOnly: true
+          description: Número de reseñas aprobadas.
         createdAt:
           type: string
           format: date-time
@@ -5984,6 +6212,76 @@ components:
           type: string
           format: date-time
       required: [_id, customerName, customerEmail, items, status, total]
+
+    ReviewRequest:
+      type: object
+      properties:
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+          maxLength: 1000
+      required: [rating]
+
+    PublicReview:
+      type: object
+      properties:
+        _id: { type: string }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        comment: { type: string }
+        customerName: { type: string, example: "Ana G." }
+        createdAt: { type: string, format: date-time }
+
+    OwnReview:
+      type: object
+      properties:
+        _id: { type: string }
+        product: { type: string }
+        rating: { type: integer }
+        comment: { type: string }
+        status: { type: string, enum: [pending, approved, rejected] }
+        rejectionReason: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Review:
+      type: object
+      description: Modelo genérico (target.kind "product"; "appointment" queda para la reseña post-cita).
+      properties:
+        _id: { type: string }
+        target:
+          type: object
+          properties:
+            kind: { type: string, enum: [product, appointment] }
+            id: { type: string }
+        product:
+          type: object
+          nullable: true
+          properties:
+            _id: { type: string }
+            name: { type: string }
+            image: { type: string }
+        customer:
+          type: object
+          properties:
+            _id: { type: string }
+            email: { type: string }
+        customerName: { type: string }
+        order:
+          type: object
+          nullable: true
+          properties:
+            _id: { type: string }
+            orderNumber: { type: integer }
+        rating: { type: integer }
+        comment: { type: string }
+        status: { type: string, enum: [pending, approved, rejected] }
+        rejectionReason: { type: string }
+        reviewedBy: { type: string, nullable: true }
+        reviewedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
 
     Coupon:
       type: object

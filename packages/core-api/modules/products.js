@@ -86,6 +86,10 @@ const productSchema = new mongoose.Schema(
     featured: { type: Boolean, default: false },
     sortOrder: { type: Number, default: 0, min: 0 },
     isActive: { type: Boolean, default: true },
+    // Promedio y número de reseñas aprobadas. Solo los escribe
+    // modules/reviews.js al moderar; nunca se aceptan del payload.
+    ratingAvg: { type: Number, min: 0, max: 5, default: 0 },
+    ratingCount: { type: Number, min: 0, default: 0 },
   },
   { timestamps: true }
 );
@@ -103,6 +107,9 @@ const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const validatePayload = (sendError) => (req, res, next) => {
   const payload = req.body || {};
   const isCreate = req.method === "POST";
+  // Las calificaciones las calcula modules/reviews.js.
+  delete payload.ratingAvg;
+  delete payload.ratingCount;
 
   if (isCreate || payload.name !== undefined) {
     const name = asTrimmedString(payload.name);
