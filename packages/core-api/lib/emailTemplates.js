@@ -177,6 +177,21 @@ const renderShippingRowHtml = (order, textColor, textDimColor) =>
 
 const renderShippingLineText = (order) => (order.shippingCost > 0 ? `\n- Envío — ${formatCurrency(order.shippingCost)}` : "");
 
+// Fila del cupón (Order.discount, lib/coupons.js): el descuento en negativo o,
+// si fue de envío gratis, el aviso con $0.
+const discountLabelOf = (discount) => `Cupón ${discount.code}${discount.type === "free_shipping" ? " (envío gratis)" : ""}`;
+const renderDiscountRowHtml = (order, textColor, textDimColor) =>
+  order.discount?.code
+    ? `<tr>
+    <td colspan="3" style="padding:8px 0; font-family:${bodyFont}; font-size:14px; color:${textDimColor}; border-bottom:1px solid ${BRAND.line};">${escapeHtml(discountLabelOf(order.discount))}</td>
+    <td style="padding:8px 0; font-family:${bodyFont}; font-size:14px; color:${textColor}; border-bottom:1px solid ${BRAND.line}; text-align:right;">${order.discount.amount > 0 ? `−${formatCurrency(order.discount.amount)}` : formatCurrency(0)}</td>
+  </tr>`
+    : "";
+const renderDiscountLineText = (order) =>
+  order.discount?.code
+    ? `\n- ${discountLabelOf(order.discount)} — ${order.discount.amount > 0 ? `−${formatCurrency(order.discount.amount)}` : formatCurrency(0)}`
+    : "";
+
 const renderOrderItemLineText = (item) => {
   const priceText = item.compareAtPrice && item.compareAtPrice > item.unitPrice
     ? `${formatCurrency(item.unitPrice)} (antes ${formatCurrency(item.compareAtPrice)})`
@@ -389,7 +404,7 @@ const orderConfirmationEmailTemplate = ({ order, storeConfig, logoAbsoluteUrl, p
 
 Pedido #${order.orderNumber} por un total de ${formatCurrency(order.total)}.
 
-${order.items.map(renderOrderItemLineText).join("\n")}${renderShippingLineText(order)}
+${order.items.map(renderOrderItemLineText).join("\n")}${renderDiscountLineText(order)}${renderShippingLineText(order)}
 ${pickup.length ? `\nRecoge tu pedido:\n${pickup.join("\n")}\n` : ""}
 ¿Cómo pagar?
 ${payment.text}
@@ -424,6 +439,7 @@ const renderOrderItemsTableHtml = (order, accent) => `
       <td style="padding-bottom:6px; font-family:${bodyFont}; font-size:12px; letter-spacing:0.04em; text-transform:uppercase; color:${accent}; border-bottom:2px solid ${accent}; text-align:right;">Subtotal</td>
     </tr>
     ${order.items.map((item) => renderOrderItemRowHtml(item, BRAND.white, BRAND.textDim)).join("")}
+    ${renderDiscountRowHtml(order, BRAND.white, BRAND.textDim)}
     ${renderShippingRowHtml(order, BRAND.white, BRAND.textDim)}
   </table>`;
 
@@ -514,7 +530,7 @@ Pedido #${order.orderNumber} por un total de ${formatCurrency(order.total)}.
 
 ${infoRows.map(([label, value]) => `${label}: ${value}`).join("\n")}
 ${hasAddress ? `Dirección de envío:\n${formatShippingAddressLine(addr)}\n` : ""}
-${order.items.map(renderOrderItemLineText).join("\n")}${renderShippingLineText(order)}`;
+${order.items.map(renderOrderItemLineText).join("\n")}${renderDiscountLineText(order)}${renderShippingLineText(order)}`;
 
   return { html, text };
 };

@@ -177,6 +177,12 @@ const OrderDetail = () => {
           ))}
         </tbody>
       </table>
+      {order.discount?.code ? (
+        <p style={{ marginTop: "0.75rem", marginBottom: 0 }}>
+          Cupón <strong>{order.discount.code}</strong>
+          {order.discount.type === "free_shipping" ? " (envío gratis)" : `: −${formatMxn(order.discount.amount)}`}
+        </p>
+      ) : null}
       {order.shippingCost > 0 ? (
         <p style={{ marginTop: "0.75rem", marginBottom: 0 }}>Envío: {formatMxn(order.shippingCost)}</p>
       ) : null}

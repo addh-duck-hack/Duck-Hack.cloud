@@ -31,6 +31,8 @@ tags:
     description: Categorías del catálogo (mismos permisos que el módulo products)
   - name: Inventory
   - name: Orders
+  - name: Coupons
+    description: Cupones de descuento (módulo coupons de los permisos por tienda)
   - name: StoreConfig
   - name: Permissions
     description: Permisos por tienda — módulos contratados y qué puede usar cada rol (solo super_admin los configura)
@@ -2568,6 +2570,153 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
+  /api/coupons/validate:
+    post:
+      tags: [Coupons]
+      summary: Vista previa de un cupón (canasta)
+      operationId: validateCoupon
+      security: []
+      description: >
+        Sin autenticación, rate limit 30 / 10 min por IP. Solo es una vista
+        previa: el checkout (POST /api/orders/public con couponCode) vuelve a
+        validar y fija el descuento. `subtotal` = subtotal de productos de la
+        canasta.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+                subtotal:
+                  type: number
+                deliveryMethod:
+                  type: string
+                  enum: [shipping, pickup]
+                customerEmail:
+                  type: string
+                  description: Opcional, para el límite de usos por cliente.
+              required: [code]
+      responses:
+        "200":
+          description: Cupón válido
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                  code:
+                    type: string
+                  type:
+                    type: string
+                    enum: [amount, percent, free_shipping]
+                  value:
+                    type: number
+                  discount:
+                    type: number
+                    description: Descuento sobre el subtotal (0 en free_shipping).
+                  freeShipping:
+                    type: boolean
+                  message:
+                    type: string
+        "400":
+          description: COUPON_REQUIRED, COUPON_NOT_STARTED, COUPON_EXPIRED, COUPON_MIN_PURCHASE o COUPON_NOT_APPLICABLE (envío gratis en pedido para recoger)
+        "404":
+          description: COUPON_NOT_FOUND (no existe o inactivo)
+        "409":
+          description: COUPON_EXHAUSTED o COUPON_LIMIT_PER_CUSTOMER
+        "429":
+          description: RATE_LIMIT_COUPON_EXCEEDED
+
+  /api/coupons:
+    get:
+      tags: [Coupons]
+      summary: Listar cupones
+      operationId: listCoupons
+      description: Módulo `coupons`.
+      responses:
+        "200":
+          description: Cupones (más recientes primero)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Coupon"
+    post:
+      tags: [Coupons]
+      summary: Crear cupón
+      operationId: createCoupon
+      description: Módulo `coupons`. El código se guarda en mayúsculas.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CouponRequest"
+      responses:
+        "201":
+          description: Creado
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: COUPON_CODE_TAKEN
+
+  /api/coupons/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+    get:
+      tags: [Coupons]
+      summary: Obtener cupón
+      operationId: getCoupon
+      responses:
+        "200":
+          description: Cupón
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Coupon"
+        "404":
+          description: COUPON_NOT_FOUND
+    put:
+      tags: [Coupons]
+      summary: Actualizar cupón
+      operationId: updateCoupon
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CouponRequest"
+      responses:
+        "200":
+          description: Actualizado
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: COUPON_CODE_TAKEN
+    delete:
+      tags: [Coupons]
+      summary: Eliminar cupón
+      operationId: deleteCoupon
+      description: Bloqueado (409 COUPON_IN_USE) si algún pedido lo usó; en ese caso se desactiva.
+      responses:
+        "200":
+          description: Eliminado
+        "409":
+          description: COUPON_IN_USE
+
   /api/inventory:
     get:
       tags: [Inventory]
@@ -3856,7 +4005,7 @@ components:
     PermissionModuleKey:
       type: string
       description: Módulo del panel sujeto a permisos por tienda
-      enum: [panel, storeConfig, appConfig, products, inventory, orders, media, users, agencyClients, accounting, invoices]
+      enum: [panel, storeConfig, appConfig, products, inventory, orders, coupons, media, users, agencyClients, accounting, invoices]
 
     StorePermissions:
       type: object
@@ -5811,6 +5960,8 @@ components:
             $ref: "#/components/schemas/PaymentProof"
         shipment:
           $ref: "#/components/schemas/OrderShipment"
+        discount:
+          $ref: "#/components/schemas/OrderDiscount"
         inventoryDeducted:
           type: boolean
           readOnly: true
@@ -5833,6 +5984,103 @@ components:
           type: string
           format: date-time
       required: [_id, customerName, customerEmail, items, status, total]
+
+    Coupon:
+      type: object
+      properties:
+        _id:
+          type: string
+        code:
+          type: string
+          example: BIENVENIDA30
+        description:
+          type: string
+          description: Nota interna.
+        type:
+          type: string
+          enum: [amount, percent, free_shipping]
+        value:
+          type: number
+          description: Pesos (amount), 1–100 (percent) o 0 (free_shipping).
+        minPurchase:
+          type: number
+          nullable: true
+        startsAt:
+          type: string
+          format: date-time
+          nullable: true
+        endsAt:
+          type: string
+          format: date-time
+          nullable: true
+        maxUses:
+          type: integer
+          nullable: true
+        maxUsesPerCustomer:
+          type: integer
+          nullable: true
+        usedCount:
+          type: integer
+          readOnly: true
+          description: Pedidos que lo usan, sin contar cancelados ni borrados.
+        isActive:
+          type: boolean
+
+    CouponRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          pattern: "^[A-Z0-9][A-Z0-9_-]{2,29}$"
+        description:
+          type: string
+        type:
+          type: string
+          enum: [amount, percent, free_shipping]
+        value:
+          type: number
+        minPurchase:
+          type: number
+          nullable: true
+        startsAt:
+          type: string
+          format: date-time
+          nullable: true
+        endsAt:
+          type: string
+          format: date-time
+          nullable: true
+        maxUses:
+          type: integer
+          nullable: true
+        maxUsesPerCustomer:
+          type: integer
+          nullable: true
+        isActive:
+          type: boolean
+      required: [code, type]
+
+    OrderDiscount:
+      type: object
+      readOnly: true
+      description: >-
+        Cupón aplicado en el checkout. total = subtotal de productos − amount +
+        shippingCost. `counted` = el pedido cuenta como uso del cupón (false si
+        está cancelado).
+      properties:
+        code:
+          type: string
+        coupon:
+          type: string
+        type:
+          type: string
+          enum: [amount, percent, free_shipping]
+        value:
+          type: number
+        amount:
+          type: number
+        counted:
+          type: boolean
 
     PaymentProof:
       type: object
@@ -5972,6 +6220,14 @@ components:
           description: Todos los campos (menos interiorNumber) son requeridos con deliveryMethod shipping.
         notes:
           type: string
+        couponCode:
+          type: string
+          description: >-
+            Código de cupón (packages/core-api/lib/coupons.js). El descuento se
+            calcula en el servidor sobre el subtotal de productos; free_shipping
+            deja el envío en $0. Un cupón inválido rechaza el pedido con el
+            código del cupón (COUPON_NOT_FOUND, COUPON_EXPIRED,
+            COUPON_MIN_PURCHASE, COUPON_EXHAUSTED, COUPON_LIMIT_PER_CUSTOMER…).
       required: [customerName, customerEmail, items]
 
     OrderUpdateRequest:

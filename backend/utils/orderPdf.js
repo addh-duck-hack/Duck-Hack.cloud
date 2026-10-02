@@ -206,6 +206,18 @@ const generateOrderPdf = (order, storeConfig, outputStream) => {
     rowY += rowHeight + 10;
   }
 
+  // Cupón (Order.discount) como un renglón más, antes del envío.
+  if (order.discount && order.discount.code) {
+    const label = `Cupón ${order.discount.code}${order.discount.type === "free_shipping" ? " (envío gratis)" : ""}`;
+    doc
+      .fillColor(BRAND_TEXT_DIM)
+      .font("Helvetica")
+      .fontSize(10)
+      .text(label, 50, rowY, { width: 280 })
+      .text(order.discount.amount > 0 ? `-${formatCurrency(order.discount.amount)}` : formatCurrency(0), 482, rowY, { width: 80, align: "right" });
+    rowY += 24;
+  }
+
   // Envío cobrado (Order.shippingCost) como un renglón más, antes del total.
   if (order.shippingCost > 0) {
     doc
