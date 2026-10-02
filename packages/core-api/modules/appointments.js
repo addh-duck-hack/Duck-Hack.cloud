@@ -11,6 +11,21 @@
 //   general y los festivos siguen saliendo de StoreConfig (businessHours,
 //   holidays).
 //
+// 2.3 — motor de citas:
+// - Appointment: uno o varios servicios (máx. 5) con la misma especialista,
+//   uno detrás de otro. Duración = suma; tiempo entre citas = el mayor de los
+//   servicios, una vez al final; total = suma de precios. Se guarda en UTC con
+//   `blockedUntil` = fin + tiempo entre citas (lo que ocupa en la agenda).
+// - Disponibilidad: lib/availability.js (horario del negocio ∩ especialista −
+//   festivos − citas − bloqueos, cada `slotStepMin`, con anticipación mínima
+//   y límite de días).
+// - Anti-empalme sin transacciones: candado por especialista con vencimiento
+//   (`Specialist.bookingLock`); dentro del candado se vuelve a calcular la
+//   disponibilidad y se guarda.
+// - Clientas: con sesión (customer) la cita queda en su cuenta; sin sesión,
+//   la invitada usa el token de la cita (X-Appointment-Token). Cancelar o
+//   reprogramar respeta `minHoursToChange`.
+//
 // Quién administra: dentro del permiso `appointments`, especialistas,
 // ajustes y bloqueos de todo el negocio son de "encargadas" (super_admin y
 // store_admin). Una collaborator solo ve su especialista y bloquea su propio
@@ -25,8 +40,12 @@ const {
   isValidObjectId,
   getOrCreateModel,
 } = require("../lib/moduleHelpers");
-const { ROLES } = require("../lib/authMiddleware");
+const crypto = require("crypto");
+const { ROLES, extractBearerToken } = require("../lib/authMiddleware");
 const { createModuleAuthorizer } = require("../lib/permissions");
+const { createRateLimiter } = require("../lib/rateLimit");
+const { verifyAccessToken, signAppointmentAccessToken, verifyAppointmentAccessToken } = require("../lib/jwt");
+const { MINUTE, isValidDate, addDays, localToUtc, utcToLocal, overlaps, slotsForDay } = require("../lib/availability");
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 const COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
@@ -35,6 +54,14 @@ const MAX_SHIFTS_PER_DAY = 4;
 // Cuentas que se pueden ligar a una especialista (la dueña también puede atender).
 const LINKABLE_ROLES = [ROLES.COLLABORATOR, ROLES.STORE_ADMIN];
 const MANAGER_ROLES = [ROLES.SUPER_ADMIN, ROLES.STORE_ADMIN];
+const MAX_SERVICES_PER_APPOINTMENT = 5;
+// Rango máximo de días en una consulta de disponibilidad por calendario.
+const MAX_RANGE_DAYS = 62;
+const LOCK_MS = 10 * 1000;
+const APPOINTMENT_STATUSES = ["pending", "confirmed", "completed", "no_show", "cancelled"];
+// Estados en los que la clienta todavía puede cancelar o reprogramar.
+const CHANGEABLE_STATUSES = ["pending", "confirmed"];
+const PHONE_DIGITS = /^\d{10}$/;
 
 const weeklyShiftSchema = new mongoose.Schema(
   {
@@ -61,6 +88,11 @@ const specialistSchema = new mongoose.Schema(
     weeklyHours: { type: [weeklyShiftSchema], default: [] },
     sortOrder: { type: Number, default: 0, min: 0 },
     isActive: { type: Boolean, default: true },
+    // Candado de agendado (ver withSpecialistLock). Lo maneja el servidor.
+    bookingLock: {
+      token: { type: String, default: null },
+      until: { type: Date, default: null },
+    },
   },
   { timestamps: true }
 );
@@ -111,9 +143,72 @@ const appointmentSettingsSchema = new mongoose.Schema(
     timezone: { type: String, trim: true, default: DEFAULT_SETTINGS.timezone },
     // Aviso al negocio de cada cita; vacío = el correo de contacto de la tienda.
     notifyEmail: { type: String, trim: true, lowercase: true, maxlength: 160, default: "" },
+    // Último folio de cita (se incrementa de forma atómica al agendar).
+    lastAppointmentNumber: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
+
+const appointmentServiceSchema = new mongoose.Schema(
+  {
+    service: { type: mongoose.Schema.Types.ObjectId, ref: "Service", required: true },
+    name: { type: String, required: true, trim: true },
+    durationMin: { type: Number, required: true, min: 1 },
+    price: { type: Number, required: true, min: 0 },
+  },
+  { _id: false }
+);
+
+const appointmentHistorySchema = new mongoose.Schema(
+  {
+    // rescheduled | status
+    type: { type: String, required: true },
+    from: { type: mongoose.Schema.Types.Mixed },
+    to: { type: mongoose.Schema.Types.Mixed },
+    by: { type: String, enum: ["customer", "staff", "system"], required: true },
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    at: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
+const appointmentSchema = new mongoose.Schema(
+  {
+    appointmentNumber: { type: Number, index: true },
+    // En el orden en que se hacen.
+    services: {
+      type: [appointmentServiceSchema],
+      validate: { validator: (v) => Array.isArray(v) && v.length > 0, message: "La cita necesita al menos un servicio." },
+    },
+    durationMin: { type: Number, required: true, min: 1 },
+    bufferMin: { type: Number, default: 0, min: 0 },
+    total: { type: Number, required: true, min: 0 },
+    specialist: { type: mongoose.Schema.Types.ObjectId, ref: "Specialist", required: true },
+    specialistName: { type: String, trim: true },
+    // Cuenta de la clienta (si agendó con sesión). Nunca se toma del payload.
+    customer: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    customerName: { type: String, required: true, trim: true, maxlength: 120 },
+    customerEmail: { type: String, required: true, trim: true, lowercase: true, maxlength: 160 },
+    customerPhone: { type: String, trim: true, maxlength: 10 },
+    start: { type: Date, required: true },
+    end: { type: Date, required: true },
+    // end + bufferMin: lo que ocupa en la agenda.
+    blockedUntil: { type: Date, required: true },
+    status: { type: String, enum: APPOINTMENT_STATUSES, default: "confirmed" },
+    source: { type: String, enum: ["web", "phone", "walk_in"], default: "web" },
+    notes: { type: String, trim: true, maxlength: 500, default: "" },
+    staffNotes: { type: String, trim: true, maxlength: 1000, default: "" },
+    cancelledAt: { type: Date, default: null },
+    cancelledBy: { type: String, enum: ["customer", "staff", null], default: null },
+    cancelReason: { type: String, trim: true, maxlength: 300, default: "" },
+    history: { type: [appointmentHistorySchema], default: [] },
+  },
+  { timestamps: true }
+);
+appointmentSchema.index({ specialist: 1, start: 1 });
+appointmentSchema.index({ specialist: 1, status: 1, start: 1, blockedUntil: 1 });
+appointmentSchema.index({ customer: 1, start: -1 });
+appointmentSchema.index({ customerEmail: 1, start: -1 });
 
 const isValidTimezone = (tz) => {
   try {
@@ -266,6 +361,7 @@ function registerRoutes(app, ctx) {
   const Specialist = getOrCreateModel(mongooseConnection, "Specialist", specialistSchema);
   const TimeBlock = getOrCreateModel(mongooseConnection, "TimeBlock", timeBlockSchema);
   const Settings = getOrCreateModel(mongooseConnection, "AppointmentSettings", appointmentSettingsSchema);
+  const Appointment = getOrCreateModel(mongooseConnection, "Appointment", appointmentSchema);
   const router = express.Router();
 
   const isManager = (req) => MANAGER_ROLES.includes(req.user?.role);
@@ -301,6 +397,528 @@ function registerRoutes(app, ctx) {
       return res.status(200).json(publicSettings);
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al consultar los ajustes de la agenda.");
+    }
+  });
+
+
+  // ================= Motor de citas (2.3) =================
+
+  // Servicios pedidos, en el orden dado: activos, sin repetir, hasta 5; los
+  // del sitio además deben agendarse en línea. → { services, durationMin,
+  // bufferMin, total } o { error }.
+  const resolveServices = async (rawIds, { publicOnly }) => {
+    const ids = parseIdList(rawIds);
+    if (!ids || !ids.length) return { error: { status: 400, code: "VALIDATION_ERROR", message: "Elige al menos un servicio." } };
+    if (ids.length > MAX_SERVICES_PER_APPOINTMENT) {
+      return { error: { status: 400, code: "VALIDATION_ERROR", message: `Una cita admite hasta ${MAX_SERVICES_PER_APPOINTMENT} servicios.` } };
+    }
+    const Service = mongooseConnection.models.Service;
+    const found = Service ? await Service.find({ _id: { $in: ids }, isActive: true }).lean() : [];
+    const byId = new Map(found.map((sv) => [String(sv._id), sv]));
+    const services = ids.map((id) => byId.get(id));
+    if (services.some((sv) => !sv || (publicOnly && sv.bookableOnline === false))) {
+      return { error: { status: 400, code: "SERVICE_NOT_AVAILABLE", message: "Alguno de los servicios no existe o no se agenda en línea." } };
+    }
+    return {
+      services,
+      durationMin: services.reduce((sum, sv) => sum + sv.durationMin, 0),
+      bufferMin: Math.max(0, ...services.map((sv) => sv.bufferMin || 0)),
+      total: Math.round(services.reduce((sum, sv) => sum + sv.price, 0) * 100) / 100,
+    };
+  };
+
+  // Especialistas activas que hacen TODOS los servicios (por orden).
+  const eligibleSpecialists = (serviceIds) =>
+    Specialist.find({ isActive: true, services: { $all: serviceIds } })
+      .sort({ sortOrder: 1, name: 1 })
+      .lean();
+
+  const loadStoreHours = async () => {
+    const StoreConfig = mongooseConnection.models.StoreConfig;
+    const config = StoreConfig ? await StoreConfig.findOne({ singletonKey: "default" }).select("businessHours holidays").lean() : null;
+    return { businessHours: config?.businessHours || [], holidays: config?.holidays || [] };
+  };
+
+  // Lo ocupado de cada especialista en [from, to): citas no canceladas (con su
+  // tiempo entre citas) y bloqueos propios y de todo el negocio. → Map id → [{start,end}].
+  const loadBusy = async (specialistIds, from, to, { excludeId } = {}) => {
+    const appointmentFilter = {
+      specialist: { $in: specialistIds },
+      status: { $ne: "cancelled" },
+      start: { $lt: new Date(to) },
+      blockedUntil: { $gt: new Date(from) },
+    };
+    if (excludeId) appointmentFilter._id = { $ne: excludeId };
+    const [appointments, blocks] = await Promise.all([
+      Appointment.find(appointmentFilter).select("specialist start blockedUntil").lean(),
+      TimeBlock.find({ specialist: { $in: [null, ...specialistIds] }, start: { $lt: new Date(to) }, end: { $gt: new Date(from) } })
+        .select("specialist start end")
+        .lean(),
+    ]);
+    const busy = new Map(specialistIds.map((id) => [String(id), []]));
+    for (const a of appointments) busy.get(String(a.specialist))?.push({ start: +a.start, end: +a.blockedUntil });
+    for (const b of blocks) {
+      const interval = { start: +b.start, end: +b.end };
+      if (b.specialist) busy.get(String(b.specialist))?.push(interval);
+      else for (const list of busy.values()) list.push(interval);
+    }
+    return busy;
+  };
+
+  // Límites de agendado en línea: desde ahora + anticipación, hasta el final
+  // del día (local) de hoy + maxDaysAhead. `enforce: false` (staff) sin límites.
+  const bookingWindow = (settings, { enforce }) => {
+    if (!enforce) return { notBefore: -Infinity, notAfter: Infinity, firstDate: null, lastDate: null };
+    const now = Date.now();
+    const today = utcToLocal(now, settings.timezone).date;
+    const lastDate = addDays(today, settings.maxDaysAhead);
+    return {
+      notBefore: now + settings.minNoticeMin * MINUTE,
+      notAfter: localToUtc(addDays(lastDate, 1), "00:00", settings.timezone) - 1,
+      firstDate: today,
+      lastDate,
+    };
+  };
+
+  // Horarios libres de varias especialistas en varios días.
+  // → Map dateStr → Map startMs → [specialistId].
+  const computeAvailability = async ({ specialists, dates, durationMin, bufferMin, settings, enforce, excludeId }) => {
+    const result = new Map(dates.map((d) => [d, new Map()]));
+    if (!specialists.length || !dates.length) return result;
+    const { businessHours, holidays } = await loadStoreHours();
+    const window = bookingWindow(settings, { enforce });
+    const from = localToUtc(dates[0], "00:00", settings.timezone);
+    const to = localToUtc(addDays(dates[dates.length - 1], 1), "00:00", settings.timezone) + 24 * 60 * MINUTE;
+    const busy = await loadBusy(specialists.map((sp) => sp._id), from, to, { excludeId });
+    for (const dateStr of dates) {
+      if (window.firstDate && (dateStr < window.firstDate || dateStr > window.lastDate)) continue;
+      const slotsOfDay = result.get(dateStr);
+      for (const sp of specialists) {
+        const slots = slotsForDay({
+          dateStr,
+          timezone: settings.timezone,
+          businessHours,
+          holidays,
+          weeklyHours: sp.weeklyHours,
+          durationMin,
+          bufferMin,
+          stepMin: settings.slotStepMin,
+          busy: busy.get(String(sp._id)) || [],
+          notBefore: window.notBefore,
+          notAfter: window.notAfter,
+        });
+        for (const t of slots) {
+          if (!slotsOfDay.has(t)) slotsOfDay.set(t, []);
+          slotsOfDay.get(t).push(String(sp._id));
+        }
+      }
+    }
+    return result;
+  };
+
+  // Candado por especialista (sin transacciones): se toma con un update
+  // condicionado y vence solo a los LOCK_MS por si el proceso se cae.
+  const withSpecialistLock = async (specialistId, fn) => {
+    const token = crypto.randomBytes(12).toString("hex");
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const now = new Date();
+      const taken = await Specialist.findOneAndUpdate(
+        { _id: specialistId, $or: [{ "bookingLock.until": null }, { "bookingLock.until": { $lt: now } }] },
+        { $set: { bookingLock: { token, until: new Date(now.getTime() + LOCK_MS) } } },
+        { new: true }
+      ).lean();
+      if (taken) {
+        try {
+          return await fn();
+        } finally {
+          await Specialist.updateOne({ _id: specialistId, "bookingLock.token": token }, { $set: { bookingLock: { token: null, until: null } } });
+        }
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50 + Math.floor(Math.random() * 50)));
+    }
+    const error = new Error("No fue posible apartar el horario, intenta de nuevo.");
+    error.code = "LOCK_TIMEOUT";
+    throw error;
+  };
+
+  // Aparta `startMs` con la primera candidata libre (dentro de su candado se
+  // vuelve a calcular la disponibilidad) y llama `save(specialist)`.
+  // → lo que devuelva save, o null si nadie tenía ese horario libre.
+  const bookSlot = async ({ candidates, startMs, durationMin, bufferMin, settings, enforce, excludeId, save }) => {
+    const dateStr = utcToLocal(startMs, settings.timezone).date;
+    for (const sp of candidates) {
+      const outcome = await withSpecialistLock(sp._id, async () => {
+        const availability = await computeAvailability({ specialists: [sp], dates: [dateStr], durationMin, bufferMin, settings, enforce, excludeId });
+        if (!availability.get(dateStr).has(startMs)) return null;
+        return save(sp);
+      });
+      if (outcome) return outcome;
+    }
+    return null;
+  };
+
+  // Para "cualquiera disponible": primero la que tiene menos citas ese día.
+  const orderByLoad = async (specialists, dateStr, timezone) => {
+    const from = localToUtc(dateStr, "00:00", timezone);
+    const to = localToUtc(addDays(dateStr, 1), "00:00", timezone);
+    const counts = await Appointment.aggregate([
+      { $match: { specialist: { $in: specialists.map((sp) => sp._id) }, status: { $ne: "cancelled" }, start: { $gte: new Date(from), $lt: new Date(to) } } },
+      { $group: { _id: "$specialist", count: { $sum: 1 } } },
+    ]);
+    const countOf = new Map(counts.map((c) => [String(c._id), c.count]));
+    return [...specialists].sort((a, b) => (countOf.get(String(a._id)) || 0) - (countOf.get(String(b._id)) || 0));
+  };
+
+  const nextAppointmentNumber = async () => {
+    const doc = await Settings.findOneAndUpdate(
+      { singletonKey: "default" },
+      { $inc: { lastAppointmentNumber: 1 } },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    ).lean();
+    return doc.lastAppointmentNumber;
+  };
+
+  // ¿Todavía puede la clienta cancelar o reprogramar?
+  const changeDeadlineOf = (appointment, settings) => new Date(+appointment.start - settings.minHoursToChange * 60 * MINUTE);
+  const canCustomerChange = (appointment, settings) =>
+    CHANGEABLE_STATUSES.includes(appointment.status) && Date.now() <= +changeDeadlineOf(appointment, settings);
+
+  // Lo que ve la clienta de su cita (sin notas internas).
+  const customerView = (a, settings) => ({
+    _id: a._id,
+    appointmentNumber: a.appointmentNumber,
+    status: a.status,
+    start: a.start,
+    end: a.end,
+    durationMin: a.durationMin,
+    services: a.services.map(({ service, name, durationMin, price }) => ({ service, name, durationMin, price })),
+    total: a.total,
+    specialist: { _id: a.specialist?._id || a.specialist, name: a.specialistName },
+    customerName: a.customerName,
+    customerEmail: a.customerEmail,
+    customerPhone: a.customerPhone,
+    notes: a.notes,
+    timezone: settings.timezone,
+    canChange: canCustomerChange(a, settings),
+    changeDeadline: changeDeadlineOf(a, settings),
+    cancelledAt: a.cancelledAt,
+  });
+
+  // Bearer opcional de clienta (como el checkout de pedidos): si es válido y
+  // es customer, la cita queda en su cuenta; si no, sigue como invitada.
+  const optionalCustomer = (req) => {
+    const token = extractBearerToken(req.header("Authorization"));
+    if (!token) return null;
+    try {
+      const decoded = verifyAccessToken(token);
+      return decoded.role === ROLES.CUSTOMER ? decoded.id : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const publicRateLimiter = createRateLimiter({
+    windowMs: 10 * 60 * 1000,
+    max: 20,
+    code: "RATE_LIMIT_APPOINTMENTS_EXCEEDED",
+    message: "Demasiados intentos. Intenta de nuevo en unos minutos.",
+    sendError,
+  });
+  const availabilityRateLimiter = createRateLimiter({
+    windowMs: 10 * 60 * 1000,
+    max: 300,
+    code: "RATE_LIMIT_AVAILABILITY_EXCEEDED",
+    message: "Demasiadas consultas. Intenta de nuevo en unos minutos.",
+    sendError,
+  });
+
+  // GET /availability?services=a,b&specialist=<id>|any
+  //   &date=YYYY-MM-DD → { slots: [{ start, time, specialists }] }
+  //   &from=&to=        → { days: [{ date, available, slots }] } (calendario)
+  router.get("/availability", availabilityRateLimiter, async (req, res) => {
+    try {
+      const settings = await getSettings(mongooseConnection);
+      const resolved = await resolveServices(req.query.services, { publicOnly: true });
+      if (resolved.error) return sendError(res, resolved.error.status, resolved.error.code, resolved.error.message);
+      const serviceIds = resolved.services.map((sv) => sv._id);
+
+      let specialists = await eligibleSpecialists(serviceIds);
+      const wanted = req.query.specialist && req.query.specialist !== "any" ? String(req.query.specialist) : null;
+      if (wanted) {
+        specialists = specialists.filter((sp) => String(sp._id) === wanted);
+        if (!specialists.length) {
+          return sendError(res, 400, "SPECIALIST_NOT_AVAILABLE", "Esa especialista no hace todos los servicios elegidos.");
+        }
+      } else if (!settings.allowAnySpecialist) {
+        return sendError(res, 400, "SPECIALIST_REQUIRED", "Elige con quién quieres tu cita.");
+      }
+
+      let dates;
+      if (req.query.date) {
+        if (!isValidDate(req.query.date)) return sendError(res, 400, "VALIDATION_ERROR", "date debe ser AAAA-MM-DD.");
+        dates = [req.query.date];
+      } else {
+        const { from, to } = req.query;
+        if (!isValidDate(from) || !isValidDate(to) || to < from) {
+          return sendError(res, 400, "VALIDATION_ERROR", "Manda date, o from y to (AAAA-MM-DD).");
+        }
+        dates = [];
+        for (let d = from; d <= to && dates.length < MAX_RANGE_DAYS; d = addDays(d, 1)) dates.push(d);
+      }
+
+      const availability = await computeAvailability({
+        specialists,
+        dates,
+        durationMin: resolved.durationMin,
+        bufferMin: resolved.bufferMin,
+        settings,
+        enforce: true,
+      });
+      const base = { timezone: settings.timezone, durationMin: resolved.durationMin, total: resolved.total };
+      if (req.query.date) {
+        const slots = [...availability.get(dates[0]).entries()]
+          .sort((a, b) => a[0] - b[0])
+          .map(([t, ids]) => ({ start: new Date(t), time: utcToLocal(t, settings.timezone).time, specialists: ids }));
+        return res.status(200).json({ ...base, date: dates[0], slots });
+      }
+      return res.status(200).json({
+        ...base,
+        days: dates.map((date) => ({ date, available: availability.get(date).size > 0, slots: availability.get(date).size })),
+      });
+    } catch (error) {
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al consultar la disponibilidad.");
+    }
+  });
+
+  // Datos de contacto de la clienta (alta en el sitio).
+  const validateContact = (payload) => {
+    const customerName = asTrimmedString(payload.customerName);
+    const customerEmail = asTrimmedString(payload.customerEmail).toLowerCase();
+    const customerPhone = String(payload.customerPhone || "").replace(/\D/g, "");
+    if (!customerName || customerName.length > 120) return { error: "Escribe tu nombre." };
+    if (!EMAIL_REGEX.test(customerEmail) || customerEmail.length > 160) return { error: "Escribe un correo válido." };
+    if (!PHONE_DIGITS.test(customerPhone)) return { error: "Escribe un teléfono de 10 dígitos." };
+    const notes = asTrimmedString(payload.notes);
+    if (notes.length > 500) return { error: "Las notas pueden tener hasta 500 caracteres." };
+    return { customerName, customerEmail, customerPhone, notes };
+  };
+
+  // POST /public — agendar desde el sitio.
+  // { services: [ids], specialist: id | "any", start: ISO, customerName,
+  //   customerEmail, customerPhone, notes } + Bearer opcional de clienta.
+  router.post("/public", publicRateLimiter, async (req, res) => {
+    try {
+      const payload = req.body || {};
+      const settings = await getSettings(mongooseConnection);
+      const contact = validateContact(payload);
+      if (contact.error) return sendError(res, 400, "VALIDATION_ERROR", contact.error);
+      const startMs = Date.parse(payload.start);
+      if (Number.isNaN(startMs)) return sendError(res, 400, "VALIDATION_ERROR", "start debe ser una fecha y hora válida.");
+
+      const resolved = await resolveServices(payload.services, { publicOnly: true });
+      if (resolved.error) return sendError(res, resolved.error.status, resolved.error.code, resolved.error.message);
+      let candidates = await eligibleSpecialists(resolved.services.map((sv) => sv._id));
+      const wanted = payload.specialist && payload.specialist !== "any" ? String(payload.specialist) : null;
+      if (wanted) {
+        candidates = candidates.filter((sp) => String(sp._id) === wanted);
+        if (!candidates.length) return sendError(res, 400, "SPECIALIST_NOT_AVAILABLE", "Esa especialista no hace todos los servicios elegidos.");
+      } else {
+        if (!settings.allowAnySpecialist) return sendError(res, 400, "SPECIALIST_REQUIRED", "Elige con quién quieres tu cita.");
+        candidates = await orderByLoad(candidates, utcToLocal(startMs, settings.timezone).date, settings.timezone);
+      }
+
+      const customer = optionalCustomer(req);
+      const appointment = await bookSlot({
+        candidates,
+        startMs,
+        durationMin: resolved.durationMin,
+        bufferMin: resolved.bufferMin,
+        settings,
+        enforce: true,
+        save: async (sp) =>
+          Appointment.create({
+            appointmentNumber: await nextAppointmentNumber(),
+            services: resolved.services.map((sv) => ({ service: sv._id, name: sv.name, durationMin: sv.durationMin, price: sv.price })),
+            durationMin: resolved.durationMin,
+            bufferMin: resolved.bufferMin,
+            total: resolved.total,
+            specialist: sp._id,
+            specialistName: sp.name,
+            customer,
+            ...contact,
+            start: new Date(startMs),
+            end: new Date(startMs + resolved.durationMin * MINUTE),
+            blockedUntil: new Date(startMs + (resolved.durationMin + resolved.bufferMin) * MINUTE),
+            status: settings.autoConfirm ? "confirmed" : "pending",
+            source: "web",
+          }),
+      });
+      if (!appointment) {
+        return sendError(res, 409, "SLOT_TAKEN", "Ese horario ya no está disponible. Elige otro, por favor.");
+      }
+      return res.status(201).json({
+        message: appointment.status === "confirmed" ? "¡Tu cita está agendada!" : "Recibimos tu cita; te avisaremos cuando la confirmemos.",
+        appointment: customerView(appointment, settings),
+        appointmentAccessToken: signAppointmentAccessToken({ appointmentId: appointment._id, validUntil: appointment.end }),
+      });
+    } catch (error) {
+      if (error?.code === "LOCK_TIMEOUT") return sendError(res, 503, "TRY_AGAIN", error.message);
+      return handleMongooseError(sendError, res, error, "Error al agendar la cita.");
+    }
+  });
+
+  // Quién puede ver/cambiar una cita desde el sitio: la invitada con su token
+  // (X-Appointment-Token) o la dueña con sesión (cuenta ligada o mismo
+  // correo, igual que GET /api/orders/mine). Deja req.appointment.
+  const resolveCustomerAccess = async (req, res, next) => {
+    try {
+      if (!isValidObjectId(req.params.id)) return sendError(res, 400, "INVALID_OBJECT_ID", "id no válido");
+      const appointment = await Appointment.findById(req.params.id);
+      if (!appointment) return sendError(res, 404, "APPOINTMENT_NOT_FOUND", "Cita no encontrada.");
+      const accessToken = req.header("X-Appointment-Token");
+      if (accessToken) {
+        try {
+          const decoded = verifyAppointmentAccessToken(accessToken);
+          if (decoded.aid !== String(appointment._id)) throw new Error("otra cita");
+        } catch {
+          return sendError(res, 401, "APPOINTMENT_TOKEN_INVALID", "El enlace de la cita no es válido o ya venció.");
+        }
+        req.appointment = appointment;
+        return next();
+      }
+      const bearer = extractBearerToken(req.header("Authorization"));
+      if (!bearer) return sendError(res, 401, "TOKEN_REQUIRED", "Inicia sesión o usa el enlace de tu cita.");
+      let decoded;
+      try {
+        decoded = verifyAccessToken(bearer);
+      } catch {
+        return sendError(res, 401, "TOKEN_INVALID_OR_EXPIRED", "Token no válido o expirado.");
+      }
+      const User = mongooseConnection.models.User;
+      const me = User ? await User.findById(decoded.id).select("email").lean() : null;
+      const isOwner =
+        (appointment.customer && String(appointment.customer) === String(decoded.id)) ||
+        (me?.email && me.email === appointment.customerEmail);
+      if (!isOwner) return sendError(res, 404, "APPOINTMENT_NOT_FOUND", "Cita no encontrada.");
+      req.appointment = appointment;
+      return next();
+    } catch (error) {
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al consultar la cita.");
+    }
+  };
+
+  router.get("/public/:id", resolveCustomerAccess, async (req, res) => {
+    const settings = await getSettings(mongooseConnection);
+    return res.status(200).json({ appointment: customerView(req.appointment, settings) });
+  });
+
+  // Cancelar desde el sitio: { reason? }. Respeta minHoursToChange.
+  router.post("/public/:id/cancel", publicRateLimiter, resolveCustomerAccess, async (req, res) => {
+    try {
+      const settings = await getSettings(mongooseConnection);
+      const { appointment } = req;
+      if (!CHANGEABLE_STATUSES.includes(appointment.status)) {
+        return sendError(res, 409, "APPOINTMENT_NOT_CHANGEABLE", "Esta cita ya no se puede cancelar.");
+      }
+      if (!canCustomerChange(appointment, settings)) {
+        return sendError(
+          res,
+          409,
+          "CHANGE_WINDOW_CLOSED",
+          `Las citas se pueden cancelar hasta ${settings.minHoursToChange} horas antes. Comunícate con nosotros.`
+        );
+      }
+      const from = appointment.status;
+      appointment.status = "cancelled";
+      appointment.cancelledAt = new Date();
+      appointment.cancelledBy = "customer";
+      appointment.cancelReason = asTrimmedString(req.body?.reason).slice(0, 300);
+      appointment.history.push({ type: "status", from, to: "cancelled", by: "customer" });
+      await appointment.save();
+      return res.status(200).json({ message: "Tu cita se canceló.", appointment: customerView(appointment, settings) });
+    } catch (error) {
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al cancelar la cita.");
+    }
+  });
+
+  // Reprogramar desde el sitio: { start, specialist?: id | "any" }. Mismos
+  // servicios; sin especialista, se queda con la misma. Respeta
+  // minHoursToChange (sobre la cita actual) y las reglas de agendado (sobre la nueva).
+  router.post("/public/:id/reschedule", publicRateLimiter, resolveCustomerAccess, async (req, res) => {
+    try {
+      const settings = await getSettings(mongooseConnection);
+      const { appointment } = req;
+      if (!CHANGEABLE_STATUSES.includes(appointment.status)) {
+        return sendError(res, 409, "APPOINTMENT_NOT_CHANGEABLE", "Esta cita ya no se puede reprogramar.");
+      }
+      if (!canCustomerChange(appointment, settings)) {
+        return sendError(
+          res,
+          409,
+          "CHANGE_WINDOW_CLOSED",
+          `Las citas se pueden reprogramar hasta ${settings.minHoursToChange} horas antes. Comunícate con nosotros.`
+        );
+      }
+      const startMs = Date.parse(req.body?.start);
+      if (Number.isNaN(startMs)) return sendError(res, 400, "VALIDATION_ERROR", "start debe ser una fecha y hora válida.");
+
+      const serviceIds = appointment.services.map((sv) => sv.service);
+      let candidates = await eligibleSpecialists(serviceIds);
+      const wanted = req.body?.specialist ? String(req.body.specialist) : String(appointment.specialist);
+      if (wanted !== "any") {
+        candidates = candidates.filter((sp) => String(sp._id) === wanted);
+        if (!candidates.length) return sendError(res, 400, "SPECIALIST_NOT_AVAILABLE", "Esa especialista ya no hace todos los servicios de tu cita.");
+      } else {
+        candidates = await orderByLoad(candidates, utcToLocal(startMs, settings.timezone).date, settings.timezone);
+      }
+
+      const before = { start: appointment.start, specialist: appointment.specialistName };
+      const updated = await bookSlot({
+        candidates,
+        startMs,
+        durationMin: appointment.durationMin,
+        bufferMin: appointment.bufferMin,
+        settings,
+        enforce: true,
+        excludeId: appointment._id,
+        save: async (sp) => {
+          appointment.specialist = sp._id;
+          appointment.specialistName = sp.name;
+          appointment.start = new Date(startMs);
+          appointment.end = new Date(startMs + appointment.durationMin * MINUTE);
+          appointment.blockedUntil = new Date(startMs + (appointment.durationMin + appointment.bufferMin) * MINUTE);
+          appointment.history.push({ type: "rescheduled", from: before, to: { start: appointment.start, specialist: sp.name }, by: "customer" });
+          return appointment.save();
+        },
+      });
+      if (!updated) return sendError(res, 409, "SLOT_TAKEN", "Ese horario ya no está disponible. Elige otro, por favor.");
+      return res.status(200).json({
+        message: "Tu cita se reprogramó.",
+        appointment: customerView(updated, settings),
+        appointmentAccessToken: signAppointmentAccessToken({ appointmentId: updated._id, validUntil: updated.end }),
+      });
+    } catch (error) {
+      if (error?.code === "LOCK_TIMEOUT") return sendError(res, 503, "TRY_AGAIN", error.message);
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al reprogramar la cita.");
+    }
+  });
+
+  // Mis citas (con sesión): por cuenta ligada o mismo correo. ?scope=upcoming|past
+  router.get("/mine", verifyToken, async (req, res) => {
+    try {
+      const settings = await getSettings(mongooseConnection);
+      const User = mongooseConnection.models.User;
+      const me = User ? await User.findById(req.user.id).select("email").lean() : null;
+      const filter = me?.email ? { $or: [{ customer: req.user.id }, { customerEmail: me.email }] } : { customer: req.user.id };
+      const now = new Date();
+      if (req.query.scope === "upcoming") filter.end = { $gte: now };
+      if (req.query.scope === "past") filter.end = { $lt: now };
+      const appointments = await Appointment.find(filter)
+        .sort({ start: req.query.scope === "past" ? -1 : 1 })
+        .limit(200);
+      return res.status(200).json({ items: appointments.map((a) => customerView(a, settings)) });
+    } catch (error) {
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al listar tus citas.");
     }
   });
 
@@ -535,7 +1153,12 @@ function registerRoutes(app, ctx) {
 module.exports = {
   name: "appointments",
   registerRoutes,
-  models: { Specialist: specialistSchema, TimeBlock: timeBlockSchema, AppointmentSettings: appointmentSettingsSchema },
+  models: {
+    Specialist: specialistSchema,
+    TimeBlock: timeBlockSchema,
+    AppointmentSettings: appointmentSettingsSchema,
+    Appointment: appointmentSchema,
+  },
   getSettings,
   DEFAULT_SETTINGS,
 };

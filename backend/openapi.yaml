@@ -2708,6 +2708,196 @@ paths:
         "409":
           description: SERVICE_IN_USE
 
+  /api/appointments/availability:
+    get:
+      tags: [Appointments]
+      summary: Horarios libres
+      operationId: getAvailability
+      security: []
+      description: >-
+        Horario del negocio ∩ especialista − festivos − citas (con su tiempo entre citas) −
+        bloqueos, cada `slotStepMin`, desde ahora + `minNoticeMin` hasta hoy + `maxDaysAhead`.
+        Duración = suma de los servicios; tiempo entre citas = el mayor. Con `date`, los
+        horarios del día; con `from`/`to` (hasta 62 días), qué días tienen lugar. Rate limit
+        300 / 10 min.
+      parameters:
+        - { in: query, name: services, required: true, schema: { type: string }, description: "Ids separados por coma, en orden (máx. 5)." }
+        - { in: query, name: specialist, schema: { type: string }, description: "Id o \"any\" (default)." }
+        - { in: query, name: date, schema: { type: string, format: date } }
+        - { in: query, name: from, schema: { type: string, format: date } }
+        - { in: query, name: to, schema: { type: string, format: date } }
+      responses:
+        "200":
+          description: "`slots` (con date) o `days` (con from/to)"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  timezone: { type: string }
+                  durationMin: { type: integer }
+                  total: { type: number }
+                  date: { type: string }
+                  slots:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        start: { type: string, format: date-time }
+                        time: { type: string, example: "10:30", description: Hora local de la tienda. }
+                        specialists: { type: array, items: { type: string } }
+                  days:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date: { type: string }
+                        available: { type: boolean }
+                        slots: { type: integer }
+        "400":
+          description: VALIDATION_ERROR, SERVICE_NOT_AVAILABLE, SPECIALIST_NOT_AVAILABLE o SPECIALIST_REQUIRED (sin "cualquiera")
+
+  /api/appointments/public:
+    post:
+      tags: [Appointments]
+      summary: Agendar desde el sitio
+      operationId: createPublicAppointment
+      security: []
+      description: >-
+        Bearer opcional de clienta (la cita queda en su cuenta). "any" asigna a la especialista
+        con menos citas ese día. Un candado por especialista evita citas empalmadas; dentro
+        se vuelve a revisar la disponibilidad. Estado `confirmed` o `pending` según
+        `autoConfirm`. Devuelve `appointmentAccessToken` (header X-Appointment-Token para
+        ver/cancelar/reprogramar sin cuenta; vence 30 días después de la cita). Rate limit 20 / 10 min.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                services: { type: array, items: { type: string }, maxItems: 5 }
+                specialist: { type: string, description: "Id o \"any\"." }
+                start: { type: string, format: date-time }
+                customerName: { type: string }
+                customerEmail: { type: string }
+                customerPhone: { type: string, description: 10 dígitos. }
+                notes: { type: string, maxLength: 500 }
+              required: [services, start, customerName, customerEmail, customerPhone]
+      responses:
+        "201":
+          description: Agendada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  appointment: { $ref: "#/components/schemas/CustomerAppointment" }
+                  appointmentAccessToken: { type: string }
+        "400":
+          description: VALIDATION_ERROR, SERVICE_NOT_AVAILABLE, SPECIALIST_NOT_AVAILABLE o SPECIALIST_REQUIRED
+        "409":
+          description: SLOT_TAKEN (ocupado, fuera de horario, no alineado o fuera de anticipación / días)
+        "503":
+          description: TRY_AGAIN (no se pudo tomar el candado)
+
+  /api/appointments/public/{id}:
+    get:
+      tags: [Appointments]
+      summary: Ver mi cita
+      operationId: getPublicAppointment
+      security: []
+      description: Con X-Appointment-Token, o Bearer de la dueña (cuenta ligada o mismo correo).
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+        - { in: header, name: X-Appointment-Token, schema: { type: string } }
+      responses:
+        "200":
+          description: Cita (sin notas internas)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  appointment: { $ref: "#/components/schemas/CustomerAppointment" }
+        "401":
+          description: APPOINTMENT_TOKEN_INVALID, TOKEN_REQUIRED o TOKEN_INVALID_OR_EXPIRED
+        "404":
+          description: APPOINTMENT_NOT_FOUND
+
+  /api/appointments/public/{id}/cancel:
+    post:
+      tags: [Appointments]
+      summary: Cancelar mi cita
+      operationId: cancelPublicAppointment
+      security: []
+      description: Mismo acceso que GET. Solo pending/confirmed y hasta `minHoursToChange` horas antes.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string, maxLength: 300 }
+      responses:
+        "200":
+          description: Cancelada
+        "409":
+          description: APPOINTMENT_NOT_CHANGEABLE o CHANGE_WINDOW_CLOSED
+
+  /api/appointments/public/{id}/reschedule:
+    post:
+      tags: [Appointments]
+      summary: Reprogramar mi cita
+      operationId: reschedulePublicAppointment
+      security: []
+      description: >-
+        Mismos servicios; sin `specialist` se queda con la misma ("any" busca entre las que hacen
+        todos). Política de horas sobre la cita actual y reglas de agendado sobre la nueva.
+        Devuelve un token nuevo.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                start: { type: string, format: date-time }
+                specialist: { type: string }
+              required: [start]
+      responses:
+        "200":
+          description: Reprogramada
+        "400":
+          description: VALIDATION_ERROR o SPECIALIST_NOT_AVAILABLE
+        "409":
+          description: SLOT_TAKEN, APPOINTMENT_NOT_CHANGEABLE o CHANGE_WINDOW_CLOSED
+
+  /api/appointments/mine:
+    get:
+      tags: [Appointments]
+      summary: Mis citas
+      operationId: listMyAppointments
+      description: Con sesión. Por cuenta ligada o mismo correo (incluye las agendadas como invitada).
+      parameters:
+        - { in: query, name: scope, schema: { type: string, enum: [upcoming, past] } }
+      responses:
+        "200":
+          description: Citas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/CustomerAppointment" }
+
   /api/appointments/specialists/public:
     get:
       tags: [Appointments]
@@ -6570,6 +6760,39 @@ components:
           type: string
           format: date-time
       required: [_id, customerName, customerEmail, items, status, total]
+
+    CustomerAppointment:
+      type: object
+      properties:
+        _id: { type: string }
+        appointmentNumber: { type: integer }
+        status: { type: string, enum: [pending, confirmed, completed, no_show, cancelled] }
+        start: { type: string, format: date-time }
+        end: { type: string, format: date-time }
+        durationMin: { type: integer, description: Suma de los servicios. }
+        services:
+          type: array
+          items:
+            type: object
+            properties:
+              service: { type: string }
+              name: { type: string }
+              durationMin: { type: integer }
+              price: { type: number }
+        total: { type: number }
+        specialist:
+          type: object
+          properties:
+            _id: { type: string }
+            name: { type: string }
+        customerName: { type: string }
+        customerEmail: { type: string }
+        customerPhone: { type: string }
+        notes: { type: string }
+        timezone: { type: string }
+        canChange: { type: boolean, description: Si todavía se puede cancelar o reprogramar desde el sitio. }
+        changeDeadline: { type: string, format: date-time }
+        cancelledAt: { type: string, format: date-time, nullable: true }
 
     WeeklyShift:
       type: object

@@ -8,6 +8,7 @@ const ACCESS_TOKEN_TYPE = "access";
 const EMAIL_VERIFICATION_TOKEN_TYPE = "email_verification";
 const PASSWORD_RESET_TOKEN_TYPE = "password_reset";
 const ORDER_ACCESS_TOKEN_TYPE = "order_access";
+const APPOINTMENT_ACCESS_TOKEN_TYPE = "appointment_access";
 // Opcionales (no están en requiredVars para no romper .env existentes).
 const DEFAULT_PASSWORD_RESET_EXPIRES_IN = "1h";
 const DEFAULT_ORDER_ACCESS_EXPIRES_IN = "30d";
@@ -184,8 +185,44 @@ const verifyOrderAccessToken = (token) => {
   return decoded;
 };
 
+// Acceso de una invitada a SU cita (ver, cancelar o reprogramar sin cuenta;
+// header X-Appointment-Token). Lo devuelve POST /api/appointments/public y
+// solo sirve para esa cita (`aid`). Vence 30 días después de la cita (una
+// reprogramación emite uno nuevo), así el enlace del correo sigue sirviendo
+// aunque la cita sea dentro de meses.
+const signAppointmentAccessToken = ({ appointmentId, validUntil }) => {
+  const config = readJwtConfig();
+  const subject = String(appointmentId);
+  const expiresAt = new Date(validUntil).getTime() + 30 * 24 * 60 * 60 * 1000;
+  const expiresInSeconds = Math.max(60, Math.floor((expiresAt - Date.now()) / 1000));
+  return jwt.sign({ aid: subject, tokenType: APPOINTMENT_ACCESS_TOKEN_TYPE }, config.secret, {
+    algorithm: JWT_ALGORITHM,
+    issuer: config.issuer,
+    audience: config.audience,
+    subject,
+    expiresIn: expiresInSeconds,
+  });
+};
+
+const verifyAppointmentAccessToken = (token) => {
+  const config = readJwtConfig();
+  const decoded = jwt.verify(token, config.secret, {
+    algorithms: [JWT_ALGORITHM],
+    issuer: config.issuer,
+    audience: config.audience,
+  });
+  if (decoded.tokenType !== APPOINTMENT_ACCESS_TOKEN_TYPE) {
+    const error = new Error("Tipo de token inválido para acceder a la cita.");
+    error.code = "JWT_INVALID_TOKEN_TYPE";
+    throw error;
+  }
+  return decoded;
+};
+
 module.exports = {
   signAccessToken,
+  signAppointmentAccessToken,
+  verifyAppointmentAccessToken,
   signOrderAccessToken,
   verifyOrderAccessToken,
   signEmailVerificationToken,
