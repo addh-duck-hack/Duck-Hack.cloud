@@ -41,6 +41,18 @@ vault, not in this repo).
   collaborator only sees the specialist linked to her account and blocks her
   own time. Public: `GET /specialists/public?services=` and
   `GET /settings/public`.
+  Engine (2.3): `Appointment` (1–5 services with one specialist, back to
+  back: duration = sum, buffer = largest, total = sum; `blockedUntil` = end +
+  buffer), availability in `lib/availability.js` (pure functions: business
+  hours ∩ specialist shifts − holidays − appointments − blocks, slot step,
+  min notice, max days ahead; timezone via Intl). `GET /availability`
+  (`date` → slots, `from`/`to` → days with room), `POST /public` (optional
+  customer Bearer; "any" picks the least busy specialist; a per-specialist
+  expiring lock + re-check inside it prevents double booking — no
+  transactions needed), guest access with the `appointment_access` JWT
+  (`X-Appointment-Token`, valid until 30 days after the appointment),
+  `GET /public/:id`, `POST /public/:id/cancel|reschedule` (policy
+  `minHoursToChange`) and `GET /mine`.
 - `modules/products.js` — product catalog (`/api/products`). Optional
   variants (`options` + `variants`, logic in `lib/variants.js`): each variant
   has its own SKU, stock and optional price/image; `lib/purchaseLimits.js
