@@ -21,6 +21,13 @@ import { getAuthHeader } from './useAuth';
 
 const tokenKey = (orderId) => `tacita.order-token.${orderId}`;
 
+// Sin respuesta del backend (red caída, CORS, servidor apagado) fetch lanza
+// un TypeError sin `status` ("Failed to fetch"): se cambia por un mensaje
+// que el cliente entienda. Los errores con respuesta traen el mensaje del
+// backend y se dejan tal cual.
+const NETWORK_ERROR = 'No pudimos conectar con la tienda. Revisa tu conexión e intenta de nuevo en unos minutos.';
+const friendlyError = (err, fallback) => (err?.status ? err.message || fallback : err instanceof TypeError ? NETWORK_ERROR : err?.message || fallback);
+
 export const rememberOrderToken = (orderId, token) => {
   if (!orderId || !token) return;
   try {
@@ -86,7 +93,7 @@ export const usePaymentProofUpload = ({ orderId, getHeaders, onUploaded }) => {
         await onUploaded?.(data);
         return true;
       } catch (err) {
-        setError(err.message || 'No fue posible subir tu comprobante. Intenta de nuevo.');
+        setError(friendlyError(err, 'No fue posible subir tu comprobante. Intenta de nuevo.'));
         return false;
       } finally {
         setIsUploading(false);
@@ -117,7 +124,7 @@ export const useTicketDownload = ({ getHeaders }) => {
         const blob = await response.blob();
         window.open(window.URL.createObjectURL(blob), '_blank');
       } catch (err) {
-        setError(err.message || 'No fue posible descargar tu ticket.');
+        setError(friendlyError(err, 'No fue posible descargar tu ticket.'));
       } finally {
         setIsDownloading(false);
       }
@@ -166,7 +173,7 @@ export const useOrderPage = (orderId) => {
           ? 'Este enlace ya no es válido o venció. Si tienes cuenta, inicia sesión para ver tu pedido en "Mis pedidos".'
           : err.status === 404
             ? 'No encontramos este pedido.'
-            : err.message || 'No fue posible cargar tu pedido.',
+            : friendlyError(err, 'No fue posible cargar tu pedido.'),
         expired,
       });
     } finally {

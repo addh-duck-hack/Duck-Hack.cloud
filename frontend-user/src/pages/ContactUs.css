@@ -169,6 +169,10 @@
   font-size: 0.95rem;
 }
 
+.contact-field select {
+  padding-right: 40px; /* espacio para la flecha (index.css#select) */
+}
+
 .contact-field textarea {
   resize: vertical;
 }

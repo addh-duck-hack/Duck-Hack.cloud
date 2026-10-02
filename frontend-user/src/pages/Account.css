@@ -353,7 +353,11 @@
   margin: 8px 0 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  /* Una columna por paso: son 5, o 6 cuando aparece "Comprobante en
+     revisión" (useAccount.js#orderStatusSequence). Con un número fijo de
+     columnas el paso que sobra se iba a una segunda fila. */
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
 }
 
 .acc-timeline li {
