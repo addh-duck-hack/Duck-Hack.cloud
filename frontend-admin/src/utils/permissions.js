@@ -8,6 +8,13 @@ export const MODULE_NAV = [
   { key: "storeConfig", items: [{ path: "/admin/store-config", label: "Configurar tienda" }] },
   { key: "appConfig", items: [{ path: "/admin/app-config", label: "Configurar App" }] },
   {
+    key: "services",
+    items: [
+      { path: "/admin/services", label: "Servicios" },
+      { path: "/admin/service-categories", label: "Categorías de servicios" },
+    ],
+  },
+  {
     key: "products",
     items: [
       { path: "/admin/products", label: "Productos" },

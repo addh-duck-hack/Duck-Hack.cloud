@@ -2,6 +2,7 @@ const auth = require("./modules/auth");
 const mail = require("./modules/mail");
 const storeConfig = require("./modules/storeConfig");
 const categories = require("./modules/categories");
+const services = require("./modules/services");
 const products = require("./modules/products");
 const inventory = require("./modules/inventory");
 const orders = require("./modules/orders");
@@ -15,6 +16,7 @@ const permissionsLib = require("./lib/permissions");
 // Cada app's backend (ver backend/server.js) monta los módulos de esta
 // lista. Agrega uno nuevo requiriéndolo aquí y añadiéndolo al arreglo — nada
 // más debería tener que cambiar para que se recoja.
+// services después de categories (Service.category referencia "Category").
 // Orden: auth primero (registra "User", y es la fuente de verifyToken/
 // authorizeRoles/ROLES que arma el ctx de todos los demás); categories antes
 // que products (Product.category referencia "Category"); products antes
@@ -23,7 +25,7 @@ const permissionsLib = require("./lib/permissions");
 // — no es estrictamente necesario ya que todos los módulos se montan de
 // forma síncrona antes de que el server empiece a aceptar requests, pero
 // mantiene el orden legible.
-const modules = [auth, mail, storeConfig, categories, products, inventory, orders, coupons, reviews, media, appHome, permissions];
+const modules = [auth, mail, storeConfig, categories, services, products, inventory, orders, coupons, reviews, media, appHome, permissions];
 
 module.exports = {
   modules,

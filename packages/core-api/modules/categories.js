@@ -4,13 +4,13 @@
 // destacadas" del storefront y `categoryGrid` del home de la app).
 //
 // `kind` separa categorías de productos de las de servicios (catálogo de
-// servicios del módulo de Citas, ver Roadmap en Obsidian); hoy solo se usa
-// "product". El `slug` es lo que guardan las secciones del home de la app
+// modules/services.js, que usa Citas). El `slug` es lo que guardan las secciones del home de la app
 // (modules/appHome.js) y lo que acepta `?category=` en el catálogo público.
 //
-// Mismos permisos que Productos (no es un módulo aparte en lib/permissions.js):
-// leer también lo pueden Inventario, Pedidos y Configurar App; escribir, solo
-// Productos.
+// No es un módulo aparte en lib/permissions.js: los permisos siguen al
+// `kind`. Las de producto, como Productos (leer también lo pueden
+// Inventario, Pedidos y Configurar App; escribir, solo Productos). Las de
+// servicio, como Servicios (leer también Citas).
 //
 // Datos anteriores (categoría como texto en el producto, nombres de categoría
 // en el home de la app): backend/scripts/migrate-categories-variants.mongo.js.
@@ -165,11 +165,25 @@ function registerRoutes(app, ctx) {
   router.use(verifyToken);
 
   const { authorizeModule } = createModuleAuthorizer({ mongooseConnection, sendError });
-  const canRead = authorizeModule("products", { alsoBy: ["inventory", "orders", "appConfig"], requireContract: false });
-  const canWrite = authorizeModule("products");
+  const authorizers = {
+    product: {
+      read: authorizeModule("products", { alsoBy: ["inventory", "orders", "appConfig"], requireContract: false }),
+      write: authorizeModule("products"),
+    },
+    service: {
+      read: authorizeModule("services", { alsoBy: ["appointments"], requireContract: false }),
+      write: authorizeModule("services"),
+    },
+  };
+  // El kind sale del query (listado), del body (alta) o de la categoría ya
+  // cargada (ver/editar/borrar: ensureCategoryExists va antes).
+  const kindOf = (req) => req.category?.kind || parseKind(req.query?.kind ?? req.body?.kind);
+  const canRead = (req, res, next) => authorizers[kindOf(req)].read(req, res, next);
+  const canWrite = (req, res, next) => authorizers[kindOf(req)].write(req, res, next);
 
-  // Con `productCount` (todos los productos, activos o no) para que el admin
-  // vea qué categorías están en uso antes de borrar.
+  // Con `productCount` (todos los productos o servicios de la categoría,
+  // activos o no; mismo campo para los dos kinds) para que el admin vea qué
+  // categorías están en uso antes de borrar.
   router.get("/", canRead, async (req, res) => {
     try {
       const filter = { kind: parseKind(req.query.kind) };
@@ -177,9 +191,9 @@ function registerRoutes(app, ctx) {
       if (req.query.isActive === "false") filter.isActive = false;
       const categories = await Category.find(filter).sort({ sortOrder: 1, name: 1 }).lean();
 
-      const Product = mongooseConnection.models.Product;
-      const counts = Product
-        ? await Product.aggregate([
+      const Items = filter.kind === "service" ? mongooseConnection.models.Service : mongooseConnection.models.Product;
+      const counts = Items
+        ? await Items.aggregate([
             { $match: { category: { $in: categories.map((c) => c._id) } } },
             { $group: { _id: "$category", count: { $sum: 1 } } },
           ])
@@ -205,15 +219,15 @@ function registerRoutes(app, ctx) {
     }
   });
 
-  router.get("/:id", validateObjectIdParam("id"), canRead, ensureCategoryExists, async (req, res) => {
+  router.get("/:id", validateObjectIdParam("id"), ensureCategoryExists, canRead, async (req, res) => {
     return res.status(200).json(sanitizeDoc(req.category));
   });
 
   router.put(
     "/:id",
     validateObjectIdParam("id"),
-    canWrite,
     ensureCategoryExists,
+    canWrite,
     validatePayload(sendError),
     async (req, res) => {
       try {
@@ -232,10 +246,21 @@ function registerRoutes(app, ctx) {
     }
   );
 
-  // Bloqueado si algún producto la usa — mismo criterio que borrar un producto
-  // con inventario o pedidos (PRODUCT_HAS_RELATED_RECORDS).
-  router.delete("/:id", validateObjectIdParam("id"), canWrite, ensureCategoryExists, async (req, res) => {
+  // Bloqueado si algún producto (o servicio) la usa — mismo criterio que
+  // borrar un producto con inventario o pedidos (PRODUCT_HAS_RELATED_RECORDS).
+  router.delete("/:id", validateObjectIdParam("id"), ensureCategoryExists, canWrite, async (req, res) => {
     try {
+      if (req.category.kind === "service") {
+        const Service = mongooseConnection.models.Service;
+        if (Service && (await Service.exists({ category: req.category._id }))) {
+          return sendError(
+            res,
+            409,
+            "CATEGORY_HAS_SERVICES",
+            "No se puede eliminar la categoría: hay servicios que la usan. Cámbialos de categoría o desactívala."
+          );
+        }
+      }
       const Product = mongooseConnection.models.Product;
       const inUse = Product ? await Product.exists({ category: req.category._id }) : null;
       if (inUse) {

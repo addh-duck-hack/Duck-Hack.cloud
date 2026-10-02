@@ -24,6 +24,7 @@ const PERMISSION_MODULES = [
   { key: "panel", label: "Panel (uso e infraestructura del servidor)" },
   { key: "storeConfig", label: "Configurar tienda" },
   { key: "appConfig", label: "Configurar App" },
+  { key: "services", label: "Servicios" },
   { key: "products", label: "Productos" },
   { key: "inventory", label: "Inventario" },
   { key: "orders", label: "Pedidos" },

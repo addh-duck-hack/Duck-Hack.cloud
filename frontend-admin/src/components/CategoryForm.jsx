@@ -3,6 +3,7 @@ import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import MediaField from "./MediaField";
+import { CATEGORY_KINDS } from "../utils/categoryKinds";
 
 const initialState = {
   name: "",
@@ -14,7 +15,10 @@ const initialState = {
   isActive: true,
 };
 
-const CategoryForm = () => {
+// Alta y edición de categorías de productos o de servicios (`kind`, ver
+// utils/categoryKinds.js). El kind se fija al crear; no cambia al editar.
+const CategoryForm = ({ kind = "product" }) => {
+  const { basePath } = CATEGORY_KINDS[kind];
   const navigate = useNavigate();
   const { id } = useParams();
   const isEditing = Boolean(id);
@@ -72,6 +76,7 @@ const CategoryForm = () => {
         sortOrder: Number(form.sortOrder || 0),
         isActive: form.isActive,
       };
+      if (!isEditing) payload.kind = kind;
       // Vacío en el alta = el backend lo genera del nombre.
       if (form.slug.trim()) payload.slug = form.slug.trim();
 
@@ -81,7 +86,7 @@ const CategoryForm = () => {
       } else {
         await axios.post(`${baseUrl}/api/categories`, payload, { headers });
       }
-      navigate("/admin/categories");
+      navigate(basePath);
     } catch (err) {
       setError(err.response?.data?.error?.message || "No fue posible guardar la categoría.");
     } finally {
@@ -93,7 +98,10 @@ const CategoryForm = () => {
 
   return (
     <section style={{ maxWidth: 1300 }}>
-      <h3>{isEditing ? "Editar categoría" : "Nueva categoría"}</h3>
+      <h3>
+        {isEditing ? "Editar categoría" : "Nueva categoría"}
+        {kind === "service" ? " de servicios" : ""}
+      </h3>
 
       {error ? <div className="auth-error">{error}</div> : null}
 
@@ -145,7 +153,7 @@ const CategoryForm = () => {
           <button type="submit" disabled={isSaving} style={{ width: "auto" }}>
             {isSaving ? "Guardando..." : "Guardar"}
           </button>
-          <button type="button" className="btn-secondary" onClick={() => navigate("/admin/categories")}>
+          <button type="button" className="btn-secondary" onClick={() => navigate(basePath)}>
             Cancelar
           </button>
         </div>
