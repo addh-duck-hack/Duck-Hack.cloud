@@ -53,7 +53,7 @@ const AdminShell = () => {
   const isSuperAdmin = role === ROLES.SUPER_ADMIN;
   // Módulos por tienda (contratados + por rol), ver hooks/usePermissions.jsx.
   const { can } = usePermissions();
-  const navGroups = navGroupsFor(can, isSuperAdmin);
+  const navGroups = navGroupsFor(can, isSuperAdmin, role);
   const [openGroups, setOpenGroups] = useState(readOpenGroups);
   const activeGroupId = navGroups.find((group) => group.items.some((item) => matchesItem(item, location.pathname)))?.id;
 
