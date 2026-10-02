@@ -2877,7 +2877,7 @@ paths:
           name: status
           schema:
             type: string
-            enum: [pending, payment_review, confirmed, processing, shipped, delivered, cancelled]
+            enum: [pending, payment_review, confirmed, processing, shipped, delivered, ready_for_pickup, picked_up, cancelled]
       responses:
         "200":
           description: Listado de pedidos
@@ -5761,7 +5761,7 @@ components:
             $ref: "#/components/schemas/OrderItem"
         status:
           type: string
-          enum: [pending, payment_review, confirmed, processing, shipped, delivered, cancelled]
+          enum: [pending, payment_review, confirmed, processing, shipped, delivered, ready_for_pickup, picked_up, cancelled]
         shippingCost:
           type: number
           readOnly: true
@@ -5811,6 +5811,16 @@ components:
             $ref: "#/components/schemas/PaymentProof"
         shipment:
           $ref: "#/components/schemas/OrderShipment"
+        readyForPickupAt:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Recoger en tienda — cuándo pasó a ready_for_pickup.
+        pickedUpAt:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Recoger en tienda — cuándo pasó a picked_up.
         createdAt:
           type: string
           format: date-time
@@ -5960,13 +5970,16 @@ components:
       type: object
       description: >-
         Solo status/shippingAddress/notes/shipment — items/customer no se reabren
-        después de creado el pedido. Al cambiar a confirmed, shipped, delivered o
-        cancelled se avisa al cliente por correo (StoreConfig.orderNotifications);
+        después de creado el pedido. shipped/delivered son solo de envío a
+        domicilio y ready_for_pickup/picked_up solo de recoger en tienda: la
+        mezcla responde 400 STATUS_NOT_FOR_DELIVERY_METHOD. Al cambiar a
+        confirmed, shipped, delivered, ready_for_pickup, picked_up o cancelled
+        se avisa al cliente por correo (StoreConfig.orderNotifications);
         confirmar a mano aprueba los comprobantes pendientes.
       properties:
         status:
           type: string
-          enum: [pending, payment_review, confirmed, processing, shipped, delivered, cancelled]
+          enum: [pending, payment_review, confirmed, processing, shipped, delivered, ready_for_pickup, picked_up, cancelled]
         shippingAddress:
           $ref: "#/components/schemas/ShippingAddress"
         notes:
@@ -6359,6 +6372,10 @@ components:
             shipped:
               type: boolean
             delivered:
+              type: boolean
+            readyForPickup:
+              type: boolean
+            pickedUp:
               type: boolean
             cancelled:
               type: boolean

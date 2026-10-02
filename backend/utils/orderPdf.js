@@ -27,6 +27,8 @@ const ORDER_STATUS_LABELS = {
   processing: "En preparación",
   shipped: "Enviado",
   delivered: "Entregado",
+  ready_for_pickup: "Listo para recoger",
+  picked_up: "Recogido",
   cancelled: "Cancelado",
 };
 

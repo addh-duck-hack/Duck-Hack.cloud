@@ -312,7 +312,9 @@ const shippingSchema = new mongoose.Schema(
 // lib/emailTemplates.js#orderStatusEmailTemplate). Todos encendidos por
 // default; la confirmación al hacer el pedido y el aviso de pedido nuevo a la
 // tienda no dependen de esto (siempre se mandan, como antes).
-const ORDER_NOTIFICATION_KEYS = ["confirmed", "proofRejected", "shipped", "delivered", "cancelled", "proofUploaded"];
+const ORDER_NOTIFICATION_KEYS = [
+  "confirmed", "proofRejected", "shipped", "delivered", "readyForPickup", "pickedUp", "cancelled", "proofUploaded",
+];
 const orderNotificationsSchema = new mongoose.Schema(
   Object.fromEntries(ORDER_NOTIFICATION_KEYS.map((key) => [key, { type: Boolean, default: true }])),
   { _id: false }

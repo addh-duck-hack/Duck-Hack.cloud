@@ -3,7 +3,7 @@ import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatCalendarDate } from "../utils/formatCalendarDate";
-import { ORDER_STATUSES, ORDER_STATUS_LABELS, paymentLabelOf, deliveryLabelOf } from "../utils/orderStatusLabels";
+import { ORDER_STATUS_LABELS, statusesFor, paymentLabelOf, deliveryLabelOf } from "../utils/orderStatusLabels";
 import OrderPaymentProofs from "./OrderPaymentProofs";
 
 const emptyShipment = { carrier: "", trackingNumber: "", trackingUrl: "" };
@@ -127,6 +127,13 @@ const OrderDetail = () => {
             ) : null}
           </p>
         ) : null}
+        {order.readyForPickupAt || order.pickedUpAt ? (
+          <p style={{ marginTop: 0, paddingLeft: "1rem" }}>
+            {order.readyForPickupAt ? `Listo para recoger: ${formatDate(order.readyForPickupAt)}` : ""}
+            {order.readyForPickupAt && order.pickedUpAt ? " · " : ""}
+            {order.pickedUpAt ? `Recogido: ${formatDate(order.pickedUpAt)}` : ""}
+          </p>
+        ) : null}
         <p>Pago: {paymentLabelOf(order)}</p>
         {order.shippingAddress ? (
           <div>
@@ -184,15 +191,18 @@ const OrderDetail = () => {
         <label>
           Estado
           <select value={status} onChange={(e) => setStatus(e.target.value)}>
-            {ORDER_STATUSES.map((s) => (
+            {/* Solo los estados de su entrega (recoger: "Listo para recoger" / "Recogido"). */}
+            {statusesFor(order.deliveryMethod).map((s) => (
               <option key={s} value={s}>
                 {ORDER_STATUS_LABELS[s].label}
               </option>
             ))}
           </select>
           <small>
-            Al cambiarlo a Pagado, Enviado, Entregado o Cancelado se le avisa al cliente por correo (se puede apagar en
-            Configurar tienda → Ventas y pagos).
+            {order.deliveryMethod === "pickup"
+              ? "Al cambiarlo a Pagado, Listo para recoger, Recogido o Cancelado se le avisa al cliente por correo"
+              : "Al cambiarlo a Pagado, Enviado, Entregado o Cancelado se le avisa al cliente por correo"}{" "}
+            (se puede apagar en Configurar tienda → Ventas y pagos).
           </small>
         </label>
 

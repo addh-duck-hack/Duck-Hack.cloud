@@ -16,6 +16,8 @@ const ORDER_NOTIFICATIONS = [
   { key: "proofRejected", label: "Al cliente: comprobante rechazado (con el motivo)" },
   { key: "shipped", label: "Al cliente: pedido enviado (con paquetería y guía)" },
   { key: "delivered", label: "Al cliente: pedido entregado" },
+  { key: "readyForPickup", label: "Al cliente: pedido listo para recoger (con el punto de venta)" },
+  { key: "pickedUp", label: "Al cliente: pedido recogido" },
   { key: "cancelled", label: "Al cliente: pedido cancelado" },
   { key: "proofUploaded", label: "A la tienda: el cliente subió un comprobante" },
 ];
