@@ -17,6 +17,8 @@ import StoreImage from '../components/StoreImage';
 import RichText from '../components/RichText';
 import ProductCard from '../components/ProductCard';
 import QtyLimitNote from '../components/QtyLimitNote';
+import { useStoreConfig } from '../hooks/useStoreConfig';
+import { whatsappButtonHref } from '../utils/links';
 import './ProductDetail.css';
 
 const LOW_STOCK_NOTICE = 10;
@@ -33,6 +35,7 @@ const ProductDetail = () => {
   const detail = useProductDetail(id);
   const { product, catalog, isLoading, images, activeImage, setActiveImage, highlights, attributes } = detail;
   const { lines, subtotal, shippingEnabled, freeShippingFrom, openCart } = useCart();
+  const { config: storeConfig } = useStoreConfig();
   const related = useRelatedProducts(catalog, product);
 
   const summary = htmlToText(product?.description);
@@ -65,6 +68,12 @@ const ProductDetail = () => {
 
   // Precio/ahorro de lo que se va a comprar (la variante elegida, si hay).
   const { sellable, unavailable } = detail;
+  // "Preguntar por WhatsApp" con el producto (y la variante elegida) en el
+  // mensaje; null si la tienda no encendió el botón (Contacto y horario).
+  const whatsappHref = whatsappButtonHref(
+    storeConfig?.whatsappButton,
+    detail.variant?.label ? `${product.name} (${detail.variant.label})` : product.name
+  );
   const saving = savingOf(sellable);
   const hasDescription = Boolean(summary);
   const hasSpecs = attributes.length > 0;
@@ -232,6 +241,12 @@ const ProductDetail = () => {
             ) : null}
           </p>
           {detail.favoriteError ? <p className="pd-error">{detail.favoriteError}</p> : null}
+
+          {whatsappHref ? (
+            <a className="pd-whatsapp" href={whatsappHref} target="_blank" rel="noopener noreferrer">
+              <i className="fa-brands fa-whatsapp" aria-hidden="true" /> ¿Dudas? Pregúntanos por WhatsApp
+            </a>
+          ) : null}
 
           {hasShippingGoal ? (
             <div className="pd-shipping">

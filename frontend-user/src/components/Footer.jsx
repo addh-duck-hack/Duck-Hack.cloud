@@ -19,6 +19,8 @@ import './Footer.css';
 const LEGAL_LINKS = [
   { to: '/privacy-policy', label: 'Aviso de privacidad' },
   { to: '/legal-notice', label: 'Aviso legal' },
+  // Solo si el admin capturó el texto (StoreConfig.returnsPolicy).
+  { to: '/politica-de-devoluciones', label: 'Política de devoluciones', field: 'returnsPolicy' },
 ];
 
 // Orden y ícono de cada red; solo se muestran las que el admin llenó.
@@ -115,7 +117,7 @@ const Footer = () => {
             </FooterColumn>
 
             <FooterColumn title="Legal">
-              {LEGAL_LINKS.map((link) => (
+              {LEGAL_LINKS.filter((link) => !link.field || config?.[link.field]).map((link) => (
                 <li key={link.to}>
                   <Link to={link.to}>{link.label}</Link>
                 </li>

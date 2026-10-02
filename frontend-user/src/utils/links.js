@@ -27,3 +27,17 @@ export const socialHref = (key, value) => {
   }
   return externalHref(raw);
 };
+
+// Botón de WhatsApp de la tienda (StoreConfig.whatsappButton, Configurar
+// tienda → Contacto y horario): null si está apagado o sin número. `item`
+// (servicio o producto) usa itemMessage con {item} reemplazado; sin item,
+// defaultMessage.
+export const whatsappButtonHref = (button, item) => {
+  if (!button?.enabled) return null;
+  const digits = String(button.phone || '').replace(/\D/g, '');
+  if (digits.length < 10) return null;
+  const message = item
+    ? String(button.itemMessage || 'Hola, me interesa: {item}').replace(/\{item\}/g, item)
+    : String(button.defaultMessage || 'Hola, tengo una pregunta.');
+  return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
+};

@@ -16,6 +16,7 @@ import ProductDetail from './pages/ProductDetail';
 import Cart from './pages/Cart';
 import LegalNotice from './pages/LegalNotice';
 import PrivacyNotice from './pages/PrivacyNotice';
+import ReturnsPolicy from './pages/ReturnsPolicy';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Account from './pages/Account';
@@ -47,6 +48,7 @@ const App = () => (
               <Route path="/carrito" element={<Cart />} />
               <Route path="/legal-notice" element={<LegalNotice />} />
               <Route path="/privacy-policy" element={<PrivacyNotice />} />
+              <Route path="/politica-de-devoluciones" element={<ReturnsPolicy />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/recuperar-contrasena" element={<ForgotPassword />} />

@@ -1,7 +1,9 @@
 // src/pages/ContactUs.jsx — ruta /contacto: canales de contacto (WhatsApp,
 // teléfono, correo y redes, del admin) junto al formulario (useContactForm →
 // POST /api/mail/send-email), y debajo las preguntas frecuentes del admin
-// (StoreConfig.faqs, pestaña "Servicios y precios"). ?motivo=mayoreo (u otra
+// (StoreConfig.faqs, pestaña "Servicios y precios"). Entre ambos, "Visítanos":
+// ubicación con mapa, horario y próximos días festivos (StoreConfig.location /
+// businessHours / holidays, pestaña "Contacto y horario"). ?motivo=mayoreo (u otra
 // clave de CONTACT_REASON_KEYS) preselecciona el motivo del formulario.
 import React, { useId } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -10,6 +12,7 @@ import { useStoreConfig } from '../hooks/useStoreConfig';
 import { useContactForm, CONTACT_REASONS } from '../hooks/useContactForm';
 import { socialHref, telHref } from '../utils/links';
 import { sortActive } from '../utils/storeConfigLists';
+import { mapEmbedSrc, directionsHref, weeklyHours, upcomingHolidays } from '../utils/storeLocation';
 import './ContactUs.css';
 
 const SOCIAL_NETWORKS = [
@@ -69,6 +72,76 @@ const ContactChannels = ({ config }) => {
         </div>
       ) : null}
     </>
+  );
+};
+
+// Sección "Visítanos". No se pinta si la tienda no capturó ni ubicación ni
+// horario.
+const VisitUs = ({ config }) => {
+  const location = config?.location || {};
+  const address = String(location.address || '').trim();
+  const mapSrc = mapEmbedSrc(location);
+  const directions = directionsHref(location);
+  const hours = weeklyHours(config?.businessHours);
+  const holidays = upcomingHolidays(config?.holidays);
+  if (!address && !mapSrc && hours.length === 0) return null;
+
+  return (
+    <section className="visit" aria-labelledby="visit-title">
+      <div className="visit-info">
+        <h2 id="visit-title" className="faq-title">
+          Visíta<em>nos</em>
+        </h2>
+        {address ? (
+          <p className="visit-address">
+            <i className="fa-solid fa-location-dot" aria-hidden="true" /> {address}
+          </p>
+        ) : null}
+
+        {hours.length ? (
+          <div className="visit-block">
+            <h3>Horario de atención</h3>
+            <dl className="visit-hours">
+              {hours.map((row) => (
+                <div key={row.day} className={row.isToday ? 'is-today' : undefined}>
+                  <dt>
+                    {row.label}
+                    {row.isToday ? <span className="visit-today">Hoy</span> : null}
+                  </dt>
+                  <dd>{row.closed ? 'Cerrado' : row.shifts.join(' y ')}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        ) : null}
+
+        {holidays.length ? (
+          <div className="visit-block">
+            <h3>Días que no abrimos</h3>
+            <ul className="visit-holidays">
+              {holidays.map((h) => (
+                <li key={h.date}>
+                  <strong>{h.label}</strong>
+                  {h.reason ? <span> · {h.reason}</span> : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {directions ? (
+          <a className="contact-btn visit-directions" href={directions} target="_blank" rel="noopener noreferrer">
+            <i className="fa-solid fa-diamond-turn-right" aria-hidden="true" /> Cómo llegar
+          </a>
+        ) : null}
+      </div>
+
+      {mapSrc ? (
+        <div className="visit-map">
+          <iframe title={`Mapa: ${address || 'ubicación de la tienda'}`} src={mapSrc} loading="lazy" referrerPolicy="no-referrer-when-downgrade" allowFullScreen />
+        </div>
+      ) : null}
+    </section>
   );
 };
 
@@ -190,6 +263,8 @@ const ContactUs = () => {
         {/* key: si cambia ?motivo= estando en la página, el formulario se reinicia con él. */}
         <ContactForm key={searchParams.get('motivo') || ''} initialReason={searchParams.get('motivo') || ''} />
       </section>
+
+      <VisitUs config={config} />
 
       {faqs.length ? (
         <section className="faq" aria-labelledby="faq-title">

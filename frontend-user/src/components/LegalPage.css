@@ -1,0 +1,57 @@
+/* src/components/LegalPage.css — páginas legales (ver LegalPage.jsx). Texto
+   largo: ancho de lectura cómodo, títulos con la tipografía de la tienda. */
+
+.legal-page {
+  width: var(--topbar-floating-width);
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 48px 0 96px;
+  color: var(--color-text);
+  line-height: 1.7;
+}
+
+.legal-page > h1 {
+  margin: 0 0 24px;
+  font-family: var(--font-heading);
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  font-weight: 400;
+  line-height: 1.1;
+}
+
+.legal-page-body h2 {
+  margin: 32px 0 8px;
+  font-family: var(--font-heading);
+  font-size: 1.35rem;
+  font-weight: 400;
+}
+
+.legal-page-body h3 {
+  margin: 24px 0 6px;
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  font-weight: 400;
+}
+
+.legal-page-body p,
+.legal-page-body li {
+  margin: 0 0 10px;
+}
+
+.legal-page-body ul,
+.legal-page-body ol {
+  margin: 0 0 12px;
+  padding-left: 22px;
+}
+
+.legal-page-body a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  word-break: break-word;
+}
+
+@media (max-width: 640px) {
+  .legal-page {
+    width: auto;
+    padding: 32px 16px 72px;
+  }
+}

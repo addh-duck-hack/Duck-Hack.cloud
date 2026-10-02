@@ -328,6 +328,27 @@
   text-underline-offset: 4px;
 }
 
+/* "Pregúntanos por WhatsApp" (StoreConfig.whatsappButton, con el producto en
+   el mensaje). */
+.pd-whatsapp {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  color: var(--color-accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.pd-whatsapp i {
+  font-size: 1.15rem;
+}
+
+.pd-whatsapp:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
 .pd-error {
   margin: 4px 0 0;
   color: #b3261e;

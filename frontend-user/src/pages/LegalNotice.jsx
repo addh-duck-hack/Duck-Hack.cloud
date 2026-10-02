@@ -2,11 +2,13 @@
 import React from 'react';
 import { useStoreConfig } from '../hooks/useStoreConfig';
 import { usePageMeta } from '../hooks/usePageMeta';
+import LegalPage from '../components/LegalPage';
 
 // Fallback — datos de identidad reales, usados mientras carga el
 // store-config, si el fetch falla, o si el admin no llenó ese campo aún.
-// El texto narrativo de cada sección se mantiene fijo (decisión del negocio:
-// solo estos datos puntuales son editables desde el admin, no el redactado legal).
+// Si el admin capturó su propio texto (Configurar tienda → Identidad legal,
+// StoreConfig.legalNotice), se muestra ese en lugar del de abajo — ver
+// components/LegalPage.jsx.
 const FALLBACK_LEGAL_IDENTITY = {
   legalName: 'Duck Hack',
   rfc: 'CAJA911127IH1',
@@ -23,8 +25,7 @@ const LegalNotice = () => {
   const legal = { ...FALLBACK_LEGAL_IDENTITY, ...Object.fromEntries(Object.entries(config?.legalIdentity || {}).filter(([, v]) => v)) };
 
   return (
-    <div className="legal-notice-container">
-      <h1>Aviso Legal</h1>
+    <LegalPage title="Aviso Legal" html={config?.legalNotice}>
       <section>
         <h2>1. Identificación de la Empresa</h2>
         <p>Este sitio web es operado por {legal.legalName}, empresa dedicada al desarrollo de software, creación de aplicaciones web, servicios de hosting y venta de dominios en México. Las facturas y representación legal de la empresa están a nombre de {legal.legalRepresentative}, persona física con actividad empresarial.</p>
@@ -76,7 +77,7 @@ const LegalNotice = () => {
         <h2>9. Ley Aplicable y Jurisdicción</h2>
         <p>El presente Aviso Legal se rige por la legislación mexicana. Para cualquier controversia que pudiera surgir del uso de los servicios ofrecidos en este sitio, ambas partes se someterán a los tribunales competentes en México.</p>
       </section>
-    </div>
+    </LegalPage>
   );
 };
 

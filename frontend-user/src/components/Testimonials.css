@@ -62,6 +62,15 @@
   pointer-events: none;
 }
 
+/* Calificación del testimonio (opcional). */
+.tm-stars {
+  display: inline-flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  color: var(--color-accent);
+  font-size: 0.95rem;
+}
+
 .tm-quote {
   position: relative;
   z-index: 1;

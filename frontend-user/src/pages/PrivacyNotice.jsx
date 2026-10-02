@@ -2,6 +2,7 @@
 import React from 'react';
 import { useStoreConfig } from '../hooks/useStoreConfig';
 import { usePageMeta } from '../hooks/usePageMeta';
+import LegalPage from '../components/LegalPage';
 
 // Ver nota de fallback en LegalNotice.jsx — mismo criterio aquí.
 const FALLBACK_LEGAL_IDENTITY = {
@@ -18,8 +19,7 @@ const PrivacyNotice = () => {
   const legal = { ...FALLBACK_LEGAL_IDENTITY, ...Object.fromEntries(Object.entries(config?.legalIdentity || {}).filter(([, v]) => v)) };
 
   return (
-    <div className="legal-notice-container">
-      <h1>Aviso de Privacidad</h1>
+    <LegalPage title="Aviso de Privacidad" html={config?.privacyNotice}>
       <section>
         <p>{legal.legalName} (en adelante, "la Empresa"), representada legalmente por {legal.legalRepresentative}, con domicilio en {legal.legalAddress}, y con el Registro Federal de Contribuyentes {legal.rfc}, reconoce la importancia de proteger los datos personales proporcionados por sus clientes, proveedores, colaboradores y usuarios (en adelante, "Titulares").</p>
       </section>
@@ -85,7 +85,7 @@ const PrivacyNotice = () => {
         <h2>9. Consentimiento</h2>
         <p>Al proporcionar sus datos personales, el Titular confirma que ha leído y comprendido el contenido de este Aviso de Privacidad y que otorga su consentimiento para el tratamiento de sus datos conforme a los términos aquí establecidos.</p>
       </section>
-    </div>
+    </LegalPage>
   );
 };
 

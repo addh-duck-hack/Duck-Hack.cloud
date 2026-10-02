@@ -11,6 +11,7 @@ import TopBar from './TopBar';
 import Footer from './Footer';
 import CtaBanner from './CtaBanner';
 import CartDrawer from './CartDrawer';
+import WhatsAppButton from './WhatsAppButton';
 import './AppShell.css';
 
 // Alto de la barra (--topbar-height en index.css) + su margen flotante.
@@ -38,6 +39,7 @@ const AppShell = () => {
         {pathname === '/mi-cuenta' ? null : <CtaBanner />}
         <Footer />
         <CartDrawer />
+        <WhatsAppButton />
       </div>
     </HeroProvider>
   );

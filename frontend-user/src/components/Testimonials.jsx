@@ -15,6 +15,19 @@ import './Testimonials.css';
 
 const SWIPE_THRESHOLD = 50;
 
+// Calificación 1–5 (StoreConfig.testimonials[].rating, opcional) en estrellas.
+const Stars = ({ rating }) => {
+  const value = Math.round(Number(rating));
+  if (!(value >= 1 && value <= 5)) return null;
+  return (
+    <span className="tm-stars" role="img" aria-label={`${value} de 5 estrellas`}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <i key={n} className={n <= value ? 'fa-solid fa-star' : 'fa-regular fa-star'} aria-hidden="true" />
+      ))}
+    </span>
+  );
+};
+
 const Avatar = ({ name, photoUrl }) => {
   const src = photoUrl ? (/^https?:/i.test(photoUrl) ? photoUrl : resolveStoreImageUrl(photoUrl)) : '';
   const [failed, setFailed] = useState(false);
@@ -97,6 +110,7 @@ const Testimonials = () => {
                 inert={isActive ? undefined : ''}
               >
                 <i className="fa-solid fa-quote-left tm-quote-mark" aria-hidden="true" />
+                <Stars rating={t.rating} />
                 <blockquote className="tm-quote">
                   <p className="text-justify">{t.text}</p>
                 </blockquote>

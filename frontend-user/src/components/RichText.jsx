@@ -27,6 +27,13 @@ export const ALLOWED_TAGS = [
 
 export const sanitize = (html) => DOMPurify.sanitize(html || '', { ALLOWED_TAGS, ALLOWED_ATTR: [] });
 
+// Variante con enlaces (<a href>) para los textos largos del admin (avisos
+// legales, política de devoluciones), que suelen enlazar a otras páginas o a
+// un correo. Solo el atributo href; DOMPurify ya descarta los esquemas
+// peligrosos (javascript:, data:...).
+const sanitizeWithLinks = (html) =>
+  DOMPurify.sanitize(html || '', { ALLOWED_TAGS: [...ALLOWED_TAGS, 'a'], ALLOWED_ATTR: ['href'] });
+
 /**
  * Renderiza un campo de store config que puede traer HTML básico.
  * Siempre monta un <div> (nunca un <p>) porque el admin puede meter una
@@ -38,8 +45,11 @@ export const sanitize = (html) => DOMPurify.sanitize(html || '', { ALLOWED_TAGS,
  * estilo que antes apuntaban a un <p> a secas (ej. ".step-card p") puedan
  * seguir aplicando sin depender de que el contenido sea justo un <p>.
  */
-const RichText = ({ html, className }) => (
-  <div className={['rich-text', className].filter(Boolean).join(' ')} dangerouslySetInnerHTML={{ __html: sanitize(html) }} />
+const RichText = ({ html, className, allowLinks = false }) => (
+  <div
+    className={['rich-text', className].filter(Boolean).join(' ')}
+    dangerouslySetInnerHTML={{ __html: allowLinks ? sanitizeWithLinks(html) : sanitize(html) }}
+  />
 );
 
 export default RichText;

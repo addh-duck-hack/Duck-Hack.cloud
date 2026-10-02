@@ -112,6 +112,19 @@ const OrderDetail = ({ orders }) => {
           ) : (
             <p className="acc-muted">Te contactamos para coordinar la entrega.</p>
           )}
+          {/* Guía de la paquetería (la captura la tienda al enviar). */}
+          {order.shipment?.trackingNumber ? (
+            <p className="acc-lines">
+              <span>
+                {order.shipment.carrier ? `${order.shipment.carrier} · ` : ''}Guía {order.shipment.trackingNumber}
+              </span>
+              {/^https?:\/\//i.test(order.shipment.trackingUrl || '') ? (
+                <a href={order.shipment.trackingUrl} target="_blank" rel="noopener noreferrer" className="acc-link">
+                  Rastrear mi pedido
+                </a>
+              ) : null}
+            </p>
+          ) : null}
         </div>
         <div className="acc-card">
           <h3 className="acc-card-title">
