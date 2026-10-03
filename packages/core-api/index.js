@@ -8,6 +8,7 @@ const products = require("./modules/products");
 const inventory = require("./modules/inventory");
 const orders = require("./modules/orders");
 const coupons = require("./modules/coupons");
+const cart = require("./modules/cart");
 const reviews = require("./modules/reviews");
 const media = require("./modules/media");
 const appHome = require("./modules/appHome");
@@ -29,7 +30,7 @@ const notifyLib = require("./lib/notify");
 // — no es estrictamente necesario ya que todos los módulos se montan de
 // forma síncrona antes de que el server empiece a aceptar requests, pero
 // mantiene el orden legible.
-const modules = [auth, mail, storeConfig, categories, services, appointments, products, inventory, orders, coupons, reviews, media, appHome, permissions];
+const modules = [auth, mail, storeConfig, categories, services, appointments, products, inventory, orders, coupons, cart, reviews, media, appHome, permissions];
 
 module.exports = {
   modules,
