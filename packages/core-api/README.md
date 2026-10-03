@@ -170,6 +170,22 @@ module.exports = {
 Add it to the `modules` array exported from `index.js`. Nothing else in this
 package needs to change for a consuming app to pick it up.
 
+Optional: `registerJobs(scheduler, ctx)` for scheduled tasks (reminders,
+abandoned carts…). `backend/server.js` creates one scheduler
+(`lib/scheduler.js#createScheduler`), calls `registerJobs` on every module
+that has it with the same `ctx` as `registerRoutes`, and starts it once Mongo
+connects. Inside, `scheduler.register(name, everyMs, async ({ now }) => …)`:
+a job never overlaps itself, a failing job is logged and doesn't stop the
+others, nothing runs while Mongo is down. To send each notice exactly once
+(even across restarts) use `claimEach({ Model, filter, markField,
+attemptsField, handle })`: it marks the document atomically before
+`handle` runs, and on failure clears the mark and counts the attempt (stops
+at 3). Env: `SCHEDULER_ENABLED` (default true; `false` for tests or if a
+store ever runs more than one backend instance) and `SCHEDULER_TICK_MS`
+(default 60000). Send notices through `lib/notify.js#notify({ channel,
+to, … })` — only `email` today; WhatsApp/SMS plug in with `registerChannel`
+when a provider is contracted (until then `NOTIFY_CHANNEL_NOT_CONFIGURED`).
+
 ### `ctx` contract
 
 The consuming app's `registerRoutes(app, ctx)` call supplies:

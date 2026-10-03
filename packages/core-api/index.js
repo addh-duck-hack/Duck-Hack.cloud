@@ -14,6 +14,8 @@ const appHome = require("./modules/appHome");
 const permissions = require("./modules/permissions");
 const permissionsLib = require("./lib/permissions");
 const phoneLib = require("./lib/phone");
+const schedulerLib = require("./lib/scheduler");
+const notifyLib = require("./lib/notify");
 
 // Cada app's backend (ver backend/server.js) monta los módulos de esta
 // lista. Agrega uno nuevo requiriéndolo aquí y añadiéndolo al arreglo — nada
@@ -44,6 +46,14 @@ module.exports = {
   // Teléfonos de México a 10 dígitos (lib/phone.js), para los validadores de
   // backend/ (AgencyClient).
   phone: phoneLib,
+  // Tareas programadas (lib/scheduler.js): backend/server.js crea el
+  // scheduler, llama `registerJobs(scheduler, ctx)` de cada módulo que lo
+  // tenga (contrato opcional, además de registerRoutes) y lo arranca al
+  // conectar Mongo.
+  scheduler: { createScheduler: schedulerLib.createScheduler, claimEach: schedulerLib.claimEach },
+  // Avisos por canal (lib/notify.js): hoy correo; WhatsApp/SMS se enchufan
+  // con registerChannel cuando se contrate un proveedor.
+  notify: notifyLib,
   permissions: {
     createModuleAuthorizer: permissionsLib.createModuleAuthorizer,
     PERMISSION_MODULES: permissionsLib.PERMISSION_MODULES,
