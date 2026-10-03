@@ -94,7 +94,9 @@ export const useAccount = () => {
   const [profile, setProfile] = useState(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [loadError, setLoadError] = useState('');
-  const [profileForm, setProfileForm] = useState({ name: '', phone: '' });
+  // abandonedCartEmails: User.emailPreferences.abandonedCart (correo de
+  // carrito abandonado; true si nunca se cambió).
+  const [profileForm, setProfileForm] = useState({ name: '', phone: '', abandonedCartEmails: true });
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
   const [profileError, setProfileError] = useState('');
@@ -145,7 +147,11 @@ export const useAccount = () => {
     try {
       const data = await apiFetch(`/api/users/${userId}`, { headers: authHeader() });
       setProfile(data);
-      setProfileForm({ name: data.name || '', phone: data.phone || '' });
+      setProfileForm({
+        name: data.name || '',
+        phone: data.phone || '',
+        abandonedCartEmails: data.emailPreferences?.abandonedCart !== false,
+      });
     } catch (err) {
       setLoadError(err.message || 'No fue posible cargar tu perfil.');
     } finally {
@@ -178,8 +184,8 @@ export const useAccount = () => {
 
   // ---- Perfil: handlers ----
   const onProfileChange = (e) => {
-    const { name, value } = e.target;
-    setProfileForm((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setProfileForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
   const saveProfile = async (e) => {
@@ -196,6 +202,9 @@ export const useAccount = () => {
       const payload = {};
       if (profileForm.name !== (profile?.name || '')) payload.name = profileForm.name;
       if (phoneDigits !== (profile?.phone || '')) payload.phone = phoneDigits;
+      if (profileForm.abandonedCartEmails !== (profile?.emailPreferences?.abandonedCart !== false)) {
+        payload.emailPreferences = { abandonedCart: profileForm.abandonedCartEmails };
+      }
       if (Object.keys(payload).length === 0) {
         setProfileMessage('No hay cambios que guardar.');
         return;
