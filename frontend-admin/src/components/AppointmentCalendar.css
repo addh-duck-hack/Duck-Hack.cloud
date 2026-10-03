@@ -350,6 +350,10 @@
   color: var(--primary-color);
 }
 
+.agenda-attendance {
+  color: #5fd38d;
+}
+
 .agenda-notify {
   display: inline-flex;
   align-items: center;

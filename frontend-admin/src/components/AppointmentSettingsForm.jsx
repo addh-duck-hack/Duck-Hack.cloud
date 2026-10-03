@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
+import { usePermissions } from "../hooks/usePermissions";
 
 // Ajustes de la agenda (AppointmentSettings, packages/core-api/modules/
 // appointments.js). El horario general y los días festivos siguen en
@@ -10,6 +11,8 @@ const SLOT_STEPS = [5, 10, 15, 20, 30, 60];
 const TIMEZONES = ["America/Mexico_City", "America/Cancun", "America/Merida", "America/Monterrey", "America/Chihuahua", "America/Mazatlan", "America/Hermosillo", "America/Tijuana"];
 
 const AppointmentSettingsForm = () => {
+  // "Recordatorios" es un módulo aparte (se vende por separado).
+  const { can } = usePermissions();
   const [form, setForm] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
@@ -26,6 +29,7 @@ const AppointmentSettingsForm = () => {
           ...data,
           minNoticeHours: String(data.minNoticeMin / 60),
           maxDaysAhead: String(data.maxDaysAhead),
+          reminderHoursBefore: String(data.reminderHoursBefore ?? 24),
           minHoursToChange: String(data.minHoursToChange),
         })
       )
@@ -50,6 +54,7 @@ const AppointmentSettingsForm = () => {
         allowAnySpecialist: form.allowAnySpecialist,
         emailCustomer: form.emailCustomer,
         emailBusiness: form.emailBusiness,
+        ...(can("reminders") ? { reminderEnabled: form.reminderEnabled, reminderHoursBefore: Number(form.reminderHoursBefore) } : {}),
         slotStepMin: Number(form.slotStepMin),
         minNoticeMin: Math.round(Number(form.minNoticeHours) * 60),
         maxDaysAhead: Number(form.maxDaysAhead),
@@ -130,6 +135,34 @@ const AppointmentSettingsForm = () => {
             Avisar al negocio cuando una clienta agenda, cancela o reprograma desde el sitio
           </label>
         </fieldset>
+
+        {can("reminders") ? (
+          <fieldset style={{ marginTop: "0.75rem" }}>
+            <legend>Recordatorios</legend>
+            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <input type="checkbox" name="reminderEnabled" checked={form.reminderEnabled} onChange={handleChange} style={{ width: "auto" }} />
+              Mandar un recordatorio por correo antes de cada cita confirmada
+            </label>
+            <label style={{ maxWidth: 260 }}>
+              Cuántas horas antes
+              <input
+                type="number"
+                name="reminderHoursBefore"
+                min="1"
+                max="72"
+                step="1"
+                value={form.reminderHoursBefore}
+                onChange={handleChange}
+                disabled={!form.reminderEnabled}
+                required
+              />
+            </label>
+            <small>
+              Lleva "Confirmo mi asistencia" y "Reprogramar o cancelar". No se manda a citas agendadas o movidas dentro de ese plazo (ya
+              recibieron su correo).
+            </small>
+          </fieldset>
+        ) : null}
 
         <div className="form-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
           <label>

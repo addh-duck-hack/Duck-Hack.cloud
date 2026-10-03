@@ -41,6 +41,16 @@
 // avisar en un cambio puntual (`notifyCustomer: false`). Best-effort: nunca
 // tumban la respuesta.
 //
+// 3.2 — recordatorios (módulo `reminders`): una tarea programada
+// (registerJobs → lib/scheduler.js) manda un correo X horas antes
+// (`reminderHoursBefore`) a las citas confirmadas con correo, una sola vez
+// (`reminderSentAt` con claimEach), con "Confirmo mi asistencia"
+// (FRONTEND_URL/cita/<id>?token=…&accion=confirmar → POST
+// /public/:id/confirm-attendance) y "Reprogramar o cancelar". No recuerda
+// citas agendadas o movidas dentro de esa ventana (`scheduledAt`); reprogramar
+// borra recordatorio y confirmación. Solo corre si `reminders` (y
+// `appointments`) están contratados y `reminderEnabled`.
+//
 // Quién administra: dentro del permiso `appointments`, especialistas,
 // ajustes y bloqueos de todo el negocio son de "encargadas" (super_admin y
 // store_admin). Una collaborator solo ve su especialista y bloquea su propio
@@ -57,11 +67,12 @@ const {
 } = require("../lib/moduleHelpers");
 const crypto = require("crypto");
 const { ROLES, extractBearerToken } = require("../lib/authMiddleware");
-const { createModuleAuthorizer } = require("../lib/permissions");
+const { createModuleAuthorizer, isModuleContracted } = require("../lib/permissions");
 const { createRateLimiter } = require("../lib/rateLimit");
 const { verifyAccessToken, signAppointmentAccessToken, verifyAppointmentAccessToken } = require("../lib/jwt");
-const { sendMail } = require("../lib/mailer");
 const { normalizeMxPhone } = require("../lib/phone");
+const { notify } = require("../lib/notify");
+const { claimEach } = require("../lib/scheduler");
 const { appointmentEmailTemplate, appointmentBusinessEmailTemplate } = require("../lib/emailTemplates");
 const { buildIcs, googleCalendarUrl } = require("../lib/ics");
 const { MINUTE, isValidDate, addDays, localToUtc, utcToLocal, overlaps, workingWindows, slotsForDay } = require("../lib/availability");
@@ -143,6 +154,8 @@ const DEFAULT_SETTINGS = Object.freeze({
   notifyEmail: "",
   emailCustomer: true,
   emailBusiness: true,
+  reminderEnabled: true,
+  reminderHoursBefore: 24,
 });
 
 const appointmentSettingsSchema = new mongoose.Schema(
@@ -168,6 +181,9 @@ const appointmentSettingsSchema = new mongoose.Schema(
     // avisos al negocio.
     emailCustomer: { type: Boolean, default: DEFAULT_SETTINGS.emailCustomer },
     emailBusiness: { type: Boolean, default: DEFAULT_SETTINGS.emailBusiness },
+    // Recordatorio de cita (módulo `reminders`): X horas antes.
+    reminderEnabled: { type: Boolean, default: DEFAULT_SETTINGS.reminderEnabled },
+    reminderHoursBefore: { type: Number, min: 1, max: 72, default: DEFAULT_SETTINGS.reminderHoursBefore },
     // Último folio de cita (se incrementa de forma atómica al agendar).
     lastAppointmentNumber: { type: Number, default: 0 },
   },
@@ -229,10 +245,19 @@ const appointmentSchema = new mongoose.Schema(
     cancelledBy: { type: String, enum: ["customer", "staff", null], default: null },
     cancelReason: { type: String, trim: true, maxlength: 300, default: "" },
     history: { type: [appointmentHistorySchema], default: [] },
+    // Cuándo se fijó el horario actual (alta o última reprogramación): no se
+    // manda recordatorio a una cita fijada dentro de la ventana del recordatorio.
+    scheduledAt: { type: Date, default: Date.now },
+    // Recordatorio (3.2): enviado una sola vez (lib/scheduler.js#claimEach).
+    reminderSentAt: { type: Date, default: null },
+    reminderAttempts: { type: Number, default: 0 },
+    // La clienta confirmó que asiste (desde el recordatorio).
+    attendanceConfirmedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
 appointmentSchema.index({ specialist: 1, start: 1 });
+appointmentSchema.index({ status: 1, start: 1, reminderSentAt: 1 });
 appointmentSchema.index({ specialist: 1, status: 1, start: 1, blockedUntil: 1 });
 appointmentSchema.index({ customer: 1, start: -1 });
 appointmentSchema.index({ customerEmail: 1, start: -1 });
@@ -334,12 +359,13 @@ const validateSettingsPayload = (sendError) => (req, res, next) => {
     integerIn("minNoticeMin", 0, 7 * 24 * 60) ||
     integerIn("maxDaysAhead", 1, 365) ||
     integerIn("minHoursToChange", 0, 14 * 24) ||
-    integerIn("slotStepMin", 5, 60);
+    integerIn("slotStepMin", 5, 60) ||
+    integerIn("reminderHoursBefore", 1, 72);
   if (numberError) return sendError(res, 400, "VALIDATION_ERROR", numberError);
   if (out.slotStepMin !== undefined && ![5, 10, 15, 20, 30, 60].includes(out.slotStepMin)) {
     return sendError(res, 400, "VALIDATION_ERROR", "slotStepMin debe ser 5, 10, 15, 20, 30 o 60.");
   }
-  for (const flag of ["autoConfirm", "allowAnySpecialist", "emailCustomer", "emailBusiness"]) {
+  for (const flag of ["autoConfirm", "allowAnySpecialist", "emailCustomer", "emailBusiness", "reminderEnabled"]) {
     if (payload[flag] !== undefined) out[flag] = Boolean(payload[flag]);
   }
   if (payload.timezone !== undefined) {
@@ -383,6 +409,11 @@ const parseIdList = (value) => {
   return [...new Set(ids)];
 };
 
+// Tarea de recordatorios por conexión: la arma registerRoutes (que tiene los
+// helpers de correo) y la registra registerJobs (server.js llama primero a
+// registerRoutes).
+const reminderRunners = new WeakMap();
+
 function registerRoutes(app, ctx) {
   const { mongooseConnection, verifyToken, sendError } = ctx;
   const Specialist = getOrCreateModel(mongooseConnection, "Specialist", specialistSchema);
@@ -421,7 +452,8 @@ function registerRoutes(app, ctx) {
   router.get("/settings/public", async (req, res) => {
     try {
       // eslint-disable-next-line no-unused-vars
-      const { notifyEmail, autoConfirm, emailCustomer, emailBusiness, ...publicSettings } = await getSettings(mongooseConnection);
+      const { notifyEmail, autoConfirm, emailCustomer, emailBusiness, reminderEnabled, reminderHoursBefore, ...publicSettings } =
+        await getSettings(mongooseConnection);
       return res.status(200).json(publicSettings);
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al consultar los ajustes de la agenda.");
@@ -469,7 +501,8 @@ function registerRoutes(app, ctx) {
     const { branding, address, contactEmail } = await loadBranding();
     const when = formatWhen(appointment.start, settings.timezone);
 
-    if (customerKind && settings.emailCustomer && appointment.customerEmail) {
+    // El recordatorio tiene su propio interruptor (reminderEnabled), no emailCustomer.
+    if (customerKind && (settings.emailCustomer || customerKind === "reminder") && appointment.customerEmail) {
       const kind = customerKind === "booked" && appointment.status === "pending" ? "booked_pending" : customerKind;
       const cancelled = kind === "cancelled";
       const summary = `${appointment.services.map((sv) => sv.name).join(" + ")} — ${branding.storeName}`;
@@ -499,11 +532,13 @@ function registerRoutes(app, ctx) {
         address,
         branding,
         manageUrl: cancelled ? null : manageUrl,
+        confirmUrl: manageUrl ? `${manageUrl}&accion=confirmar` : null,
         googleUrl: googleCalendarUrl(event),
         reason,
         changeHours: settings.minHoursToChange,
       });
-      await sendMail({
+      await notify({
+        channel: "email",
         to: appointment.customerEmail,
         subject,
         text,
@@ -524,9 +559,46 @@ function registerRoutes(app, ctx) {
         adminUrl: adminBase ? `${adminBase}/#/admin/appointments` : null,
         reason,
       });
-      await sendMail({ to: businessTo, subject, text, html });
+      await notify({ channel: "email", to: businessTo, subject, text, html });
     }
   };
+
+  // ---- Recordatorios (3.2) ----
+  // Al cambiar el horario: el recordatorio y la confirmación de asistencia
+  // vuelven a empezar.
+  const resetReminder = (appointment) => {
+    appointment.scheduledAt = new Date();
+    appointment.reminderSentAt = null;
+    appointment.reminderAttempts = 0;
+    appointment.attendanceConfirmedAt = null;
+  };
+
+  // Tarea programada: manda los recordatorios que ya tocan (ver registerJobs).
+  const runReminders = async ({ now = new Date() } = {}) => {
+    if (!(await isModuleContracted(mongooseConnection, "reminders")) || !(await isModuleContracted(mongooseConnection, "appointments"))) {
+      return { skipped: "not_contracted" };
+    }
+    const settings = await getSettings(mongooseConnection);
+    if (!settings.reminderEnabled) return { skipped: "disabled" };
+    const windowMs = settings.reminderHoursBefore * 60 * MINUTE;
+    return claimEach({
+      Model: Appointment,
+      filter: {
+        status: "confirmed",
+        customerEmail: { $nin: ["", null] },
+        start: { $gt: now, $lte: new Date(+now + windowMs) },
+        // Fijada antes de que empezara la ventana (si se agendó o movió dentro
+        // de ella, ya recibió su correo de confirmación o de cambio).
+        $expr: { $lte: [{ $ifNull: ["$scheduledAt", "$createdAt"] }, { $subtract: ["$start", windowMs] }] },
+      },
+      markField: "reminderSentAt",
+      attemptsField: "reminderAttempts",
+      sort: { start: 1 },
+      now,
+      handle: (appointment) => sendAppointmentEmails(appointment, { customer: "reminder" }),
+    });
+  };
+  reminderRunners.set(mongooseConnection, runReminders);
 
   // Sin await desde los handlers: un correo fallido no tumba la cita.
   const notifyAppointment = (appointment, kinds) => {
@@ -736,6 +808,7 @@ function registerRoutes(app, ctx) {
     canChange: canCustomerChange(a, settings),
     changeDeadline: changeDeadlineOf(a, settings),
     cancelledAt: a.cancelledAt,
+    attendanceConfirmedAt: a.attendanceConfirmedAt || null,
   });
 
   // Bearer opcional de clienta (como el checkout de pedidos): si es válido y
@@ -977,6 +1050,26 @@ function registerRoutes(app, ctx) {
     }
   });
 
+  // Confirmar asistencia (desde el recordatorio). Idempotente; solo citas
+  // por venir que sigan pendientes o confirmadas.
+  router.post("/public/:id/confirm-attendance", publicRateLimiter, resolveCustomerAccess, async (req, res) => {
+    try {
+      const settings = await getSettings(mongooseConnection);
+      const { appointment } = req;
+      if (!CHANGEABLE_STATUSES.includes(appointment.status) || +appointment.start <= Date.now()) {
+        return sendError(res, 409, "APPOINTMENT_NOT_CHANGEABLE", "Esta cita ya no se puede confirmar.");
+      }
+      if (!appointment.attendanceConfirmedAt) {
+        appointment.attendanceConfirmedAt = new Date();
+        appointment.history.push({ type: "attendance", from: null, to: "confirmed", by: "customer" });
+        await appointment.save();
+      }
+      return res.status(200).json({ message: "¡Gracias! Confirmaste tu asistencia.", appointment: customerView(appointment, settings) });
+    } catch (error) {
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al confirmar la asistencia.");
+    }
+  });
+
   // Reprogramar desde el sitio: { start, specialist?: id | "any" }. Mismos
   // servicios; sin especialista, se queda con la misma. Respeta
   // minHoursToChange (sobre la cita actual) y las reglas de agendado (sobre la nueva).
@@ -1024,6 +1117,7 @@ function registerRoutes(app, ctx) {
           appointment.end = new Date(startMs + appointment.durationMin * MINUTE);
           appointment.blockedUntil = new Date(startMs + (appointment.durationMin + appointment.bufferMin) * MINUTE);
           appointment.history.push({ type: "rescheduled", from: before, to: { start: appointment.start, specialist: sp.name }, by: "customer" });
+          resetReminder(appointment);
           return appointment.save();
         },
       });
@@ -1544,6 +1638,7 @@ function registerRoutes(app, ctx) {
           appointment.blockedUntil = new Date(startMs + (durationMin + bufferMin) * MINUTE);
           if (startMs !== +before.start || specialistChanged) {
             appointment.history.push({ type: "rescheduled", from: { start: before.start, specialist: before.specialist }, to: { start: appointment.start, specialist: appointment.specialistName }, by: "staff", user: req.user.id });
+            if (startMs !== +before.start) resetReminder(appointment);
           }
         }
         if (nextStatus !== appointment.status) {
@@ -1556,6 +1651,7 @@ function registerRoutes(app, ctx) {
             appointment.cancelledAt = null;
             appointment.cancelledBy = null;
             appointment.cancelReason = "";
+            resetReminder(appointment);
           }
           appointment.history.push({ type: "status", from: before.status, to: nextStatus, by: "staff", user: req.user.id });
         }
@@ -1593,9 +1689,16 @@ function registerRoutes(app, ctx) {
   app.use("/api/appointments", router);
 }
 
+// Tareas programadas (lib/scheduler.js): recordatorios cada minuto.
+function registerJobs(scheduler, ctx) {
+  const runReminders = reminderRunners.get(ctx.mongooseConnection);
+  if (runReminders) scheduler.register("appointment-reminders", 60 * 1000, runReminders);
+}
+
 module.exports = {
   name: "appointments",
   registerRoutes,
+  registerJobs,
   models: {
     Specialist: specialistSchema,
     TimeBlock: timeBlockSchema,

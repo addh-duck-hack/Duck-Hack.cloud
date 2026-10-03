@@ -6,7 +6,7 @@ const cors = require("cors");
 const helmet = require("helmet");
 const { sendError } = require("./utils/httpResponses");
 const { resolveUploadsDir } = require("./utils/uploads");
-const { modules: coreApiModules, auth } = require("@duck-hack/core-api");
+const { modules: coreApiModules, auth, scheduler: schedulerLib } = require("@duck-hack/core-api");
 const AgencyClient = require("./models/agencyClient.model");
 const { getRunningContainersCount } = require("./utils/portainerClient");
 const { generateOrderPdf } = require("./utils/orderPdf");
@@ -89,29 +89,38 @@ app.use("/api/invoices", invoicesRoutes);
 // productos, inventario, pedidos, medios — ver packages/core-api/README.md) —
 // código compartido entre tiendas, montado acá con las piezas de esta
 // instancia (conexión Mongo, auth, formato de error).
-coreApiModules.forEach((mod) =>
-  mod.registerRoutes(app, {
-    mongooseConnection: mongoose.connection,
-    verifyToken,
-    authorizeRoles,
-    ROLES,
-    STAFF_ROLES,
-    sendError,
-    // Solo lo usa modules/storeConfig.js (GET /public) para recalcular
-    // métricas en vivo — AgencyClient/Portainer son herramienta interna de
-    // Duck-Hack, no viajan con el módulo. Si no se provee, esas métricas
-    // simplemente conservan su último valor guardado (ver el propio módulo).
-    resolveLiveMetricSources: {
-      active_clients: () => AgencyClient.countDocuments({ isActive: { $ne: false } }),
-      active_containers: () => getRunningContainersCount(),
-    },
-    // Solo lo usa modules/orders.js (GET /:id/pdf) — pdfkit vive únicamente
-    // en backend/ (packages/core-api no lo trae como dependencia), así que
-    // el generador de PDF se inyecta en vez de requerirse directo desde el
-    // paquete (mismo criterio que resolveLiveMetricSources arriba).
-    generateOrderPdf,
-  })
-);
+// Lo que reciben los módulos de @duck-hack/core-api (rutas y tareas).
+const coreApiCtx = {
+  mongooseConnection: mongoose.connection,
+  verifyToken,
+  authorizeRoles,
+  ROLES,
+  STAFF_ROLES,
+  sendError,
+  // Solo lo usa modules/storeConfig.js (GET /public) para recalcular
+  // métricas en vivo — AgencyClient/Portainer son herramienta interna de
+  // Duck-Hack, no viajan con el módulo. Si no se provee, esas métricas
+  // simplemente conservan su último valor guardado (ver el propio módulo).
+  resolveLiveMetricSources: {
+    active_clients: () => AgencyClient.countDocuments({ isActive: { $ne: false } }),
+    active_containers: () => getRunningContainersCount(),
+  },
+  // Solo lo usa modules/orders.js (GET /:id/pdf) — pdfkit vive únicamente
+  // en backend/ (packages/core-api no lo trae como dependencia), así que
+  // el generador de PDF se inyecta en vez de requerirse directo desde el
+  // paquete (mismo criterio que resolveLiveMetricSources arriba).
+  generateOrderPdf,
+};
+
+coreApiModules.forEach((mod) => mod.registerRoutes(app, coreApiCtx));
+
+// Tareas programadas (packages/core-api/lib/scheduler.js): cada módulo que
+// tenga `registerJobs` agrega las suyas; arrancan cuando Mongo conecta.
+// SCHEDULER_ENABLED=false las apaga (pruebas, o varias instancias de la misma
+// tienda).
+const scheduler = schedulerLib.createScheduler({ isReady: () => mongoose.connection.readyState === 1 });
+coreApiModules.forEach((mod) => mod.registerJobs?.(scheduler, coreApiCtx));
+mongoose.connection.once("open", () => scheduler.start());
 
 // Servir la carpeta uploads como estática. Cada archivo subido tiene un
 // nombre único (`<prefijo>-<timestamp>-<uuid>`, ver

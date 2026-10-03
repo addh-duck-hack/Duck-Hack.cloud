@@ -73,6 +73,16 @@ vault, not in this repo).
   reschedules; optional `ADMIN_URL` adds an "Abrir la agenda" button.
   Toggles `emailCustomer` / `emailBusiness` in settings; staff can skip one
   change with `notifyCustomer: false`. Fire-and-forget, never fails the request.
+  Reminders (3.2, permission key `reminders`, sellable apart): the module's
+  `registerJobs` adds an "appointment-reminders" job (every minute) that
+  emails confirmed appointments with an email `reminderHoursBefore` (24)
+  hours before, once (`claimEach` on `reminderSentAt`), skipping
+  appointments booked/moved inside that window (`scheduledAt`). The email's
+  CTA goes to `FRONTEND_URL/cita/<id>?token=…&accion=confirmar`; the
+  storefront page calls `POST /public/:id/confirm-attendance`
+  (`attendanceConfirmedAt`). Rescheduling resets reminder + confirmation. Runs
+  only if `reminders` and `appointments` are contracted
+  (`lib/permissions.js#isModuleContracted`) and `reminderEnabled`.
 - `modules/products.js` — product catalog (`/api/products`). Optional
   variants (`options` + `variants`, logic in `lib/variants.js`): each variant
   has its own SKU, stock and optional price/image; `lib/purchaseLimits.js
@@ -169,6 +179,23 @@ module.exports = {
 
 Add it to the `modules` array exported from `index.js`. Nothing else in this
 package needs to change for a consuming app to pick it up.
+
+Optional: `registerJobs(scheduler, ctx)` for scheduled tasks (reminders,
+abandoned carts…). `backend/server.js` creates one scheduler
+(`lib/scheduler.js#createScheduler`), calls `registerJobs` on every module
+that has it with the same `ctx` as `registerRoutes`, and starts it once Mongo
+connects. Inside, `scheduler.register(name, everyMs, async ({ now }) => …)`:
+a job never overlaps itself, a failing job is logged and doesn't stop the
+others, nothing runs while Mongo is down. To send each notice exactly once
+(even across restarts) use `claimEach({ Model, filter, markField,
+attemptsField, handle })`: it marks the document atomically before
+`handle` runs, and on failure clears the mark and counts the attempt (stops
+at 3). Env: `SCHEDULER_ENABLED` (default true; `false` for tests or if a
+store ever runs more than one backend instance) and `SCHEDULER_TICK_MS`
+(default 60000); tests only: `SCHEDULER_JOB_INTERVAL_MS` overrides every
+job's interval. Send notices through `lib/notify.js#notify({ channel,
+to, … })` — only `email` today; WhatsApp/SMS plug in with `registerChannel`
+when a provider is contracted (until then `NOTIFY_CHANNEL_NOT_CONFIGURED`).
 
 ### `ctx` contract
 

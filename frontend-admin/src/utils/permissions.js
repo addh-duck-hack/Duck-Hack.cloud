@@ -18,6 +18,8 @@ export const MODULE_NAV = [
       { path: "/admin/appointment-settings", label: "Ajustes de agenda", managers: true },
     ],
   },
+  // Sin pantalla propia: su sección vive en "Ajustes de agenda".
+  { key: "reminders", items: [] },
   {
     key: "services",
     items: [
