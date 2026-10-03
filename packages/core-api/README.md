@@ -126,6 +126,16 @@ vault, not in this repo).
   deleting recalculates `Product.ratingAvg`/`ratingCount` (read-only fields,
   ignored in product payloads). Public `GET /public?product=` shows approved
   only, with a short name ("Ana G.") and a 1–5 distribution.
+- `modules/cart.js` — server-side cart for logged-in users (`/api/cart`,
+  GET/PUT/DELETE; no permission key, everyone has their own). PUT replaces
+  the whole cart (duplicates merged, max 50 lines); lines come back with the
+  product exactly as `/api/products/public` returns it, and what can't be
+  bought today goes in `unavailable` (the stored cart keeps it).
+  `itemsUpdatedAt` only moves when products/quantities change — it's what the
+  abandoned-cart job (3.4) measures. Logged-in checkout calls
+  `settleCartAfterOrder`: empties the cart and, if a reminder was sent in the
+  last 7 days (and not already counted), records the recovered sale
+  (`recoveredAt`/`recoveredOrder`/`recoveredTotal`).
 - `modules/media.js` — admin media library over the `uploads/` folder
   (`/api/media`): lists files from disk, uploads images/GIF/MP4/WebM, edits
   title + alt text (stored in the `Media` collection, the file itself is never

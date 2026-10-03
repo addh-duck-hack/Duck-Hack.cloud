@@ -43,6 +43,8 @@ tags:
       Citas (módulo appointments). Especialistas, ajustes y bloqueos de todo el negocio solo
       super_admin/store_admin (403 APPOINTMENTS_MANAGER_ONLY); una collaborator solo ve su
       especialista (la ligada a su cuenta) y bloquea su propio horario.
+  - name: Cart
+    description: Carrito guardado en el servidor para usuarios con sesión (sin permisos; cada quien el suyo)
   - name: Coupons
     description: Cupones de descuento (módulo coupons de los permisos por tienda)
   - name: Reviews
@@ -3274,6 +3276,66 @@ paths:
           description: APPOINTMENTS_MANAGER_ONLY
         "404":
           description: BLOCK_NOT_FOUND
+
+  /api/cart:
+    get:
+      tags: [Cart]
+      summary: Mi carrito
+      operationId: getCart
+      description: >-
+        Con sesión. Cada renglón trae el producto como lo da el catálogo público (activo, con
+        existencias, variantes y topes). Lo que ya no se puede comprar va en `unavailable` (el
+        carrito guardado no se toca: si vuelve a haber existencias, reaparece).
+      responses:
+        "200":
+          description: Carrito
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CartResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      tags: [Cart]
+      summary: Guardar mi carrito (reemplaza)
+      operationId: putCart
+      description: >-
+        Reemplaza el carrito completo (el storefront une el del navegador con el guardado al
+        iniciar sesión y manda cada cambio). Renglones repetidos se suman; hasta 50 productos
+        distintos. `updatedAt` solo cambia si cambian productos o cantidades. El checkout con
+        sesión (POST /api/orders/public) lo vacía.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                items:
+                  type: array
+                  maxItems: 50
+                  items:
+                    type: object
+                    properties:
+                      product: { type: string }
+                      variant: { type: string, nullable: true }
+                      quantity: { type: integer, minimum: 1, maximum: 999 }
+                    required: [product, quantity]
+              required: [items]
+      responses:
+        "200":
+          description: Carrito guardado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CartResponse" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+    delete:
+      tags: [Cart]
+      summary: Vaciar mi carrito
+      operationId: clearCart
+      responses:
+        "200":
+          description: Vacío
 
   /api/coupons/validate:
     post:
@@ -7044,6 +7106,27 @@ components:
             Recordatorio por correo antes de cada cita confirmada (módulo `reminders`; la tarea
             programada solo corre si está contratado). Una vez por cita; reprogramar lo reinicia.
         reminderHoursBefore: { type: integer, minimum: 1, maximum: 72, description: Cuántas horas antes (24 por default). }
+
+    CartResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              product: { $ref: "#/components/schemas/PublicProduct" }
+              variant: { type: string, nullable: true }
+              quantity: { type: integer }
+        unavailable:
+          type: array
+          description: Renglones guardados que hoy no se pueden comprar (agotados, inactivos, variante que ya no existe).
+          items:
+            type: object
+            properties:
+              product: { type: string }
+              variant: { type: string, nullable: true }
+        updatedAt: { type: string, format: date-time, nullable: true, description: Último cambio de productos o cantidades. }
 
     ServiceRequest:
       type: object

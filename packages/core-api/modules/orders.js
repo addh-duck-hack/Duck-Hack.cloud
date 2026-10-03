@@ -26,6 +26,7 @@ const {
 } = require("../lib/moduleHelpers");
 const { createRateLimiter } = require("../lib/rateLimit");
 const { parseMxPhone } = require("../lib/phone");
+const { settleCartAfterOrder } = require("./cart");
 const { getPurchaseLimit } = require("../lib/purchaseLimits");
 const { shippingSettingsOf, computeShippingCost } = require("../lib/shipping");
 const { DELIVERY_METHODS, resolveCheckout } = require("../lib/checkoutOptions");
@@ -1025,6 +1026,11 @@ function registerRoutes(app, ctx) {
           if (couponResult) await mongooseConnection.models.Coupon.updateOne({ _id: couponResult.coupon._id }, { $inc: { usedCount: -1 } });
           throw error;
         }
+
+        // Con sesión: el carrito guardado (modules/cart.js) se vacía y, si se
+        // le había mandado recordatorio, cuenta como venta recuperada. Sin
+        // await: nunca tumba el pedido.
+        if (req.checkoutCustomerId) settleCartAfterOrder(mongooseConnection, { customerId: req.checkoutCustomerId, order });
 
         sendCheckoutEmails(order, { mongooseConnection, generateOrderPdf }).catch((error) => {
           // El pedido ya se guardó — un correo fallido no debe verse como que
