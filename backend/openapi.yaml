@@ -2975,6 +2975,34 @@ paths:
         "409":
           description: APPOINTMENT_NOT_CHANGEABLE o CHANGE_WINDOW_CLOSED
 
+  /api/appointments/public/{id}/confirm-attendance:
+    post:
+      tags: [Appointments]
+      summary: Confirmar asistencia (desde el recordatorio)
+      operationId: confirmAppointmentAttendance
+      security: []
+      description: >-
+        Mismo acceso que GET /public/{id} (X-Appointment-Token o sesión de la dueña). Marca
+        `attendanceConfirmedAt` (idempotente). Solo citas por venir en pending/confirmed. El
+        enlace del correo de recordatorio lleva a FRONTEND_URL/cita/<id>?token=…&accion=confirmar;
+        el storefront llama a este endpoint con un botón (el clic del correo no confirma solo).
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Confirmada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  appointment: { $ref: "#/components/schemas/CustomerAppointment" }
+        "401":
+          description: APPOINTMENT_TOKEN_INVALID o TOKEN_REQUIRED
+        "409":
+          description: APPOINTMENT_NOT_CHANGEABLE (cancelada, completada o ya pasó)
+
   /api/appointments/public/{id}/reschedule:
     post:
       tags: [Appointments]
@@ -4900,7 +4928,7 @@ components:
     PermissionModuleKey:
       type: string
       description: Módulo del panel sujeto a permisos por tienda
-      enum: [panel, storeConfig, appConfig, services, appointments, products, inventory, orders, coupons, reviews, media, users, agencyClients, accounting, invoices]
+      enum: [panel, storeConfig, appConfig, services, appointments, reminders, products, inventory, orders, coupons, reviews, media, users, agencyClients, accounting, invoices]
 
     StorePermissions:
       type: object
@@ -6906,6 +6934,8 @@ components:
             staffNotes: { type: string }
             cancelledBy: { type: string, nullable: true, enum: [customer, staff] }
             cancelReason: { type: string }
+            scheduledAt: { type: string, format: date-time, description: Cuándo se fijó el horario actual (alta o última reprogramación). }
+            reminderSentAt: { type: string, format: date-time, nullable: true }
             history:
               type: array
               items:
@@ -6950,6 +6980,7 @@ components:
         canChange: { type: boolean, description: Si todavía se puede cancelar o reprogramar desde el sitio. }
         changeDeadline: { type: string, format: date-time }
         cancelledAt: { type: string, format: date-time, nullable: true }
+        attendanceConfirmedAt: { type: string, format: date-time, nullable: true, description: La clienta confirmó que asiste (desde el recordatorio). }
 
     WeeklyShift:
       type: object
@@ -7007,6 +7038,12 @@ components:
         notifyEmail: { type: string, description: Vacío = correo de contacto de la tienda (contactEmail) o CONTACT_EMAIL_TO. }
         emailCustomer: { type: boolean, description: "Correos a la clienta (agendada, confirmada, reprogramada, cancelada) con .ics y enlace a Google Calendar." }
         emailBusiness: { type: boolean, description: Avisos al negocio cuando la clienta agenda, cancela o reprograma desde el sitio. }
+        reminderEnabled:
+          type: boolean
+          description: >-
+            Recordatorio por correo antes de cada cita confirmada (módulo `reminders`; la tarea
+            programada solo corre si está contratado). Una vez por cita; reprogramar lo reinicia.
+        reminderHoursBefore: { type: integer, minimum: 1, maximum: 72, description: Cuántas horas antes (24 por default). }
 
     ServiceRequest:
       type: object

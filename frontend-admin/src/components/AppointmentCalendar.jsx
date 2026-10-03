@@ -85,7 +85,7 @@ const AppointmentCalendar = () => {
           .filter((a) => showCancelled || a.status !== "cancelled")
           .map((a) => ({
             id: a._id,
-            title: `${a.customerName} · ${a.services.map((s) => s.name).join(" + ")}`,
+            title: `${a.attendanceConfirmedAt ? "✓ " : ""}${a.customerName} · ${a.services.map((s) => s.name).join(" + ")}`,
             start: a.start,
             end: a.end,
             backgroundColor: a.specialist?.color || "#4abdfc",
@@ -260,7 +260,11 @@ const AppointmentCalendar = () => {
               return;
             }
             const a = info.event.extendedProps.appointment;
-            if (a) info.el.title = `${info.event.title}\n${a.specialist?.name || a.specialistName} · ${APPOINTMENT_STATUS_LABELS[a.status]}`;
+            if (a) {
+              info.el.title = `${info.event.title}\n${a.specialist?.name || a.specialistName} · ${APPOINTMENT_STATUS_LABELS[a.status]}${
+                a.attendanceConfirmedAt ? " · asistencia confirmada" : ""
+              }`;
+            }
           }}
         />
       </div>

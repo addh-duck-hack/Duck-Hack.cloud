@@ -697,6 +697,11 @@ const APPOINTMENT_EMAILS = {
     title: "Tu cita cambió de horario",
     intro: () => "Tu cita quedó en el nuevo horario. Actualiza tu calendario con el archivo adjunto:",
   },
+  reminder: {
+    subject: (n, store) => `Recordatorio de tu cita — ${store}`,
+    title: "Te esperamos pronto",
+    intro: (store) => `Te recordamos tu cita en ${store}. ¿Nos confirmas que vienes?`,
+  },
   cancelled: {
     subject: (n, store) => `Tu cita se canceló — ${store}`,
     title: "Tu cita se canceló",
@@ -715,11 +720,13 @@ const appointmentDetails = ({ appointment, when, address }) =>
     address ? { label: "Dónde", value: address } : null,
   ].filter(Boolean);
 
-const appointmentEmailTemplate = ({ kind, appointment, when, address, branding, manageUrl, googleUrl, reason, changeHours }) => {
+const appointmentEmailTemplate = ({ kind, appointment, when, address, branding, manageUrl, confirmUrl, googleUrl, reason, changeHours }) => {
   const config = APPOINTMENT_EMAILS[kind];
   const store = branding.storeName || "Duck-Hack";
   const isCancelled = kind === "cancelled";
+  const isReminder = kind === "reminder";
   const notes = [];
+  if (isReminder && !manageUrl) notes.push("Si no puedes asistir, avísanos para liberar tu horario.");
   if (isCancelled && reason) notes.push(`Motivo: ${reason}`);
   if (!isCancelled && changeHours) notes.push(`Puedes cancelar o reprogramar hasta ${changeHours} horas antes.`);
   const { html, text } = accountActionEmailTemplate({
@@ -728,9 +735,12 @@ const appointmentEmailTemplate = ({ kind, appointment, when, address, branding, 
     name: appointment.customerName,
     intro: config.intro(store),
     details: appointmentDetails({ appointment, when, address }),
-    ctaLabel: isCancelled ? "Agendar otra cita" : "Ver mi cita",
-    url: manageUrl || undefined,
-    links: !isCancelled && googleUrl ? [{ label: "Agregar a Google Calendar", url: googleUrl }] : [],
+    ctaLabel: isCancelled ? "Agendar otra cita" : isReminder ? "Confirmo mi asistencia" : "Ver mi cita",
+    url: (isReminder ? confirmUrl : manageUrl) || undefined,
+    links: [
+      isReminder && manageUrl ? { label: "Reprogramar o cancelar", url: manageUrl } : null,
+      !isCancelled && googleUrl ? { label: "Agregar a Google Calendar", url: googleUrl } : null,
+    ].filter(Boolean),
     note: notes.join(" ") || undefined,
     footnote: isCancelled ? `${store}` : "Adjuntamos el archivo de calendario (.ics) para Apple Calendar u Outlook.",
   });

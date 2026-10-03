@@ -11,7 +11,8 @@
 // - no corre nada mientras Mongo no esté conectado (`isReady`).
 // Variables: SCHEDULER_ENABLED (default true; "false" en pruebas o si algún
 // día hubiera varias instancias de la misma tienda) y SCHEDULER_TICK_MS
-// (default 60000).
+// (default 60000). Solo para pruebas: SCHEDULER_JOB_INTERVAL_MS reemplaza el
+// intervalo de todas las tareas (para no esperar minutos).
 //
 // claimEach: envía cada aviso UNA sola vez aunque el servidor se reinicie a
 // medias. Antes de enviar marca el documento con un update atómico
@@ -25,6 +26,7 @@ const createScheduler = ({
   tickMs = Number(process.env.SCHEDULER_TICK_MS) || DEFAULT_TICK_MS,
   isReady = () => true,
   logger = console,
+  jobIntervalOverrideMs = Number(process.env.SCHEDULER_JOB_INTERVAL_MS) || null,
 } = {}) => {
   const jobs = new Map();
   let timer = null;
@@ -32,7 +34,7 @@ const createScheduler = ({
   const register = (name, everyMs, run) => {
     if (jobs.has(name)) throw new Error(`La tarea "${name}" ya está registrada.`);
     if (!(everyMs > 0) || typeof run !== "function") throw new Error(`Tarea "${name}" inválida.`);
-    jobs.set(name, { name, everyMs, run, running: false, lastRunAt: null, lastDurationMs: null, lastError: null, lastResult: null, runs: 0, failures: 0 });
+    jobs.set(name, { name, everyMs: jobIntervalOverrideMs || everyMs, run, running: false, lastRunAt: null, lastDurationMs: null, lastError: null, lastResult: null, runs: 0, failures: 0 });
   };
 
   const runJob = async (job, now = new Date()) => {

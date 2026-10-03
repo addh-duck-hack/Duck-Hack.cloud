@@ -176,6 +176,16 @@ const AppointmentDialog = ({ appointment, initialStart, initialSpecialist, speci
           </p>
         ) : null}
 
+        {isEditing && (appointment.attendanceConfirmedAt || appointment.reminderSentAt) ? (
+          <p className="agenda-dialog-meta">
+            {appointment.attendanceConfirmedAt ? (
+              <strong className="agenda-attendance">✓ Asistencia confirmada por la clienta ({formatDateTime(appointment.attendanceConfirmedAt)})</strong>
+            ) : (
+              `Recordatorio enviado ${formatDateTime(appointment.reminderSentAt)}; la clienta aún no confirma.`
+            )}
+          </p>
+        ) : null}
+
         {error ? <div className="auth-error">{error}</div> : null}
 
         {isEditing && STATUS_ACTIONS[appointment.status]?.length ? (

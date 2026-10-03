@@ -26,6 +26,7 @@ const PERMISSION_MODULES = [
   { key: "appConfig", label: "Configurar App" },
   { key: "services", label: "Servicios" },
   { key: "appointments", label: "Citas" },
+  { key: "reminders", label: "Recordatorios de citas" },
   { key: "products", label: "Productos" },
   { key: "inventory", label: "Inventario" },
   { key: "orders", label: "Pedidos" },
@@ -115,6 +116,10 @@ const savePermissions = async (connection, { enabledModules, roles }) => {
   return withDefaults(doc);
 };
 
+// ¿La tienda contrató el módulo? (sin importar roles). Para las tareas
+// programadas, que no tienen usuario: solo corren si el módulo está contratado.
+const isModuleContracted = async (connection, key) => (await loadPermissions(connection)).enabledModules.includes(key);
+
 // Módulos que puede usar un rol con la config dada.
 const modulesForRole = (config, role) => {
   if (role === ROLES.SUPER_ADMIN) return [...MODULE_KEYS];
@@ -182,5 +187,6 @@ module.exports = {
   loadPermissions,
   savePermissions,
   modulesForRole,
+  isModuleContracted,
   createModuleAuthorizer,
 };
