@@ -11,7 +11,7 @@ import ResendVerification from '../components/ResendVerification';
 
 const Login = () => {
   usePageMeta('Iniciar sesión');
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, sessionExpired } = useAuth();
   const [searchParams] = useSearchParams();
   const next = safeNextPath(searchParams.get('next'));
   const [showPassword, setShowPassword] = useState(false);
@@ -24,6 +24,12 @@ const Login = () => {
   return (
     <AuthLayout eyebrow="Bienvenido de vuelta" title="Inicia" highlight="sesión">
       <form className="auth-form" onSubmit={login.onSubmit}>
+        {sessionExpired ? (
+          <p className="auth-alert auth-alert--info" role="status">
+            <i className="fa-solid fa-clock-rotate-left" aria-hidden="true" />
+            <span>Tu sesión expiró. Inicia sesión de nuevo para continuar.</span>
+          </p>
+        ) : null}
         <label className="auth-field" htmlFor="login-email">
           <span>Correo electrónico</span>
           <input

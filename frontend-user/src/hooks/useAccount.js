@@ -10,7 +10,7 @@
 // teléfono/direcciones más recientes. La UI debe redirigir a /login si
 // `isAuthenticated` es false.
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { apiFetch, getApiBaseUrl } from '../utils/apiClient';
+import { apiFetch, getApiBaseUrl, reportSessionError } from '../utils/apiClient';
 import { EMPTY_SAVED_ADDRESS, readFieldChange, savedAddressToForm } from '../utils/address';
 import { useAuth } from './useAuth';
 import { useCart } from './useCart';
@@ -399,6 +399,7 @@ export const useAccount = () => {
       const response = await fetch(`${getApiBaseUrl()}/api/orders/${order._id}/pdf`, { headers: authHeader() });
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
+        reportSessionError(response.status, payload?.error?.code, authHeader());
         throw new Error(payload?.error?.message || 'No fue posible descargar tu ticket.');
       }
       const blob = await response.blob();

@@ -304,7 +304,7 @@ export const CartProvider = ({ children }) => {
   //     dispositivo), salvo que hubiera cambios locales sin guardar.
   // Después, cada cambio se guarda a los SYNC_DELAY_MS del último. Al cerrar
   // sesión se vacía la canasta del navegador (sigue guardada en la cuenta).
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, sessionExpired } = useAuth();
   const userId = isAuthenticated ? String(user?._id || '') : '';
   const linesRef = useRef(lines);
   linesRef.current = lines;
@@ -326,7 +326,9 @@ export const CartProvider = ({ children }) => {
     const sync = readSync();
     if (!userId) {
       // Se cerró la sesión con una canasta de cuenta: se limpia el navegador.
-      if (sync.owner) {
+      // Si la sesión VENCIÓ (no la cerró el cliente), la canasta se queda: al
+      // volver a entrar con la misma cuenta se guarda tal cual (sin duplicar).
+      if (sync.owner && !sessionExpired) {
         serverUnavailableRef.current = [];
         setLines([]);
         writeSync({ owner: null, dirty: false });
@@ -366,7 +368,14 @@ export const CartProvider = ({ children }) => {
   }, [userId]);
 
   useEffect(() => {
-    if (!userId || !syncReadyRef.current) return undefined;
+    if (!userId) {
+      // Sesión vencida con canasta de cuenta: lo que cambie mientras tanto se
+      // guarda al volver a iniciar sesión.
+      const sync = readSync();
+      if (sync.owner && sessionExpired) writeSync({ ...sync, dirty: true });
+      return undefined;
+    }
+    if (!syncReadyRef.current) return undefined;
     writeSync({ owner: userId, dirty: true });
     const timer = setTimeout(() => {
       pushToServer(linesRef.current).catch(() => {
@@ -374,7 +383,7 @@ export const CartProvider = ({ children }) => {
       });
     }, SYNC_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [lines, userId, pushToServer]);
+  }, [lines, userId, pushToServer, sessionExpired]);
 
   // Cantidad y ajuste de la línea SIN opciones de un producto — para el
   // selector +/− de las tarjetas de la tienda (ProductCard). Un producto con

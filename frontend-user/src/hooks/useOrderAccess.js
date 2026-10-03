@@ -16,7 +16,7 @@
 // que no quede en el historial ni se filtre al compartir la pantalla o el
 // enlace.
 import { useCallback, useEffect, useState } from 'react';
-import { apiFetch, getApiBaseUrl } from '../utils/apiClient';
+import { apiFetch, getApiBaseUrl, reportSessionError } from '../utils/apiClient';
 import { getAuthHeader } from './useAuth';
 
 const tokenKey = (orderId) => `tacita.order-token.${orderId}`;
@@ -119,6 +119,7 @@ export const useTicketDownload = ({ getHeaders }) => {
         const response = await fetch(`${getApiBaseUrl()}/api/orders/${orderId}/pdf`, { headers: getHeaders() });
         if (!response.ok) {
           const payload = await response.json().catch(() => null);
+          reportSessionError(response.status, payload?.error?.code, getHeaders());
           throw new Error(payload?.error?.message || 'No fue posible descargar tu ticket.');
         }
         const blob = await response.blob();

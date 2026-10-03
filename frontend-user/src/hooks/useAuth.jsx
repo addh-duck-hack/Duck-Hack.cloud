@@ -9,12 +9,32 @@
 // evita que la sesión se pierda entre renders y le da a cualquier
 // componente (nav, checkout, Mi cuenta) una forma de saber si hay sesión
 // sin leer localStorage directo.
-import React, { createContext, useCallback, useContext, useState } from 'react';
+//
+// La sesión se cierra sola cuando el token ya no sirve: al cargar si ya
+// venció (fecha `exp` del JWT), justo al vencer (temporizador) y cuando el
+// backend responde que el token no es válido (evento `auth:expired` de
+// utils/apiClient.js). En ese caso `sessionExpired` queda en true para que el
+// login lo avise; la canasta NO se vacía (ver useCart.jsx).
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { SESSION_EXPIRED_EVENT } from '../utils/apiClient';
 
 const TOKEN_KEY = 'duckhack_customer_token';
 const USER_KEY = 'duckhack_customer_user';
 
 const AuthContext = createContext(null);
+
+// Vencimiento del JWT (ms) leyendo su `exp`, sin verificar la firma (eso lo
+// hace el backend). null si no se puede leer.
+const tokenExpiresAt = (token) => {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return Number(payload.exp) > 0 ? Number(payload.exp) * 1000 : null;
+  } catch {
+    return null;
+  }
+};
+// setTimeout no acepta más de ~24.8 días.
+const MAX_TIMER_MS = 2 ** 31 - 1;
 
 const readStoredToken = () => {
   try {
@@ -36,6 +56,7 @@ const readStoredUser = () => {
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(readStoredToken);
   const [user, setUser] = useState(readStoredUser);
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   // Se llama con la respuesta tal cual de POST /api/users/login
   // ({ token, user }) desde useAuthForms.js#useLoginForm (página /login y
@@ -50,6 +71,7 @@ export const AuthProvider = ({ children }) => {
     }
     if (newToken) setToken(newToken);
     if (newUser) setUser(newUser);
+    setSessionExpired(false);
   }, []);
 
   // Actualiza solo los datos del usuario (nombre/teléfono/dirección/
@@ -79,10 +101,41 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   }, []);
 
+  // Cierre por sesión vencida o inválida (no por el usuario).
+  const expireSession = useCallback(() => {
+    logout();
+    setSessionExpired(true);
+  }, [logout]);
+
+  // El backend dijo que el token ya no sirve.
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const onExpired = () => {
+      if (readStoredToken()) expireSession();
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
+  }, [expireSession]);
+
+  // Vencido al cargar, o cerrar justo cuando venza.
+  useEffect(() => {
+    if (!token) return undefined;
+    const expiresAt = tokenExpiresAt(token);
+    if (!expiresAt) return undefined;
+    const remaining = expiresAt - Date.now();
+    if (remaining <= 0) {
+      expireSession();
+      return undefined;
+    }
+    const timer = setTimeout(expireSession, Math.min(remaining, MAX_TIMER_MS));
+    return () => clearTimeout(timer);
+  }, [token, expireSession]);
+
   const value = {
     token,
     user,
     isAuthenticated: Boolean(token && user),
+    sessionExpired,
     login,
     updateUser,
     logout,
