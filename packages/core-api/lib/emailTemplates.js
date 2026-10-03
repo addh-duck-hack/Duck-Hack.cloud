@@ -780,7 +780,75 @@ const appointmentBusinessEmailTemplate = ({ kind, appointment, when, previousWhe
   return { subject: config.subject(appointment), html, text };
 };
 
+// ---- Carrito abandonado (Fase 3.4, modules/cart.js) ----
+// items: [{ name, variantLabel, qty, price, imageUrl }] con precios actuales;
+// coupon (opcional): { code, label, endsAt (texto) }. Correo de marketing:
+// lleva el enlace para darse de baja (`unsubscribeUrl`).
+const abandonedCartEmailTemplate = ({ branding, name, items, total, cartUrl, coupon, unsubscribeUrl }) => {
+  const store = branding.storeName || "Duck-Hack";
+  const color = branding.accent && /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/.test(branding.accent) ? branding.accent : BRAND.action;
+  const safeName = escapeHtml(name || "");
+  const rows = items
+    .map(
+      (item) => `<tr>
+        <td width="56" style="padding:8px 12px 8px 0; border-bottom:1px solid ${BRAND.line};">
+          ${item.imageUrl ? `<img src="${item.imageUrl}" width="48" height="48" alt="" style="display:block; border-radius:8px; object-fit:cover;" />` : ""}
+        </td>
+        <td style="padding:8px 0; border-bottom:1px solid ${BRAND.line}; font-family:${bodyFont}; font-size:14px; color:${BRAND.white};">
+          ${escapeHtml(item.name)}${item.variantLabel ? `<br /><span style="color:${BRAND.textDim}; font-size:12px;">${escapeHtml(item.variantLabel)}</span>` : ""}
+          <br /><span style="color:${BRAND.textDim}; font-size:12px;">×${item.qty}</span>
+        </td>
+        <td align="right" style="padding:8px 0; border-bottom:1px solid ${BRAND.line}; font-family:${bodyFont}; font-size:14px; color:${BRAND.white}; white-space:nowrap;">${formatCurrency(item.price * item.qty)}</td>
+      </tr>`
+    )
+    .join("");
+  const couponHtml = coupon
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0 4px;">
+        <tr><td style="border:1px dashed ${color}; border-radius:10px; padding:14px; text-align:center;">
+          <p style="margin:0 0 6px; font-family:${bodyFont}; font-size:14px; color:${BRAND.text};">Un regalo para terminar tu compra: <strong style="color:${BRAND.white};">${escapeHtml(coupon.label)}</strong></p>
+          <p style="margin:0; font-family:${monoFont}; font-size:22px; font-weight:700; letter-spacing:0.08em; color:${color};">${escapeHtml(coupon.code)}</p>
+          <p style="margin:6px 0 0; font-family:${bodyFont}; font-size:12px; color:${BRAND.textDim};">Escríbelo en tu carrito. Válido hasta el ${escapeHtml(coupon.endsAt)}, una sola vez y solo con tu cuenta.</p>
+        </td></tr>
+      </table>`
+    : "";
+  const html = `<!DOCTYPE html>
+<html lang="es">
+  <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Tu carrito te espera - ${escapeHtml(store)}</title></head>
+  <body style="margin:0; padding:0; background-color:${BRAND.ink}; font-family:${bodyFont};">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${BRAND.ink};">
+      <tr><td align="center" style="padding:40px 16px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
+          ${renderOrderEmailHeader(store, branding.logoUrl)}
+          <tr><td style="background-color:${BRAND.panel}; border-radius:12px; padding:32px;">
+            <h1 style="margin:0 0 16px; font-family:${monoFont}; font-size:20px; color:${BRAND.white}; font-weight:700;">Tu carrito te espera</h1>
+            <p style="margin:0 0 20px; font-family:${bodyFont}; font-size:15px; line-height:1.6; color:${BRAND.textDim};">${safeName ? `Hola ${safeName}, d` : "D"}ejaste estos productos en tu carrito. Te los guardamos:</p>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}
+              <tr><td></td><td style="padding:12px 0 0; font-family:${bodyFont}; font-size:15px; color:${BRAND.white}; font-weight:700;">Total</td>
+              <td align="right" style="padding:12px 0 0; font-family:${bodyFont}; font-size:15px; color:${BRAND.white}; font-weight:700;">${formatCurrency(total)}</td></tr>
+            </table>
+            ${couponHtml}
+            ${cartUrl ? ctaButtonHtml("Terminar mi compra", cartUrl, color) : ""}
+            <p style="margin:16px 0 0; font-family:${bodyFont}; font-size:12px; color:${BRAND.textDim};">Precios y existencias al momento de este correo; se confirman al pagar.</p>
+          </td></tr>
+          <tr><td align="center" style="padding-top:24px;">
+            ${unsubscribeUrl ? `<p style="margin:0; font-family:${bodyFont}; font-size:12px; color:${BRAND.textDim};"><a href="${unsubscribeUrl}" style="color:${BRAND.textDim};">No quiero recibir estos recordatorios</a></p>` : ""}
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+  const text = `${safeName ? `Hola ${name},\n\n` : ""}Dejaste estos productos en tu carrito en ${store}:
+
+${items.map((i) => `- ${i.name}${i.variantLabel ? ` (${i.variantLabel})` : ""} ×${i.qty} — ${formatCurrency(i.price * i.qty)}`).join("\n")}
+Total: ${formatCurrency(total)}
+${coupon ? `\nUn regalo para terminar tu compra: ${coupon.label}. Código ${coupon.code} (válido hasta el ${coupon.endsAt}, una sola vez y solo con tu cuenta).\n` : ""}${cartUrl ? `\nTerminar mi compra: ${cartUrl}\n` : ""}
+${unsubscribeUrl ? `No quiero recibir estos recordatorios: ${unsubscribeUrl}` : ""}`;
+  return { subject: `Tu carrito te espera — ${store}`, html, text };
+};
+
 module.exports = {
+  abandonedCartEmailTemplate,
   appointmentEmailTemplate,
   appointmentBusinessEmailTemplate,
   resolveSpeiAccount,

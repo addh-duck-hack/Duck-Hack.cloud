@@ -131,6 +131,13 @@ const userSchema = new mongoose.Schema({
     type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Product" }],
     default: [],
   },
+  // Correos opcionales (de marketing) que la cuenta acepta. Los de pedidos y
+  // citas no dependen de esto. abandonedCart: recordatorio de carrito
+  // abandonado (modules/cart.js); se apaga con el enlace del propio correo o
+  // con PUT /:id { emailPreferences: { abandonedCart: false } }.
+  emailPreferences: {
+    abandonedCart: { type: Boolean, default: true },
+  },
   profileImage: {
     type: String, // Almacena la ruta de la imagen subida
   },
@@ -292,7 +299,14 @@ const validateCreateStaffPayload = (sendError) => (req, res, next) => {
 };
 
 const validateUpdateUserPayload = (sendError) => (req, res, next) => {
-  const { name, email, phone, role } = req.body || {};
+  const { name, email, phone, role, emailPreferences } = req.body || {};
+
+  if (emailPreferences !== undefined) {
+    const value = emailPreferences?.abandonedCart;
+    if (!emailPreferences || typeof emailPreferences !== "object" || (value !== undefined && typeof value !== "boolean")) {
+      return sendError(res, 400, "VALIDATION_ERROR", "emailPreferences.abandonedCart debe ser true o false.");
+    }
+  }
 
   if (email !== undefined) {
     return sendError(res, 400, "EMAIL_CHANGE_NOT_ALLOWED", "El correo electrónico no puede modificarse.");
@@ -647,9 +661,12 @@ function registerRoutes(app, ctx) {
         const actorRole = req.user.role;
         const actorId = String(req.user.id);
 
-        const { name, phone, role } = req.body;
+        const { name, phone, role, emailPreferences } = req.body;
 
         const updateData = {};
+        if (emailPreferences?.abandonedCart !== undefined) {
+          updateData["emailPreferences.abandonedCart"] = emailPreferences.abandonedCart;
+        }
         if (name !== undefined) {
           updateData.name = name;
         }

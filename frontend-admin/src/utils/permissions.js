@@ -37,6 +37,7 @@ export const MODULE_NAV = [
   { key: "inventory", items: [{ path: "/admin/inventory", label: "Inventario" }] },
   { key: "orders", items: [{ path: "/admin/orders", label: "Pedidos" }] },
   { key: "coupons", items: [{ path: "/admin/coupons", label: "Cupones" }] },
+  { key: "abandonedCart", items: [{ path: "/admin/abandoned-cart", label: "Carrito abandonado" }] },
   { key: "reviews", items: [{ path: "/admin/reviews", label: "Reseñas" }] },
   { key: "media", items: [{ path: "/admin/media", label: "Medios" }] },
   { key: "users", items: [{ path: "/admin/users", label: "Usuarios" }] },
@@ -64,7 +65,7 @@ export const NAV_GROUPS = [
     id: "store",
     label: "Tienda",
     icon: "fa-solid fa-store",
-    modules: ["products", "inventory", "orders", "coupons", "reviews"],
+    modules: ["products", "inventory", "orders", "coupons", "abandonedCart", "reviews"],
   },
   { id: "media", modules: ["media"] },
   {

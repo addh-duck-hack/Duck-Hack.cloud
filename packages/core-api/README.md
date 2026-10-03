@@ -136,6 +136,20 @@ vault, not in this repo).
   `settleCartAfterOrder`: empties the cart and, if a reminder was sent in the
   last 7 days (and not already counted), records the recovered sale
   (`recoveredAt`/`recoveredOrder`/`recoveredTotal`).
+  Abandoned cart (3.4, permission key `abandonedCart`): `registerJobs` adds
+  an "abandoned-carts" job (every 15 min) — runs only if contracted and
+  `enabled` (`AbandonedCartSettings`: `delayHours`, optional `coupon`). One
+  email per abandonment (`claimEach` on `reminderClaimedAt`, cleared when the
+  cart changes) to verified customers that haven't opted out
+  (`User.emailPreferences.abandonedCart`), for carts idle `delayHours` and
+  under 7 days old; current prices, out-of-stock lines skipped (all out of
+  stock → no email). Optional generated coupon `VUELVE-XXXXXX`: single use,
+  personal (`Coupon.customerEmail` — `lib/coupons.js` answers
+  `403 COUPON_NOT_FOR_YOU` to anyone else), `source: "abandoned_cart"`;
+  deleted if the email fails. Unsubscribe link → `GET /unsubscribe?token=`
+  (HTML page with a POST button, so link scanners can't unsubscribe anyone;
+  JWT `email_preferences`). Admin: `GET/PUT /abandoned/settings`,
+  `GET /abandoned/stats`.
 - `modules/media.js` — admin media library over the `uploads/` folder
   (`/api/media`): lists files from disk, uploads images/GIF/MP4/WebM, edits
   title + alt text (stored in the `Media` collection, the file itself is never
