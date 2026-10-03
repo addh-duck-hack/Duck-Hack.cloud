@@ -5,12 +5,21 @@
 // backend real — POST /api/orders/public (packages/core-api/modules/orders.js,
 // mergeado desde feature-store-mods) — precios y disponibilidad se recalculan
 // server-side, este hook nunca los manda.
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+//
+// Con sesión, además, el carrito se guarda en el servidor (GET/PUT /api/cart,
+// packages/core-api/modules/cart.js) para que sobreviva entre dispositivos y
+// para el correo de carrito abandonado (ver "Sincronización" más abajo).
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch } from '../utils/apiClient';
-import { getAuthHeader } from './useAuth';
+import { getAuthHeader, useAuth } from './useAuth';
 import { useStoreConfig } from './useStoreConfig';
+import { normalizeApiProduct } from './useProducts';
 
 const STORAGE_KEY = 'tacita.cart.v1';
+// De quién es el carrito del navegador y si tiene cambios sin guardar en el
+// servidor: { owner: userId | null, dirty: boolean }.
+const SYNC_KEY = 'tacita.cart.sync.v1';
+const SYNC_DELAY_MS = 1000;
 
 // Envío según StoreConfig.shipping (lo configura el admin en "Pagos y
 // ventas"), mismo cálculo que packages/core-api/lib/shipping.js: si la tienda
@@ -100,6 +109,79 @@ const capsOf = (lines, item, exceptKey) => {
 export const lineSavingOf = (line) =>
   line?.compareAtPrice > line?.price ? (line.compareAtPrice - line.price) * line.qty : 0;
 
+// Renglón de la canasta para un producto (normalizado, ver
+// useProducts.js#normalizeApiProduct), con su variante si la hay.
+const buildLine = (product, qty, options = {}, variant = null) => {
+  const sellable = variant
+    ? { ...product, price: variant.price, compareAtPrice: variant.compareAtPrice, maxQty: variant.maxQty, image: variant.image || product.image }
+    : product;
+  return {
+    key: lineKey(product.id, options),
+    id: product.id,
+    ...(variant ? { variantId: variant.id } : {}),
+    name: product.name,
+    meta: product.meta || '',
+    category: product.category,
+    image: sellable.image || '',
+    price: Number(sellable.price),
+    compareAtPrice: compareAtOf(sellable),
+    maxQty: sellable.maxQty,
+    purchaseLimit: sellable.purchaseLimit,
+    options,
+    qty,
+  };
+};
+
+// ---- Sincronización con el servidor (solo con sesión) ----
+// Solo se guardan productos reales (id de Mongo): las líneas del catálogo de
+// muestra y las de opciones sin variante se quedan en el navegador.
+const isSyncable = (line) => /^[a-f0-9]{24}$/i.test(String(line.id)) && (line.variantId || !optionsKey(line.options));
+const toPayloadItems = (lines) =>
+  lines.filter(isSyncable).map((l) => ({ product: l.id, variant: l.variantId || null, quantity: l.qty }));
+
+// Renglones del servidor → líneas de la canasta (el servidor ya trae el
+// producto como el catálogo público).
+const linesFromServer = (items) =>
+  (items || [])
+    .map((item) => {
+      const product = normalizeApiProduct(item.product);
+      if (!item.variant) return buildLine(product, item.quantity, {});
+      const variant = product.variants.find((v) => String(v.id) === String(item.variant));
+      if (!variant) return null;
+      const options = Object.fromEntries((product.options || []).map((o, i) => [o.name, variant.optionValues[i]]));
+      return buildLine(product, item.quantity, options, variant);
+    })
+    .filter(Boolean);
+
+// Une el carrito del navegador con el guardado: mismas líneas suman
+// cantidades sin pasar de los topes (capsOf).
+const mergeLines = (serverLines, localLines) => {
+  let merged = [...serverLines];
+  for (const local of localLines) {
+    const existing = merged.find((l) => l.key === local.key);
+    const room = capsOf(merged, existing || local).room;
+    const add = Math.min(local.qty, room);
+    if (existing) merged = merged.map((l) => (l.key === local.key ? { ...l, qty: l.qty + add } : l));
+    else if (add > 0) merged = [...merged, { ...local, qty: add }];
+  }
+  return merged;
+};
+
+const readSync = () => {
+  try {
+    return JSON.parse(localStorage.getItem(SYNC_KEY)) || { owner: null, dirty: false };
+  } catch {
+    return { owner: null, dirty: false };
+  }
+};
+const writeSync = (value) => {
+  try {
+    localStorage.setItem(SYNC_KEY, JSON.stringify(value));
+  } catch {
+    // sin persistencia: la sincronización sigue en memoria
+  }
+};
+
 const readStored = () => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -143,6 +225,7 @@ export const CartProvider = ({ children }) => {
           image: variant.image || product.image,
         }
       : product;
+    // (buildLine arma la línea nueva con estos mismos datos.)
     setLines((prev) => {
       const toAdd = Math.min(qty, capsOf(prev, sellable).room);
       if (toAdd <= 0) return prev;
@@ -163,24 +246,7 @@ export const CartProvider = ({ children }) => {
             : l
         );
       }
-      return [
-        ...prev,
-        {
-          key,
-          id: product.id,
-          ...(variant ? { variantId: variant.id } : {}),
-          name: product.name,
-          meta: product.meta || '',
-          category: product.category,
-          image: sellable.image || '',
-          price: Number(sellable.price),
-          compareAtPrice: compareAtOf(sellable),
-          maxQty: sellable.maxQty,
-          purchaseLimit: sellable.purchaseLimit,
-          options,
-          qty: toAdd,
-        },
-      ];
+      return [...prev, buildLine(product, toAdd, options, variant)];
     });
   }, []);
 
@@ -218,7 +284,97 @@ export const CartProvider = ({ children }) => {
     setLines((prev) => prev.filter((l) => l.key !== key));
   }, []);
 
-  const clear = useCallback(() => setLines([]), []);
+  // Lo guardado en el servidor que hoy no se puede comprar (agotado,
+  // inactivo): no se muestra, pero se reenvía en cada guardado para no
+  // perderlo (reaparece si vuelve a haber existencias). Vaciar la canasta (p.
+  // ej. al terminar un pedido) lo descarta.
+  const serverUnavailableRef = useRef([]);
+
+  const clear = useCallback(() => {
+    serverUnavailableRef.current = [];
+    setLines([]);
+  }, []);
+
+  // ---- Sincronización con el servidor ----
+  // Al iniciar sesión (o al cargar la página ya con sesión) se lee el carrito
+  // guardado:
+  //   - si el del navegador era de nadie (o de otra cuenta): se unen
+  //     (cantidades sumadas respetando topes) y se guarda;
+  //   - si ya era de esta cuenta: manda el servidor (pudo cambiar en otro
+  //     dispositivo), salvo que hubiera cambios locales sin guardar.
+  // Después, cada cambio se guarda a los SYNC_DELAY_MS del último. Al cerrar
+  // sesión se vacía la canasta del navegador (sigue guardada en la cuenta).
+  const { isAuthenticated, user } = useAuth();
+  const userId = isAuthenticated ? String(user?._id || '') : '';
+  const linesRef = useRef(lines);
+  linesRef.current = lines;
+  const syncReadyRef = useRef(false);
+
+  const pushToServer = useCallback(async (currentLines) => {
+    const items = [...toPayloadItems(currentLines), ...serverUnavailableRef.current.map((u) => ({ ...u, quantity: u.quantity || 1 }))];
+    const data = await apiFetch('/api/cart', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify({ items }),
+    });
+    writeSync({ owner: userId, dirty: false });
+    return data;
+  }, [userId]);
+
+  useEffect(() => {
+    syncReadyRef.current = false;
+    const sync = readSync();
+    if (!userId) {
+      // Se cerró la sesión con una canasta de cuenta: se limpia el navegador.
+      if (sync.owner) {
+        serverUnavailableRef.current = [];
+        setLines([]);
+        writeSync({ owner: null, dirty: false });
+      }
+      return undefined;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await apiFetch('/api/cart', { headers: getAuthHeader() });
+        if (cancelled) return;
+        const serverLines = linesFromServer(data.items);
+        // Cantidades de lo no disponible: las del carrito guardado no vienen en
+        // `unavailable`, así que se conserva 1 (solo importa no perderlo).
+        serverUnavailableRef.current = (data.unavailable || []).map((u) => ({ product: u.product, variant: u.variant, quantity: 1 }));
+        const local = linesRef.current;
+        const localOnly = local.filter((l) => !isSyncable(l));
+        if (sync.owner === userId && !sync.dirty) {
+          setLines([...serverLines, ...localOnly]);
+          writeSync({ owner: userId, dirty: false });
+        } else {
+          const base = sync.owner === userId ? [] : serverLines;
+          const merged = mergeLines(base, local.filter(isSyncable));
+          setLines([...merged, ...localOnly]);
+          await pushToServer(merged);
+        }
+        if (!cancelled) syncReadyRef.current = true;
+      } catch {
+        // Sin conexión o sesión vencida: la canasta sigue en el navegador y se
+        // intenta de nuevo en la siguiente carga.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId || !syncReadyRef.current) return undefined;
+    writeSync({ owner: userId, dirty: true });
+    const timer = setTimeout(() => {
+      pushToServer(linesRef.current).catch(() => {
+        // queda "dirty": se reintenta en la siguiente carga
+      });
+    }, SYNC_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [lines, userId, pushToServer]);
 
   // Cantidad y ajuste de la línea SIN opciones de un producto — para el
   // selector +/− de las tarjetas de la tienda (ProductCard). Un producto con
