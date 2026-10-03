@@ -3337,6 +3337,111 @@ paths:
         "200":
           description: Vacío
 
+  /api/cart/unsubscribe:
+    get:
+      tags: [Cart]
+      summary: Página para dejar de recibir el correo de carrito abandonado
+      operationId: getCartUnsubscribePage
+      security: []
+      description: >-
+        Enlace del correo (token JWT `email_preferences`, 180 días). Devuelve una página HTML
+        con un botón que hace POST: abrir el enlace (p. ej. un antivirus) no da de baja a nadie.
+      parameters:
+        - { in: query, name: token, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Página HTML con el botón
+          content: { text/html: { schema: { type: string } } }
+        "400":
+          description: Enlace no válido o vencido (HTML)
+    post:
+      tags: [Cart]
+      summary: Dejar de recibir el correo de carrito abandonado
+      operationId: postCartUnsubscribe
+      security: []
+      description: Pone User.emailPreferences.abandonedCart = false. Los correos de pedidos y citas no se afectan.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                token: { type: string }
+              required: [token]
+      responses:
+        "200":
+          description: Confirmación (HTML)
+          content: { text/html: { schema: { type: string } } }
+        "400":
+          description: Enlace no válido o vencido (HTML)
+
+  /api/cart/abandoned/settings:
+    get:
+      tags: [Cart]
+      summary: Ajustes del carrito abandonado
+      operationId: getAbandonedCartSettings
+      description: Módulo `abandonedCart`.
+      responses:
+        "200":
+          description: Ajustes efectivos
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AbandonedCartSettings" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    put:
+      tags: [Cart]
+      summary: Guardar ajustes del carrito abandonado
+      operationId: updateAbandonedCartSettings
+      description: Módulo `abandonedCart`. Solo cambia lo que se manda.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AbandonedCartSettings" }
+      responses:
+        "200":
+          description: Guardado
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/cart/abandoned/stats:
+    get:
+      tags: [Cart]
+      summary: Cifras del carrito abandonado
+      operationId: getAbandonedCartStats
+      description: >-
+        Módulo `abandonedCart`. Últimos 30 días: correos enviados, compras recuperadas (compra
+        con sesión dentro de 7 días del correo) y monto; carritos que hoy cumplen para correo;
+        los 20 correos más recientes con su resultado.
+      responses:
+        "200":
+          description: Cifras
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  last30Days:
+                    type: object
+                    properties:
+                      sent: { type: integer }
+                      recovered: { type: integer }
+                      recoveredTotal: { type: number }
+                  waiting: { type: integer }
+                  recent:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        customer: { type: object, nullable: true, properties: { name: { type: string }, email: { type: string } } }
+                        remindedAt: { type: string, format: date-time }
+                        coupon: { type: string }
+                        items: { type: integer }
+                        recoveredAt: { type: string, format: date-time, nullable: true }
+                        recoveredTotal: { type: number, nullable: true }
+
   /api/coupons/validate:
     post:
       tags: [Coupons]
@@ -3394,6 +3499,8 @@ paths:
           description: COUPON_REQUIRED, COUPON_NOT_STARTED, COUPON_EXPIRED, COUPON_MIN_PURCHASE o COUPON_NOT_APPLICABLE (envío gratis en pedido para recoger)
         "404":
           description: COUPON_NOT_FOUND (no existe o inactivo)
+        "403":
+          description: COUPON_NOT_FOR_YOU (cupón personal de otro correo, p. ej. el del carrito abandonado)
         "409":
           description: COUPON_EXHAUSTED o COUPON_LIMIT_PER_CUSTOMER
         "429":
@@ -4990,7 +5097,7 @@ components:
     PermissionModuleKey:
       type: string
       description: Módulo del panel sujeto a permisos por tienda
-      enum: [panel, storeConfig, appConfig, services, appointments, reminders, products, inventory, orders, coupons, reviews, media, users, agencyClients, accounting, invoices]
+      enum: [panel, storeConfig, appConfig, services, appointments, reminders, products, inventory, orders, coupons, abandonedCart, reviews, media, users, agencyClients, accounting, invoices]
 
     StorePermissions:
       type: object
@@ -5528,6 +5635,13 @@ components:
           description: Libreta de direcciones — se gestiona con POST/PUT/DELETE /api/users/{id}/addresses[/{addressId}], nunca con PUT /api/users/{id}.
           items:
             $ref: "#/components/schemas/Address"
+        emailPreferences:
+          type: object
+          description: >-
+            Correos opcionales que acepta la cuenta. abandonedCart = recordatorio de carrito
+            abandonado (default true; se apaga con el enlace del correo o con PUT /api/users/{id}).
+          properties:
+            abandonedCart: { type: boolean }
         favorites:
           type: array
           description: >
@@ -5808,9 +5922,14 @@ components:
           maxLength: 80
         phone:
           type: string
-          description: Opcional — mándalo vacío para borrar el teléfono guardado.
+          description: Opcional, 10 dígitos de México — mándalo vacío para borrar el teléfono guardado.
         role:
           $ref: "#/components/schemas/Role"
+        emailPreferences:
+          type: object
+          description: "Correos opcionales (JSON, no multipart). abandonedCart: true/false."
+          properties:
+            abandonedCart: { type: boolean }
         profileImage:
           type: string
           format: binary
@@ -7107,6 +7226,25 @@ components:
             programada solo corre si está contratado). Una vez por cita; reprogramar lo reinicia.
         reminderHoursBefore: { type: integer, minimum: 1, maximum: 72, description: Cuántas horas antes (24 por default). }
 
+    AbandonedCartSettings:
+      type: object
+      description: >-
+        Tarea programada cada 15 min (solo si el módulo `abandonedCart` está contratado y
+        `enabled`): un correo por abandono a clientes verificados que no se dieron de baja,
+        con el carrito sin cambios por `delayHours` y de menos de 7 días; omite agotados.
+      properties:
+        enabled: { type: boolean }
+        delayHours: { type: integer, minimum: 1, maximum: 72 }
+        coupon:
+          type: object
+          description: Cupón generado por correo (VUELVE-XXXXXX), un solo uso y solo para ese cliente.
+          properties:
+            enabled: { type: boolean }
+            type: { type: string, enum: [amount, percent, free_shipping] }
+            value: { type: number }
+            minPurchase: { type: number, nullable: true }
+            validDays: { type: integer, minimum: 1, maximum: 60 }
+
     CartResponse:
       type: object
       properties:
@@ -7285,6 +7423,12 @@ components:
           description: Pedidos que lo usan, sin contar cancelados ni borrados.
         isActive:
           type: boolean
+        customerEmail:
+          type: string
+          description: Cupón personal (solo ese correo lo puede usar); lo ponen los cupones generados por el carrito abandonado.
+        source:
+          type: string
+          enum: [manual, abandoned_cart]
 
     CouponRequest:
       type: object

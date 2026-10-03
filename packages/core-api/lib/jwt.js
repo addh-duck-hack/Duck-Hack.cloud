@@ -9,6 +9,7 @@ const EMAIL_VERIFICATION_TOKEN_TYPE = "email_verification";
 const PASSWORD_RESET_TOKEN_TYPE = "password_reset";
 const ORDER_ACCESS_TOKEN_TYPE = "order_access";
 const APPOINTMENT_ACCESS_TOKEN_TYPE = "appointment_access";
+const EMAIL_PREFERENCES_TOKEN_TYPE = "email_preferences";
 // Opcionales (no están en requiredVars para no romper .env existentes).
 const DEFAULT_PASSWORD_RESET_EXPIRES_IN = "1h";
 const DEFAULT_ORDER_ACCESS_EXPIRES_IN = "30d";
@@ -219,8 +220,39 @@ const verifyAppointmentAccessToken = (token) => {
   return decoded;
 };
 
+// Enlace "No quiero recibir estos correos" (carrito abandonado,
+// modules/cart.js): solo sirve para apagar esa preferencia (`pref`) de esa
+// cuenta (`uid`). Vence en 180 días.
+const signEmailPreferencesToken = ({ userId, preference }) => {
+  const config = readJwtConfig();
+  return jwt.sign({ uid: String(userId), pref: preference, tokenType: EMAIL_PREFERENCES_TOKEN_TYPE }, config.secret, {
+    algorithm: JWT_ALGORITHM,
+    issuer: config.issuer,
+    audience: config.audience,
+    subject: String(userId),
+    expiresIn: "180d",
+  });
+};
+
+const verifyEmailPreferencesToken = (token) => {
+  const config = readJwtConfig();
+  const decoded = jwt.verify(token, config.secret, {
+    algorithms: [JWT_ALGORITHM],
+    issuer: config.issuer,
+    audience: config.audience,
+  });
+  if (decoded.tokenType !== EMAIL_PREFERENCES_TOKEN_TYPE) {
+    const error = new Error("Tipo de token inválido para preferencias de correo.");
+    error.code = "JWT_INVALID_TOKEN_TYPE";
+    throw error;
+  }
+  return decoded;
+};
+
 module.exports = {
   signAccessToken,
+  signEmailPreferencesToken,
+  verifyEmailPreferencesToken,
   signAppointmentAccessToken,
   verifyAppointmentAccessToken,
   signOrderAccessToken,

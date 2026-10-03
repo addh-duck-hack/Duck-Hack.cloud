@@ -29,6 +29,7 @@ import CategoryForm from "./components/CategoryForm";
 import CouponList from "./components/CouponList";
 import CouponForm from "./components/CouponForm";
 import ReviewList from "./components/ReviewList";
+import AbandonedCartPage from "./components/AbandonedCartPage";
 import ServiceList from "./components/ServiceList";
 import ServiceForm from "./components/ServiceForm";
 import SpecialistList from "./components/SpecialistList";
@@ -269,6 +270,10 @@ const AppRoutes = () => {
             <Route
               path="coupons/:id/edit"
               element={gate("coupons", <CouponForm />)}
+            />
+            <Route
+              path="abandoned-cart"
+              element={gate("abandonedCart", <AbandonedCartPage />)}
             />
             <Route
               path="reviews"

@@ -43,6 +43,11 @@ const resolveCoupon = async (connection, rawCode, { subtotal, customerEmail, del
   if (coupon.maxUses && coupon.usedCount >= coupon.maxUses) {
     return couponError(409, "COUPON_EXHAUSTED", "Ese cupón ya se usó el máximo de veces.");
   }
+  // Cupón personal (p. ej. el del correo de carrito abandonado).
+  const buyer = String(customerEmail || "").trim().toLowerCase();
+  if (coupon.customerEmail && buyer !== coupon.customerEmail) {
+    return couponError(403, "COUPON_NOT_FOR_YOU", "Este cupón es personal: úsalo con el correo al que te llegó (inicia sesión con esa cuenta).");
+  }
   if (coupon.type === "free_shipping" && deliveryMethod === "pickup") {
     return couponError(400, "COUPON_NOT_APPLICABLE", "Ese cupón es de envío gratis y tu pedido es para recoger.");
   }

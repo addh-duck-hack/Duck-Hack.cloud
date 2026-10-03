@@ -30,6 +30,10 @@ const CouponList = () => {
   const [coupons, setCoupons] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  // Los generados por el carrito abandonado pueden ser muchos: ocultos por default.
+  const [showAutomatic, setShowAutomatic] = useState(false);
+  const automaticCount = coupons.filter((c) => c.source === "abandoned_cart").length;
+  const visible = showAutomatic ? coupons : coupons.filter((c) => c.source !== "abandoned_cart");
 
   const baseUrl = getApiBaseUrl();
   const getAuthHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem("token")}` });
@@ -73,6 +77,13 @@ const CouponList = () => {
       </div>
       <p>Códigos de descuento que el cliente escribe en la canasta. Un cupón que ya se usó no se puede borrar: desactívalo.</p>
 
+      {automaticCount ? (
+        <label style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
+          <input type="checkbox" checked={showAutomatic} onChange={(e) => setShowAutomatic(e.target.checked)} style={{ width: "auto" }} />
+          Mostrar los {automaticCount} cupones automáticos (carrito abandonado)
+        </label>
+      ) : null}
+
       {error ? <div className="auth-error">{error}</div> : null}
 
       <div style={{ overflowX: "auto" }}>
@@ -89,18 +100,24 @@ const CouponList = () => {
             </tr>
           </thead>
           <tbody>
-            {!isLoading && coupons.length === 0 ? (
+            {!isLoading && visible.length === 0 ? (
               <tr>
                 <td colSpan={7}>Sin cupones registrados.</td>
               </tr>
             ) : null}
-            {coupons.map((c) => {
+            {visible.map((c) => {
               const status = couponStatus(c);
               return (
                 <tr key={c._id}>
                   <td>
                     <strong>{c.code}</strong>
-                    {c.description ? <small style={{ display: "block", opacity: 0.75 }}>{c.description}</small> : null}
+                    {c.source === "abandoned_cart" ? (
+                      <span className="badge badge-blue" style={{ marginLeft: "0.4rem" }}>
+                        Automático
+                      </span>
+                    ) : null}
+                    {c.customerEmail ? <small style={{ display: "block", opacity: 0.75 }}>Solo para {c.customerEmail}</small> : null}
+                    {c.description && !c.customerEmail ? <small style={{ display: "block", opacity: 0.75 }}>{c.description}</small> : null}
                   </td>
                   <td>{couponValueLabel(c)}</td>
                   <td>{c.minPurchase ? formatMxn(c.minPurchase) : "—"}</td>

@@ -31,6 +31,7 @@ const PERMISSION_MODULES = [
   { key: "inventory", label: "Inventario" },
   { key: "orders", label: "Pedidos" },
   { key: "coupons", label: "Cupones" },
+  { key: "abandonedCart", label: "Carrito abandonado" },
   { key: "reviews", label: "Reseñas" },
   { key: "media", label: "Medios" },
   { key: "users", label: "Usuarios" },

@@ -40,6 +40,11 @@ const couponSchema = new mongoose.Schema(
     // Lo maneja lib/coupons.js (pedidos que lo usan, sin contar cancelados).
     usedCount: { type: Number, min: 0, default: 0 },
     isActive: { type: Boolean, default: true },
+    // Cupón personal: solo lo puede usar este correo (lib/coupons.js). Lo
+    // ponen los cupones generados por el carrito abandonado (modules/cart.js).
+    customerEmail: { type: String, trim: true, lowercase: true, default: "" },
+    // De dónde salió: capturado en el admin o generado por el sistema.
+    source: { type: String, enum: ["manual", "abandoned_cart"], default: "manual" },
   },
   { timestamps: true }
 );
