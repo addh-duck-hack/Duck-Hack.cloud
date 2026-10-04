@@ -248,8 +248,8 @@ usuario admin.
 
 **`.env` en la raíz (obligatorio):** además de los `.env` de las 3 apps, copia
 `.env.example` de la raíz a `.env` y ponle un `STORE_SLUG` **único por tienda**. De
-ahí salen el nombre del proyecto Compose, los `container_name`, las redes internas y
-el volumen de uploads — sin esto, dos clones del repo en el mismo servidor chocan
+ahí salen el nombre del proyecto Compose, los `container_name` y el volumen de
+uploads — sin esto, dos clones del repo en el mismo servidor chocan
 (`container name … already in use`, `network/volume … created for project …`). El
 `STORE_SLUG` también es el hostname al que apuntan los Proxy Hosts de NPM
 (`<slug>.frontend-admin:8080`, `<slug>.frontend-user:8080`, `<slug>.backend:5000`).
@@ -352,5 +352,13 @@ Buenas prácticas:
     — el genérico devuelve varias IPs, el por-tienda una sola.
   - Comprueba qué bundle sirve un contenedor concreto:
     `docker exec <STORE_SLUG>.frontend-admin sh -c "grep -ohrE 'https://api[a-z.-]+' /usr/share/nginx/html/assets/*.js | sort -u"`.
+- `docker compose up` falla con `all predefined address pools have been fully subnetted`:
+  - Causa: Docker se quedó sin rangos de IP para redes nuevas (unas ~30 por host con la configuración por
+    defecto). Antes cada tienda creaba 3 redes internas (`<STORE_SLUG>.frontend-admin-net`, `.frontend-user-net`,
+    `.backend-net`); ya no — `docker-compose.yml` solo usa la red externa `npm`.
+  - Fix: trae el cambio de `main` a la tienda y borra las redes viejas que quedaron sin uso:
+    `docker network ls --filter name=-net` y `docker network rm <STORE_SLUG>.frontend-admin-net <STORE_SLUG>.frontend-user-net <STORE_SLUG>.backend-net`
+    (después del `up -d` con el compose nuevo ya no tienen contenedores). `docker network prune` borra todas
+    las que no usa ningún contenedor.
 - Login rechaza cuenta no verificada:
   - Completar flujo de verificación por correo (`/api/users/verify`).
