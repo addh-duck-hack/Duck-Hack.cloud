@@ -30,6 +30,7 @@ const AppointmentSettingsForm = () => {
           minNoticeHours: String(data.minNoticeMin / 60),
           maxDaysAhead: String(data.maxDaysAhead),
           reminderHoursBefore: String(data.reminderHoursBefore ?? 24),
+          reviewRequestHoursAfter: String(data.reviewRequestHoursAfter ?? 2),
           minHoursToChange: String(data.minHoursToChange),
         })
       )
@@ -55,6 +56,9 @@ const AppointmentSettingsForm = () => {
         emailCustomer: form.emailCustomer,
         emailBusiness: form.emailBusiness,
         ...(can("reminders") ? { reminderEnabled: form.reminderEnabled, reminderHoursBefore: Number(form.reminderHoursBefore) } : {}),
+        ...(can("reviews")
+          ? { reviewRequestEnabled: form.reviewRequestEnabled, reviewRequestHoursAfter: Number(form.reviewRequestHoursAfter) }
+          : {}),
         slotStepMin: Number(form.slotStepMin),
         minNoticeMin: Math.round(Number(form.minNoticeHours) * 60),
         maxDaysAhead: Number(form.maxDaysAhead),
@@ -161,6 +165,31 @@ const AppointmentSettingsForm = () => {
               Lleva "Confirmo mi asistencia" y "Reprogramar o cancelar". No se manda a citas agendadas o movidas dentro de ese plazo (ya
               recibieron su correo).
             </small>
+          </fieldset>
+        ) : null}
+
+        {can("reviews") ? (
+          <fieldset style={{ marginTop: "0.75rem" }}>
+            <legend>Calificación después de la cita</legend>
+            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <input type="checkbox" name="reviewRequestEnabled" checked={form.reviewRequestEnabled} onChange={handleChange} style={{ width: "auto" }} />
+              Pedir por correo que califiquen la cita cuando se marca como completada
+            </label>
+            <label style={{ maxWidth: 260 }}>
+              Cuántas horas después de terminar
+              <input
+                type="number"
+                name="reviewRequestHoursAfter"
+                min="1"
+                max="72"
+                step="1"
+                value={form.reviewRequestHoursAfter}
+                onChange={handleChange}
+                disabled={!form.reviewRequestEnabled}
+                required
+              />
+            </label>
+            <small>Una sola vez por cita. Las calificaciones llegan a Reseñas → Citas para aprobarlas y, si quieres, publicarlas como testimonio.</small>
           </fieldset>
         ) : null}
 

@@ -184,17 +184,25 @@ const renderShippingLineText = (order) => (order.shippingCost > 0 ? `\n- Envío 
 // Fila del cupón (Order.discount, lib/coupons.js): el descuento en negativo o,
 // si fue de envío gratis, el aviso con $0.
 const discountLabelOf = (discount) => `Cupón ${discount.code}${discount.type === "free_shipping" ? " (envío gratis)" : ""}`;
+// Renglones de descuento antes del envío: cupón y puntos de lealtad usados.
+const discountRowsOf = (order) =>
+  [
+    order.discount?.code ? { label: discountLabelOf(order.discount), amount: order.discount.amount || 0 } : null,
+    order.loyalty?.redeemed > 0 ? { label: "Puntos usados", amount: order.loyalty.redeemed } : null,
+  ].filter(Boolean);
 const renderDiscountRowHtml = (order, textColor, textDimColor) =>
-  order.discount?.code
-    ? `<tr>
-    <td colspan="3" style="padding:8px 0; font-family:${bodyFont}; font-size:14px; color:${textDimColor}; border-bottom:1px solid ${BRAND.line};">${escapeHtml(discountLabelOf(order.discount))}</td>
-    <td style="padding:8px 0; font-family:${bodyFont}; font-size:14px; color:${textColor}; border-bottom:1px solid ${BRAND.line}; text-align:right;">${order.discount.amount > 0 ? `−${formatCurrency(order.discount.amount)}` : formatCurrency(0)}</td>
+  discountRowsOf(order)
+    .map(
+      (row) => `<tr>
+    <td colspan="3" style="padding:8px 0; font-family:${bodyFont}; font-size:14px; color:${textDimColor}; border-bottom:1px solid ${BRAND.line};">${escapeHtml(row.label)}</td>
+    <td style="padding:8px 0; font-family:${bodyFont}; font-size:14px; color:${textColor}; border-bottom:1px solid ${BRAND.line}; text-align:right;">${row.amount > 0 ? `−${formatCurrency(row.amount)}` : formatCurrency(0)}</td>
   </tr>`
-    : "";
+    )
+    .join("");
 const renderDiscountLineText = (order) =>
-  order.discount?.code
-    ? `\n- ${discountLabelOf(order.discount)} — ${order.discount.amount > 0 ? `−${formatCurrency(order.discount.amount)}` : formatCurrency(0)}`
-    : "";
+  discountRowsOf(order)
+    .map((row) => `\n- ${row.label} — ${row.amount > 0 ? `−${formatCurrency(row.amount)}` : formatCurrency(0)}`)
+    .join("");
 
 const renderOrderItemLineText = (item) => {
   const priceText = item.compareAtPrice && item.compareAtPrice > item.unitPrice
@@ -780,6 +788,73 @@ const appointmentBusinessEmailTemplate = ({ kind, appointment, when, previousWhe
   return { subject: config.subject(appointment), html, text };
 };
 
+// Aviso de favoritos (Fase 4.3, modules/wishlist.js): un favorito agotado
+// volvió a estar disponible. product: { name, price, fromPrice, imageUrl }.
+// Correo de marketing: lleva el enlace para darse de baja.
+const wishlistBackInStockEmailTemplate = ({ branding, name, product, productUrl, unsubscribeUrl }) => {
+  const store = branding.storeName || "Duck-Hack";
+  const color = branding.accent && /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/.test(branding.accent) ? branding.accent : BRAND.action;
+  const safeName = escapeHtml(name || "");
+  const price = `${product.fromPrice ? "Desde " : ""}${formatCurrency(product.price)}`;
+  const html = `<!DOCTYPE html>
+<html lang="es">
+  <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Ya está disponible - ${escapeHtml(store)}</title></head>
+  <body style="margin:0; padding:0; background-color:${BRAND.ink}; font-family:${bodyFont};">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${BRAND.ink};">
+      <tr><td align="center" style="padding:40px 16px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
+          ${renderOrderEmailHeader(store, branding.logoUrl)}
+          <tr><td style="background-color:${BRAND.panel}; border-radius:12px; padding:32px;">
+            <h1 style="margin:0 0 16px; font-family:${monoFont}; font-size:20px; color:${BRAND.white}; font-weight:700;">¡Ya está disponible!</h1>
+            <p style="margin:0 0 20px; font-family:${bodyFont}; font-size:15px; line-height:1.6; color:${BRAND.textDim};">${safeName ? `Hola ${safeName}, u` : "U"}n producto de tus favoritos volvió a tener existencias:</p>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+              ${product.imageUrl ? `<td width="96" style="padding:0 16px 0 0;"><img src="${product.imageUrl}" width="88" height="88" alt="" style="display:block; border-radius:10px; object-fit:cover;" /></td>` : ""}
+              <td style="font-family:${bodyFont}; font-size:16px; color:${BRAND.white};">
+                <strong>${escapeHtml(product.name)}</strong><br />
+                <span style="color:${BRAND.textDim}; font-size:14px;">${price}</span>
+              </td>
+            </tr></table>
+            ${productUrl ? ctaButtonHtml("Verlo en la tienda", productUrl, color) : ""}
+            <p style="margin:16px 0 0; font-family:${bodyFont}; font-size:12px; color:${BRAND.textDim};">Las existencias pueden agotarse de nuevo; se confirman al pagar.</p>
+          </td></tr>
+          <tr><td align="center" style="padding-top:24px;">
+            ${unsubscribeUrl ? `<p style="margin:0; font-family:${bodyFont}; font-size:12px; color:${BRAND.textDim};"><a href="${unsubscribeUrl}" style="color:${BRAND.textDim};">No quiero recibir avisos de mis favoritos</a></p>` : ""}
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+  const text = `${safeName ? `Hola ${name},\n\n` : ""}Un producto de tus favoritos en ${store} volvió a estar disponible:
+
+${product.name} — ${price}
+${productUrl ? `\nVerlo en la tienda: ${productUrl}\n` : ""}
+Las existencias pueden agotarse de nuevo; se confirman al pagar.
+${unsubscribeUrl ? `\nNo quiero recibir avisos de mis favoritos: ${unsubscribeUrl}` : ""}`;
+  return { subject: `¡Ya está disponible! ${product.name} — ${store}`, html, text };
+};
+
+// Reseña post-cita (Fase 4.2): invitación a calificar una cita completada.
+const appointmentReviewRequestEmailTemplate = ({ appointment, when, branding, rateUrl }) => {
+  const store = branding.storeName || "Duck-Hack";
+  const { html, text } = accountActionEmailTemplate({
+    ...branding,
+    title: "¿Cómo te fue en tu cita?",
+    name: appointment.customerName,
+    intro: `Gracias por visitarnos en ${store}. Nos encantaría saber qué te pareció: calificar te toma un minuto.`,
+    details: [
+      { label: "Cuándo", value: when },
+      { label: "Servicios", value: appointment.services.map((s) => s.name).join(" + ") },
+      { label: "Con", value: appointment.specialistName },
+    ],
+    ctaLabel: "Calificar mi cita",
+    url: rateUrl,
+    note: "Tu opinión nos ayuda a mejorar y a que más personas nos conozcan.",
+    footnote: `${store}`,
+  });
+  return { subject: `¿Cómo te fue en tu cita? — ${store}`, html, text };
+};
+
 // ---- Carrito abandonado (Fase 3.4, modules/cart.js) ----
 // items: [{ name, variantLabel, qty, price, imageUrl }] con precios actuales;
 // coupon (opcional): { code, label, endsAt (texto) }. Correo de marketing:
@@ -847,7 +922,45 @@ ${unsubscribeUrl ? `No quiero recibir estos recordatorios: ${unsubscribeUrl}` : 
   return { subject: `Tu carrito te espera — ${store}`, html, text };
 };
 
+// ---- Lealtad (Fase 4.1, modules/loyalty.js) ----
+const loyaltyRewardEmailTemplate = ({ branding, name, reward, goal }) => {
+  const store = branding.storeName || "Duck-Hack";
+  const { html, text } = accountActionEmailTemplate({
+    ...branding,
+    title: "¡Completaste tu tarjeta!",
+    name,
+    intro: `Juntaste ${goal} sellos en ${store}. Tu beneficio ya está listo:`,
+    details: [{ label: "Beneficio", value: reward }],
+    note: "Pídelo en tu próxima visita; lo aplicamos en el momento.",
+    footnote: `Gracias por tu preferencia — ${store}`,
+  });
+  return { subject: `¡Completaste tu tarjeta! — ${store}`, html, text };
+};
+
+// kind: "warning" (vencen pronto) | "expired" (ya vencieron).
+const loyaltyExpiryEmailTemplate = ({ kind, branding, name, points, expiresOn, shopUrl }) => {
+  const store = branding.storeName || "Duck-Hack";
+  const amount = formatCurrency(points);
+  const warning = kind === "warning";
+  const { html, text } = accountActionEmailTemplate({
+    ...branding,
+    title: warning ? "Tus puntos están por vencer" : "Tus puntos vencieron",
+    name,
+    intro: warning
+      ? `Tienes ${amount} en puntos en ${store} y vencen el ${expiresOn}. Úsalos en tu próxima compra.`
+      : `Tus ${amount} en puntos de ${store} vencieron por falta de movimiento. ¡Con tu próxima compra empiezas a juntar de nuevo!`,
+    ctaLabel: warning ? "Ir a la tienda" : undefined,
+    url: warning ? shopUrl || undefined : undefined,
+    footnote: `Puntos de lealtad — ${store}`,
+  });
+  return { subject: warning ? `Tus puntos vencen pronto — ${store}` : `Tus puntos vencieron — ${store}`, html, text };
+};
+
 module.exports = {
+  wishlistBackInStockEmailTemplate,
+  appointmentReviewRequestEmailTemplate,
+  loyaltyRewardEmailTemplate,
+  loyaltyExpiryEmailTemplate,
   abandonedCartEmailTemplate,
   appointmentEmailTemplate,
   appointmentBusinessEmailTemplate,

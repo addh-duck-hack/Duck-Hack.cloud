@@ -45,10 +45,20 @@ tags:
       especialista (la ligada a su cuenta) y bloquea su propio horario.
   - name: Cart
     description: Carrito guardado en el servidor para usuarios con sesión (sin permisos; cada quien el suyo)
+  - name: PromoBanners
+    description: Banners de promociones con fechas y destino (módulo promoBanner de los permisos por tienda)
+  - name: Wishlist
+    description: >-
+      Aviso "volvió a estar disponible" de los favoritos (módulo wishlist). Una tarea programada
+      (cada 15 min) avisa por correo cuando un favorito agotado vuelve a tener existencias.
   - name: Coupons
     description: Cupones de descuento (módulo coupons de los permisos por tienda)
   - name: Reviews
-    description: Reseñas de producto (moderación = módulo reviews de los permisos por tienda)
+    description: Reseñas de producto y de cita (moderación = módulo reviews de los permisos por tienda)
+  - name: Loyalty
+    description: >-
+      Lealtad (módulo loyalty): puntos por compra pagada (1 punto = $1, canjeables en el
+      checkout) y tarjeta de sellos por cita completada. Cada programa con su interruptor.
   - name: StoreConfig
   - name: Permissions
     description: Permisos por tienda — módulos contratados y qué puede usar cada rol (solo super_admin los configura)
@@ -3376,6 +3386,285 @@ paths:
         "400":
           description: Enlace no válido o vencido (HTML)
 
+  /api/promo-banners/public:
+    get:
+      tags: [PromoBanners]
+      summary: Banners vigentes para el sitio
+      operationId: listPublicPromoBanners
+      security: []
+      description: >-
+        Activos, dentro de sus fechas y con destino vigente, por `sortOrder` (máx. 20). Con
+        `placement` solo los de ese lugar más los de "all". Un banner cuyo destino ya no sirve
+        (categoría borrada u oculta; cupón apagado, vencido, agotado, aún no vigente o personal)
+        no sale. Las imágenes son rutas relativas (uploads/...).
+      parameters:
+        - { in: query, name: placement, schema: { type: string, enum: [home, shop] } }
+      responses:
+        "200":
+          description: Banners
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        _id: { type: string }
+                        title: { type: string }
+                        text: { type: string }
+                        image: { type: string }
+                        mobileImage: { type: string }
+                        buttonLabel: { type: string, description: "Vacío si target.type es none." }
+                        placement: { type: string, enum: [home, shop, all] }
+                        endsAt: { type: string, format: date-time, nullable: true }
+                        target: { $ref: "#/components/schemas/PromoBannerTarget" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/promo-banners/options:
+    get:
+      tags: [PromoBanners]
+      summary: Destinos para el formulario del banner
+      operationId: getPromoBannerOptions
+      description: >-
+        Módulo `promoBanner` (sin pedir Productos ni Cupones). Categorías de productos visibles y
+        cupones que se pueden anunciar (no personales, activos, sin vencer ni agotar; incluye
+        los programados).
+      responses:
+        "200":
+          description: Opciones
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  categories:
+                    type: array
+                    items: { type: object, properties: { _id: { type: string }, name: { type: string }, slug: { type: string } } }
+                  coupons:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        code: { type: string }
+                        label: { type: string }
+                        startsAt: { type: string, format: date-time, nullable: true }
+                        endsAt: { type: string, format: date-time, nullable: true }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/promo-banners:
+    get:
+      tags: [PromoBanners]
+      summary: Lista de banners (staff)
+      operationId: listPromoBanners
+      description: Módulo `promoBanner`. Todos, con estado por fechas y si el destino ya no sirve.
+      responses:
+        "200":
+          description: Banners
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/PromoBanner" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [PromoBanners]
+      summary: Crear banner
+      operationId: createPromoBanner
+      description: >-
+        Módulo `promoBanner`. Requiere `title` e `image`. Al guardar, la categoría debe existir
+        (de productos) y el cupón también y no ser personal; que después venza solo lo oculta.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PromoBannerRequest" }
+      responses:
+        "201":
+          description: "Creado: `{ message, banner }`"
+        "400":
+          description: VALIDATION_ERROR, CATEGORY_NOT_FOUND, COUPON_NOT_FOUND o COUPON_IS_PERSONAL
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/promo-banners/{id}:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string } }
+    get:
+      tags: [PromoBanners]
+      summary: Un banner (staff)
+      operationId: getPromoBanner
+      responses:
+        "200":
+          description: Banner
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PromoBanner" }
+        "404":
+          description: PROMO_BANNER_NOT_FOUND
+    put:
+      tags: [PromoBanners]
+      summary: Editar banner (parcial)
+      operationId: updatePromoBanner
+      description: Solo cambia lo que se manda; las reglas se revisan sobre el banner ya combinado.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PromoBannerRequest" }
+      responses:
+        "200":
+          description: "Actualizado: `{ message, banner }`"
+        "400":
+          description: VALIDATION_ERROR, CATEGORY_NOT_FOUND, COUPON_NOT_FOUND o COUPON_IS_PERSONAL
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: PROMO_BANNER_NOT_FOUND
+    delete:
+      tags: [PromoBanners]
+      summary: Eliminar banner
+      operationId: deletePromoBanner
+      responses:
+        "200":
+          description: Eliminado
+        "404":
+          description: PROMO_BANNER_NOT_FOUND
+
+  /api/wishlist/unsubscribe:
+    get:
+      tags: [Wishlist]
+      summary: Página para dejar de recibir el aviso de favoritos
+      operationId: getWishlistUnsubscribePage
+      security: []
+      description: >-
+        Enlace del correo (token JWT `email_preferences` con pref "wishlist", 180 días). Página
+        HTML con un botón que hace POST: abrir el enlace no da de baja a nadie.
+      parameters:
+        - { in: query, name: token, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Página HTML con el botón
+          content: { text/html: { schema: { type: string } } }
+        "400":
+          description: Enlace no válido o vencido (HTML)
+    post:
+      tags: [Wishlist]
+      summary: Dejar de recibir el aviso de favoritos
+      operationId: postWishlistUnsubscribe
+      security: []
+      description: Pone User.emailPreferences.wishlist = false. Los demás correos no se afectan.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                token: { type: string }
+              required: [token]
+      responses:
+        "200":
+          description: Confirmación (HTML)
+          content: { text/html: { schema: { type: string } } }
+        "400":
+          description: Enlace no válido o vencido (HTML)
+
+  /api/wishlist/settings:
+    get:
+      tags: [Wishlist]
+      summary: Ajustes del aviso de favoritos
+      operationId: getWishlistSettings
+      description: Módulo `wishlist`.
+      responses:
+        "200":
+          description: Ajustes
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WishlistSettings" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    put:
+      tags: [Wishlist]
+      summary: Encender o apagar el aviso de favoritos
+      operationId: updateWishlistSettings
+      description: Módulo `wishlist`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WishlistSettings" }
+      responses:
+        "200":
+          description: "Guardado: `{ message, settings }`"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/wishlist/stats:
+    get:
+      tags: [Wishlist]
+      summary: Cifras del aviso de favoritos
+      operationId: getWishlistStats
+      description: >-
+        Módulo `wishlist`. Avisos enviados en 30 días (sin los omitidos) y a cuántos clientes,
+        totales de favoritos, los 20 avisos más recientes y los 20 productos más guardados en
+        favoritos con sus existencias (suma de inventario) y si hoy se pueden comprar.
+      responses:
+        "200":
+          description: Cifras
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  last30Days:
+                    type: object
+                    properties:
+                      sent: { type: integer }
+                      customers: { type: integer }
+                  favorites:
+                    type: object
+                    properties:
+                      customers: { type: integer }
+                      total: { type: integer }
+                  recent:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        customer: { type: object, nullable: true, properties: { name: { type: string }, email: { type: string } } }
+                        product: { type: object, nullable: true, properties: { _id: { type: string }, name: { type: string } } }
+                        sentAt: { type: string, format: date-time }
+                  topProducts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        product:
+                          type: object
+                          properties:
+                            _id: { type: string }
+                            name: { type: string }
+                            image: { type: string }
+                            isActive: { type: boolean }
+                        favorites: { type: integer }
+                        stock: { type: number }
+                        available: { type: boolean }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /api/cart/abandoned/settings:
     get:
       tags: [Cart]
@@ -3591,6 +3880,198 @@ paths:
         "409":
           description: COUPON_IN_USE
 
+  /api/loyalty/me:
+    get:
+      tags: [Loyalty]
+      summary: Mis puntos y sellos
+      operationId: getMyLoyalty
+      description: >-
+        Cualquier usuario con sesión. `programs` solo trae activo un programa si el módulo
+        `loyalty` está contratado y el programa encendido (si no, `{ enabled: false }`).
+        Últimos 20 movimientos.
+      responses:
+        "200":
+          description: Saldo, reglas y movimientos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  programs: { $ref: "#/components/schemas/LoyaltyPrograms" }
+                  account:
+                    type: object
+                    properties:
+                      points: { type: number }
+                      stamps: { type: integer }
+                      rewardsAvailable: { type: integer }
+                      pointsExpireAt: { type: string, format: date-time, nullable: true, description: "null = no vencen (o no hay saldo)." }
+                  ledger:
+                    type: array
+                    items: { $ref: "#/components/schemas/LoyaltyLedgerEntry" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/loyalty/settings:
+    get:
+      tags: [Loyalty]
+      summary: Ajustes de lealtad
+      operationId: getLoyaltySettings
+      description: Módulo `loyalty`.
+      responses:
+        "200":
+          description: Ajustes efectivos
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LoyaltySettings" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    put:
+      tags: [Loyalty]
+      summary: Guardar ajustes de lealtad
+      operationId: updateLoyaltySettings
+      description: Módulo `loyalty`. Solo cambia lo que se manda.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoyaltySettings" }
+      responses:
+        "200":
+          description: Guardado (`{ message, settings }`)
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/loyalty/accounts:
+    get:
+      tags: [Loyalty]
+      summary: Buscar cuentas de lealtad
+      operationId: listLoyaltyAccounts
+      description: >-
+        Módulo `loyalty`. Con `q` busca clientes (rol customer) por nombre o correo, tengan o
+        no saldo (máx. 30); sin `q`, las 50 cuentas con más saldo.
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string, maxLength: 80 }
+      responses:
+        "200":
+          description: Cuentas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        customer: { type: object, properties: { _id: { type: string }, name: { type: string }, email: { type: string } } }
+                        points: { type: number }
+                        stamps: { type: integer }
+                        rewardsAvailable: { type: integer }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/loyalty/accounts/{customerId}:
+    get:
+      tags: [Loyalty]
+      summary: Cuenta de lealtad de un cliente
+      operationId: getLoyaltyAccount
+      description: Módulo `loyalty`. Con los últimos 100 movimientos (`by` = quién hizo el ajuste).
+      parameters:
+        - $ref: "#/components/parameters/LoyaltyCustomerId"
+      responses:
+        "200":
+          description: Cuenta
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LoyaltyAccountDetail" }
+        "404":
+          description: Cliente no encontrado (CUSTOMER_NOT_FOUND)
+
+  /api/loyalty/accounts/{customerId}/adjust:
+    post:
+      tags: [Loyalty]
+      summary: Ajuste manual de puntos o sellos
+      operationId: adjustLoyaltyAccount
+      description: >-
+        Módulo `loyalty`. Motivo obligatorio; los sellos van en enteros. Un ajuste que dejaría el
+        saldo negativo → `409 INSUFFICIENT_BALANCE`.
+      parameters:
+        - $ref: "#/components/parameters/LoyaltyCustomerId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [program, delta, note]
+              properties:
+                program: { type: string, enum: [points, stamps] }
+                delta: { type: number, description: "Positivo suma, negativo resta; distinto de 0." }
+                note: { type: string, maxLength: 300 }
+      responses:
+        "200":
+          description: "`{ message, account }` (LoyaltyAccountDetail)"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: Dejaría el saldo negativo (INSUFFICIENT_BALANCE)
+
+  /api/loyalty/accounts/{customerId}/redeem-reward:
+    post:
+      tags: [Loyalty]
+      summary: Canjear un beneficio de la tarjeta de sellos
+      operationId: redeemLoyaltyReward
+      description: >-
+        Módulo `loyalty`. Se usa en el local al dar el beneficio; resta uno de forma atómica.
+        Sin beneficios → `409 NO_REWARD_AVAILABLE`.
+      parameters:
+        - $ref: "#/components/parameters/LoyaltyCustomerId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: { type: string, maxLength: 300 }
+      responses:
+        "200":
+          description: "`{ message, account }` (LoyaltyAccountDetail)"
+        "409":
+          description: No tiene beneficios disponibles (NO_REWARD_AVAILABLE)
+
+  /api/loyalty/lookup:
+    get:
+      tags: [Loyalty]
+      summary: Resumen de lealtad de un cliente (agenda / pedido)
+      operationId: lookupLoyalty
+      description: >-
+        Módulo `loyalty`, o `appointments`/`orders` si `loyalty` está contratado (lo usan el
+        diálogo de la cita y el detalle del pedido). Por id o por correo de la cuenta.
+      parameters:
+        - { in: query, name: customer, schema: { type: string } }
+        - { in: query, name: email, schema: { type: string } }
+      responses:
+        "200":
+          description: "`{ found: false }` si no hay cuenta de cliente; si no, saldo y reglas."
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  found: { type: boolean }
+                  customer: { type: object, properties: { _id: { type: string }, name: { type: string }, email: { type: string } } }
+                  programs: { $ref: "#/components/schemas/LoyaltyPrograms" }
+                  points: { type: number }
+                  stamps: { type: integer }
+                  rewardsAvailable: { type: integer }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /api/reviews/public:
     get:
       tags: [Reviews]
@@ -3708,6 +4189,100 @@ paths:
         "404":
           description: REVIEW_NOT_FOUND (no existe o no es suya)
 
+  /api/reviews/appointment/{id}:
+    get:
+      tags: [Reviews]
+      summary: ¿Puede calificar esta cita?
+      operationId: getAppointmentReviewStatus
+      description: >-
+        Para la página de la cita del storefront (`/cita/<id>?token=…&accion=calificar`). Con el
+        header X-Appointment-Token de la cita (invitada) o con sesión de la dueña (cuenta ligada o
+        mismo correo). `canReview` = la cita está `completed` y aún no tiene reseña.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+        - { in: header, name: X-Appointment-Token, schema: { type: string } }
+      responses:
+        "200":
+          description: Estado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  canReview: { type: boolean }
+                  reason: { type: string }
+                  review: { $ref: "#/components/schemas/AppointmentReviewView" }
+                  appointment:
+                    type: object
+                    properties:
+                      _id: { type: string }
+                      appointmentNumber: { type: integer }
+                      status: { type: string }
+                      start: { type: string, format: date-time }
+                      services: { type: array, items: { type: string } }
+                      specialistName: { type: string }
+        "401":
+          description: TOKEN_REQUIRED, APPOINTMENT_TOKEN_INVALID o TOKEN_INVALID_OR_EXPIRED
+        "404":
+          description: APPOINTMENT_NOT_FOUND (también si la sesión no es de la dueña)
+
+  /api/reviews/appointment:
+    post:
+      tags: [Reviews]
+      summary: Calificar una cita completada
+      operationId: createAppointmentReview
+      description: >-
+        Reseña post-cita (Fase 4.2). Mismo acceso que GET /api/reviews/appointment/{id}; rate
+        limit 20 / hora por IP. Una por cita. Queda en la cuenta ligada a la cita o en la de su
+        mismo correo (invitada sin cuenta = `customer` nulo), con una foto de servicios y
+        especialista. Entra `pending` (moderación en el admin).
+      parameters:
+        - { in: header, name: X-Appointment-Token, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/ReviewRequest"
+                - type: object
+                  properties:
+                    appointment: { type: string }
+                  required: [appointment]
+      responses:
+        "201":
+          description: "Creada (pendiente): `{ message, review }` (AppointmentReviewView)"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          description: TOKEN_REQUIRED, APPOINTMENT_TOKEN_INVALID o TOKEN_INVALID_OR_EXPIRED
+        "404":
+          description: APPOINTMENT_NOT_FOUND
+        "409":
+          description: APPOINTMENT_NOT_COMPLETED o REVIEW_EXISTS (ya se calificó)
+        "429":
+          description: RATE_LIMIT_REVIEWS_EXCEEDED
+
+  /api/reviews/{id}/testimonial:
+    post:
+      tags: [Reviews]
+      summary: Publicar una reseña como testimonio
+      operationId: publishReviewAsTestimonial
+      description: >-
+        Módulo `reviews`. Solo aprobadas. Copia nombre corto ("Ana G."), comentario, estrellas y
+        servicios (o producto) como `rubro` al final de StoreConfig.testimonials, activo, con
+        `fromReview`. Condicionado a que no esté ya (sin duplicar aunque se pulse dos veces); si
+        se borra el testimonio en "Configurar tienda", se puede volver a publicar.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        "201":
+          description: "Publicada: `{ message, testimonial }`"
+        "404":
+          description: REVIEW_NOT_FOUND
+        "409":
+          description: REVIEW_NOT_APPROVED, TESTIMONIAL_EXISTS o STORE_CONFIG_MISSING
+
   /api/reviews:
     post:
       tags: [Reviews]
@@ -3743,8 +4318,12 @@ paths:
       tags: [Reviews]
       summary: Bandeja de reseñas (staff)
       operationId: listReviews
-      description: Módulo `reviews`. Hasta 500, más recientes primero, con producto, folio del pedido y correo del cliente.
+      description: >-
+        Módulo `reviews`. Hasta 500 de un tipo (`kind`, product por default), más recientes
+        primero: las de producto con producto, folio del pedido y correo del cliente; las de cita
+        con `appointmentInfo`. `isTestimonial` = ya está en StoreConfig.testimonials.
       parameters:
+        - { in: query, name: kind, schema: { type: string, enum: [product, appointment], default: product } }
         - { in: query, name: status, schema: { type: string, enum: [pending, approved, rejected] } }
         - { in: query, name: product, schema: { type: string } }
       responses:
@@ -3765,6 +4344,12 @@ paths:
                       pending: { type: integer }
                       approved: { type: integer }
                       rejected: { type: integer }
+                  pendingByKind:
+                    type: object
+                    description: Pendientes de cada tipo (para las pestañas).
+                    properties:
+                      product: { type: integer }
+                      appointment: { type: integer }
         "403":
           $ref: "#/components/responses/Forbidden"
 
@@ -4499,7 +5084,8 @@ paths:
                       customerEmail, items (productName, variantLabel,
                       quantity, unitPrice, compareAtPrice, subtotal),
                       shippingCost, total, deliveryMethod, pickupPoint,
-                      shippingAddress, paymentMethodLabel, shipment.
+                      shippingAddress, paymentMethodLabel, shipment,
+                      discount, loyalty ({ redeemed, earned }).
                   payment:
                     type: object
                     properties:
@@ -4936,6 +5522,14 @@ components:
         Validación estricta de issuer (JWT_ISSUER) y audience (JWT_AUDIENCE).
 
   parameters:
+    LoyaltyCustomerId:
+      in: path
+      name: customerId
+      required: true
+      schema:
+        type: string
+      description: ObjectId del cliente (rol customer)
+
     UserIdParam:
       in: path
       name: id
@@ -5097,7 +5691,7 @@ components:
     PermissionModuleKey:
       type: string
       description: Módulo del panel sujeto a permisos por tienda
-      enum: [panel, storeConfig, appConfig, services, appointments, reminders, products, inventory, orders, coupons, abandonedCart, reviews, media, users, agencyClients, accounting, invoices]
+      enum: [panel, storeConfig, appConfig, services, appointments, reminders, products, inventory, orders, coupons, promoBanner, abandonedCart, wishlist, loyalty, reviews, media, users, agencyClients, accounting, invoices]
 
     StorePermissions:
       type: object
@@ -5638,10 +6232,12 @@ components:
         emailPreferences:
           type: object
           description: >-
-            Correos opcionales que acepta la cuenta. abandonedCart = recordatorio de carrito
-            abandonado (default true; se apaga con el enlace del correo o con PUT /api/users/{id}).
+            Correos opcionales que acepta la cuenta (default true; se apagan con el enlace del
+            correo o con PUT /api/users/{id}). abandonedCart = recordatorio de carrito abandonado;
+            wishlist = aviso de que un favorito agotado volvió a estar disponible.
           properties:
             abandonedCart: { type: boolean }
+            wishlist: { type: boolean }
         favorites:
           type: array
           description: >
@@ -5927,9 +6523,10 @@ components:
           $ref: "#/components/schemas/Role"
         emailPreferences:
           type: object
-          description: "Correos opcionales (JSON, no multipart). abandonedCart: true/false."
+          description: "Correos opcionales (JSON, no multipart). abandonedCart / wishlist: true/false."
           properties:
             abandonedCart: { type: boolean }
+            wishlist: { type: boolean }
         profileImage:
           type: string
           format: binary
@@ -7074,6 +7671,8 @@ components:
           $ref: "#/components/schemas/OrderShipment"
         discount:
           $ref: "#/components/schemas/OrderDiscount"
+        loyalty:
+          $ref: "#/components/schemas/OrderLoyalty"
         inventoryDeducted:
           type: boolean
           readOnly: true
@@ -7225,6 +7824,78 @@ components:
             Recordatorio por correo antes de cada cita confirmada (módulo `reminders`; la tarea
             programada solo corre si está contratado). Una vez por cita; reprogramar lo reinicia.
         reminderHoursBefore: { type: integer, minimum: 1, maximum: 72, description: Cuántas horas antes (24 por default). }
+        reviewRequestEnabled:
+          type: boolean
+          description: >-
+            Reseña post-cita (true por default): correo para calificar una cita completada, una
+            vez, con el enlace FRONTEND_URL/cita/<id>?token=…&accion=calificar. La tarea solo corre
+            si `reviews` y `appointments` están contratados; no se manda si ya calificó ni a citas
+            que terminaron hace más de 14 días.
+        reviewRequestHoursAfter: { type: integer, minimum: 1, maximum: 72, description: Horas después de terminar la cita (2 por default). }
+
+    PromoBannerRequest:
+      type: object
+      properties:
+        title: { type: string, maxLength: 120 }
+        text: { type: string, maxLength: 300 }
+        image: { type: string, maxLength: 300, description: Ruta de la biblioteca de medios. }
+        mobileImage: { type: string, maxLength: 300, description: Opcional (vertical, para celular). }
+        buttonLabel: { type: string, maxLength: 40 }
+        target:
+          type: object
+          properties:
+            type: { type: string, enum: [none, category, coupon, url], default: none }
+            value:
+              type: string
+              description: >-
+                category = id de una categoría de productos; coupon = código (se normaliza a
+                mayúsculas); url = https://… o una ruta del sitio que empiece con /.
+        startsAt: { type: string, format: date-time, nullable: true }
+        endsAt: { type: string, format: date-time, nullable: true }
+        isActive: { type: boolean, default: true }
+        sortOrder: { type: integer, minimum: 0, default: 0 }
+        placement: { type: string, enum: [home, shop, all], default: home }
+
+    PromoBanner:
+      allOf:
+        - $ref: "#/components/schemas/PromoBannerRequest"
+        - type: object
+          properties:
+            _id: { type: string }
+            status: { type: string, enum: [active, scheduled, expired, off], description: Por interruptor y fechas. }
+            targetProblem: { type: string, nullable: true, description: "Por qué no se muestra aunque esté activo (destino que ya no sirve)." }
+            targetSummary: { $ref: "#/components/schemas/PromoBannerTarget" }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+
+    PromoBannerTarget:
+      type: object
+      nullable: true
+      description: Destino ya resuelto.
+      properties:
+        type: { type: string, enum: [none, category, coupon, url] }
+        categoryId: { type: string }
+        slug: { type: string }
+        name: { type: string }
+        code: { type: string }
+        label: { type: string, example: 20% de descuento }
+        minPurchase: { type: number, nullable: true }
+        endsAt: { type: string, format: date-time, nullable: true }
+        url: { type: string }
+
+    WishlistSettings:
+      type: object
+      description: >-
+        Tarea programada cada 15 min (solo si `wishlist` está contratado y `enabled`, true por
+        default): revisa los productos que alguien tiene en favoritos (la primera vez solo
+        registra su estado) y, cuando uno pasa de agotado a disponible (activo y con existencias,
+        el criterio de /api/products/public), avisa una vez por reabastecimiento a cada cliente
+        verificado que lo tiene en favoritos y no se dio de baja. Botón a
+        FRONTEND_URL/tienda/<productId>. Un reabastecimiento ocurrido con el aviso apagado se
+        avisa al encenderlo.
+      properties:
+        enabled: { type: boolean }
+      required: [enabled]
 
     AbandonedCartSettings:
       type: object
@@ -7348,7 +8019,7 @@ components:
 
     Review:
       type: object
-      description: Modelo genérico (target.kind "product"; "appointment" queda para la reseña post-cita).
+      description: Modelo genérico (target.kind "product" o "appointment" — reseña post-cita).
       properties:
         _id: { type: string }
         target:
@@ -7369,6 +8040,17 @@ components:
             _id: { type: string }
             email: { type: string }
         customerName: { type: string }
+        customerEmail: { type: string, description: "Reseñas de cita (la clienta puede ser invitada, `customer` nulo)." }
+        appointmentInfo:
+          type: object
+          description: Reseñas de cita — foto de la cita al calificar.
+          properties:
+            appointmentNumber: { type: integer }
+            services: { type: array, items: { type: string } }
+            specialist: { type: string, nullable: true }
+            specialistName: { type: string }
+            start: { type: string, format: date-time }
+        isTestimonial: { type: boolean, description: Solo en la bandeja del staff. }
         order:
           type: object
           nullable: true
@@ -7381,6 +8063,18 @@ components:
         rejectionReason: { type: string }
         reviewedBy: { type: string, nullable: true }
         reviewedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+
+    AppointmentReviewView:
+      type: object
+      nullable: true
+      properties:
+        _id: { type: string }
+        appointment: { type: string }
+        rating: { type: integer }
+        comment: { type: string }
+        status: { type: string, enum: [pending, approved, rejected] }
+        rejectionReason: { type: string }
         createdAt: { type: string, format: date-time }
 
     Coupon:
@@ -7485,6 +8179,88 @@ components:
           type: number
         counted:
           type: boolean
+
+    OrderLoyalty:
+      type: object
+      readOnly: true
+      description: >-
+        Puntos de lealtad (packages/core-api/lib/loyalty.js). `redeemed` = puntos usados en el
+        checkout (se restan del total; se devuelven si se cancela o borra, `redeemRefunded`).
+        `earned` = puntos abonados al pagarse (5% default sobre productos − cupón − puntos usados,
+        sin envío), con `earnedCounted` true mientras el pedido está pagado; se retiran si se
+        cancela. Los pedidos de invitado con el correo de una cuenta también abonan.
+      properties:
+        customer: { type: string, nullable: true }
+        earned: { type: number }
+        earnedCounted: { type: boolean }
+        redeemed: { type: number }
+        redeemRefunded: { type: boolean }
+
+    LoyaltySettings:
+      type: object
+      properties:
+        points:
+          type: object
+          properties:
+            enabled: { type: boolean, default: false }
+            earnPercent: { type: number, minimum: 0.1, maximum: 50, default: 5 }
+            maxRedeemPercent: { type: number, minimum: 1, maximum: 100, default: 100, description: "% del subtotal de productos (ya con cupón) que se puede pagar con puntos." }
+            minRedeem: { type: number, minimum: 0, default: 0 }
+            expiryMonths: { type: integer, minimum: 1, maximum: 60, nullable: true, description: "Vencen tras N meses sin movimiento; null = nunca (default)." }
+            expiryWarningDays: { type: integer, minimum: 1, maximum: 60, default: 15, description: "Correo de aviso N días antes de vencer (tarea programada diaria)." }
+        stamps:
+          type: object
+          properties:
+            enabled: { type: boolean, default: false }
+            goal: { type: integer, minimum: 2, maximum: 50, default: 10 }
+            reward: { type: string, maxLength: 120, default: Un servicio gratis }
+
+    LoyaltyPrograms:
+      type: object
+      description: "Solo los programas activos traen sus reglas; los demás `{ enabled: false }`."
+      properties:
+        points:
+          type: object
+          properties:
+            enabled: { type: boolean }
+            earnPercent: { type: number }
+            maxRedeemPercent: { type: number }
+            minRedeem: { type: number }
+            expiryMonths: { type: integer, nullable: true }
+        stamps:
+          type: object
+          properties:
+            enabled: { type: boolean }
+            goal: { type: integer }
+            reward: { type: string }
+
+    LoyaltyLedgerEntry:
+      type: object
+      properties:
+        _id: { type: string }
+        program: { type: string, enum: [points, stamps] }
+        delta: { type: number }
+        balanceAfter: { type: number }
+        reason: { type: string, enum: [earn, redeem, refund, reverse, expire, adjust, reward, reward_redeemed] }
+        order: { type: string, nullable: true }
+        appointment: { type: string, nullable: true }
+        note: { type: string }
+        by: { type: object, nullable: true, properties: { name: { type: string } } }
+        createdAt: { type: string, format: date-time }
+
+    LoyaltyAccountDetail:
+      type: object
+      properties:
+        customer: { type: object, properties: { _id: { type: string }, name: { type: string }, email: { type: string } } }
+        points: { type: number }
+        stamps: { type: integer }
+        rewardsAvailable: { type: integer }
+        goal: { type: integer }
+        reward: { type: string }
+        pointsExpireAt: { type: string, format: date-time, nullable: true }
+        ledger:
+          type: array
+          items: { $ref: "#/components/schemas/LoyaltyLedgerEntry" }
 
     PaymentProof:
       type: object
@@ -7632,6 +8408,17 @@ components:
             deja el envío en $0. Un cupón inválido rechaza el pedido con el
             código del cupón (COUPON_NOT_FOUND, COUPON_EXPIRED,
             COUPON_MIN_PURCHASE, COUPON_EXHAUSTED, COUPON_LIMIT_PER_CUSTOMER…).
+        usePoints:
+          type: number
+          minimum: 0.01
+          description: >-
+            Puntos de lealtad a usar (1 punto = $1), solo con sesión (401
+            LOGIN_REQUIRED_FOR_POINTS) y con el programa activo (400
+            LOYALTY_NOT_AVAILABLE). Tope = maxRedeemPercent del subtotal ya con
+            cupón (400 POINTS_OVER_LIMIT), mínimo minRedeem (400
+            POINTS_UNDER_MINIMUM). Se apartan de forma atómica al crear el
+            pedido; sin saldo suficiente → 409 INSUFFICIENT_POINTS. total =
+            productos − cupón − puntos + envío.
       required: [customerName, customerEmail, items]
 
     OrderUpdateRequest:
@@ -7913,6 +8700,12 @@ components:
           maximum: 5
           nullable: true
           description: Calificación en estrellas; null = sin calificación.
+        fromReview:
+          type: string
+          nullable: true
+          description: >-
+            Reseña de la que salió (POST /api/reviews/{id}/testimonial). Mandarlo de vuelta al
+            guardar la lista para que la reseña no se pueda publicar dos veces.
         sortOrder:
           type: integer
           minimum: 0

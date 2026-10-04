@@ -2,11 +2,20 @@ import React, { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatCalendarDate } from "../utils/formatCalendarDate";
+import { formatDateTime } from "../utils/schedule";
+import { usePermissions } from "../hooks/usePermissions";
 
-// Bandeja de reseñas de producto (módulo "reviews" de los permisos,
-// packages/core-api/modules/reviews.js). Toda reseña entra "Por revisar" y
-// solo se publica al aprobarla; aprobar, rechazar o borrar una publicada
-// recalcula el promedio del producto en el backend.
+// Bandeja de reseñas (módulo "reviews" de los permisos,
+// packages/core-api/modules/reviews.js), de producto y de cita (pestañas). Toda
+// reseña entra "Por revisar" y solo se publica al aprobarla; en las de
+// producto, aprobar, rechazar o borrar una publicada recalcula el promedio
+// del producto en el backend. Una aprobada se puede "Publicar como
+// testimonio" (se copia a los testimonios de "Configurar tienda").
+
+const KINDS = [
+  { kind: "product", label: "Productos" },
+  { kind: "appointment", label: "Citas" },
+];
 
 const TABS = [
   { status: "pending", label: "Por revisar" },
@@ -22,6 +31,10 @@ const Stars = ({ value }) => (
 );
 
 const ReviewList = () => {
+  const { can } = usePermissions();
+  const [kind, setKind] = useState("product");
+  const [pendingByKind, setPendingByKind] = useState({});
+  const [message, setMessage] = useState("");
   const [status, setStatus] = useState("pending");
   const [reviews, setReviews] = useState([]);
   const [counts, setCounts] = useState({});
@@ -38,16 +51,17 @@ const ReviewList = () => {
     setIsLoading(true);
     setError("");
     try {
-      const response = await axios.get(`${baseUrl}/api/reviews`, { headers: getAuthHeaders(), params: { status } });
+      const response = await axios.get(`${baseUrl}/api/reviews`, { headers: getAuthHeaders(), params: { kind, status } });
       setReviews(response.data?.items || []);
       setCounts(response.data?.counts || {});
+      setPendingByKind(response.data?.pendingByKind || {});
     } catch (err) {
       setError(err.response?.data?.error?.message || "No fue posible cargar las reseñas.");
     } finally {
       setIsLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status]);
+  }, [kind, status]);
 
   useEffect(() => {
     loadReviews();
@@ -71,8 +85,24 @@ const ReviewList = () => {
     }
   };
 
+  const publishTestimonial = async (id) => {
+    setBusyId(id);
+    setError("");
+    setMessage("");
+    try {
+      const { data } = await axios.post(`${baseUrl}/api/reviews/${id}/testimonial`, {}, { headers: getAuthHeaders() });
+      setMessage(data.message || "Publicada en los testimonios.");
+      await loadReviews();
+    } catch (err) {
+      setError(err.response?.data?.error?.message || "No fue posible publicarla como testimonio.");
+    } finally {
+      setBusyId("");
+    }
+  };
+
   const handleDelete = async (id) => {
-    if (!window.confirm("¿Eliminar esta reseña? El cliente podrá calificar el producto otra vez.")) return;
+    const again = kind === "appointment" ? "La clienta podrá calificar la cita otra vez." : "El cliente podrá calificar el producto otra vez.";
+    if (!window.confirm(`¿Eliminar esta reseña? ${again}`)) return;
     setBusyId(id);
     setError("");
     try {
@@ -85,12 +115,35 @@ const ReviewList = () => {
     }
   };
 
+  // Las de cita solo tienen sentido con la agenda (o si ya hay alguna).
+  const showKinds = can("appointments") || kind === "appointment" || pendingByKind.appointment > 0;
+
   return (
     <section>
       <h3 style={{ marginTop: 0 }}>Reseñas</h3>
+      {showKinds ? (
+        <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem" }}>
+          {KINDS.map((k) => (
+            <button
+              key={k.kind}
+              type="button"
+              className={kind === k.kind ? undefined : "btn-secondary"}
+              onClick={() => {
+                setKind(k.kind);
+                setMessage("");
+              }}
+              style={{ width: "auto" }}
+            >
+              {k.label}
+              {pendingByKind[k.kind] ? ` · ${pendingByKind[k.kind]} por revisar` : ""}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <p>
-        Calificaciones de clientes que recibieron el producto. Se publican en la tienda solo cuando las apruebas; el cliente puede
-        editar la suya y vuelve a revisión.
+        {kind === "appointment"
+          ? "Calificaciones de clientas después de su cita (les llega un correo cuando la cita se marca como completada). Apruébalas para guardarlas; las que te gusten puedes publicarlas como testimonio en el sitio."
+          : "Calificaciones de clientes que recibieron el producto. Se publican en la tienda solo cuando las apruebas; el cliente puede editar la suya y vuelve a revisión."}
       </p>
 
       <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1rem" }}>
@@ -108,12 +161,13 @@ const ReviewList = () => {
       </div>
 
       {error ? <div className="auth-error">{error}</div> : null}
+      {message ? <div className="auth-success">{message}</div> : null}
 
       <div style={{ overflowX: "auto" }}>
         <table>
           <thead>
             <tr>
-              <th>Producto</th>
+              <th>{kind === "appointment" ? "Cita" : "Producto"}</th>
               <th>Calificación</th>
               <th>Cliente</th>
               <th>Fecha</th>
@@ -134,6 +188,16 @@ const ReviewList = () => {
             {!isLoading &&
               reviews.map((r) => (
                 <tr key={r._id}>
+                  {kind === "appointment" ? (
+                    <td style={{ minWidth: 180 }}>
+                      {(r.appointmentInfo?.services || []).join(" + ") || "—"}
+                      <small style={{ display: "block", opacity: 0.75 }}>
+                        {r.appointmentInfo?.specialistName ? `Con ${r.appointmentInfo.specialistName}` : ""}
+                        {r.appointmentInfo?.appointmentNumber ? ` · Cita #${r.appointmentInfo.appointmentNumber}` : ""}
+                      </small>
+                      {r.appointmentInfo?.start ? <small style={{ display: "block", opacity: 0.75 }}>{formatDateTime(r.appointmentInfo.start)}</small> : null}
+                    </td>
+                  ) : (
                   <td style={{ minWidth: 180 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                       {r.product?.image ? (
@@ -146,6 +210,7 @@ const ReviewList = () => {
                       <span>{r.product?.name || "Producto eliminado"}</span>
                     </div>
                   </td>
+                  )}
                   <td style={{ minWidth: 240 }}>
                     <Stars value={r.rating} />
                     {r.comment ? <p style={{ margin: "0.25rem 0 0", whiteSpace: "pre-line" }}>{r.comment}</p> : <small style={{ opacity: 0.75 }}> Sin comentario</small>}
@@ -155,7 +220,10 @@ const ReviewList = () => {
                   </td>
                   <td>
                     {r.customerName || "—"}
-                    {r.customer?.email ? <small style={{ display: "block", opacity: 0.75 }}>{r.customer.email}</small> : null}
+                    {r.customer?.email || r.customerEmail ? (
+                      <small style={{ display: "block", opacity: 0.75 }}>{r.customer?.email || r.customerEmail}</small>
+                    ) : null}
+                    {kind === "appointment" && !r.customer ? <small style={{ display: "block", opacity: 0.75 }}>Invitada</small> : null}
                     {r.order?.orderNumber ? <small style={{ display: "block", opacity: 0.75 }}>Pedido #{r.order.orderNumber}</small> : null}
                   </td>
                   <td>{formatCalendarDate(r.updatedAt || r.createdAt)}</td>
@@ -194,6 +262,17 @@ const ReviewList = () => {
                           >
                             {r.status === "approved" ? "Despublicar" : "Rechazar"}
                           </button>
+                        ) : null}
+                        {r.status === "approved" ? (
+                          r.isTestimonial ? (
+                            <span className="badge badge-green" style={{ alignSelf: "center" }}>
+                              En testimonios
+                            </span>
+                          ) : (
+                            <button type="button" className="btn-secondary" onClick={() => publishTestimonial(r._id)} disabled={busyId === r._id}>
+                              Publicar como testimonio
+                            </button>
+                          )
                         ) : null}
                         <button type="button" className="btn-secondary" onClick={() => handleDelete(r._id)} disabled={busyId === r._id}>
                           Eliminar

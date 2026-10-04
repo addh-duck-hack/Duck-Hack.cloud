@@ -11,11 +11,20 @@
 //   el admin. Al cambiar lo publicado se recalculan Product.ratingAvg /
 //   ratingCount (salen en /api/products/public).
 // - Públicas: solo aprobadas, con el nombre corto del cliente ("Ana G.").
+// - Reseña post-cita (Fase 4, `target.kind: "appointment"`): una por cita
+//   completada; la califica la clienta con el enlace de su cita
+//   (X-Appointment-Token, el correo de modules/appointments.js) o con sesión.
+//   Puede ser invitada (`customer` nulo). Guarda una foto de servicios y
+//   especialista. Moderación igual que las de producto; aprobada, el staff
+//   puede "Publicar como testimonio" (copia a StoreConfig.testimonials con
+//   `fromReview`, sin duplicar).
 const express = require("express");
 const mongoose = require("mongoose");
 const { sanitizeDoc, asTrimmedString, asFiniteNumber, isValidObjectId, getOrCreateModel } = require("../lib/moduleHelpers");
 const { createModuleAuthorizer } = require("../lib/permissions");
 const { createRateLimiter } = require("../lib/rateLimit");
+const { extractBearerToken } = require("../lib/authMiddleware");
+const { verifyAccessToken, verifyAppointmentAccessToken } = require("../lib/jwt");
 
 const TARGET_KINDS = ["product", "appointment"];
 const REVIEW_STATUSES = ["pending", "approved", "rejected"];
@@ -30,10 +39,27 @@ const reviewSchema = new mongoose.Schema(
       kind: { type: String, enum: TARGET_KINDS, required: true },
       id: { type: mongoose.Schema.Types.ObjectId, required: true },
     },
-    customer: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    // Nulo solo en reseñas de cita de invitadas.
+    customer: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     // Foto del nombre al calificar (si la cuenta cambia de nombre o se borra,
     // la reseña se sigue viendo igual).
     customerName: { type: String, trim: true, maxlength: 120 },
+    customerEmail: { type: String, trim: true, lowercase: true, maxlength: 160, default: "" },
+    // Reseña de cita: foto de lo que se hizo (si la cita cambia o se borra,
+    // la reseña se sigue entendiendo).
+    appointmentInfo: {
+      type: new mongoose.Schema(
+        {
+          appointmentNumber: Number,
+          services: [String],
+          specialist: { type: mongoose.Schema.Types.ObjectId, default: null },
+          specialistName: String,
+          start: Date,
+        },
+        { _id: false }
+      ),
+      default: undefined,
+    },
     // Pedido con el que el cliente recibió el producto (referencia para el
     // admin; no se expone en lo público).
     order: { type: mongoose.Schema.Types.ObjectId, ref: "Order", default: null },
@@ -50,6 +76,8 @@ const reviewSchema = new mongoose.Schema(
 reviewSchema.index({ customer: 1, "target.kind": 1, "target.id": 1 }, { unique: true });
 reviewSchema.index({ "target.kind": 1, "target.id": 1, status: 1, createdAt: -1 });
 reviewSchema.index({ status: 1, createdAt: -1 });
+// Una reseña por cita (sea quien sea quien califique).
+reviewSchema.index({ "target.id": 1 }, { unique: true, partialFilterExpression: { "target.kind": "appointment" } });
 
 // "Ana María González" → "Ana G." (lo público nunca lleva el nombre completo).
 const shortName = (name) => {
@@ -71,7 +99,7 @@ const validateReviewPayload = (sendError) => (req, res, next) => {
   if (comment.length > MAX_COMMENT) {
     return sendError(res, 400, "VALIDATION_ERROR", `El comentario puede tener hasta ${MAX_COMMENT} caracteres.`);
   }
-  req.body = { rating, comment, product: payload.product };
+  req.body = { rating, comment, product: payload.product, appointment: payload.appointment };
   return next();
 };
 
@@ -162,6 +190,136 @@ function registerRoutes(app, ctx) {
     }
   });
 
+  const createRateLimiterForReviews = createRateLimiter({
+    windowMs: 60 * 60 * 1000,
+    max: 20,
+    code: "RATE_LIMIT_REVIEWS_EXCEEDED",
+    message: "Demasiadas reseñas seguidas. Intenta de nuevo más tarde.",
+    sendError,
+  });
+
+  // ---- reseña post-cita (invitada con el enlace o clienta con sesión) ----
+  // Mismo criterio que GET /api/appointments/public/:id: el token de la cita
+  // (X-Appointment-Token) o la dueña con sesión (cuenta ligada o mismo correo).
+  const loadAppointmentFor = async (req, res, appointmentId) => {
+    const Appointment = mongooseConnection.models.Appointment;
+    if (!isValidObjectId(appointmentId)) {
+      sendError(res, 400, "VALIDATION_ERROR", "appointment no válido.");
+      return null;
+    }
+    const appointment = Appointment ? await Appointment.findById(appointmentId).lean() : null;
+    if (!appointment) {
+      sendError(res, 404, "APPOINTMENT_NOT_FOUND", "Cita no encontrada.");
+      return null;
+    }
+    const accessToken = req.header("X-Appointment-Token");
+    if (accessToken) {
+      try {
+        if (verifyAppointmentAccessToken(accessToken).aid !== String(appointment._id)) throw new Error("otra cita");
+        return appointment;
+      } catch {
+        sendError(res, 401, "APPOINTMENT_TOKEN_INVALID", "El enlace de la cita no es válido o ya venció.");
+        return null;
+      }
+    }
+    const bearer = extractBearerToken(req.header("Authorization"));
+    if (!bearer) {
+      sendError(res, 401, "TOKEN_REQUIRED", "Inicia sesión o usa el enlace de tu cita.");
+      return null;
+    }
+    let decoded;
+    try {
+      decoded = verifyAccessToken(bearer);
+    } catch {
+      sendError(res, 401, "TOKEN_INVALID_OR_EXPIRED", "Token no válido o expirado.");
+      return null;
+    }
+    const User = mongooseConnection.models.User;
+    const me = User ? await User.findById(decoded.id).select("email").lean() : null;
+    const isOwner =
+      (appointment.customer && String(appointment.customer) === String(decoded.id)) ||
+      (me?.email && me.email === appointment.customerEmail);
+    if (!isOwner) {
+      sendError(res, 404, "APPOINTMENT_NOT_FOUND", "Cita no encontrada.");
+      return null;
+    }
+    return appointment;
+  };
+
+  const appointmentReviewView = (review) => ({
+    _id: review._id,
+    appointment: review.target.id,
+    rating: review.rating,
+    comment: review.comment,
+    status: review.status,
+    rejectionReason: review.status === "rejected" ? review.rejectionReason : "",
+    createdAt: review.createdAt,
+  });
+
+  const appointmentSummary = (a) => ({
+    _id: a._id,
+    appointmentNumber: a.appointmentNumber,
+    status: a.status,
+    start: a.start,
+    services: (a.services || []).map((sv) => sv.name),
+    specialistName: a.specialistName,
+  });
+
+  // ¿Puede calificar esta cita? { canReview, reason?, review, appointment }.
+  router.get("/appointment/:id", async (req, res) => {
+    try {
+      const appointment = await loadAppointmentFor(req, res, req.params.id);
+      if (!appointment) return undefined;
+      const review = await Review.findOne({ "target.kind": "appointment", "target.id": appointment._id }).lean();
+      const completed = appointment.status === "completed";
+      return res.status(200).json({
+        canReview: completed && !review,
+        reason: review ? "Ya calificaste esta cita." : completed ? undefined : "Podrás calificar tu cita cuando se complete.",
+        review: review ? appointmentReviewView(review) : null,
+        appointment: appointmentSummary(appointment),
+      });
+    } catch (error) {
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al consultar la cita.");
+    }
+  });
+
+  // Calificar una cita completada: { appointment, rating, comment }.
+  router.post("/appointment", createRateLimiterForReviews, validateReviewPayload(sendError), async (req, res) => {
+    try {
+      const appointment = await loadAppointmentFor(req, res, req.body.appointment);
+      if (!appointment) return undefined;
+      if (appointment.status !== "completed") {
+        return sendError(res, 409, "APPOINTMENT_NOT_COMPLETED", "Podrás calificar tu cita cuando se complete.");
+      }
+      // La reseña queda en la cuenta de la clienta: la ligada a la cita o la
+      // de su mismo correo (aunque haya agendado como invitada).
+      const User = mongooseConnection.models.User;
+      let customer = appointment.customer || null;
+      if (!customer && appointment.customerEmail && User) {
+        customer = (await User.findOne({ email: appointment.customerEmail, role: "customer" }).select("_id").lean())?._id || null;
+      }
+      const review = await Review.create({
+        target: { kind: "appointment", id: appointment._id },
+        customer,
+        customerName: appointment.customerName,
+        customerEmail: appointment.customerEmail || "",
+        appointmentInfo: {
+          appointmentNumber: appointment.appointmentNumber,
+          services: (appointment.services || []).map((sv) => sv.name),
+          specialist: appointment.specialist || null,
+          specialistName: appointment.specialistName || "",
+          start: appointment.start,
+        },
+        rating: req.body.rating,
+        comment: req.body.comment,
+      });
+      return res.status(201).json({ message: "¡Gracias por calificar tu cita!", review: appointmentReviewView(review) });
+    } catch (error) {
+      if (error?.code === 11000) return sendError(res, 409, "REVIEW_EXISTS", "Ya calificaste esta cita.");
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al guardar la reseña.");
+    }
+  });
+
   // ---- cliente con sesión ----
   router.use(verifyToken);
 
@@ -191,14 +349,6 @@ function registerRoutes(app, ctx) {
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al listar tus reseñas.");
     }
-  });
-
-  const createRateLimiterForReviews = createRateLimiter({
-    windowMs: 60 * 60 * 1000,
-    max: 20,
-    code: "RATE_LIMIT_REVIEWS_EXCEEDED",
-    message: "Demasiadas reseñas seguidas. Intenta de nuevo más tarde.",
-    sendError,
   });
 
   // Calificar un producto: { product, rating, comment }.
@@ -266,10 +416,20 @@ function registerRoutes(app, ctx) {
     return next();
   };
 
-  // GET /?status=&product= — con el nombre del producto y el folio del pedido.
+  // Reseñas ya publicadas como testimonio (StoreConfig.testimonials.fromReview).
+  const testimonialReviewIds = async () => {
+    const StoreConfig = mongooseConnection.models.StoreConfig;
+    const config = StoreConfig ? await StoreConfig.findOne({ singletonKey: "default" }).select("testimonials.fromReview").lean() : null;
+    return new Set((config?.testimonials || []).map((t) => t.fromReview && String(t.fromReview)).filter(Boolean));
+  };
+
+  // GET /?kind=product|appointment&status=&product= — las de producto con el
+  // nombre del producto y el folio del pedido; las de cita con su foto de
+  // servicios y especialista. `pendingByKind` = pendientes de cada tipo.
   router.get("/", canModerate, async (req, res) => {
     try {
-      const filter = { "target.kind": "product" };
+      const kind = req.query.kind === "appointment" ? "appointment" : "product";
+      const filter = { "target.kind": kind };
       if (REVIEW_STATUSES.includes(req.query.status)) filter.status = req.query.status;
       if (isValidObjectId(req.query.product)) filter["target.id"] = req.query.product;
       const reviews = await Review.find(filter)
@@ -279,19 +439,25 @@ function registerRoutes(app, ctx) {
         .populate("customer", "email")
         .lean();
       const Product = mongooseConnection.models.Product;
-      const productIds = [...new Set(reviews.map((r) => String(r.target.id)))];
-      const products = Product ? await Product.find({ _id: { $in: productIds } }).select("name images").lean() : [];
+      const productIds = kind === "product" ? [...new Set(reviews.map((r) => String(r.target.id)))] : [];
+      const products = Product && productIds.length ? await Product.find({ _id: { $in: productIds } }).select("name images").lean() : [];
       const byId = new Map(products.map((p) => [String(p._id), p]));
-      const counts = await Review.aggregate([{ $match: { "target.kind": "product" } }, { $group: { _id: "$status", count: { $sum: 1 } } }]);
+      const [counts, pending, published] = await Promise.all([
+        Review.aggregate([{ $match: { "target.kind": kind } }, { $group: { _id: "$status", count: { $sum: 1 } } }]),
+        Review.aggregate([{ $match: { status: "pending" } }, { $group: { _id: "$target.kind", count: { $sum: 1 } } }]),
+        testimonialReviewIds(),
+      ]);
       return res.status(200).json({
         items: reviews.map((r) => {
-          const product = byId.get(String(r.target.id));
+          const product = kind === "product" ? byId.get(String(r.target.id)) : null;
           return {
             ...sanitizeDoc(r),
             product: product ? { _id: product._id, name: product.name, image: product.images?.[0] || "" } : null,
+            isTestimonial: published.has(String(r._id)),
           };
         }),
         counts: Object.fromEntries(REVIEW_STATUSES.map((s) => [s, counts.find((c) => c._id === s)?.count || 0])),
+        pendingByKind: Object.fromEntries(TARGET_KINDS.map((k) => [k, pending.find((c) => c._id === k)?.count || 0])),
       });
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al listar las reseñas.");
@@ -312,10 +478,52 @@ function registerRoutes(app, ctx) {
       review.reviewedBy = req.user.id;
       review.reviewedAt = new Date();
       await review.save();
-      if (changesPublished) await recalculateProductRating(review.target.id);
+      if (changesPublished && review.target.kind === "product") await recalculateProductRating(review.target.id);
       return res.status(200).json({ message: status === "approved" ? "Reseña publicada." : "Reseña rechazada.", review: sanitizeDoc(review) });
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al moderar la reseña.");
+    }
+  });
+
+  // Publicar como testimonio: copia nombre corto, comentario y estrellas a
+  // StoreConfig.testimonials (al final, activo). Solo aprobadas; una vez por
+  // reseña (si se borra el testimonio en "Configurar tienda", se puede volver
+  // a publicar).
+  router.post("/:id/testimonial", canModerate, ensureReview, async (req, res) => {
+    try {
+      const { review } = req;
+      if (review.status !== "approved") {
+        return sendError(res, 409, "REVIEW_NOT_APPROVED", "Primero aprueba la reseña.");
+      }
+      const StoreConfig = mongooseConnection.models.StoreConfig;
+      const config = StoreConfig ? await StoreConfig.findOne({ singletonKey: "default" }).select("testimonials").lean() : null;
+      if (!config) return sendError(res, 409, "STORE_CONFIG_MISSING", "Primero guarda la configuración de la tienda.");
+      let rubro = "";
+      if (review.target.kind === "appointment") {
+        rubro = (review.appointmentInfo?.services || []).join(" + ");
+      } else {
+        const product = await mongooseConnection.models.Product?.findById(review.target.id).select("name").lean();
+        rubro = product?.name || "";
+      }
+      const sortOrder = (config.testimonials || []).reduce((max, t) => Math.max(max, (t.sortOrder || 0) + 1), 0);
+      const testimonial = {
+        name: shortName(review.customerName),
+        rubro: rubro.slice(0, 120),
+        description: (review.comment || "").slice(0, 500),
+        rating: review.rating,
+        sortOrder,
+        isActive: true,
+        fromReview: review._id,
+      };
+      // Condicionado a que no esté ya: dos clics seguidos no la duplican.
+      const result = await StoreConfig.updateOne(
+        { singletonKey: "default", "testimonials.fromReview": { $ne: review._id } },
+        { $push: { testimonials: testimonial } }
+      );
+      if (!result.modifiedCount) return sendError(res, 409, "TESTIMONIAL_EXISTS", "Esta reseña ya está en los testimonios.");
+      return res.status(201).json({ message: "Publicada en los testimonios del sitio.", testimonial });
+    } catch (error) {
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al publicar el testimonio.");
     }
   });
 
@@ -323,7 +531,7 @@ function registerRoutes(app, ctx) {
     try {
       const { review } = req;
       await review.deleteOne();
-      if (review.status === "approved") await recalculateProductRating(review.target.id);
+      if (review.status === "approved" && review.target.kind === "product") await recalculateProductRating(review.target.id);
       return res.status(200).json({ message: "Reseña eliminada." });
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al eliminar la reseña.");

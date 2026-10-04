@@ -60,6 +60,26 @@ const AppointmentDialog = ({ appointment, initialStart, initialSpecialist, speci
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
 
+  // Tarjeta de sellos de la clienta (módulo loyalty). Si no está contratado o
+  // no se tiene acceso, la consulta falla y simplemente no se muestra.
+  const [loyalty, setLoyalty] = useState(null);
+  useEffect(() => {
+    const customer = appointment?.customer?._id || appointment?.customer;
+    if (!customer && !appointment?.customerEmail) return undefined;
+    let cancelled = false;
+    axios
+      .get(`${baseUrl}/api/loyalty/lookup`, {
+        headers: getAuthHeaders(),
+        params: { ...(customer ? { customer: String(customer) } : {}), ...(appointment.customerEmail ? { email: appointment.customerEmail } : {}) },
+      })
+      .then(({ data }) => !cancelled && data.found && data.programs?.stamps?.enabled && setLoyalty(data))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appointment?._id]);
+
   useEffect(() => {
     const onKey = (event) => event.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -173,6 +193,19 @@ const AppointmentDialog = ({ appointment, initialStart, initialSpecialist, speci
             {appointment.source === "web" ? "Agendada en el sitio" : appointment.source === "walk_in" ? "En mostrador" : "Por teléfono"} ·{" "}
             {formatDateTime(appointment.createdAt)}
             {appointment.cancelledAt ? ` · Cancelada por ${appointment.cancelledBy === "customer" ? "la clienta" : "el negocio"}${appointment.cancelReason ? `: ${appointment.cancelReason}` : ""}` : ""}
+          </p>
+        ) : null}
+
+        {loyalty ? (
+          <p className="agenda-dialog-meta">
+            <i className="fa-solid fa-stamp" aria-hidden="true" /> Tarjeta de sellos: {loyalty.stamps} de {loyalty.programs.stamps.goal}
+            {loyalty.rewardsAvailable ? (
+              <strong>
+                {" "}
+                · Tiene {loyalty.rewardsAvailable === 1 ? "un beneficio" : `${loyalty.rewardsAvailable} beneficios`} disponible
+                {loyalty.rewardsAvailable === 1 ? "" : "s"}: {loyalty.programs.stamps.reward} (se canjea en Lealtad)
+              </strong>
+            ) : null}
           </p>
         ) : null}
 

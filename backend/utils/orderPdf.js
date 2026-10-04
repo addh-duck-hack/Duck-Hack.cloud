@@ -218,6 +218,17 @@ const generateOrderPdf = (order, storeConfig, outputStream) => {
     rowY += 24;
   }
 
+  // Puntos de lealtad usados en el pedido (Order.loyalty.redeemed).
+  if (order.loyalty && order.loyalty.redeemed > 0) {
+    doc
+      .fillColor(BRAND_TEXT_DIM)
+      .font("Helvetica")
+      .fontSize(10)
+      .text("Puntos usados", 50, rowY, { width: 280 })
+      .text(`-${formatCurrency(order.loyalty.redeemed)}`, 482, rowY, { width: 80, align: "right" });
+    rowY += 24;
+  }
+
   // Envío cobrado (Order.shippingCost) como un renglón más, antes del total.
   if (order.shippingCost > 0) {
     doc
