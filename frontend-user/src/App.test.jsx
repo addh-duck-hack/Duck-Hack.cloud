@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import App from './App';
 
-test('muestra el loader de Duck-Hack al montar', () => {
+test('muestra el menú del salón y la tienda', () => {
   render(<App />);
-  const logo = screen.getByAltText(/duck-hack/i);
-  expect(logo).toBeInTheDocument();
+  expect(screen.getAllByRole('link', { name: /agendar cita/i }).length).toBeGreaterThan(0);
+  expect(screen.getAllByRole('link', { name: /^tienda$/i }).length).toBeGreaterThan(0);
 });
