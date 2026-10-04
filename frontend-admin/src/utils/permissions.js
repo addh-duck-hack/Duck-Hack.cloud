@@ -39,6 +39,7 @@ export const MODULE_NAV = [
   { key: "coupons", items: [{ path: "/admin/coupons", label: "Cupones" }] },
   { key: "abandonedCart", items: [{ path: "/admin/abandoned-cart", label: "Carrito abandonado" }] },
   { key: "reviews", items: [{ path: "/admin/reviews", label: "Reseñas" }] },
+  { key: "loyalty", items: [{ path: "/admin/loyalty", label: "Lealtad" }] },
   { key: "media", items: [{ path: "/admin/media", label: "Medios" }] },
   { key: "users", items: [{ path: "/admin/users", label: "Usuarios" }] },
   { key: "agencyClients", items: [{ path: "/admin/agency-clients", label: "Clientes" }] },
@@ -67,6 +68,8 @@ export const NAV_GROUPS = [
     icon: "fa-solid fa-store",
     modules: ["products", "inventory", "orders", "coupons", "abandonedCart", "reviews"],
   },
+  // Lealtad sirve a la tienda (puntos) y al salón (sellos): enlace suelto.
+  { id: "loyalty", modules: ["loyalty"] },
   { id: "media", modules: ["media"] },
   {
     id: "users",

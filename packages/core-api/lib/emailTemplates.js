@@ -184,17 +184,25 @@ const renderShippingLineText = (order) => (order.shippingCost > 0 ? `\n- Envío 
 // Fila del cupón (Order.discount, lib/coupons.js): el descuento en negativo o,
 // si fue de envío gratis, el aviso con $0.
 const discountLabelOf = (discount) => `Cupón ${discount.code}${discount.type === "free_shipping" ? " (envío gratis)" : ""}`;
+// Renglones de descuento antes del envío: cupón y puntos de lealtad usados.
+const discountRowsOf = (order) =>
+  [
+    order.discount?.code ? { label: discountLabelOf(order.discount), amount: order.discount.amount || 0 } : null,
+    order.loyalty?.redeemed > 0 ? { label: "Puntos usados", amount: order.loyalty.redeemed } : null,
+  ].filter(Boolean);
 const renderDiscountRowHtml = (order, textColor, textDimColor) =>
-  order.discount?.code
-    ? `<tr>
-    <td colspan="3" style="padding:8px 0; font-family:${bodyFont}; font-size:14px; color:${textDimColor}; border-bottom:1px solid ${BRAND.line};">${escapeHtml(discountLabelOf(order.discount))}</td>
-    <td style="padding:8px 0; font-family:${bodyFont}; font-size:14px; color:${textColor}; border-bottom:1px solid ${BRAND.line}; text-align:right;">${order.discount.amount > 0 ? `−${formatCurrency(order.discount.amount)}` : formatCurrency(0)}</td>
+  discountRowsOf(order)
+    .map(
+      (row) => `<tr>
+    <td colspan="3" style="padding:8px 0; font-family:${bodyFont}; font-size:14px; color:${textDimColor}; border-bottom:1px solid ${BRAND.line};">${escapeHtml(row.label)}</td>
+    <td style="padding:8px 0; font-family:${bodyFont}; font-size:14px; color:${textColor}; border-bottom:1px solid ${BRAND.line}; text-align:right;">${row.amount > 0 ? `−${formatCurrency(row.amount)}` : formatCurrency(0)}</td>
   </tr>`
-    : "";
+    )
+    .join("");
 const renderDiscountLineText = (order) =>
-  order.discount?.code
-    ? `\n- ${discountLabelOf(order.discount)} — ${order.discount.amount > 0 ? `−${formatCurrency(order.discount.amount)}` : formatCurrency(0)}`
-    : "";
+  discountRowsOf(order)
+    .map((row) => `\n- ${row.label} — ${row.amount > 0 ? `−${formatCurrency(row.amount)}` : formatCurrency(0)}`)
+    .join("");
 
 const renderOrderItemLineText = (item) => {
   const priceText = item.compareAtPrice && item.compareAtPrice > item.unitPrice
@@ -847,7 +855,43 @@ ${unsubscribeUrl ? `No quiero recibir estos recordatorios: ${unsubscribeUrl}` : 
   return { subject: `Tu carrito te espera — ${store}`, html, text };
 };
 
+// ---- Lealtad (Fase 4.1, modules/loyalty.js) ----
+const loyaltyRewardEmailTemplate = ({ branding, name, reward, goal }) => {
+  const store = branding.storeName || "Duck-Hack";
+  const { html, text } = accountActionEmailTemplate({
+    ...branding,
+    title: "¡Completaste tu tarjeta!",
+    name,
+    intro: `Juntaste ${goal} sellos en ${store}. Tu beneficio ya está listo:`,
+    details: [{ label: "Beneficio", value: reward }],
+    note: "Pídelo en tu próxima visita; lo aplicamos en el momento.",
+    footnote: `Gracias por tu preferencia — ${store}`,
+  });
+  return { subject: `¡Completaste tu tarjeta! — ${store}`, html, text };
+};
+
+// kind: "warning" (vencen pronto) | "expired" (ya vencieron).
+const loyaltyExpiryEmailTemplate = ({ kind, branding, name, points, expiresOn, shopUrl }) => {
+  const store = branding.storeName || "Duck-Hack";
+  const amount = formatCurrency(points);
+  const warning = kind === "warning";
+  const { html, text } = accountActionEmailTemplate({
+    ...branding,
+    title: warning ? "Tus puntos están por vencer" : "Tus puntos vencieron",
+    name,
+    intro: warning
+      ? `Tienes ${amount} en puntos en ${store} y vencen el ${expiresOn}. Úsalos en tu próxima compra.`
+      : `Tus ${amount} en puntos de ${store} vencieron por falta de movimiento. ¡Con tu próxima compra empiezas a juntar de nuevo!`,
+    ctaLabel: warning ? "Ir a la tienda" : undefined,
+    url: warning ? shopUrl || undefined : undefined,
+    footnote: `Puntos de lealtad — ${store}`,
+  });
+  return { subject: warning ? `Tus puntos vencen pronto — ${store}` : `Tus puntos vencieron — ${store}`, html, text };
+};
+
 module.exports = {
+  loyaltyRewardEmailTemplate,
+  loyaltyExpiryEmailTemplate,
   abandonedCartEmailTemplate,
   appointmentEmailTemplate,
   appointmentBusinessEmailTemplate,

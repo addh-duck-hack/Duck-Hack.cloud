@@ -150,6 +150,29 @@ vault, not in this repo).
   (HTML page with a POST button, so link scanners can't unsubscribe anyone;
   JWT `email_preferences`). Admin: `GET/PUT /abandoned/settings`,
   `GET /abandoned/stats`.
+- `modules/loyalty.js` — loyalty (`/api/loyalty`, permission key `loyalty`),
+  one engine with two programs, each with its own switch in
+  `LoyaltySettings`: **points** (wallet in pesos, 1 point = $1) and **stamps**
+  (card per completed appointment). Shared logic in `lib/loyalty.js`, called
+  from `orders.js` and `appointments.js`; a program only runs if `loyalty` is
+  contracted *and* enabled (`isProgramActive`). Points: credited when an order
+  reaches a paid status (`earnPercent`, 5% default, over products − coupon −
+  points used, no shipping), reversed if it leaves them or is deleted
+  (`Order.loyalty.earnedCounted`, atomic); guest orders with an account's
+  email count too. Checkout `usePoints` (session only) is capped by
+  `maxRedeemPercent`/`minRedeem` and reserved atomically (`$inc` conditioned
+  on the balance — no double spend), refunded on cancel/delete and charged
+  again if the order is reactivated. Stamps: +1 when an appointment becomes
+  `completed` (staff `PUT`, `loyaltyStampCounted`), −1 if it stops being; at
+  `goal` → `rewardsAvailable +1` + "¡Completaste tu tarjeta!" email; the
+  reward (free text) is redeemed in the admin. Every change writes a
+  `LoyaltyLedger` entry; balances never go below 0. Optional expiry
+  (`expiryMonths` without activity, default never): daily "loyalty-expiry"
+  job warns `expiryWarningDays` before and then zeroes the balance. Routes:
+  `GET /me`; staff `GET/PUT /settings`, `GET /accounts?q=`,
+  `GET /accounts/:customerId`, `POST /accounts/:customerId/adjust`,
+  `POST /accounts/:customerId/redeem-reward`; `GET /lookup` (also for
+  `appointments`/`orders` users — agenda dialog and order detail).
 - `modules/media.js` — admin media library over the `uploads/` folder
   (`/api/media`): lists files from disk, uploads images/GIF/MP4/WebM, edits
   title + alt text (stored in the `Media` collection, the file itself is never

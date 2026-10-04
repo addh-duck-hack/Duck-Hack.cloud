@@ -49,6 +49,10 @@ tags:
     description: Cupones de descuento (módulo coupons de los permisos por tienda)
   - name: Reviews
     description: Reseñas de producto (moderación = módulo reviews de los permisos por tienda)
+  - name: Loyalty
+    description: >-
+      Lealtad (módulo loyalty): puntos por compra pagada (1 punto = $1, canjeables en el
+      checkout) y tarjeta de sellos por cita completada. Cada programa con su interruptor.
   - name: StoreConfig
   - name: Permissions
     description: Permisos por tienda — módulos contratados y qué puede usar cada rol (solo super_admin los configura)
@@ -3591,6 +3595,198 @@ paths:
         "409":
           description: COUPON_IN_USE
 
+  /api/loyalty/me:
+    get:
+      tags: [Loyalty]
+      summary: Mis puntos y sellos
+      operationId: getMyLoyalty
+      description: >-
+        Cualquier usuario con sesión. `programs` solo trae activo un programa si el módulo
+        `loyalty` está contratado y el programa encendido (si no, `{ enabled: false }`).
+        Últimos 20 movimientos.
+      responses:
+        "200":
+          description: Saldo, reglas y movimientos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  programs: { $ref: "#/components/schemas/LoyaltyPrograms" }
+                  account:
+                    type: object
+                    properties:
+                      points: { type: number }
+                      stamps: { type: integer }
+                      rewardsAvailable: { type: integer }
+                      pointsExpireAt: { type: string, format: date-time, nullable: true, description: "null = no vencen (o no hay saldo)." }
+                  ledger:
+                    type: array
+                    items: { $ref: "#/components/schemas/LoyaltyLedgerEntry" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/loyalty/settings:
+    get:
+      tags: [Loyalty]
+      summary: Ajustes de lealtad
+      operationId: getLoyaltySettings
+      description: Módulo `loyalty`.
+      responses:
+        "200":
+          description: Ajustes efectivos
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LoyaltySettings" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    put:
+      tags: [Loyalty]
+      summary: Guardar ajustes de lealtad
+      operationId: updateLoyaltySettings
+      description: Módulo `loyalty`. Solo cambia lo que se manda.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoyaltySettings" }
+      responses:
+        "200":
+          description: Guardado (`{ message, settings }`)
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/loyalty/accounts:
+    get:
+      tags: [Loyalty]
+      summary: Buscar cuentas de lealtad
+      operationId: listLoyaltyAccounts
+      description: >-
+        Módulo `loyalty`. Con `q` busca clientes (rol customer) por nombre o correo, tengan o
+        no saldo (máx. 30); sin `q`, las 50 cuentas con más saldo.
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string, maxLength: 80 }
+      responses:
+        "200":
+          description: Cuentas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        customer: { type: object, properties: { _id: { type: string }, name: { type: string }, email: { type: string } } }
+                        points: { type: number }
+                        stamps: { type: integer }
+                        rewardsAvailable: { type: integer }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/loyalty/accounts/{customerId}:
+    get:
+      tags: [Loyalty]
+      summary: Cuenta de lealtad de un cliente
+      operationId: getLoyaltyAccount
+      description: Módulo `loyalty`. Con los últimos 100 movimientos (`by` = quién hizo el ajuste).
+      parameters:
+        - $ref: "#/components/parameters/LoyaltyCustomerId"
+      responses:
+        "200":
+          description: Cuenta
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LoyaltyAccountDetail" }
+        "404":
+          description: Cliente no encontrado (CUSTOMER_NOT_FOUND)
+
+  /api/loyalty/accounts/{customerId}/adjust:
+    post:
+      tags: [Loyalty]
+      summary: Ajuste manual de puntos o sellos
+      operationId: adjustLoyaltyAccount
+      description: >-
+        Módulo `loyalty`. Motivo obligatorio; los sellos van en enteros. Un ajuste que dejaría el
+        saldo negativo → `409 INSUFFICIENT_BALANCE`.
+      parameters:
+        - $ref: "#/components/parameters/LoyaltyCustomerId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [program, delta, note]
+              properties:
+                program: { type: string, enum: [points, stamps] }
+                delta: { type: number, description: "Positivo suma, negativo resta; distinto de 0." }
+                note: { type: string, maxLength: 300 }
+      responses:
+        "200":
+          description: "`{ message, account }` (LoyaltyAccountDetail)"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: Dejaría el saldo negativo (INSUFFICIENT_BALANCE)
+
+  /api/loyalty/accounts/{customerId}/redeem-reward:
+    post:
+      tags: [Loyalty]
+      summary: Canjear un beneficio de la tarjeta de sellos
+      operationId: redeemLoyaltyReward
+      description: >-
+        Módulo `loyalty`. Se usa en el local al dar el beneficio; resta uno de forma atómica.
+        Sin beneficios → `409 NO_REWARD_AVAILABLE`.
+      parameters:
+        - $ref: "#/components/parameters/LoyaltyCustomerId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: { type: string, maxLength: 300 }
+      responses:
+        "200":
+          description: "`{ message, account }` (LoyaltyAccountDetail)"
+        "409":
+          description: No tiene beneficios disponibles (NO_REWARD_AVAILABLE)
+
+  /api/loyalty/lookup:
+    get:
+      tags: [Loyalty]
+      summary: Resumen de lealtad de un cliente (agenda / pedido)
+      operationId: lookupLoyalty
+      description: >-
+        Módulo `loyalty`, o `appointments`/`orders` si `loyalty` está contratado (lo usan el
+        diálogo de la cita y el detalle del pedido). Por id o por correo de la cuenta.
+      parameters:
+        - { in: query, name: customer, schema: { type: string } }
+        - { in: query, name: email, schema: { type: string } }
+      responses:
+        "200":
+          description: "`{ found: false }` si no hay cuenta de cliente; si no, saldo y reglas."
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  found: { type: boolean }
+                  customer: { type: object, properties: { _id: { type: string }, name: { type: string }, email: { type: string } } }
+                  programs: { $ref: "#/components/schemas/LoyaltyPrograms" }
+                  points: { type: number }
+                  stamps: { type: integer }
+                  rewardsAvailable: { type: integer }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /api/reviews/public:
     get:
       tags: [Reviews]
@@ -4499,7 +4695,8 @@ paths:
                       customerEmail, items (productName, variantLabel,
                       quantity, unitPrice, compareAtPrice, subtotal),
                       shippingCost, total, deliveryMethod, pickupPoint,
-                      shippingAddress, paymentMethodLabel, shipment.
+                      shippingAddress, paymentMethodLabel, shipment,
+                      discount, loyalty ({ redeemed, earned }).
                   payment:
                     type: object
                     properties:
@@ -4936,6 +5133,14 @@ components:
         Validación estricta de issuer (JWT_ISSUER) y audience (JWT_AUDIENCE).
 
   parameters:
+    LoyaltyCustomerId:
+      in: path
+      name: customerId
+      required: true
+      schema:
+        type: string
+      description: ObjectId del cliente (rol customer)
+
     UserIdParam:
       in: path
       name: id
@@ -5097,7 +5302,7 @@ components:
     PermissionModuleKey:
       type: string
       description: Módulo del panel sujeto a permisos por tienda
-      enum: [panel, storeConfig, appConfig, services, appointments, reminders, products, inventory, orders, coupons, abandonedCart, reviews, media, users, agencyClients, accounting, invoices]
+      enum: [panel, storeConfig, appConfig, services, appointments, reminders, products, inventory, orders, coupons, abandonedCart, loyalty, reviews, media, users, agencyClients, accounting, invoices]
 
     StorePermissions:
       type: object
@@ -7074,6 +7279,8 @@ components:
           $ref: "#/components/schemas/OrderShipment"
         discount:
           $ref: "#/components/schemas/OrderDiscount"
+        loyalty:
+          $ref: "#/components/schemas/OrderLoyalty"
         inventoryDeducted:
           type: boolean
           readOnly: true
@@ -7486,6 +7693,88 @@ components:
         counted:
           type: boolean
 
+    OrderLoyalty:
+      type: object
+      readOnly: true
+      description: >-
+        Puntos de lealtad (packages/core-api/lib/loyalty.js). `redeemed` = puntos usados en el
+        checkout (se restan del total; se devuelven si se cancela o borra, `redeemRefunded`).
+        `earned` = puntos abonados al pagarse (5% default sobre productos − cupón − puntos usados,
+        sin envío), con `earnedCounted` true mientras el pedido está pagado; se retiran si se
+        cancela. Los pedidos de invitado con el correo de una cuenta también abonan.
+      properties:
+        customer: { type: string, nullable: true }
+        earned: { type: number }
+        earnedCounted: { type: boolean }
+        redeemed: { type: number }
+        redeemRefunded: { type: boolean }
+
+    LoyaltySettings:
+      type: object
+      properties:
+        points:
+          type: object
+          properties:
+            enabled: { type: boolean, default: false }
+            earnPercent: { type: number, minimum: 0.1, maximum: 50, default: 5 }
+            maxRedeemPercent: { type: number, minimum: 1, maximum: 100, default: 100, description: "% del subtotal de productos (ya con cupón) que se puede pagar con puntos." }
+            minRedeem: { type: number, minimum: 0, default: 0 }
+            expiryMonths: { type: integer, minimum: 1, maximum: 60, nullable: true, description: "Vencen tras N meses sin movimiento; null = nunca (default)." }
+            expiryWarningDays: { type: integer, minimum: 1, maximum: 60, default: 15, description: "Correo de aviso N días antes de vencer (tarea programada diaria)." }
+        stamps:
+          type: object
+          properties:
+            enabled: { type: boolean, default: false }
+            goal: { type: integer, minimum: 2, maximum: 50, default: 10 }
+            reward: { type: string, maxLength: 120, default: Un servicio gratis }
+
+    LoyaltyPrograms:
+      type: object
+      description: "Solo los programas activos traen sus reglas; los demás `{ enabled: false }`."
+      properties:
+        points:
+          type: object
+          properties:
+            enabled: { type: boolean }
+            earnPercent: { type: number }
+            maxRedeemPercent: { type: number }
+            minRedeem: { type: number }
+            expiryMonths: { type: integer, nullable: true }
+        stamps:
+          type: object
+          properties:
+            enabled: { type: boolean }
+            goal: { type: integer }
+            reward: { type: string }
+
+    LoyaltyLedgerEntry:
+      type: object
+      properties:
+        _id: { type: string }
+        program: { type: string, enum: [points, stamps] }
+        delta: { type: number }
+        balanceAfter: { type: number }
+        reason: { type: string, enum: [earn, redeem, refund, reverse, expire, adjust, reward, reward_redeemed] }
+        order: { type: string, nullable: true }
+        appointment: { type: string, nullable: true }
+        note: { type: string }
+        by: { type: object, nullable: true, properties: { name: { type: string } } }
+        createdAt: { type: string, format: date-time }
+
+    LoyaltyAccountDetail:
+      type: object
+      properties:
+        customer: { type: object, properties: { _id: { type: string }, name: { type: string }, email: { type: string } } }
+        points: { type: number }
+        stamps: { type: integer }
+        rewardsAvailable: { type: integer }
+        goal: { type: integer }
+        reward: { type: string }
+        pointsExpireAt: { type: string, format: date-time, nullable: true }
+        ledger:
+          type: array
+          items: { $ref: "#/components/schemas/LoyaltyLedgerEntry" }
+
     PaymentProof:
       type: object
       properties:
@@ -7632,6 +7921,17 @@ components:
             deja el envío en $0. Un cupón inválido rechaza el pedido con el
             código del cupón (COUPON_NOT_FOUND, COUPON_EXPIRED,
             COUPON_MIN_PURCHASE, COUPON_EXHAUSTED, COUPON_LIMIT_PER_CUSTOMER…).
+        usePoints:
+          type: number
+          minimum: 0.01
+          description: >-
+            Puntos de lealtad a usar (1 punto = $1), solo con sesión (401
+            LOGIN_REQUIRED_FOR_POINTS) y con el programa activo (400
+            LOYALTY_NOT_AVAILABLE). Tope = maxRedeemPercent del subtotal ya con
+            cupón (400 POINTS_OVER_LIMIT), mínimo minRedeem (400
+            POINTS_UNDER_MINIMUM). Se apartan de forma atómica al crear el
+            pedido; sin saldo suficiente → 409 INSUFFICIENT_POINTS. total =
+            productos − cupón − puntos + envío.
       required: [customerName, customerEmail, items]
 
     OrderUpdateRequest:

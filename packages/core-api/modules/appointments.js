@@ -73,6 +73,7 @@ const { verifyAccessToken, signAppointmentAccessToken, verifyAppointmentAccessTo
 const { normalizeMxPhone } = require("../lib/phone");
 const { notify } = require("../lib/notify");
 const { claimEach } = require("../lib/scheduler");
+const { syncAppointmentStamps } = require("../lib/loyalty");
 const { appointmentEmailTemplate, appointmentBusinessEmailTemplate } = require("../lib/emailTemplates");
 const { buildIcs, googleCalendarUrl } = require("../lib/ics");
 const { MINUTE, isValidDate, addDays, localToUtc, utcToLocal, overlaps, workingWindows, slotsForDay } = require("../lib/availability");
@@ -253,6 +254,9 @@ const appointmentSchema = new mongoose.Schema(
     reminderAttempts: { type: Number, default: 0 },
     // La clienta confirmó que asiste (desde el recordatorio).
     attendanceConfirmedAt: { type: Date, default: null },
+    // Tarjeta de sellos (lib/loyalty.js): el sello de esta cita ya se sumó.
+    loyaltyStampCounted: { type: Boolean, default: false },
+    loyaltyCustomer: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   },
   { timestamps: true }
 );
@@ -1668,6 +1672,12 @@ function registerRoutes(app, ctx) {
           })
         : await apply();
       if (!saved) return sendSlotProblem(res, problem);
+      // Tarjeta de sellos: +1 al completarse, −1 si deja de estarlo.
+      if (saved.status !== previous.status) {
+        await syncAppointmentStamps(Appointment, mongooseConnection, saved).catch((error) => {
+          console.error("No fue posible actualizar los sellos de la cita:", error.message);
+        });
+      }
       // Aviso a la clienta (uno solo): cancelada > reprogramada > confirmada.
       if (payload.notifyCustomer !== false) {
         const moved = +saved.start !== +previous.start || String(saved.specialist) !== previous.specialist;
