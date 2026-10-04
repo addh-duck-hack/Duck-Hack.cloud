@@ -284,6 +284,23 @@ job's interval. Send notices through `lib/notify.js#notify({ channel,
 to, … })` — only `email` today; WhatsApp/SMS plug in with `registerChannel`
 when a provider is contracted (until then `NOTIFY_CHANNEL_NOT_CONFIGURED`).
 
+Jobs registered today (each checks its own permission key with
+`isModuleContracted`, since there's no user to authorize):
+
+| Job | Module | Every | Runs if contracted |
+| --- | --- | --- | --- |
+| `appointment-reminders` | appointments | 1 min | `reminders` + `appointments` |
+| `appointment-review-requests` | appointments | 15 min | `reviews` + `appointments` |
+| `abandoned-carts` | cart | 15 min | `abandonedCart` |
+| `wishlist-back-in-stock` | wishlist | 15 min | `wishlist` |
+| `loyalty-expiry` | loyalty | 24 h | `loyalty` (+ points with `expiryMonths`) |
+
+Customer-facing links these jobs put in emails are a contract every storefront
+that sells the feature must serve: `FRONTEND_URL/cita/<id>?token=…`
+(`&accion=confirmar` / `&accion=calificar`), `FRONTEND_URL/carrito`,
+`FRONTEND_URL/tienda/<productId>`; unsubscribe links point to the backend
+(`BACKEND_PUBLIC_URL/api/cart|wishlist/unsubscribe`).
+
 ### `ctx` contract
 
 The consuming app's `registerRoutes(app, ctx)` call supplies:
