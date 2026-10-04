@@ -122,11 +122,11 @@ function registerRoutes(app, ctx) {
 
   router.use(verifyToken);
   // Permisos por tienda (lib/permissions.js): listar y subir también lo hacen
-  // Productos, Configurar tienda y Configurar App (selector de medios), aunque la tienda no
+  // Productos, Configurar tienda, Configurar App y Banners (selector de medios), aunque la tienda no
   // haya contratado Medios (sin él no podrían ni poner el logo); renombrar y
   // borrar, solo Medios.
   const { authorizeModule } = createModuleAuthorizer({ mongooseConnection, sendError });
-  const canUsePicker = authorizeModule("media", { alsoBy: ["products", "storeConfig", "appConfig"], requireContract: false });
+  const canUsePicker = authorizeModule("media", { alsoBy: ["products", "storeConfig", "appConfig", "promoBanner"], requireContract: false });
   const canManageLibrary = authorizeModule("media");
   router.use((req, res, next) => {
     const isPickerAction = req.method === "GET" || req.method === "HEAD" || req.method === "POST";

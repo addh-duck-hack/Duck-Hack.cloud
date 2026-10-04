@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
+import PhoneInput from "./PhoneInput";
 
 const formatMxn = (value) => Number(value || 0).toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 
@@ -144,7 +145,7 @@ const OrderForm = () => {
           </label>
           <label>
             Teléfono (opcional)
-            <input type="text" name="customerPhone" value={contact.customerPhone} onChange={handleContactChange} />
+            <PhoneInput name="customerPhone" value={contact.customerPhone} onChange={handleContactChange} />
           </label>
         </div>
 
@@ -161,7 +162,7 @@ const OrderForm = () => {
           </label>
           <label>
             Teléfono
-            <input type="text" name="phone" value={contact.shippingAddress.phone} onChange={handleAddressChange} />
+            <PhoneInput name="phone" value={contact.shippingAddress.phone} onChange={handleAddressChange} />
           </label>
           <label style={{ gridColumn: "1 / -1" }}>
             Calle

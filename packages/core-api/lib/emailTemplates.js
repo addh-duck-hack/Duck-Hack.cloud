@@ -28,9 +28,10 @@ const escapeHtml = (value = "") =>
 // Correo de una acción de cuenta (verificar correo, restablecer contraseña) o
 // aviso de un pedido: encabezado con la marca de la tienda, saludo, párrafo,
 // renglones opcionales "Etiqueta: valor" (`details`) y, si hay `url`, un botón
-// con el enlace en texto por si el botón no funciona. `accent` es
-// theme.accentColor de la tienda (si es un hex válido).
-const accountActionEmailTemplate = ({ storeName, logoUrl, accent, title, name, intro, details = [], ctaLabel, url, note, footnote }) => {
+// con el enlace en texto por si el botón no funciona. `links` = enlaces
+// secundarios [{ label, url }] bajo el botón (p. ej. "Agregar a Google
+// Calendar"). `accent` es theme.accentColor de la tienda (si es un hex válido).
+const accountActionEmailTemplate = ({ storeName, logoUrl, accent, title, name, intro, details = [], ctaLabel, url, links = [], note, footnote }) => {
   const brandName = storeName || "Duck-Hack";
   const color = accent && /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/.test(accent) ? accent : BRAND.action;
   const safeName = escapeHtml(name || "");
@@ -78,6 +79,9 @@ const accountActionEmailTemplate = ({ storeName, logoUrl, accent, title, name, i
                     </td>
                   </tr>
                 </table>` : ""}
+                ${links.length ? `<p style="margin:16px 0 0; font-family:${bodyFont}; font-size:14px; line-height:1.8;">${links
+                  .map((l) => `<a href="${l.url}" style="color:${color}; text-decoration:underline;">${escapeHtml(l.label)}</a>`)
+                  .join("<br />")}</p>` : ""}
                 ${note ? `<p style="margin:20px 0 0; font-family:${bodyFont}; font-size:13px; line-height:1.5; color:${BRAND.textDim};">${escapeHtml(note)}</p>` : ""}
                 ${url ? `<p style="margin:24px 0 0; font-family:${bodyFont}; font-size:13px; line-height:1.5; color:${BRAND.textDim};">
                   Si el botón no funciona, copia y pega este enlace en tu navegador:<br />
@@ -103,7 +107,7 @@ const accountActionEmailTemplate = ({ storeName, logoUrl, accent, title, name, i
   const text = `${greeting}
 
 ${intro}
-${detailsText ? `\n${detailsText}\n` : ""}${url ? `${url}\n` : ""}${note ? `\n${note}\n` : ""}
+${detailsText ? `\n${detailsText}\n` : ""}${url ? `${ctaLabel ? `${ctaLabel}: ` : ""}${url}\n` : ""}${links.map((l) => `${l.label}: ${l.url}\n`).join("")}${note ? `\n${note}\n` : ""}
 ${footnote}`;
 
   return { html, text };
@@ -176,6 +180,29 @@ const renderShippingRowHtml = (order, textColor, textDimColor) =>
     : "";
 
 const renderShippingLineText = (order) => (order.shippingCost > 0 ? `\n- Envío — ${formatCurrency(order.shippingCost)}` : "");
+
+// Fila del cupón (Order.discount, lib/coupons.js): el descuento en negativo o,
+// si fue de envío gratis, el aviso con $0.
+const discountLabelOf = (discount) => `Cupón ${discount.code}${discount.type === "free_shipping" ? " (envío gratis)" : ""}`;
+// Renglones de descuento antes del envío: cupón y puntos de lealtad usados.
+const discountRowsOf = (order) =>
+  [
+    order.discount?.code ? { label: discountLabelOf(order.discount), amount: order.discount.amount || 0 } : null,
+    order.loyalty?.redeemed > 0 ? { label: "Puntos usados", amount: order.loyalty.redeemed } : null,
+  ].filter(Boolean);
+const renderDiscountRowHtml = (order, textColor, textDimColor) =>
+  discountRowsOf(order)
+    .map(
+      (row) => `<tr>
+    <td colspan="3" style="padding:8px 0; font-family:${bodyFont}; font-size:14px; color:${textDimColor}; border-bottom:1px solid ${BRAND.line};">${escapeHtml(row.label)}</td>
+    <td style="padding:8px 0; font-family:${bodyFont}; font-size:14px; color:${textColor}; border-bottom:1px solid ${BRAND.line}; text-align:right;">${row.amount > 0 ? `−${formatCurrency(row.amount)}` : formatCurrency(0)}</td>
+  </tr>`
+    )
+    .join("");
+const renderDiscountLineText = (order) =>
+  discountRowsOf(order)
+    .map((row) => `\n- ${row.label} — ${row.amount > 0 ? `−${formatCurrency(row.amount)}` : formatCurrency(0)}`)
+    .join("");
 
 const renderOrderItemLineText = (item) => {
   const priceText = item.compareAtPrice && item.compareAtPrice > item.unitPrice
@@ -389,7 +416,7 @@ const orderConfirmationEmailTemplate = ({ order, storeConfig, logoAbsoluteUrl, p
 
 Pedido #${order.orderNumber} por un total de ${formatCurrency(order.total)}.
 
-${order.items.map(renderOrderItemLineText).join("\n")}${renderShippingLineText(order)}
+${order.items.map(renderOrderItemLineText).join("\n")}${renderDiscountLineText(order)}${renderShippingLineText(order)}
 ${pickup.length ? `\nRecoge tu pedido:\n${pickup.join("\n")}\n` : ""}
 ¿Cómo pagar?
 ${payment.text}
@@ -424,6 +451,7 @@ const renderOrderItemsTableHtml = (order, accent) => `
       <td style="padding-bottom:6px; font-family:${bodyFont}; font-size:12px; letter-spacing:0.04em; text-transform:uppercase; color:${accent}; border-bottom:2px solid ${accent}; text-align:right;">Subtotal</td>
     </tr>
     ${order.items.map((item) => renderOrderItemRowHtml(item, BRAND.white, BRAND.textDim)).join("")}
+    ${renderDiscountRowHtml(order, BRAND.white, BRAND.textDim)}
     ${renderShippingRowHtml(order, BRAND.white, BRAND.textDim)}
   </table>`;
 
@@ -514,7 +542,7 @@ Pedido #${order.orderNumber} por un total de ${formatCurrency(order.total)}.
 
 ${infoRows.map(([label, value]) => `${label}: ${value}`).join("\n")}
 ${hasAddress ? `Dirección de envío:\n${formatShippingAddressLine(addr)}\n` : ""}
-${order.items.map(renderOrderItemLineText).join("\n")}${renderShippingLineText(order)}`;
+${order.items.map(renderOrderItemLineText).join("\n")}${renderDiscountLineText(order)}${renderShippingLineText(order)}`;
 
   return { html, text };
 };
@@ -651,7 +679,291 @@ const lowStockEmailTemplate = ({ items, storeConfig, logoAbsoluteUrl }) => {
   return { subject, html, text };
 };
 
+
+// ---- Citas (Fase 2.5, modules/appointments.js) ----
+// `when` ya viene formateado en la zona de la tienda ("jueves, 15 de octubre
+// de 2026, 10:30"). La invitada recibe el enlace a su cita (`manageUrl`) si
+// el storefront lo tiene (FRONTEND_URL).
+const APPOINTMENT_EMAILS = {
+  booked: {
+    subject: (n, store) => `Tu cita está agendada — ${store}`,
+    title: "¡Tu cita está agendada!",
+    intro: (store) => `Te esperamos en ${store}. Estos son los datos de tu cita:`,
+  },
+  booked_pending: {
+    subject: (n, store) => `Recibimos tu cita — ${store}`,
+    title: "Recibimos tu cita",
+    intro: (store) => `Gracias por agendar en ${store}. Te avisaremos por correo en cuanto la confirmemos; tu horario ya quedó apartado.`,
+  },
+  confirmed: {
+    subject: (n, store) => `Tu cita está confirmada — ${store}`,
+    title: "Tu cita está confirmada",
+    intro: (store) => `${store} confirmó tu cita. Te esperamos:`,
+  },
+  rescheduled: {
+    subject: (n, store) => `Tu cita cambió de horario — ${store}`,
+    title: "Tu cita cambió de horario",
+    intro: () => "Tu cita quedó en el nuevo horario. Actualiza tu calendario con el archivo adjunto:",
+  },
+  reminder: {
+    subject: (n, store) => `Recordatorio de tu cita — ${store}`,
+    title: "Te esperamos pronto",
+    intro: (store) => `Te recordamos tu cita en ${store}. ¿Nos confirmas que vienes?`,
+  },
+  cancelled: {
+    subject: (n, store) => `Tu cita se canceló — ${store}`,
+    title: "Tu cita se canceló",
+    intro: () => "Tu cita se canceló. Si quieres, agenda otra cuando gustes.",
+  },
+};
+
+const appointmentDetails = ({ appointment, when, address }) =>
+  [
+    { label: "Folio", value: `#${appointment.appointmentNumber}` },
+    { label: "Cuándo", value: when },
+    { label: appointment.services.length > 1 ? "Servicios" : "Servicio", value: appointment.services.map((s) => s.name).join(" + ") },
+    { label: "Con", value: appointment.specialistName },
+    { label: "Duración", value: `${appointment.durationMin} min` },
+    { label: "Total", value: formatCurrency(appointment.total) },
+    address ? { label: "Dónde", value: address } : null,
+  ].filter(Boolean);
+
+const appointmentEmailTemplate = ({ kind, appointment, when, address, branding, manageUrl, confirmUrl, googleUrl, reason, changeHours }) => {
+  const config = APPOINTMENT_EMAILS[kind];
+  const store = branding.storeName || "Duck-Hack";
+  const isCancelled = kind === "cancelled";
+  const isReminder = kind === "reminder";
+  const notes = [];
+  if (isReminder && !manageUrl) notes.push("Si no puedes asistir, avísanos para liberar tu horario.");
+  if (isCancelled && reason) notes.push(`Motivo: ${reason}`);
+  if (!isCancelled && changeHours) notes.push(`Puedes cancelar o reprogramar hasta ${changeHours} horas antes.`);
+  const { html, text } = accountActionEmailTemplate({
+    ...branding,
+    title: config.title,
+    name: appointment.customerName,
+    intro: config.intro(store),
+    details: appointmentDetails({ appointment, when, address }),
+    ctaLabel: isCancelled ? "Agendar otra cita" : isReminder ? "Confirmo mi asistencia" : "Ver mi cita",
+    url: (isReminder ? confirmUrl : manageUrl) || undefined,
+    links: [
+      isReminder && manageUrl ? { label: "Reprogramar o cancelar", url: manageUrl } : null,
+      !isCancelled && googleUrl ? { label: "Agregar a Google Calendar", url: googleUrl } : null,
+    ].filter(Boolean),
+    note: notes.join(" ") || undefined,
+    footnote: isCancelled ? `${store}` : "Adjuntamos el archivo de calendario (.ics) para Apple Calendar u Outlook.",
+  });
+  return { subject: config.subject(appointment.appointmentNumber, store), html, text };
+};
+
+// Aviso al negocio: cita nueva desde el sitio, o cancelada / reprogramada
+// por la clienta.
+const APPOINTMENT_BUSINESS_EMAILS = {
+  new: { subject: (a) => `Nueva cita #${a.appointmentNumber} — ${a.customerName}`, title: "Nueva cita", intro: "Se agendó una cita desde el sitio:" },
+  cancelled: { subject: (a) => `Cita #${a.appointmentNumber} cancelada por la clienta`, title: "La clienta canceló su cita", intro: "Este horario quedó libre:" },
+  rescheduled: { subject: (a) => `Cita #${a.appointmentNumber} reprogramada por la clienta`, title: "La clienta cambió su cita", intro: "La cita quedó en este nuevo horario:" },
+};
+
+const appointmentBusinessEmailTemplate = ({ kind, appointment, when, previousWhen, branding, adminUrl, reason }) => {
+  const config = APPOINTMENT_BUSINESS_EMAILS[kind];
+  const details = [
+    ...appointmentDetails({ appointment, when }),
+    { label: "Clienta", value: appointment.customerName },
+    appointment.customerPhone ? { label: "Teléfono", value: appointment.customerPhone } : null,
+    appointment.customerEmail ? { label: "Correo", value: appointment.customerEmail } : null,
+    previousWhen ? { label: "Antes", value: previousWhen } : null,
+    appointment.notes ? { label: "Notas", value: appointment.notes } : null,
+    reason ? { label: "Motivo", value: reason } : null,
+    { label: "Estado", value: appointment.status === "pending" ? "Por confirmar" : appointment.status === "cancelled" ? "Cancelada" : "Confirmada" },
+  ].filter(Boolean);
+  const { html, text } = accountActionEmailTemplate({
+    ...branding,
+    title: config.title,
+    intro: config.intro,
+    details,
+    ctaLabel: adminUrl ? "Abrir la agenda" : undefined,
+    url: adminUrl || undefined,
+    note: appointment.status === "pending" && kind === "new" ? "Está por confirmar: confírmala desde la agenda del panel." : undefined,
+    footnote: "Aviso automático de la agenda.",
+  });
+  return { subject: config.subject(appointment), html, text };
+};
+
+// Aviso de favoritos (Fase 4.3, modules/wishlist.js): un favorito agotado
+// volvió a estar disponible. product: { name, price, fromPrice, imageUrl }.
+// Correo de marketing: lleva el enlace para darse de baja.
+const wishlistBackInStockEmailTemplate = ({ branding, name, product, productUrl, unsubscribeUrl }) => {
+  const store = branding.storeName || "Duck-Hack";
+  const color = branding.accent && /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/.test(branding.accent) ? branding.accent : BRAND.action;
+  const safeName = escapeHtml(name || "");
+  const price = `${product.fromPrice ? "Desde " : ""}${formatCurrency(product.price)}`;
+  const html = `<!DOCTYPE html>
+<html lang="es">
+  <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Ya está disponible - ${escapeHtml(store)}</title></head>
+  <body style="margin:0; padding:0; background-color:${BRAND.ink}; font-family:${bodyFont};">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${BRAND.ink};">
+      <tr><td align="center" style="padding:40px 16px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
+          ${renderOrderEmailHeader(store, branding.logoUrl)}
+          <tr><td style="background-color:${BRAND.panel}; border-radius:12px; padding:32px;">
+            <h1 style="margin:0 0 16px; font-family:${monoFont}; font-size:20px; color:${BRAND.white}; font-weight:700;">¡Ya está disponible!</h1>
+            <p style="margin:0 0 20px; font-family:${bodyFont}; font-size:15px; line-height:1.6; color:${BRAND.textDim};">${safeName ? `Hola ${safeName}, u` : "U"}n producto de tus favoritos volvió a tener existencias:</p>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+              ${product.imageUrl ? `<td width="96" style="padding:0 16px 0 0;"><img src="${product.imageUrl}" width="88" height="88" alt="" style="display:block; border-radius:10px; object-fit:cover;" /></td>` : ""}
+              <td style="font-family:${bodyFont}; font-size:16px; color:${BRAND.white};">
+                <strong>${escapeHtml(product.name)}</strong><br />
+                <span style="color:${BRAND.textDim}; font-size:14px;">${price}</span>
+              </td>
+            </tr></table>
+            ${productUrl ? ctaButtonHtml("Verlo en la tienda", productUrl, color) : ""}
+            <p style="margin:16px 0 0; font-family:${bodyFont}; font-size:12px; color:${BRAND.textDim};">Las existencias pueden agotarse de nuevo; se confirman al pagar.</p>
+          </td></tr>
+          <tr><td align="center" style="padding-top:24px;">
+            ${unsubscribeUrl ? `<p style="margin:0; font-family:${bodyFont}; font-size:12px; color:${BRAND.textDim};"><a href="${unsubscribeUrl}" style="color:${BRAND.textDim};">No quiero recibir avisos de mis favoritos</a></p>` : ""}
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+  const text = `${safeName ? `Hola ${name},\n\n` : ""}Un producto de tus favoritos en ${store} volvió a estar disponible:
+
+${product.name} — ${price}
+${productUrl ? `\nVerlo en la tienda: ${productUrl}\n` : ""}
+Las existencias pueden agotarse de nuevo; se confirman al pagar.
+${unsubscribeUrl ? `\nNo quiero recibir avisos de mis favoritos: ${unsubscribeUrl}` : ""}`;
+  return { subject: `¡Ya está disponible! ${product.name} — ${store}`, html, text };
+};
+
+// Reseña post-cita (Fase 4.2): invitación a calificar una cita completada.
+const appointmentReviewRequestEmailTemplate = ({ appointment, when, branding, rateUrl }) => {
+  const store = branding.storeName || "Duck-Hack";
+  const { html, text } = accountActionEmailTemplate({
+    ...branding,
+    title: "¿Cómo te fue en tu cita?",
+    name: appointment.customerName,
+    intro: `Gracias por visitarnos en ${store}. Nos encantaría saber qué te pareció: calificar te toma un minuto.`,
+    details: [
+      { label: "Cuándo", value: when },
+      { label: "Servicios", value: appointment.services.map((s) => s.name).join(" + ") },
+      { label: "Con", value: appointment.specialistName },
+    ],
+    ctaLabel: "Calificar mi cita",
+    url: rateUrl,
+    note: "Tu opinión nos ayuda a mejorar y a que más personas nos conozcan.",
+    footnote: `${store}`,
+  });
+  return { subject: `¿Cómo te fue en tu cita? — ${store}`, html, text };
+};
+
+// ---- Carrito abandonado (Fase 3.4, modules/cart.js) ----
+// items: [{ name, variantLabel, qty, price, imageUrl }] con precios actuales;
+// coupon (opcional): { code, label, endsAt (texto) }. Correo de marketing:
+// lleva el enlace para darse de baja (`unsubscribeUrl`).
+const abandonedCartEmailTemplate = ({ branding, name, items, total, cartUrl, coupon, unsubscribeUrl }) => {
+  const store = branding.storeName || "Duck-Hack";
+  const color = branding.accent && /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/.test(branding.accent) ? branding.accent : BRAND.action;
+  const safeName = escapeHtml(name || "");
+  const rows = items
+    .map(
+      (item) => `<tr>
+        <td width="56" style="padding:8px 12px 8px 0; border-bottom:1px solid ${BRAND.line};">
+          ${item.imageUrl ? `<img src="${item.imageUrl}" width="48" height="48" alt="" style="display:block; border-radius:8px; object-fit:cover;" />` : ""}
+        </td>
+        <td style="padding:8px 0; border-bottom:1px solid ${BRAND.line}; font-family:${bodyFont}; font-size:14px; color:${BRAND.white};">
+          ${escapeHtml(item.name)}${item.variantLabel ? `<br /><span style="color:${BRAND.textDim}; font-size:12px;">${escapeHtml(item.variantLabel)}</span>` : ""}
+          <br /><span style="color:${BRAND.textDim}; font-size:12px;">×${item.qty}</span>
+        </td>
+        <td align="right" style="padding:8px 0; border-bottom:1px solid ${BRAND.line}; font-family:${bodyFont}; font-size:14px; color:${BRAND.white}; white-space:nowrap;">${formatCurrency(item.price * item.qty)}</td>
+      </tr>`
+    )
+    .join("");
+  const couponHtml = coupon
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0 4px;">
+        <tr><td style="border:1px dashed ${color}; border-radius:10px; padding:14px; text-align:center;">
+          <p style="margin:0 0 6px; font-family:${bodyFont}; font-size:14px; color:${BRAND.text};">Un regalo para terminar tu compra: <strong style="color:${BRAND.white};">${escapeHtml(coupon.label)}</strong></p>
+          <p style="margin:0; font-family:${monoFont}; font-size:22px; font-weight:700; letter-spacing:0.08em; color:${color};">${escapeHtml(coupon.code)}</p>
+          <p style="margin:6px 0 0; font-family:${bodyFont}; font-size:12px; color:${BRAND.textDim};">Escríbelo en tu carrito. Válido hasta el ${escapeHtml(coupon.endsAt)}, una sola vez y solo con tu cuenta.</p>
+        </td></tr>
+      </table>`
+    : "";
+  const html = `<!DOCTYPE html>
+<html lang="es">
+  <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Tu carrito te espera - ${escapeHtml(store)}</title></head>
+  <body style="margin:0; padding:0; background-color:${BRAND.ink}; font-family:${bodyFont};">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${BRAND.ink};">
+      <tr><td align="center" style="padding:40px 16px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
+          ${renderOrderEmailHeader(store, branding.logoUrl)}
+          <tr><td style="background-color:${BRAND.panel}; border-radius:12px; padding:32px;">
+            <h1 style="margin:0 0 16px; font-family:${monoFont}; font-size:20px; color:${BRAND.white}; font-weight:700;">Tu carrito te espera</h1>
+            <p style="margin:0 0 20px; font-family:${bodyFont}; font-size:15px; line-height:1.6; color:${BRAND.textDim};">${safeName ? `Hola ${safeName}, d` : "D"}ejaste estos productos en tu carrito. Te los guardamos:</p>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}
+              <tr><td></td><td style="padding:12px 0 0; font-family:${bodyFont}; font-size:15px; color:${BRAND.white}; font-weight:700;">Total</td>
+              <td align="right" style="padding:12px 0 0; font-family:${bodyFont}; font-size:15px; color:${BRAND.white}; font-weight:700;">${formatCurrency(total)}</td></tr>
+            </table>
+            ${couponHtml}
+            ${cartUrl ? ctaButtonHtml("Terminar mi compra", cartUrl, color) : ""}
+            <p style="margin:16px 0 0; font-family:${bodyFont}; font-size:12px; color:${BRAND.textDim};">Precios y existencias al momento de este correo; se confirman al pagar.</p>
+          </td></tr>
+          <tr><td align="center" style="padding-top:24px;">
+            ${unsubscribeUrl ? `<p style="margin:0; font-family:${bodyFont}; font-size:12px; color:${BRAND.textDim};"><a href="${unsubscribeUrl}" style="color:${BRAND.textDim};">No quiero recibir estos recordatorios</a></p>` : ""}
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+  const text = `${safeName ? `Hola ${name},\n\n` : ""}Dejaste estos productos en tu carrito en ${store}:
+
+${items.map((i) => `- ${i.name}${i.variantLabel ? ` (${i.variantLabel})` : ""} ×${i.qty} — ${formatCurrency(i.price * i.qty)}`).join("\n")}
+Total: ${formatCurrency(total)}
+${coupon ? `\nUn regalo para terminar tu compra: ${coupon.label}. Código ${coupon.code} (válido hasta el ${coupon.endsAt}, una sola vez y solo con tu cuenta).\n` : ""}${cartUrl ? `\nTerminar mi compra: ${cartUrl}\n` : ""}
+${unsubscribeUrl ? `No quiero recibir estos recordatorios: ${unsubscribeUrl}` : ""}`;
+  return { subject: `Tu carrito te espera — ${store}`, html, text };
+};
+
+// ---- Lealtad (Fase 4.1, modules/loyalty.js) ----
+const loyaltyRewardEmailTemplate = ({ branding, name, reward, goal }) => {
+  const store = branding.storeName || "Duck-Hack";
+  const { html, text } = accountActionEmailTemplate({
+    ...branding,
+    title: "¡Completaste tu tarjeta!",
+    name,
+    intro: `Juntaste ${goal} sellos en ${store}. Tu beneficio ya está listo:`,
+    details: [{ label: "Beneficio", value: reward }],
+    note: "Pídelo en tu próxima visita; lo aplicamos en el momento.",
+    footnote: `Gracias por tu preferencia — ${store}`,
+  });
+  return { subject: `¡Completaste tu tarjeta! — ${store}`, html, text };
+};
+
+// kind: "warning" (vencen pronto) | "expired" (ya vencieron).
+const loyaltyExpiryEmailTemplate = ({ kind, branding, name, points, expiresOn, shopUrl }) => {
+  const store = branding.storeName || "Duck-Hack";
+  const amount = formatCurrency(points);
+  const warning = kind === "warning";
+  const { html, text } = accountActionEmailTemplate({
+    ...branding,
+    title: warning ? "Tus puntos están por vencer" : "Tus puntos vencieron",
+    name,
+    intro: warning
+      ? `Tienes ${amount} en puntos en ${store} y vencen el ${expiresOn}. Úsalos en tu próxima compra.`
+      : `Tus ${amount} en puntos de ${store} vencieron por falta de movimiento. ¡Con tu próxima compra empiezas a juntar de nuevo!`,
+    ctaLabel: warning ? "Ir a la tienda" : undefined,
+    url: warning ? shopUrl || undefined : undefined,
+    footnote: `Puntos de lealtad — ${store}`,
+  });
+  return { subject: warning ? `Tus puntos vencen pronto — ${store}` : `Tus puntos vencieron — ${store}`, html, text };
+};
+
 module.exports = {
+  wishlistBackInStockEmailTemplate,
+  appointmentReviewRequestEmailTemplate,
+  loyaltyRewardEmailTemplate,
+  loyaltyExpiryEmailTemplate,
+  abandonedCartEmailTemplate,
+  appointmentEmailTemplate,
+  appointmentBusinessEmailTemplate,
   resolveSpeiAccount,
   paymentTypeOf,
   lowStockEmailTemplate,

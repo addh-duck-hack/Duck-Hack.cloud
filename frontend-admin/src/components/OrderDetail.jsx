@@ -177,12 +177,27 @@ const OrderDetail = () => {
           ))}
         </tbody>
       </table>
+      {order.discount?.code ? (
+        <p style={{ marginTop: "0.75rem", marginBottom: 0 }}>
+          Cupón <strong>{order.discount.code}</strong>
+          {order.discount.type === "free_shipping" ? " (envío gratis)" : `: −${formatMxn(order.discount.amount)}`}
+        </p>
+      ) : null}
+      {order.loyalty?.redeemed > 0 ? (
+        <p style={{ marginTop: "0.75rem", marginBottom: 0 }}>Puntos usados: −{formatMxn(order.loyalty.redeemed)}</p>
+      ) : null}
       {order.shippingCost > 0 ? (
         <p style={{ marginTop: "0.75rem", marginBottom: 0 }}>Envío: {formatMxn(order.shippingCost)}</p>
       ) : null}
       <p style={{ marginTop: "0.75rem" }}>
         <strong>Total: {formatMxn(order.total)}</strong>
       </p>
+
+      {order.loyalty?.earnedCounted && order.loyalty.earned > 0 ? (
+        <p style={{ marginTop: 0 }}>
+          <small>El cliente ganó {formatMxn(order.loyalty.earned)} en puntos con este pedido (se retiran si se cancela).</small>
+        </p>
+      ) : null}
 
       <OrderPaymentProofs order={order} onChange={handleProofsChange} />
 

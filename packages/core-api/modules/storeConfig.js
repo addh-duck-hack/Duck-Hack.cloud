@@ -21,6 +21,7 @@ const {
   isValidObjectId,
   getOrCreateModel,
 } = require("../lib/moduleHelpers");
+const { parseMxPhone, normalizeMxPhone, toWhatsappPhone } = require("../lib/phone");
 const { PAYMENT_METHOD_TYPES, publicCheckoutOptions } = require("../lib/checkoutOptions");
 const { resolveLiveMetrics } = require("../lib/liveMetrics");
 const { createModuleAuthorizer } = require("../lib/permissions");
@@ -231,6 +232,9 @@ const testimonialSchema = new mongoose.Schema(
     rating: { type: Number, min: 1, max: 5, default: null },
     sortOrder: { type: Number, default: 0, min: 0 },
     isActive: { type: Boolean, default: true },
+    // Reseña de la que salió ("Publicar como testimonio", modules/reviews.js):
+    // evita publicarla dos veces. Nula en los testimonios capturados a mano.
+    fromReview: { type: mongoose.Schema.Types.ObjectId, default: null },
   },
   { _id: false }
 );
@@ -627,13 +631,10 @@ const validateTeamMemberItem = (item, index) => {
     item.email = email;
   }
   if (item.phone !== undefined) {
-    // Se quitan separadores de formato (espacios, guiones, puntos, paréntesis)
-    // para no rechazar teléfonos ya guardados como "55 1234 5678"; lo que
-    // queda debe ser solo dígitos, máximo 10.
-    const phone = asTrimmedString(item.phone).replace(/[\s().-]/g, "");
-    if (!/^\d*$/.test(phone)) return `teamMembers[${index}].phone solo admite números.`;
-    if (phone.length > 10) return `teamMembers[${index}].phone admite máximo 10 dígitos.`;
-    item.phone = phone;
+    // 10 dígitos (lib/phone.js): se aceptan espacios, guiones y "+52".
+    const phone = parseMxPhone(item.phone, { label: `El teléfono de ${asTrimmedString(item.name) || `teamMembers[${index}]`}` });
+    if (phone.error) return phone.error;
+    item.phone = phone.value;
   }
   if (item.photoUrl !== undefined) {
     const photoUrl = asTrimmedString(item.photoUrl);
@@ -685,7 +686,10 @@ const validateSpeiData = (spei, path) => {
   if (clabe !== undefined && asTrimmedString(clabe) && !CLABE_REGEX.test(asTrimmedString(clabe))) {
     return `${path}.clabe debe tener exactamente 18 dígitos numéricos.`;
   }
-  if (phone !== undefined && asTrimmedString(phone).length > 20) return `${path}.phone excede 20 caracteres.`;
+  if (phone !== undefined) {
+    const parsed = parseMxPhone(phone, { label: "El celular de la cuenta SPEI" });
+    if (parsed.error) return parsed.error;
+  }
   if (bank !== undefined && asTrimmedString(bank) && !MEXICAN_BANKS.includes(asTrimmedString(bank))) {
     return `${path}.bank no es un banco válido.`;
   }
@@ -695,7 +699,7 @@ const validateSpeiData = (spei, path) => {
 const pickSpeiData = (spei) => ({
   accountHolderName: asTrimmedString(spei.accountHolderName),
   clabe: asTrimmedString(spei.clabe),
-  phone: asTrimmedString(spei.phone),
+  phone: normalizeMxPhone(spei.phone),
   bank: asTrimmedString(spei.bank),
 });
 
@@ -881,9 +885,13 @@ const validateContactExtras = (payload) => {
   if (payload.whatsappButton !== undefined) {
     const value = payload.whatsappButton;
     if (!isPlainObject(value)) return "whatsappButton debe ser un objeto.";
-    const phone = asTrimmedString(value.phone).replace(/\D/g, "");
+    // Se captura a 10 dígitos de México y se guarda con el país ("52…"), que
+    // es lo que usan los enlaces wa.me del storefront (lib/phone.js).
     const enabled = Boolean(value.enabled);
-    if (enabled && (phone.length < 10 || phone.length > 15)) return "whatsappButton.phone necesita lada de país y número (10 a 15 dígitos, ej. 525512345678).";
+    const whatsapp = toWhatsappPhone(value.phone);
+    if (whatsapp.error) return whatsapp.error;
+    const phone = whatsapp.value;
+    if (enabled && !phone) return "Para encender el botón de WhatsApp escribe el número (10 dígitos).";
     const defaultMessage = asTrimmedString(value.defaultMessage);
     const itemMessage = asTrimmedString(value.itemMessage);
     if (defaultMessage.length > 300 || itemMessage.length > 300) return "Los mensajes de WhatsApp admiten máximo 300 caracteres.";
@@ -931,9 +939,9 @@ const validateStoreConfigPayload = (sendError) => (req, res, next) => {
   }
 
   if (payload.contactPhone !== undefined) {
-    const contactPhone = asTrimmedString(payload.contactPhone);
-    if (contactPhone.length > 30) return sendError(res, 400, "VALIDATION_ERROR", "contactPhone excede 30 caracteres.");
-    req.body.contactPhone = contactPhone;
+    const contactPhone = parseMxPhone(payload.contactPhone, { label: "El teléfono de contacto" });
+    if (contactPhone.error) return sendError(res, 400, "VALIDATION_ERROR", contactPhone.error);
+    req.body.contactPhone = contactPhone.value;
   }
 
   if (payload.logoUrl !== undefined) {
@@ -1017,8 +1025,10 @@ const validateStoreConfigPayload = (sendError) => (req, res, next) => {
     if (legalEmail !== undefined && asTrimmedString(legalEmail) && !validateEmail(legalEmail)) {
       return sendError(res, 400, "VALIDATION_ERROR", "legalIdentity.legalEmail no es válido.");
     }
-    if (legalPhone !== undefined && asTrimmedString(legalPhone).length > 30) {
-      return sendError(res, 400, "VALIDATION_ERROR", "legalIdentity.legalPhone excede 30 caracteres.");
+    if (legalPhone !== undefined) {
+      const parsed = parseMxPhone(legalPhone, { label: "El teléfono de contacto legal" });
+      if (parsed.error) return sendError(res, 400, "VALIDATION_ERROR", parsed.error);
+      payload.legalIdentity.legalPhone = parsed.value;
     }
   }
 

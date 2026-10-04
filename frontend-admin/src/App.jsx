@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import { HashRouter as Router, Route, Routes, Navigate } from "react-router-dom";
 import AdminShell from "./components/AdminShell";
 import AdminMenu from "./components/AdminMenu";
@@ -26,6 +26,21 @@ import ProductList from "./components/ProductList";
 import ProductForm from "./components/ProductForm";
 import CategoryList from "./components/CategoryList";
 import CategoryForm from "./components/CategoryForm";
+import CouponList from "./components/CouponList";
+import CouponForm from "./components/CouponForm";
+import ReviewList from "./components/ReviewList";
+import AbandonedCartPage from "./components/AbandonedCartPage";
+import LoyaltyPage from "./components/LoyaltyPage";
+import WishlistPage from "./components/WishlistPage";
+import PromoBannerList from "./components/PromoBannerList";
+import PromoBannerForm from "./components/PromoBannerForm";
+import ServiceList from "./components/ServiceList";
+import ServiceForm from "./components/ServiceForm";
+import SpecialistList from "./components/SpecialistList";
+import SpecialistForm from "./components/SpecialistForm";
+import TimeBlockList from "./components/TimeBlockList";
+import AppointmentSettingsForm from "./components/AppointmentSettingsForm";
+import { isAgendaManager } from "./utils/schedule";
 import InventoryList from "./components/InventoryList";
 import InventoryForm from "./components/InventoryForm";
 import OrderList from "./components/OrderList";
@@ -38,6 +53,9 @@ import MediaLibrary from "./components/MediaLibrary";
 import AppHomeEditor from "./components/AppHomeEditor";
 import PermissionsManager from "./components/PermissionsManager";
 import Loader from "./components/Loader";
+
+// La agenda trae FullCalendar (~300 kB): se carga solo al abrirla.
+const AppointmentCalendar = lazy(() => import("./components/AppointmentCalendar"));
 import NotFound from "./components/NotFound";
 import { StoreConfigProvider } from "./hooks/useStoreConfig";
 import { PermissionsProvider, usePermissions } from "./hooks/usePermissions";
@@ -64,11 +82,17 @@ const AppRoutes = () => {
     if (permissionsLoading) return <Loader />;
     return can(key) ? element : <Navigate to="/admin" replace />;
   };
+  // Dentro de Citas: especialistas y ajustes solo para la administración
+  // (super_admin / store_admin); el backend lo vuelve a revisar.
+  const gateManagers = (key, element) => {
+    if (permissionsLoading) return <Loader />;
+    return can(key) && isAgendaManager(role) ? element : <Navigate to="/admin" replace />;
+  };
   // "Permisos": siempre solo super_admin.
   const superOnly = (element) => (isSuperAdmin ? element : <Navigate to="/admin" replace />);
   const landing = () => {
     if (permissionsLoading) return <Loader />;
-    const path = firstAllowedPath(can);
+    const path = firstAllowedPath(can, role);
     return path ? <Navigate to={path} replace /> : <NoModules />;
   };
 
@@ -185,6 +209,99 @@ const AppRoutes = () => {
             <Route
               path="categories/:id/edit"
               element={gate("products", <CategoryForm />)}
+            />
+            <Route
+              path="appointments"
+              element={gate(
+                "appointments",
+                <Suspense fallback={<Loader />}>
+                  <AppointmentCalendar />
+                </Suspense>
+              )}
+            />
+            <Route
+              path="specialists"
+              element={gateManagers("appointments", <SpecialistList />)}
+            />
+            <Route
+              path="specialists/new"
+              element={gateManagers("appointments", <SpecialistForm />)}
+            />
+            <Route
+              path="specialists/:id/edit"
+              element={gateManagers("appointments", <SpecialistForm />)}
+            />
+            <Route
+              path="time-blocks"
+              element={gate("appointments", <TimeBlockList />)}
+            />
+            <Route
+              path="appointment-settings"
+              element={gateManagers("appointments", <AppointmentSettingsForm />)}
+            />
+            <Route
+              path="services"
+              element={gate("services", <ServiceList />)}
+            />
+            <Route
+              path="services/new"
+              element={gate("services", <ServiceForm />)}
+            />
+            <Route
+              path="services/:id/edit"
+              element={gate("services", <ServiceForm />)}
+            />
+            <Route
+              path="service-categories"
+              element={gate("services", <CategoryList kind="service" />)}
+            />
+            <Route
+              path="service-categories/new"
+              element={gate("services", <CategoryForm kind="service" />)}
+            />
+            <Route
+              path="service-categories/:id/edit"
+              element={gate("services", <CategoryForm kind="service" />)}
+            />
+            <Route
+              path="coupons"
+              element={gate("coupons", <CouponList />)}
+            />
+            <Route
+              path="coupons/new"
+              element={gate("coupons", <CouponForm />)}
+            />
+            <Route
+              path="coupons/:id/edit"
+              element={gate("coupons", <CouponForm />)}
+            />
+            <Route
+              path="abandoned-cart"
+              element={gate("abandonedCart", <AbandonedCartPage />)}
+            />
+            <Route
+              path="reviews"
+              element={gate("reviews", <ReviewList />)}
+            />
+            <Route
+              path="promo-banners"
+              element={gate("promoBanner", <PromoBannerList />)}
+            />
+            <Route
+              path="promo-banners/new"
+              element={gate("promoBanner", <PromoBannerForm />)}
+            />
+            <Route
+              path="promo-banners/:id/edit"
+              element={gate("promoBanner", <PromoBannerForm />)}
+            />
+            <Route
+              path="wishlist"
+              element={gate("wishlist", <WishlistPage />)}
+            />
+            <Route
+              path="loyalty"
+              element={gate("loyalty", <LoyaltyPage />)}
             />
             <Route
               path="inventory"

@@ -15,6 +15,7 @@ const {
   isValidObjectId,
   getOrCreateModel,
 } = require("../lib/moduleHelpers");
+const { parseMxPhone } = require("../lib/phone");
 const { createAuthMiddleware, isValidRole, ROLES, STAFF_ROLES } = require("../lib/authMiddleware");
 const {
   validateJwtEnvConfig,
@@ -87,11 +88,9 @@ const userSchema = new mongoose.Schema({
     enum: Object.values(ROLES),
     default: ROLES.CUSTOMER,
   },
-  // Opcional a propósito — ni /register (autoservicio) ni el alta de staff
-  // desde el panel (POST /) lo exigen. Sin validación de formato (mismo
-  // criterio que Order.customerPhone en modules/orders.js): los números
-  // vienen en formatos muy distintos según el país, un regex fijo rechazaría
-  // casos válidos.
+  // Opcional — ni /register (autoservicio) ni el alta de staff desde el panel
+  // (POST /) lo exigen. Si viene, 10 dígitos de México (lib/phone.js; los
+  // validadores lo normalizan antes de guardar).
   phone: {
     type: String,
     trim: true,
@@ -131,6 +130,15 @@ const userSchema = new mongoose.Schema({
   favorites: {
     type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Product" }],
     default: [],
+  },
+  // Correos opcionales (de marketing) que la cuenta acepta. Los de pedidos y
+  // citas no dependen de esto. abandonedCart: recordatorio de carrito
+  // abandonado (modules/cart.js); wishlist: aviso de que un favorito agotado
+  // volvió (modules/wishlist.js). Se apagan con el enlace del propio correo
+  // o con PUT /:id { emailPreferences: { abandonedCart, wishlist } }.
+  emailPreferences: {
+    abandonedCart: { type: Boolean, default: true },
+    wishlist: { type: Boolean, default: true },
   },
   profileImage: {
     type: String, // Almacena la ruta de la imagen subida
@@ -225,9 +233,11 @@ const validateRegisterPayload = (sendError) => (req, res, next) => {
     return sendError(res, 400, "VALIDATION_ERROR", "La contraseña debe tener al menos 6 caracteres.");
   }
 
-  // Opcional — sin formato fijo, ver comentario en el schema.
+  // Opcional; si viene, 10 dígitos (lib/phone.js).
   if (req.body?.phone !== undefined) {
-    req.body.phone = asTrimmedString(req.body.phone);
+    const phone = parseMxPhone(req.body.phone);
+    if (phone.error) return sendError(res, 400, "VALIDATION_ERROR", phone.error);
+    req.body.phone = phone.value;
   }
 
   req.body.name = name;
@@ -276,9 +286,11 @@ const validateCreateStaffPayload = (sendError) => (req, res, next) => {
     return sendError(res, 400, "INVALID_ROLE", "Rol no válido");
   }
 
-  // Opcional — sin formato fijo, ver comentario en el schema.
+  // Opcional; si viene, 10 dígitos (lib/phone.js).
   if (req.body?.phone !== undefined) {
-    req.body.phone = asTrimmedString(req.body.phone);
+    const phone = parseMxPhone(req.body.phone);
+    if (phone.error) return sendError(res, 400, "VALIDATION_ERROR", phone.error);
+    req.body.phone = phone.value;
   }
 
   req.body.name = name;
@@ -288,8 +300,23 @@ const validateCreateStaffPayload = (sendError) => (req, res, next) => {
   return next();
 };
 
+// Correos opcionales que el cliente puede apagar (User.emailPreferences).
+const EMAIL_PREFERENCE_KEYS = ["abandonedCart", "wishlist"];
+
 const validateUpdateUserPayload = (sendError) => (req, res, next) => {
-  const { name, email, phone, role } = req.body || {};
+  const { name, email, phone, role, emailPreferences } = req.body || {};
+
+  if (emailPreferences !== undefined) {
+    if (!emailPreferences || typeof emailPreferences !== "object") {
+      return sendError(res, 400, "VALIDATION_ERROR", "emailPreferences debe ser un objeto.");
+    }
+    for (const key of EMAIL_PREFERENCE_KEYS) {
+      const value = emailPreferences[key];
+      if (value !== undefined && typeof value !== "boolean") {
+        return sendError(res, 400, "VALIDATION_ERROR", `emailPreferences.${key} debe ser true o false.`);
+      }
+    }
+  }
 
   if (email !== undefined) {
     return sendError(res, 400, "EMAIL_CHANGE_NOT_ALLOWED", "El correo electrónico no puede modificarse.");
@@ -308,7 +335,9 @@ const validateUpdateUserPayload = (sendError) => (req, res, next) => {
   // el teléfono guardado. Las direcciones NO se tocan aquí — ver
   // POST/PUT/DELETE /:id/addresses más abajo.
   if (phone !== undefined) {
-    req.body.phone = asTrimmedString(phone);
+    const parsed = parseMxPhone(phone);
+    if (parsed.error) return sendError(res, 400, "VALIDATION_ERROR", parsed.error);
+    req.body.phone = parsed.value;
   }
 
   if (role !== undefined) {
@@ -642,9 +671,12 @@ function registerRoutes(app, ctx) {
         const actorRole = req.user.role;
         const actorId = String(req.user.id);
 
-        const { name, phone, role } = req.body;
+        const { name, phone, role, emailPreferences } = req.body;
 
         const updateData = {};
+        for (const key of EMAIL_PREFERENCE_KEYS) {
+          if (emailPreferences?.[key] !== undefined) updateData[`emailPreferences.${key}`] = emailPreferences[key];
+        }
         if (name !== undefined) {
           updateData.name = name;
         }
@@ -823,6 +855,9 @@ function registerRoutes(app, ctx) {
         if (missing.length > 0) {
           return sendError(res, 400, "VALIDATION_ERROR", `Faltan campos requeridos: ${missing.join(", ")}.`);
         }
+        const addressPhone = parseMxPhone(fields.phone, { required: true, label: "El teléfono de la dirección" });
+        if (addressPhone.error) return sendError(res, 400, "VALIDATION_ERROR", addressPhone.error);
+        fields.phone = addressPhone.value;
 
         const user = await User.findById(req.params.id);
         if (!user) {
@@ -875,9 +910,14 @@ function registerRoutes(app, ctx) {
         }
         for (const field of ADDRESS_FIELDS) {
           if (req.body?.[field] === undefined) continue;
-          const normalized = asTrimmedString(req.body[field]);
+          let normalized = asTrimmedString(req.body[field]);
           if (ADDRESS_REQUIRED_FIELDS.includes(field) && !normalized) {
             return sendError(res, 400, "VALIDATION_ERROR", `${field} no puede quedar vacío.`);
+          }
+          if (field === "phone") {
+            const addressPhone = parseMxPhone(normalized, { required: true, label: "El teléfono de la dirección" });
+            if (addressPhone.error) return sendError(res, 400, "VALIDATION_ERROR", addressPhone.error);
+            normalized = addressPhone.value;
           }
           target[field] = normalized;
         }

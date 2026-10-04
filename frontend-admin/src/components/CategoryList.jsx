@@ -2,11 +2,14 @@ import React, { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
+import { CATEGORY_KINDS } from "../utils/categoryKinds";
 
-// Categorías del catálogo (módulo "Productos" de los permisos). Las
-// destacadas son las que el storefront muestra como bloques de "categorías
-// destacadas"; el orden aplica en la tienda y en este listado.
-const CategoryList = () => {
+// Categorías del catálogo: de productos (módulo "Productos" de los permisos)
+// o de servicios (módulo "Servicios"), según `kind`. Las destacadas son las
+// que el storefront muestra como bloques de "categorías destacadas"; el orden
+// aplica en la tienda y en este listado.
+const CategoryList = ({ kind = "product" }) => {
+  const config = CATEGORY_KINDS[kind];
   const navigate = useNavigate();
   const [categories, setCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -19,7 +22,7 @@ const CategoryList = () => {
     setIsLoading(true);
     setError("");
     try {
-      const response = await axios.get(`${baseUrl}/api/categories`, { headers: getAuthHeaders() });
+      const response = await axios.get(`${baseUrl}/api/categories`, { headers: getAuthHeaders(), params: { kind } });
       setCategories(response.data?.items || []);
     } catch (err) {
       setError(err.response?.data?.error?.message || "No fue posible cargar las categorías.");
@@ -27,7 +30,7 @@ const CategoryList = () => {
       setIsLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [kind]);
 
   useEffect(() => {
     loadCategories();
@@ -47,12 +50,12 @@ const CategoryList = () => {
   return (
     <section>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
-        <h3 style={{ margin: 0 }}>Categorías</h3>
-        <button type="button" onClick={() => navigate("/admin/categories/new")} style={{ width: "auto" }}>
+        <h3 style={{ margin: 0 }}>{kind === "service" ? "Categorías de servicios" : "Categorías"}</h3>
+        <button type="button" onClick={() => navigate(`${config.basePath}/new`)} style={{ width: "auto" }}>
           Nueva categoría
         </button>
       </div>
-      <p>Agrupan los productos en la tienda. Solo se puede eliminar una categoría que ningún producto usa.</p>
+      <p>{config.intro}</p>
 
       {error ? <div className="auth-error">{error}</div> : null}
 
@@ -63,7 +66,7 @@ const CategoryList = () => {
             <th>Nombre</th>
             <th>Slug</th>
             <th>Orden</th>
-            <th>Productos</th>
+            <th>{config.itemsLabel}</th>
             <th>Estado</th>
             <th>Acciones</th>
           </tr>
@@ -100,7 +103,7 @@ const CategoryList = () => {
                 </span>
               </td>
               <td style={{ display: "flex", gap: "0.5rem" }}>
-                <button type="button" onClick={() => navigate(`/admin/categories/${c._id}/edit`)}>
+                <button type="button" onClick={() => navigate(`${config.basePath}/${c._id}/edit`)}>
                   Editar
                 </button>
                 <button
@@ -108,7 +111,7 @@ const CategoryList = () => {
                   className="btn-secondary"
                   onClick={() => handleDelete(c._id)}
                   disabled={c.productCount > 0}
-                  title={c.productCount > 0 ? "Tiene productos: cámbialos de categoría o desactívala" : undefined}
+                  title={c.productCount > 0 ? config.inUseTitle : undefined}
                 >
                   Eliminar
                 </button>

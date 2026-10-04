@@ -25,6 +25,9 @@ const {
   getOrCreateModel,
 } = require("../lib/moduleHelpers");
 const { createRateLimiter } = require("../lib/rateLimit");
+const { parseMxPhone } = require("../lib/phone");
+const { settleCartAfterOrder } = require("./cart");
+const { round2: roundMoney, isProgramActive, getLoyaltySettings, reservePoints, syncOrderLoyalty } = require("../lib/loyalty");
 const { getPurchaseLimit } = require("../lib/purchaseLimits");
 const { shippingSettingsOf, computeShippingCost } = require("../lib/shipping");
 const { DELIVERY_METHODS, resolveCheckout } = require("../lib/checkoutOptions");
@@ -42,6 +45,7 @@ const { createPaymentProofUploadMiddlewares } = require("../lib/uploads");
 const { paymentProofSchema, proofRecordFrom, findProof, streamProofFile, discardProofFile } = require("../lib/paymentProofs");
 const { createModuleAuthorizer } = require("../lib/permissions");
 const { recalculateStatus, notifyStockAlerts } = require("./inventory");
+const { resolveCoupon, reserveCouponUse, syncCouponUse } = require("../lib/coupons");
 const { hasVariants, findVariant, variantLabel, variantPricing, stockKey } = require("../lib/variants");
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -222,6 +226,40 @@ const orderSchema = new mongoose.Schema(
     // Recoger en tienda: se ponen solas al pasar a ready_for_pickup / picked_up.
     readyForPickupAt: { type: Date },
     pickedUpAt: { type: Date },
+    // Cupón aplicado en el checkout (lib/coupons.js). `amount` = lo que se
+    // descontó del subtotal de productos; en free_shipping es 0 y el envío
+    // queda en $0. `counted` = el pedido cuenta como uso del cupón (no si se
+    // cancela); lo maneja syncCouponUse.
+    // Lealtad (lib/loyalty.js): puntos ganados al pagarse y puntos usados en
+    // el checkout. Las marcas earnedCounted / redeemRefunded cambian de forma
+    // atómica (nunca abona ni devuelve dos veces). Solo lo escribe el servidor.
+    loyalty: {
+      type: new mongoose.Schema(
+        {
+          customer: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+          earned: { type: Number, min: 0, default: 0 },
+          earnedCounted: { type: Boolean, default: false },
+          redeemed: { type: Number, min: 0, default: 0 },
+          redeemRefunded: { type: Boolean, default: false },
+        },
+        { _id: false }
+      ),
+      default: undefined,
+    },
+    discount: {
+      type: new mongoose.Schema(
+        {
+          code: { type: String, trim: true },
+          coupon: { type: mongoose.Schema.Types.ObjectId, ref: "Coupon" },
+          type: { type: String, trim: true },
+          value: { type: Number, min: 0 },
+          amount: { type: Number, min: 0, default: 0 },
+          counted: { type: Boolean, default: false },
+        },
+        { _id: false }
+      ),
+      default: undefined,
+    },
     // true = lo vendido ya se descontó del inventario. Lo maneja solo
     // syncInventoryForOrder (nunca se acepta del cliente); antes se deducía de
     // si el estado era "confirmed", y el stock regresaba al avanzar a
@@ -232,6 +270,19 @@ const orderSchema = new mongoose.Schema(
 );
 orderSchema.index({ status: 1 });
 orderSchema.index({ customer: 1 });
+
+// Dirección normalizada en req.body; el teléfono (si viene) a 10 dígitos
+// (lib/phone.js). Devuelve el mensaje de error o null.
+const applyShippingAddress = (req, rawAddress) => {
+  const address = normalizeShippingAddress(rawAddress);
+  if (address && address.phone) {
+    const phone = parseMxPhone(address.phone, { label: "El teléfono de la dirección de envío" });
+    if (phone.error) return phone.error;
+    address.phone = phone.value;
+  }
+  req.body.shippingAddress = address;
+  return null;
+};
 
 const validateCreatePayload = (sendError) => (req, res, next) => {
   const payload = req.body || {};
@@ -246,8 +297,15 @@ const validateCreatePayload = (sendError) => (req, res, next) => {
   }
   req.body.customerEmail = customerEmail;
 
-  if (payload.customerPhone !== undefined) req.body.customerPhone = asTrimmedString(payload.customerPhone);
-  if (payload.shippingAddress !== undefined) req.body.shippingAddress = normalizeShippingAddress(payload.shippingAddress);
+  if (payload.customerPhone !== undefined) {
+    const phone = parseMxPhone(payload.customerPhone, { label: "El teléfono del cliente" });
+    if (phone.error) return sendError(res, 400, "VALIDATION_ERROR", phone.error);
+    req.body.customerPhone = phone.value;
+  }
+  if (payload.shippingAddress !== undefined) {
+    const addressError = applyShippingAddress(req, payload.shippingAddress);
+    if (addressError) return sendError(res, 400, "VALIDATION_ERROR", addressError);
+  }
   if (payload.notes !== undefined) req.body.notes = asTrimmedString(payload.notes);
 
   if (payload.customer !== undefined && payload.customer !== "") {
@@ -287,7 +345,7 @@ const validateCreatePayload = (sendError) => (req, res, next) => {
   // servidor después (inventario, comprobantes, guía, fechas de recoger).
   for (const field of [
     "status", "total", "shippingCost", "inventoryDeducted", "paymentProofs",
-    "shipment", "readyForPickupAt", "pickedUpAt",
+    "shipment", "readyForPickupAt", "pickedUpAt", "discount", "loyalty",
   ]) {
     delete req.body[field];
   }
@@ -305,7 +363,10 @@ const validateUpdatePayload = (sendError) => (req, res, next) => {
     }
     req.body.status = status;
   }
-  if (payload.shippingAddress !== undefined) req.body.shippingAddress = normalizeShippingAddress(payload.shippingAddress);
+  if (payload.shippingAddress !== undefined) {
+    const addressError = applyShippingAddress(req, payload.shippingAddress);
+    if (addressError) return sendError(res, 400, "VALIDATION_ERROR", addressError);
+  }
   if (payload.notes !== undefined) req.body.notes = asTrimmedString(payload.notes);
   if (payload.shipment !== undefined) {
     const shipment = payload.shipment;
@@ -351,6 +412,15 @@ const validateCheckoutExtras = (sendError) => (req, res, next) => {
   req.body.paymentMethod = payload.paymentMethod ? asTrimmedString(payload.paymentMethod).slice(0, 64) : "transfer";
   req.body.deliveryMethod = payload.deliveryMethod ? asTrimmedString(payload.deliveryMethod) : undefined;
   req.body.pickupPointId = payload.pickupPointId ? asTrimmedString(payload.pickupPointId) : undefined;
+  req.body.couponCode = payload.couponCode ? asTrimmedString(payload.couponCode).slice(0, 40) : undefined;
+  // Puntos de lealtad a usar (pesos). Se valida contra el saldo en el handler.
+  if (payload.usePoints !== undefined && payload.usePoints !== null && payload.usePoints !== "" && Number(payload.usePoints) !== 0) {
+    const usePoints = asFiniteNumber(payload.usePoints);
+    if (usePoints === null || usePoints < 0) return sendError(res, 400, "VALIDATION_ERROR", "usePoints debe ser un número mayor a 0.");
+    req.body.usePoints = Math.round(usePoints * 100) / 100;
+  } else {
+    delete req.body.usePoints;
+  }
 
   // Siempre los calcula el servidor (resolveCheckout).
   delete req.body.pickupPoint;
@@ -919,24 +989,115 @@ function registerRoutes(app, ctx) {
           delete orderData.shippingAddress;
         }
 
+        // Cupón (lib/coupons.js): el descuento se calcula aquí, nunca se toma
+        // del cliente. Un cupón inválido detiene el pedido con su motivo, para
+        // que el cliente no pague de más sin darse cuenta.
+        const { couponCode, usePoints, ...orderFields } = orderData;
+        let couponResult = null;
+        if (couponCode) {
+          couponResult = await resolveCoupon(mongooseConnection, couponCode, {
+            subtotal: built.total,
+            customerEmail: orderFields.customerEmail,
+            deliveryMethod: checkout.deliveryMethod,
+          });
+          if (couponResult.error) {
+            return sendError(res, couponResult.error.status, couponResult.error.code, couponResult.error.message);
+          }
+        }
+        const discountAmount = couponResult?.discount || 0;
+        const itemsTotal = Math.max(0, built.total - discountAmount);
+
+        // Puntos de lealtad (lib/loyalty.js): solo con sesión, hasta el tope
+        // (% del subtotal ya con cupón) y desde el mínimo. Se apartan de forma
+        // atómica junto con el cupón, justo antes de guardar.
+        let pointsToUse = 0;
+        if (usePoints) {
+          if (!req.checkoutCustomerId) {
+            return sendError(res, 401, "LOGIN_REQUIRED_FOR_POINTS", "Inicia sesión para usar tus puntos.");
+          }
+          if (!(await isProgramActive(mongooseConnection, "points"))) {
+            return sendError(res, 400, "LOYALTY_NOT_AVAILABLE", "Esta tienda no tiene puntos de lealtad.");
+          }
+          const { points: rules } = await getLoyaltySettings(mongooseConnection);
+          const maxPoints = roundMoney((itemsTotal * rules.maxRedeemPercent) / 100);
+          if (usePoints > maxPoints) {
+            return sendError(res, 400, "POINTS_OVER_LIMIT", `En este pedido puedes usar hasta $${maxPoints.toLocaleString("es-MX")} en puntos.`);
+          }
+          if (rules.minRedeem && usePoints < rules.minRedeem) {
+            return sendError(res, 400, "POINTS_UNDER_MINIMUM", `Puedes usar tus puntos desde $${rules.minRedeem.toLocaleString("es-MX")}.`);
+          }
+          pointsToUse = usePoints;
+        }
+
         // El envío gratis se mide contra el subtotal de productos (ya con
-        // descuentos), igual que en la canasta del storefront.
-        const shippingCost = computeShippingCost(shippingSettingsOf(storeConfig), built.total, checkout.deliveryMethod);
+        // descuentos, también el del cupón), igual que en la canasta.
+        const shippingCost = couponResult?.freeShipping
+          ? 0
+          : computeShippingCost(shippingSettingsOf(storeConfig), itemsTotal, checkout.deliveryMethod);
+
+        // El uso se aparta justo antes de guardar: si otro pedido se llevó el
+        // último, este no sale con el descuento.
+        if (couponResult && !(await reserveCouponUse(mongooseConnection.models.Coupon, couponResult.coupon._id))) {
+          return sendError(res, 409, "COUPON_EXHAUSTED", "Ese cupón ya se usó el máximo de veces.");
+        }
+        const releaseCoupon = () =>
+          couponResult ? mongooseConnection.models.Coupon.updateOne({ _id: couponResult.coupon._id }, { $inc: { usedCount: -1 } }) : null;
+        if (pointsToUse && !(await reservePoints(mongooseConnection, req.checkoutCustomerId, pointsToUse))) {
+          await releaseCoupon();
+          return sendError(res, 409, "INSUFFICIENT_POINTS", "No tienes puntos suficientes.");
+        }
 
         const orderNumber = await nextOrderNumber(Order);
         const order = new Order({
-          ...orderData,
+          ...orderFields,
           ...checkout,
           items: built.items,
           shippingCost,
-          total: built.total + shippingCost,
+          total: Math.round((itemsTotal - pointsToUse + shippingCost) * 100) / 100,
+          ...(pointsToUse ? { loyalty: { customer: req.checkoutCustomerId, redeemed: pointsToUse } } : {}),
+          ...(couponResult
+            ? {
+                discount: {
+                  code: couponResult.coupon.code,
+                  coupon: couponResult.coupon._id,
+                  type: couponResult.coupon.type,
+                  value: couponResult.coupon.value,
+                  amount: discountAmount,
+                  counted: true,
+                },
+              }
+            : {}),
           orderNumber,
           status: "pending",
           // Derivado del JWT verificado en attachOptionalCustomer, nunca de
           // req.body (validateCheckoutExtras ya lo borró ahí).
           ...(req.checkoutCustomerId ? { customer: req.checkoutCustomerId } : {}),
         });
-        await order.save();
+        try {
+          await order.save();
+        } catch (error) {
+          // Si el pedido no se guardó, el uso del cupón y los puntos apartados se devuelven.
+          await releaseCoupon();
+          if (pointsToUse) await mongooseConnection.models.LoyaltyAccount.updateOne({ customer: req.checkoutCustomerId }, { $inc: { points: pointsToUse } });
+          throw error;
+        }
+        if (pointsToUse) {
+          const account = await mongooseConnection.models.LoyaltyAccount.findOne({ customer: req.checkoutCustomerId }).select("points").lean();
+          await mongooseConnection.models.LoyaltyLedger.create({
+            customer: req.checkoutCustomerId,
+            program: "points",
+            delta: -pointsToUse,
+            balanceAfter: roundMoney(account?.points || 0),
+            reason: "redeem",
+            order: order._id,
+            note: `Pedido #${order.orderNumber}`,
+          });
+        }
+
+        // Con sesión: el carrito guardado (modules/cart.js) se vacía y, si se
+        // le había mandado recordatorio, cuenta como venta recuperada. Sin
+        // await: nunca tumba el pedido.
+        if (req.checkoutCustomerId) settleCartAfterOrder(mongooseConnection, { customerId: req.checkoutCustomerId, order });
 
         sendCheckoutEmails(order, { mongooseConnection, generateOrderPdf }).catch((error) => {
           // El pedido ya se guardó — un correo fallido no debe verse como que
@@ -986,6 +1147,8 @@ function registerRoutes(app, ctx) {
             subtotal: i.subtotal,
           })),
           shippingCost: order.shippingCost,
+          discount: order.discount?.code ? { code: order.discount.code, type: order.discount.type, amount: order.discount.amount } : undefined,
+          loyalty: order.loyalty ? { redeemed: order.loyalty.redeemed || 0, earned: order.loyalty.earnedCounted ? order.loyalty.earned : 0 } : undefined,
           total: order.total,
           deliveryMethod: order.deliveryMethod,
           pickupPoint: order.pickupPoint,
@@ -1169,8 +1332,10 @@ function registerRoutes(app, ctx) {
         }
         await req.order.save();
 
-        // Inventario según el estado nuevo (ver syncInventoryForOrder).
+        // Inventario y usos del cupón según el estado nuevo.
         await syncInventoryForOrder(Order, mongooseConnection, req.order);
+        await syncCouponUse(Order, mongooseConnection, req.order);
+        await syncOrderLoyalty(Order, mongooseConnection, req.order);
         if (statusChanged && STATUS_NOTIFICATIONS.includes(req.order.status)) {
           notifyOrder(req.order, req.order.status, { mongooseConnection });
         }
@@ -1224,6 +1389,7 @@ function registerRoutes(app, ctx) {
         await req.order.save();
 
         await syncInventoryForOrder(Order, mongooseConnection, req.order);
+        await syncOrderLoyalty(Order, mongooseConnection, req.order);
         if (req.order.status === "confirmed" && previousStatus !== "confirmed") {
           notifyOrder(req.order, "confirmed", { mongooseConnection });
         }
@@ -1260,8 +1426,11 @@ function registerRoutes(app, ctx) {
   router.delete("/:id", validateObjectIdParam("id"), canWrite, ensureOrderExists, async (req, res) => {
     try {
       const proofFiles = (req.order.paymentProofs || []).map((p) => p.fileName);
-      // Si lo vendido ya se había descontado, regresa al inventario.
+      // Si lo vendido ya se había descontado, regresa al inventario; y el uso
+      // del cupón, si contaba, se libera.
       await syncInventoryForOrder(Order, mongooseConnection, req.order, { release: true });
+      await syncCouponUse(Order, mongooseConnection, req.order, { release: true });
+      await syncOrderLoyalty(Order, mongooseConnection, req.order, { release: true });
       await req.order.deleteOne();
       await Promise.all(proofFiles.map(discardProofFile));
       return res.status(200).json({ message: "Pedido eliminado." });

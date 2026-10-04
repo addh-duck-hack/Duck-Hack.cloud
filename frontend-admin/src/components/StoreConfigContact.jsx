@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import StoreConfigTabs from "./StoreConfigTabs";
+import PhoneInput from "./PhoneInput";
 
 // Pestaña "Contacto y horario": ubicación del negocio (mapa y "Cómo llegar"),
 // horario de atención por día (hasta dos turnos), días festivos y botón de
@@ -276,13 +277,14 @@ const StoreConfigContact = () => {
           Mostrar el botón de WhatsApp en la tienda
         </label>
         <label>
-          Número con lada de país (solo dígitos)
-          <input
-            type="tel"
+          Número de WhatsApp (10 dígitos)
+          {/* Se guarda con el país (52…) para los enlaces wa.me; aquí se
+              captura y se muestra a 10 dígitos. */}
+          <PhoneInput
+            name="whatsappPhone"
+            prefix="+52"
             value={whatsapp.phone}
-            maxLength={15}
-            placeholder="525512345678"
-            onChange={(e) => setWhatsapp((prev) => ({ ...prev, phone: e.target.value.replace(/\D/g, "").slice(0, 15) }))}
+            onChange={(e) => setWhatsapp((prev) => ({ ...prev, phone: e.target.value }))}
             required={whatsapp.enabled}
           />
         </label>

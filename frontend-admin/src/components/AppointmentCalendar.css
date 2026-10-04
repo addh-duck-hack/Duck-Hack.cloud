@@ -1,0 +1,395 @@
+/* Agenda (AppointmentCalendar.jsx + AppointmentDialog.jsx). FullCalendar se
+   tematiza con sus variables --fc-* sobre la paleta del panel (index.css). */
+.agenda {
+  --fc-border-color: var(--input-border-color);
+  --fc-page-bg-color: var(--background-color);
+  --fc-neutral-bg-color: var(--form-background-color);
+  --fc-neutral-text-color: var(--placeholder-color);
+  --fc-list-event-hover-bg-color: var(--table-hover-bg-color);
+  --fc-today-bg-color: rgba(74, 189, 252, 0.07);
+  --fc-now-indicator-color: var(--primary-color);
+  --fc-highlight-color: rgba(248, 175, 17, 0.18);
+  --fc-button-bg-color: var(--input-background-color);
+  --fc-button-border-color: var(--input-border-color);
+  --fc-button-text-color: var(--text-color);
+  --fc-button-hover-bg-color: var(--table-header-bg-color);
+  --fc-button-hover-border-color: var(--link-color);
+  --fc-button-active-bg-color: var(--table-header-bg-color);
+  --fc-button-active-border-color: var(--link-color);
+  --fc-event-text-color: #03141c;
+  --fc-bg-event-color: #7f9aab;
+  --fc-bg-event-opacity: 0.22;
+  /* Fuera de horario (businessHours de FullCalendar). */
+  --fc-non-business-color: rgba(127, 154, 171, 0.14);
+}
+
+.agenda-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.agenda-toolbar-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.agenda-toolbar-actions select {
+  width: auto;
+  min-width: 200px;
+}
+
+.agenda-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.agenda-check input {
+  width: auto;
+}
+
+.agenda-note {
+  padding: 0.75rem 1rem;
+  border: 1px dashed var(--input-border-color);
+  border-radius: 8px;
+  color: var(--placeholder-color);
+}
+
+.agenda-legend {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  font-size: 0.82rem;
+}
+
+.agenda-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.agenda-legend span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+/* ---- FullCalendar ---- */
+.agenda-calendar .fc {
+  font-size: 0.85rem;
+}
+
+.agenda-calendar .fc .fc-toolbar-title {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  color: var(--heading-color);
+  text-transform: capitalize;
+}
+
+.agenda-calendar .fc .fc-button {
+  width: auto;
+  padding: 0.35rem 0.7rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-transform: none;
+  box-shadow: none;
+}
+
+.agenda-calendar .fc .fc-col-header-cell-cushion,
+.agenda-calendar .fc .fc-daygrid-day-number,
+.agenda-calendar .fc .fc-list-day-text,
+.agenda-calendar .fc .fc-list-day-side-text {
+  color: var(--text-color);
+  text-decoration: none;
+  text-transform: capitalize;
+}
+
+.agenda-calendar .fc .fc-timegrid-slot-label,
+.agenda-calendar .fc .fc-list-event-time {
+  color: var(--placeholder-color);
+}
+
+.agenda-calendar .fc .fc-event {
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.agenda-calendar .fc-list-event-title {
+  color: var(--text-color);
+}
+
+/* Por confirmar: rayado; completada / no asistió / cancelada: apagadas. */
+.agenda-calendar .agenda-event--pending {
+  background-image: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.35) 0 6px, transparent 6px 12px);
+}
+
+.agenda-calendar .agenda-event--completed,
+.agenda-calendar .agenda-event--no_show {
+  opacity: 0.55;
+}
+
+.agenda-calendar .agenda-event--cancelled {
+  opacity: 0.35;
+  text-decoration: line-through;
+}
+
+.agenda-calendar .agenda-block {
+  background-image: repeating-linear-gradient(45deg, rgba(127, 154, 171, 0.25) 0 4px, transparent 4px 10px);
+}
+
+/* Texto de los bloqueos de todo el negocio (FullCalendar lo deja casi
+   invisible en fondos). */
+.agenda-calendar .fc .fc-bg-event .fc-event-title {
+  color: var(--text-color);
+  font-style: normal;
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
+/* Bloqueo de una especialista: rayado con su color (--block-color lo pone
+   eventDidMount) y borde izquierdo. */
+.agenda-calendar .fc .agenda-block-event {
+  background-image: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--block-color, #7f9aab) 40%, transparent) 0 6px,
+    color-mix(in srgb, var(--block-color, #7f9aab) 15%, transparent) 6px 12px
+  );
+  border-width: 0 0 0 4px;
+  border-style: solid;
+  font-weight: 600;
+}
+
+.agenda-calendar .fc .agenda-block-event .fc-event-main {
+  color: var(--text-color);
+}
+
+/* Leyenda de bloqueos / fuera de horario. */
+.agenda-hint {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  color: var(--placeholder-color);
+}
+
+.agenda-hint-block,
+.agenda-hint-closed {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+
+.agenda-hint-block {
+  background-image: repeating-linear-gradient(135deg, rgba(74, 189, 252, 0.45) 0 3px, rgba(74, 189, 252, 0.12) 3px 6px);
+  border-left: 3px solid var(--link-color);
+}
+
+.agenda-hint-closed {
+  margin-left: 0.6rem;
+  background: rgba(127, 154, 171, 0.25);
+}
+
+/* ---- Diálogo de cita ---- */
+.agenda-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(2, 8, 12, 0.85);
+}
+
+.agenda-dialog {
+  width: min(820px, 100%);
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+  background: var(--form-background-color);
+  border: 1px solid var(--input-border-color);
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-sizing: border-box;
+}
+
+.agenda-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.agenda-dialog-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+}
+
+.agenda-dialog-close {
+  width: auto;
+  background: none;
+  border: 0;
+  color: var(--placeholder-color);
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+.agenda-dialog-meta {
+  margin: 0.4rem 0 0.8rem;
+  font-size: 0.82rem;
+  color: var(--placeholder-color);
+}
+
+.agenda-status {
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  background: var(--input-background-color);
+  color: var(--text-color);
+}
+
+.agenda-status--confirmed {
+  background: rgba(74, 189, 252, 0.18);
+  color: var(--link-color);
+}
+
+.agenda-status--pending {
+  background: rgba(248, 175, 17, 0.18);
+  color: var(--primary-color);
+}
+
+.agenda-status--cancelled,
+.agenda-status--no_show {
+  background: rgba(255, 107, 107, 0.15);
+  color: var(--error-color);
+}
+
+.agenda-status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.agenda-status-actions button {
+  width: auto;
+}
+
+.agenda-status-actions input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.agenda-dialog-form {
+  max-width: none;
+  margin: 0;
+}
+
+.agenda-dialog-form fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.agenda-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.agenda-grid--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.agenda-services {
+  margin: 0.35rem 0 0.5rem;
+  padding-left: 1.2rem;
+}
+
+.agenda-services li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.2rem 0;
+}
+
+.agenda-services small {
+  color: var(--placeholder-color);
+}
+
+.agenda-services-actions {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+.agenda-services-actions button {
+  width: auto;
+  padding: 0.15rem 0.5rem;
+}
+
+.agenda-warn {
+  color: var(--primary-color);
+}
+
+.agenda-attendance {
+  color: #5fd38d;
+}
+
+.agenda-notify {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.agenda-notify input {
+  width: auto;
+}
+
+.agenda-dialog-foot {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+@media (max-width: 700px) {
+  .agenda-grid,
+  .agenda-grid--2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .agenda-dialog-backdrop {
+    padding: 0;
+  }
+
+  .agenda-dialog {
+    max-height: 100vh;
+    height: 100vh;
+    border-radius: 0;
+  }
+
+  .agenda-calendar .fc .fc-toolbar {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}

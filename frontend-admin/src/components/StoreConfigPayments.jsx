@@ -63,7 +63,7 @@ const PAYMENT_METHOD_FIELDS = [
     placeholder: "18 dígitos",
     showIf: isSpei,
   },
-  { name: "speiPhone", label: "Número de celular (opcional)", type: "tel", maxLength: 20, showIf: isSpei },
+  { name: "speiPhone", label: "Número de celular (opcional, 10 dígitos)", type: "mxPhone", showIf: isSpei },
   {
     name: "instructions",
     label: "Instrucciones (se muestran al confirmar y en el correo del pedido)",
