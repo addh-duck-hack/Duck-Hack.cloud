@@ -33,7 +33,6 @@ services:
       npm:
         aliases:
           - ${STORE_SLUG}.frontend-admin
-      frontend-admin-net: {}
 
   frontend-user:
     build: ./frontend-user
@@ -47,7 +46,6 @@ services:
       npm:
         aliases:
           - ${STORE_SLUG}.frontend-user
-      frontend-user-net: {}
 
   backend:
     # Contexto = raíz del repo (no ./backend): server.js importa
@@ -74,7 +72,6 @@ services:
       npm:
         aliases:
           - ${STORE_SLUG}.backend
-      backend-net: {}
     # Volumen nombrado para que las imágenes subidas (logos, fotos de
     # clientes/equipo, productos) sobrevivan a "docker compose up --build":
     # sin esto viven en la capa escribible del contenedor, que se descarta
@@ -85,17 +82,14 @@ services:
       - backend-uploads:/app/uploads
 
 networks:
-  # Redes internas namespaced por tienda (STORE_SLUG) para que cada clon del
-  # repo tenga las suyas y no choquen entre sí.
-  frontend-admin-net:
-    name: ${STORE_SLUG}.frontend-admin-net
-    driver: bridge
-  frontend-user-net:
-    name: ${STORE_SLUG}.frontend-user-net
-    driver: bridge
-  backend-net:
-    name: ${STORE_SLUG}.backend-net
-    driver: bridge
+  # Solo la red externa de Nginx Proxy Manager. Cada contenedor tenía además su
+  # propia red interna por tienda (<slug>.frontend-admin-net, etc.), pero cada
+  # una tenía un solo contenedor — los servicios no se hablan entre sí (todo
+  # entra por NPM y el backend sale a Mongo por fuera) — y cada red gasta un
+  # rango de IPs del pool de Docker: con ~10 tiendas en el host el pool se
+  # agota y `compose up` falla con "all predefined address pools have been
+  # fully subnetted". Al actualizar una tienda que ya las tenía, quedan
+  # huérfanas: bórralas con `docker network rm` (ver README).
   npm:
     external: true
 
