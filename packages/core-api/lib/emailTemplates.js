@@ -788,6 +788,52 @@ const appointmentBusinessEmailTemplate = ({ kind, appointment, when, previousWhe
   return { subject: config.subject(appointment), html, text };
 };
 
+// Aviso de favoritos (Fase 4.3, modules/wishlist.js): un favorito agotado
+// volvió a estar disponible. product: { name, price, fromPrice, imageUrl }.
+// Correo de marketing: lleva el enlace para darse de baja.
+const wishlistBackInStockEmailTemplate = ({ branding, name, product, productUrl, unsubscribeUrl }) => {
+  const store = branding.storeName || "Duck-Hack";
+  const color = branding.accent && /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/.test(branding.accent) ? branding.accent : BRAND.action;
+  const safeName = escapeHtml(name || "");
+  const price = `${product.fromPrice ? "Desde " : ""}${formatCurrency(product.price)}`;
+  const html = `<!DOCTYPE html>
+<html lang="es">
+  <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Ya está disponible - ${escapeHtml(store)}</title></head>
+  <body style="margin:0; padding:0; background-color:${BRAND.ink}; font-family:${bodyFont};">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${BRAND.ink};">
+      <tr><td align="center" style="padding:40px 16px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
+          ${renderOrderEmailHeader(store, branding.logoUrl)}
+          <tr><td style="background-color:${BRAND.panel}; border-radius:12px; padding:32px;">
+            <h1 style="margin:0 0 16px; font-family:${monoFont}; font-size:20px; color:${BRAND.white}; font-weight:700;">¡Ya está disponible!</h1>
+            <p style="margin:0 0 20px; font-family:${bodyFont}; font-size:15px; line-height:1.6; color:${BRAND.textDim};">${safeName ? `Hola ${safeName}, u` : "U"}n producto de tus favoritos volvió a tener existencias:</p>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+              ${product.imageUrl ? `<td width="96" style="padding:0 16px 0 0;"><img src="${product.imageUrl}" width="88" height="88" alt="" style="display:block; border-radius:10px; object-fit:cover;" /></td>` : ""}
+              <td style="font-family:${bodyFont}; font-size:16px; color:${BRAND.white};">
+                <strong>${escapeHtml(product.name)}</strong><br />
+                <span style="color:${BRAND.textDim}; font-size:14px;">${price}</span>
+              </td>
+            </tr></table>
+            ${productUrl ? ctaButtonHtml("Verlo en la tienda", productUrl, color) : ""}
+            <p style="margin:16px 0 0; font-family:${bodyFont}; font-size:12px; color:${BRAND.textDim};">Las existencias pueden agotarse de nuevo; se confirman al pagar.</p>
+          </td></tr>
+          <tr><td align="center" style="padding-top:24px;">
+            ${unsubscribeUrl ? `<p style="margin:0; font-family:${bodyFont}; font-size:12px; color:${BRAND.textDim};"><a href="${unsubscribeUrl}" style="color:${BRAND.textDim};">No quiero recibir avisos de mis favoritos</a></p>` : ""}
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+  const text = `${safeName ? `Hola ${name},\n\n` : ""}Un producto de tus favoritos en ${store} volvió a estar disponible:
+
+${product.name} — ${price}
+${productUrl ? `\nVerlo en la tienda: ${productUrl}\n` : ""}
+Las existencias pueden agotarse de nuevo; se confirman al pagar.
+${unsubscribeUrl ? `\nNo quiero recibir avisos de mis favoritos: ${unsubscribeUrl}` : ""}`;
+  return { subject: `¡Ya está disponible! ${product.name} — ${store}`, html, text };
+};
+
 // Reseña post-cita (Fase 4.2): invitación a calificar una cita completada.
 const appointmentReviewRequestEmailTemplate = ({ appointment, when, branding, rateUrl }) => {
   const store = branding.storeName || "Duck-Hack";
@@ -911,6 +957,7 @@ const loyaltyExpiryEmailTemplate = ({ kind, branding, name, points, expiresOn, s
 };
 
 module.exports = {
+  wishlistBackInStockEmailTemplate,
   appointmentReviewRequestEmailTemplate,
   loyaltyRewardEmailTemplate,
   loyaltyExpiryEmailTemplate,

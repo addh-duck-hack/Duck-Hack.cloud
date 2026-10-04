@@ -133,10 +133,12 @@ const userSchema = new mongoose.Schema({
   },
   // Correos opcionales (de marketing) que la cuenta acepta. Los de pedidos y
   // citas no dependen de esto. abandonedCart: recordatorio de carrito
-  // abandonado (modules/cart.js); se apaga con el enlace del propio correo o
-  // con PUT /:id { emailPreferences: { abandonedCart: false } }.
+  // abandonado (modules/cart.js); wishlist: aviso de que un favorito agotado
+  // volvió (modules/wishlist.js). Se apagan con el enlace del propio correo
+  // o con PUT /:id { emailPreferences: { abandonedCart, wishlist } }.
   emailPreferences: {
     abandonedCart: { type: Boolean, default: true },
+    wishlist: { type: Boolean, default: true },
   },
   profileImage: {
     type: String, // Almacena la ruta de la imagen subida
@@ -298,13 +300,21 @@ const validateCreateStaffPayload = (sendError) => (req, res, next) => {
   return next();
 };
 
+// Correos opcionales que el cliente puede apagar (User.emailPreferences).
+const EMAIL_PREFERENCE_KEYS = ["abandonedCart", "wishlist"];
+
 const validateUpdateUserPayload = (sendError) => (req, res, next) => {
   const { name, email, phone, role, emailPreferences } = req.body || {};
 
   if (emailPreferences !== undefined) {
-    const value = emailPreferences?.abandonedCart;
-    if (!emailPreferences || typeof emailPreferences !== "object" || (value !== undefined && typeof value !== "boolean")) {
-      return sendError(res, 400, "VALIDATION_ERROR", "emailPreferences.abandonedCart debe ser true o false.");
+    if (!emailPreferences || typeof emailPreferences !== "object") {
+      return sendError(res, 400, "VALIDATION_ERROR", "emailPreferences debe ser un objeto.");
+    }
+    for (const key of EMAIL_PREFERENCE_KEYS) {
+      const value = emailPreferences[key];
+      if (value !== undefined && typeof value !== "boolean") {
+        return sendError(res, 400, "VALIDATION_ERROR", `emailPreferences.${key} debe ser true o false.`);
+      }
     }
   }
 
@@ -664,8 +674,8 @@ function registerRoutes(app, ctx) {
         const { name, phone, role, emailPreferences } = req.body;
 
         const updateData = {};
-        if (emailPreferences?.abandonedCart !== undefined) {
-          updateData["emailPreferences.abandonedCart"] = emailPreferences.abandonedCart;
+        for (const key of EMAIL_PREFERENCE_KEYS) {
+          if (emailPreferences?.[key] !== undefined) updateData[`emailPreferences.${key}`] = emailPreferences[key];
         }
         if (name !== undefined) {
           updateData.name = name;

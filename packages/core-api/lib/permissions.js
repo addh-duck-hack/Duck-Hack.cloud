@@ -33,6 +33,7 @@ const PERMISSION_MODULES = [
   { key: "coupons", label: "Cupones" },
   { key: "abandonedCart", label: "Carrito abandonado" },
   { key: "loyalty", label: "Lealtad (puntos y sellos)" },
+  { key: "wishlist", label: "Aviso de favoritos disponibles" },
   { key: "reviews", label: "Reseñas" },
   { key: "media", label: "Medios" },
   { key: "users", label: "Usuarios" },

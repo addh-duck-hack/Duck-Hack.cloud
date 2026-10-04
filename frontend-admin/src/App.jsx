@@ -31,6 +31,7 @@ import CouponForm from "./components/CouponForm";
 import ReviewList from "./components/ReviewList";
 import AbandonedCartPage from "./components/AbandonedCartPage";
 import LoyaltyPage from "./components/LoyaltyPage";
+import WishlistPage from "./components/WishlistPage";
 import ServiceList from "./components/ServiceList";
 import ServiceForm from "./components/ServiceForm";
 import SpecialistList from "./components/SpecialistList";
@@ -279,6 +280,10 @@ const AppRoutes = () => {
             <Route
               path="reviews"
               element={gate("reviews", <ReviewList />)}
+            />
+            <Route
+              path="wishlist"
+              element={gate("wishlist", <WishlistPage />)}
             />
             <Route
               path="loyalty"

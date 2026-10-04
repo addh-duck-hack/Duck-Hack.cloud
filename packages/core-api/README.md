@@ -164,6 +164,20 @@ vault, not in this repo).
   (HTML page with a POST button, so link scanners can't unsubscribe anyone;
   JWT `email_preferences`). Admin: `GET/PUT /abandoned/settings`,
   `GET /abandoned/stats`.
+- `modules/wishlist.js` — back-in-stock notice for favorites
+  (`/api/wishlist`, permission key `wishlist`). A "wishlist-back-in-stock"
+  job (every 15 min; only if contracted and `WishlistSettings.enabled`,
+  default true) checks only products someone has in `User.favorites` and
+  keeps `ProductStockState` (available = active + in stock, the
+  `filterInStock` rule; the first run only records). On an out-of-stock →
+  available transition (atomic state flip) it creates one `WishlistNotice`
+  per verified fan (unique customer + product + restock) and sends them with
+  `claimEach` (`sentAt`); skipped (`skipped`) if they unsubscribed, removed
+  the favorite or it sold out again. Unsubscribe link → `GET/POST
+  /unsubscribe` (JWT `email_preferences`, pref "wishlist" →
+  `User.emailPreferences.wishlist`). Button goes to
+  `FRONTEND_URL/tienda/<productId>`. Admin: `GET/PUT /settings`,
+  `GET /stats` (30-day notices, most favorited products with stock).
 - `modules/loyalty.js` — loyalty (`/api/loyalty`, permission key `loyalty`),
   one engine with two programs, each with its own switch in
   `LoyaltySettings`: **points** (wallet in pesos, 1 point = $1) and **stamps**

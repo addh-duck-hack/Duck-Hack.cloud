@@ -523,4 +523,6 @@ module.exports = {
   registerJobs,
   models: { Cart: cartSchema, AbandonedCartSettings: abandonedCartSettingsSchema },
   settleCartAfterOrder,
+  // Página de "darse de baja" (la reutiliza modules/wishlist.js).
+  unsubscribePage,
 };
