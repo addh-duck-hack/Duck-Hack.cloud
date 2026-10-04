@@ -48,7 +48,7 @@ tags:
   - name: Coupons
     description: Cupones de descuento (módulo coupons de los permisos por tienda)
   - name: Reviews
-    description: Reseñas de producto (moderación = módulo reviews de los permisos por tienda)
+    description: Reseñas de producto y de cita (moderación = módulo reviews de los permisos por tienda)
   - name: Loyalty
     description: >-
       Lealtad (módulo loyalty): puntos por compra pagada (1 punto = $1, canjeables en el
@@ -3904,6 +3904,100 @@ paths:
         "404":
           description: REVIEW_NOT_FOUND (no existe o no es suya)
 
+  /api/reviews/appointment/{id}:
+    get:
+      tags: [Reviews]
+      summary: ¿Puede calificar esta cita?
+      operationId: getAppointmentReviewStatus
+      description: >-
+        Para la página de la cita del storefront (`/cita/<id>?token=…&accion=calificar`). Con el
+        header X-Appointment-Token de la cita (invitada) o con sesión de la dueña (cuenta ligada o
+        mismo correo). `canReview` = la cita está `completed` y aún no tiene reseña.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+        - { in: header, name: X-Appointment-Token, schema: { type: string } }
+      responses:
+        "200":
+          description: Estado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  canReview: { type: boolean }
+                  reason: { type: string }
+                  review: { $ref: "#/components/schemas/AppointmentReviewView" }
+                  appointment:
+                    type: object
+                    properties:
+                      _id: { type: string }
+                      appointmentNumber: { type: integer }
+                      status: { type: string }
+                      start: { type: string, format: date-time }
+                      services: { type: array, items: { type: string } }
+                      specialistName: { type: string }
+        "401":
+          description: TOKEN_REQUIRED, APPOINTMENT_TOKEN_INVALID o TOKEN_INVALID_OR_EXPIRED
+        "404":
+          description: APPOINTMENT_NOT_FOUND (también si la sesión no es de la dueña)
+
+  /api/reviews/appointment:
+    post:
+      tags: [Reviews]
+      summary: Calificar una cita completada
+      operationId: createAppointmentReview
+      description: >-
+        Reseña post-cita (Fase 4.2). Mismo acceso que GET /api/reviews/appointment/{id}; rate
+        limit 20 / hora por IP. Una por cita. Queda en la cuenta ligada a la cita o en la de su
+        mismo correo (invitada sin cuenta = `customer` nulo), con una foto de servicios y
+        especialista. Entra `pending` (moderación en el admin).
+      parameters:
+        - { in: header, name: X-Appointment-Token, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/ReviewRequest"
+                - type: object
+                  properties:
+                    appointment: { type: string }
+                  required: [appointment]
+      responses:
+        "201":
+          description: "Creada (pendiente): `{ message, review }` (AppointmentReviewView)"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          description: TOKEN_REQUIRED, APPOINTMENT_TOKEN_INVALID o TOKEN_INVALID_OR_EXPIRED
+        "404":
+          description: APPOINTMENT_NOT_FOUND
+        "409":
+          description: APPOINTMENT_NOT_COMPLETED o REVIEW_EXISTS (ya se calificó)
+        "429":
+          description: RATE_LIMIT_REVIEWS_EXCEEDED
+
+  /api/reviews/{id}/testimonial:
+    post:
+      tags: [Reviews]
+      summary: Publicar una reseña como testimonio
+      operationId: publishReviewAsTestimonial
+      description: >-
+        Módulo `reviews`. Solo aprobadas. Copia nombre corto ("Ana G."), comentario, estrellas y
+        servicios (o producto) como `rubro` al final de StoreConfig.testimonials, activo, con
+        `fromReview`. Condicionado a que no esté ya (sin duplicar aunque se pulse dos veces); si
+        se borra el testimonio en "Configurar tienda", se puede volver a publicar.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        "201":
+          description: "Publicada: `{ message, testimonial }`"
+        "404":
+          description: REVIEW_NOT_FOUND
+        "409":
+          description: REVIEW_NOT_APPROVED, TESTIMONIAL_EXISTS o STORE_CONFIG_MISSING
+
   /api/reviews:
     post:
       tags: [Reviews]
@@ -3939,8 +4033,12 @@ paths:
       tags: [Reviews]
       summary: Bandeja de reseñas (staff)
       operationId: listReviews
-      description: Módulo `reviews`. Hasta 500, más recientes primero, con producto, folio del pedido y correo del cliente.
+      description: >-
+        Módulo `reviews`. Hasta 500 de un tipo (`kind`, product por default), más recientes
+        primero: las de producto con producto, folio del pedido y correo del cliente; las de cita
+        con `appointmentInfo`. `isTestimonial` = ya está en StoreConfig.testimonials.
       parameters:
+        - { in: query, name: kind, schema: { type: string, enum: [product, appointment], default: product } }
         - { in: query, name: status, schema: { type: string, enum: [pending, approved, rejected] } }
         - { in: query, name: product, schema: { type: string } }
       responses:
@@ -3961,6 +4059,12 @@ paths:
                       pending: { type: integer }
                       approved: { type: integer }
                       rejected: { type: integer }
+                  pendingByKind:
+                    type: object
+                    description: Pendientes de cada tipo (para las pestañas).
+                    properties:
+                      product: { type: integer }
+                      appointment: { type: integer }
         "403":
           $ref: "#/components/responses/Forbidden"
 
@@ -7432,6 +7536,14 @@ components:
             Recordatorio por correo antes de cada cita confirmada (módulo `reminders`; la tarea
             programada solo corre si está contratado). Una vez por cita; reprogramar lo reinicia.
         reminderHoursBefore: { type: integer, minimum: 1, maximum: 72, description: Cuántas horas antes (24 por default). }
+        reviewRequestEnabled:
+          type: boolean
+          description: >-
+            Reseña post-cita (true por default): correo para calificar una cita completada, una
+            vez, con el enlace FRONTEND_URL/cita/<id>?token=…&accion=calificar. La tarea solo corre
+            si `reviews` y `appointments` están contratados; no se manda si ya calificó ni a citas
+            que terminaron hace más de 14 días.
+        reviewRequestHoursAfter: { type: integer, minimum: 1, maximum: 72, description: Horas después de terminar la cita (2 por default). }
 
     AbandonedCartSettings:
       type: object
@@ -7555,7 +7667,7 @@ components:
 
     Review:
       type: object
-      description: Modelo genérico (target.kind "product"; "appointment" queda para la reseña post-cita).
+      description: Modelo genérico (target.kind "product" o "appointment" — reseña post-cita).
       properties:
         _id: { type: string }
         target:
@@ -7576,6 +7688,17 @@ components:
             _id: { type: string }
             email: { type: string }
         customerName: { type: string }
+        customerEmail: { type: string, description: "Reseñas de cita (la clienta puede ser invitada, `customer` nulo)." }
+        appointmentInfo:
+          type: object
+          description: Reseñas de cita — foto de la cita al calificar.
+          properties:
+            appointmentNumber: { type: integer }
+            services: { type: array, items: { type: string } }
+            specialist: { type: string, nullable: true }
+            specialistName: { type: string }
+            start: { type: string, format: date-time }
+        isTestimonial: { type: boolean, description: Solo en la bandeja del staff. }
         order:
           type: object
           nullable: true
@@ -7588,6 +7711,18 @@ components:
         rejectionReason: { type: string }
         reviewedBy: { type: string, nullable: true }
         reviewedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+
+    AppointmentReviewView:
+      type: object
+      nullable: true
+      properties:
+        _id: { type: string }
+        appointment: { type: string }
+        rating: { type: integer }
+        comment: { type: string }
+        status: { type: string, enum: [pending, approved, rejected] }
+        rejectionReason: { type: string }
         createdAt: { type: string, format: date-time }
 
     Coupon:
@@ -8213,6 +8348,12 @@ components:
           maximum: 5
           nullable: true
           description: Calificación en estrellas; null = sin calificación.
+        fromReview:
+          type: string
+          nullable: true
+          description: >-
+            Reseña de la que salió (POST /api/reviews/{id}/testimonial). Mandarlo de vuelta al
+            guardar la lista para que la reseña no se pueda publicar dos veces.
         sortOrder:
           type: integer
           minimum: 0

@@ -51,6 +51,13 @@
 // borra recordatorio y confirmación. Solo corre si `reminders` (y
 // `appointments`) están contratados y `reminderEnabled`.
 //
+// 4.2 — reseña post-cita: otra tarea manda, `reviewRequestHoursAfter` horas
+// después de terminar una cita completada (con correo y de menos de 14 días),
+// un correo para calificarla (FRONTEND_URL/cita/<id>?token=…&accion=calificar
+// → POST /api/reviews/appointment, modules/reviews.js). Una sola vez
+// (`reviewRequestSentAt`); no se manda si ya calificó. Solo corre si `reviews`
+// y `appointments` están contratados y `reviewRequestEnabled`.
+//
 // Quién administra: dentro del permiso `appointments`, especialistas,
 // ajustes y bloqueos de todo el negocio son de "encargadas" (super_admin y
 // store_admin). Una collaborator solo ve su especialista y bloquea su propio
@@ -74,7 +81,7 @@ const { normalizeMxPhone } = require("../lib/phone");
 const { notify } = require("../lib/notify");
 const { claimEach } = require("../lib/scheduler");
 const { syncAppointmentStamps } = require("../lib/loyalty");
-const { appointmentEmailTemplate, appointmentBusinessEmailTemplate } = require("../lib/emailTemplates");
+const { appointmentEmailTemplate, appointmentBusinessEmailTemplate, appointmentReviewRequestEmailTemplate } = require("../lib/emailTemplates");
 const { buildIcs, googleCalendarUrl } = require("../lib/ics");
 const { MINUTE, isValidDate, addDays, localToUtc, utcToLocal, overlaps, workingWindows, slotsForDay } = require("../lib/availability");
 
@@ -157,7 +164,11 @@ const DEFAULT_SETTINGS = Object.freeze({
   emailBusiness: true,
   reminderEnabled: true,
   reminderHoursBefore: 24,
+  reviewRequestEnabled: true,
+  reviewRequestHoursAfter: 2,
 });
+// La invitación a calificar solo se manda a citas que terminaron hace menos de esto.
+const REVIEW_REQUEST_MAX_AGE_DAYS = 14;
 
 const appointmentSettingsSchema = new mongoose.Schema(
   {
@@ -185,6 +196,9 @@ const appointmentSettingsSchema = new mongoose.Schema(
     // Recordatorio de cita (módulo `reminders`): X horas antes.
     reminderEnabled: { type: Boolean, default: DEFAULT_SETTINGS.reminderEnabled },
     reminderHoursBefore: { type: Number, min: 1, max: 72, default: DEFAULT_SETTINGS.reminderHoursBefore },
+    // Reseña post-cita (4.2, módulo `reviews`): correo X horas después de terminar.
+    reviewRequestEnabled: { type: Boolean, default: DEFAULT_SETTINGS.reviewRequestEnabled },
+    reviewRequestHoursAfter: { type: Number, min: 1, max: 72, default: DEFAULT_SETTINGS.reviewRequestHoursAfter },
     // Último folio de cita (se incrementa de forma atómica al agendar).
     lastAppointmentNumber: { type: Number, default: 0 },
   },
@@ -257,11 +271,15 @@ const appointmentSchema = new mongoose.Schema(
     // Tarjeta de sellos (lib/loyalty.js): el sello de esta cita ya se sumó.
     loyaltyStampCounted: { type: Boolean, default: false },
     loyaltyCustomer: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    // Invitación a calificar (4.2): enviada una sola vez (claimEach).
+    reviewRequestSentAt: { type: Date, default: null },
+    reviewRequestAttempts: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
 appointmentSchema.index({ specialist: 1, start: 1 });
 appointmentSchema.index({ status: 1, start: 1, reminderSentAt: 1 });
+appointmentSchema.index({ status: 1, end: 1, reviewRequestSentAt: 1 });
 appointmentSchema.index({ specialist: 1, status: 1, start: 1, blockedUntil: 1 });
 appointmentSchema.index({ customer: 1, start: -1 });
 appointmentSchema.index({ customerEmail: 1, start: -1 });
@@ -364,12 +382,13 @@ const validateSettingsPayload = (sendError) => (req, res, next) => {
     integerIn("maxDaysAhead", 1, 365) ||
     integerIn("minHoursToChange", 0, 14 * 24) ||
     integerIn("slotStepMin", 5, 60) ||
-    integerIn("reminderHoursBefore", 1, 72);
+    integerIn("reminderHoursBefore", 1, 72) ||
+    integerIn("reviewRequestHoursAfter", 1, 72);
   if (numberError) return sendError(res, 400, "VALIDATION_ERROR", numberError);
   if (out.slotStepMin !== undefined && ![5, 10, 15, 20, 30, 60].includes(out.slotStepMin)) {
     return sendError(res, 400, "VALIDATION_ERROR", "slotStepMin debe ser 5, 10, 15, 20, 30 o 60.");
   }
-  for (const flag of ["autoConfirm", "allowAnySpecialist", "emailCustomer", "emailBusiness", "reminderEnabled"]) {
+  for (const flag of ["autoConfirm", "allowAnySpecialist", "emailCustomer", "emailBusiness", "reminderEnabled", "reviewRequestEnabled"]) {
     if (payload[flag] !== undefined) out[flag] = Boolean(payload[flag]);
   }
   if (payload.timezone !== undefined) {
@@ -417,6 +436,7 @@ const parseIdList = (value) => {
 // helpers de correo) y la registra registerJobs (server.js llama primero a
 // registerRoutes).
 const reminderRunners = new WeakMap();
+const reviewRequestRunners = new WeakMap();
 
 function registerRoutes(app, ctx) {
   const { mongooseConnection, verifyToken, sendError } = ctx;
@@ -456,7 +476,7 @@ function registerRoutes(app, ctx) {
   router.get("/settings/public", async (req, res) => {
     try {
       // eslint-disable-next-line no-unused-vars
-      const { notifyEmail, autoConfirm, emailCustomer, emailBusiness, reminderEnabled, reminderHoursBefore, ...publicSettings } =
+      const { notifyEmail, autoConfirm, emailCustomer, emailBusiness, reminderEnabled, reminderHoursBefore, reviewRequestEnabled, reviewRequestHoursAfter, ...publicSettings } =
         await getSettings(mongooseConnection);
       return res.status(200).json(publicSettings);
     } catch (error) {
@@ -603,6 +623,49 @@ function registerRoutes(app, ctx) {
     });
   };
   reminderRunners.set(mongooseConnection, runReminders);
+
+  // ---- Invitación a calificar (4.2) ----
+  const sendReviewRequest = async (appointment) => {
+    // Si ya calificó (p. ej. con sesión desde su cuenta), no se manda.
+    const Review = mongooseConnection.models.Review;
+    if (Review && (await Review.exists({ "target.kind": "appointment", "target.id": appointment._id }))) return;
+    const manageUrl = customerAppointmentUrl(appointment);
+    if (!manageUrl) throw new Error("Falta FRONTEND_URL para el enlace de calificar.");
+    const settings = await getSettings(mongooseConnection);
+    const { branding } = await loadBranding();
+    const { subject, html, text } = appointmentReviewRequestEmailTemplate({
+      appointment,
+      when: formatWhen(appointment.start, settings.timezone),
+      branding,
+      rateUrl: `${manageUrl}&accion=calificar`,
+    });
+    await notify({ channel: "email", to: appointment.customerEmail, subject, text, html });
+  };
+
+  const runReviewRequests = async ({ now = new Date() } = {}) => {
+    if (!(await isModuleContracted(mongooseConnection, "reviews")) || !(await isModuleContracted(mongooseConnection, "appointments"))) {
+      return { skipped: "not_contracted" };
+    }
+    const settings = await getSettings(mongooseConnection);
+    if (!settings.reviewRequestEnabled) return { skipped: "disabled" };
+    return claimEach({
+      Model: Appointment,
+      filter: {
+        status: "completed",
+        customerEmail: { $nin: ["", null] },
+        end: {
+          $lte: new Date(+now - settings.reviewRequestHoursAfter * 60 * MINUTE),
+          $gt: new Date(+now - REVIEW_REQUEST_MAX_AGE_DAYS * 24 * 60 * MINUTE),
+        },
+      },
+      markField: "reviewRequestSentAt",
+      attemptsField: "reviewRequestAttempts",
+      sort: { end: 1 },
+      now,
+      handle: sendReviewRequest,
+    });
+  };
+  reviewRequestRunners.set(mongooseConnection, runReviewRequests);
 
   // Sin await desde los handlers: un correo fallido no tumba la cita.
   const notifyAppointment = (appointment, kinds) => {
@@ -1699,10 +1762,13 @@ function registerRoutes(app, ctx) {
   app.use("/api/appointments", router);
 }
 
-// Tareas programadas (lib/scheduler.js): recordatorios cada minuto.
+// Tareas programadas (lib/scheduler.js): recordatorios cada minuto e
+// invitaciones a calificar cada 15 min.
 function registerJobs(scheduler, ctx) {
   const runReminders = reminderRunners.get(ctx.mongooseConnection);
   if (runReminders) scheduler.register("appointment-reminders", 60 * 1000, runReminders);
+  const runReviewRequests = reviewRequestRunners.get(ctx.mongooseConnection);
+  if (runReviewRequests) scheduler.register("appointment-review-requests", 15 * 60 * 1000, runReviewRequests);
 }
 
 module.exports = {

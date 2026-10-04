@@ -83,6 +83,12 @@ vault, not in this repo).
   (`attendanceConfirmedAt`). Rescheduling resets reminder + confirmation. Runs
   only if `reminders` and `appointments` are contracted
   (`lib/permissions.js#isModuleContracted`) and `reminderEnabled`.
+  Review requests (4.2): an "appointment-review-requests" job (every 15 min)
+  emails `completed` appointments with an email `reviewRequestHoursAfter` (2)
+  hours after they end (and less than 14 days ago), once
+  (`reviewRequestSentAt`), with `FRONTEND_URL/cita/<id>?token=…&accion=calificar`
+  — skipped if the appointment was already reviewed. Runs only if `reviews`
+  and `appointments` are contracted and `reviewRequestEnabled`.
 - `modules/products.js` — product catalog (`/api/products`). Optional
   variants (`options` + `variants`, logic in `lib/variants.js`): each variant
   has its own SKU, stock and optional price/image; `lib/purchaseLimits.js
@@ -117,8 +123,8 @@ vault, not in this repo).
   checkout's `couponCode`; uses reserved atomically at checkout and released
   when the order is cancelled or deleted, `Order.discount.counted`).
 - `modules/reviews.js` — product reviews (`/api/reviews`, moderation under
-  permission key `reviews`). Generic `Review` model (`target.kind` "product";
-  "appointment" reserved for the post-appointment review). A logged-in
+  permission key `reviews`). Generic `Review` model (`target.kind` "product" or
+  "appointment"). A logged-in
   customer can review a product once they have a `delivered`/`picked_up`
   order containing it (linked account or same email, like `GET
   /api/orders/mine`); one review per customer and product, editable (goes
@@ -126,6 +132,14 @@ vault, not in this repo).
   deleting recalculates `Product.ratingAvg`/`ratingCount` (read-only fields,
   ignored in product payloads). Public `GET /public?product=` shows approved
   only, with a short name ("Ana G.") and a 1–5 distribution.
+  Post-appointment reviews (4.2): `GET /appointment/:id` + `POST /appointment`
+  with the appointment's `X-Appointment-Token` (guest) or the owner's session;
+  only `completed` appointments, one review per appointment (partial unique
+  index), `customer` = the linked account or the one with the same email
+  (null for guests), snapshot in `appointmentInfo`. Staff list takes
+  `?kind=`; `POST /:id/testimonial` copies an approved review to
+  `StoreConfig.testimonials` (`fromReview`, conditional `$push` — never
+  twice).
 - `modules/cart.js` — server-side cart for logged-in users (`/api/cart`,
   GET/PUT/DELETE; no permission key, everyone has their own). PUT replaces
   the whole cart (duplicates merged, max 50 lines); lines come back with the

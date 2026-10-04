@@ -788,6 +788,27 @@ const appointmentBusinessEmailTemplate = ({ kind, appointment, when, previousWhe
   return { subject: config.subject(appointment), html, text };
 };
 
+// Reseña post-cita (Fase 4.2): invitación a calificar una cita completada.
+const appointmentReviewRequestEmailTemplate = ({ appointment, when, branding, rateUrl }) => {
+  const store = branding.storeName || "Duck-Hack";
+  const { html, text } = accountActionEmailTemplate({
+    ...branding,
+    title: "¿Cómo te fue en tu cita?",
+    name: appointment.customerName,
+    intro: `Gracias por visitarnos en ${store}. Nos encantaría saber qué te pareció: calificar te toma un minuto.`,
+    details: [
+      { label: "Cuándo", value: when },
+      { label: "Servicios", value: appointment.services.map((s) => s.name).join(" + ") },
+      { label: "Con", value: appointment.specialistName },
+    ],
+    ctaLabel: "Calificar mi cita",
+    url: rateUrl,
+    note: "Tu opinión nos ayuda a mejorar y a que más personas nos conozcan.",
+    footnote: `${store}`,
+  });
+  return { subject: `¿Cómo te fue en tu cita? — ${store}`, html, text };
+};
+
 // ---- Carrito abandonado (Fase 3.4, modules/cart.js) ----
 // items: [{ name, variantLabel, qty, price, imageUrl }] con precios actuales;
 // coupon (opcional): { code, label, endsAt (texto) }. Correo de marketing:
@@ -890,6 +911,7 @@ const loyaltyExpiryEmailTemplate = ({ kind, branding, name, points, expiresOn, s
 };
 
 module.exports = {
+  appointmentReviewRequestEmailTemplate,
   loyaltyRewardEmailTemplate,
   loyaltyExpiryEmailTemplate,
   abandonedCartEmailTemplate,

@@ -232,6 +232,9 @@ const testimonialSchema = new mongoose.Schema(
     rating: { type: Number, min: 1, max: 5, default: null },
     sortOrder: { type: Number, default: 0, min: 0 },
     isActive: { type: Boolean, default: true },
+    // Reseña de la que salió ("Publicar como testimonio", modules/reviews.js):
+    // evita publicarla dos veces. Nula en los testimonios capturados a mano.
+    fromReview: { type: mongoose.Schema.Types.ObjectId, default: null },
   },
   { _id: false }
 );
