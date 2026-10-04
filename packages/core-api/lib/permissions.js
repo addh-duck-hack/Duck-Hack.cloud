@@ -31,6 +31,7 @@ const PERMISSION_MODULES = [
   { key: "inventory", label: "Inventario" },
   { key: "orders", label: "Pedidos" },
   { key: "coupons", label: "Cupones" },
+  { key: "promoBanner", label: "Banner de promociones" },
   { key: "abandonedCart", label: "Carrito abandonado" },
   { key: "loyalty", label: "Lealtad (puntos y sellos)" },
   { key: "wishlist", label: "Aviso de favoritos disponibles" },

@@ -45,6 +45,8 @@ tags:
       especialista (la ligada a su cuenta) y bloquea su propio horario.
   - name: Cart
     description: Carrito guardado en el servidor para usuarios con sesión (sin permisos; cada quien el suyo)
+  - name: PromoBanners
+    description: Banners de promociones con fechas y destino (módulo promoBanner de los permisos por tienda)
   - name: Wishlist
     description: >-
       Aviso "volvió a estar disponible" de los favoritos (módulo wishlist). Una tarea programada
@@ -3384,6 +3386,163 @@ paths:
         "400":
           description: Enlace no válido o vencido (HTML)
 
+  /api/promo-banners/public:
+    get:
+      tags: [PromoBanners]
+      summary: Banners vigentes para el sitio
+      operationId: listPublicPromoBanners
+      security: []
+      description: >-
+        Activos, dentro de sus fechas y con destino vigente, por `sortOrder` (máx. 20). Con
+        `placement` solo los de ese lugar más los de "all". Un banner cuyo destino ya no sirve
+        (categoría borrada u oculta; cupón apagado, vencido, agotado, aún no vigente o personal)
+        no sale. Las imágenes son rutas relativas (uploads/...).
+      parameters:
+        - { in: query, name: placement, schema: { type: string, enum: [home, shop] } }
+      responses:
+        "200":
+          description: Banners
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        _id: { type: string }
+                        title: { type: string }
+                        text: { type: string }
+                        image: { type: string }
+                        mobileImage: { type: string }
+                        buttonLabel: { type: string, description: "Vacío si target.type es none." }
+                        placement: { type: string, enum: [home, shop, all] }
+                        endsAt: { type: string, format: date-time, nullable: true }
+                        target: { $ref: "#/components/schemas/PromoBannerTarget" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/promo-banners/options:
+    get:
+      tags: [PromoBanners]
+      summary: Destinos para el formulario del banner
+      operationId: getPromoBannerOptions
+      description: >-
+        Módulo `promoBanner` (sin pedir Productos ni Cupones). Categorías de productos visibles y
+        cupones que se pueden anunciar (no personales, activos, sin vencer ni agotar; incluye
+        los programados).
+      responses:
+        "200":
+          description: Opciones
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  categories:
+                    type: array
+                    items: { type: object, properties: { _id: { type: string }, name: { type: string }, slug: { type: string } } }
+                  coupons:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        code: { type: string }
+                        label: { type: string }
+                        startsAt: { type: string, format: date-time, nullable: true }
+                        endsAt: { type: string, format: date-time, nullable: true }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/promo-banners:
+    get:
+      tags: [PromoBanners]
+      summary: Lista de banners (staff)
+      operationId: listPromoBanners
+      description: Módulo `promoBanner`. Todos, con estado por fechas y si el destino ya no sirve.
+      responses:
+        "200":
+          description: Banners
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/PromoBanner" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [PromoBanners]
+      summary: Crear banner
+      operationId: createPromoBanner
+      description: >-
+        Módulo `promoBanner`. Requiere `title` e `image`. Al guardar, la categoría debe existir
+        (de productos) y el cupón también y no ser personal; que después venza solo lo oculta.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PromoBannerRequest" }
+      responses:
+        "201":
+          description: "Creado: `{ message, banner }`"
+        "400":
+          description: VALIDATION_ERROR, CATEGORY_NOT_FOUND, COUPON_NOT_FOUND o COUPON_IS_PERSONAL
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/promo-banners/{id}:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string } }
+    get:
+      tags: [PromoBanners]
+      summary: Un banner (staff)
+      operationId: getPromoBanner
+      responses:
+        "200":
+          description: Banner
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PromoBanner" }
+        "404":
+          description: PROMO_BANNER_NOT_FOUND
+    put:
+      tags: [PromoBanners]
+      summary: Editar banner (parcial)
+      operationId: updatePromoBanner
+      description: Solo cambia lo que se manda; las reglas se revisan sobre el banner ya combinado.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PromoBannerRequest" }
+      responses:
+        "200":
+          description: "Actualizado: `{ message, banner }`"
+        "400":
+          description: VALIDATION_ERROR, CATEGORY_NOT_FOUND, COUPON_NOT_FOUND o COUPON_IS_PERSONAL
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: PROMO_BANNER_NOT_FOUND
+    delete:
+      tags: [PromoBanners]
+      summary: Eliminar banner
+      operationId: deletePromoBanner
+      responses:
+        "200":
+          description: Eliminado
+        "404":
+          description: PROMO_BANNER_NOT_FOUND
+
   /api/wishlist/unsubscribe:
     get:
       tags: [Wishlist]
@@ -5532,7 +5691,7 @@ components:
     PermissionModuleKey:
       type: string
       description: Módulo del panel sujeto a permisos por tienda
-      enum: [panel, storeConfig, appConfig, services, appointments, reminders, products, inventory, orders, coupons, abandonedCart, wishlist, loyalty, reviews, media, users, agencyClients, accounting, invoices]
+      enum: [panel, storeConfig, appConfig, services, appointments, reminders, products, inventory, orders, coupons, promoBanner, abandonedCart, wishlist, loyalty, reviews, media, users, agencyClients, accounting, invoices]
 
     StorePermissions:
       type: object
@@ -7673,6 +7832,56 @@ components:
             si `reviews` y `appointments` están contratados; no se manda si ya calificó ni a citas
             que terminaron hace más de 14 días.
         reviewRequestHoursAfter: { type: integer, minimum: 1, maximum: 72, description: Horas después de terminar la cita (2 por default). }
+
+    PromoBannerRequest:
+      type: object
+      properties:
+        title: { type: string, maxLength: 120 }
+        text: { type: string, maxLength: 300 }
+        image: { type: string, maxLength: 300, description: Ruta de la biblioteca de medios. }
+        mobileImage: { type: string, maxLength: 300, description: Opcional (vertical, para celular). }
+        buttonLabel: { type: string, maxLength: 40 }
+        target:
+          type: object
+          properties:
+            type: { type: string, enum: [none, category, coupon, url], default: none }
+            value:
+              type: string
+              description: >-
+                category = id de una categoría de productos; coupon = código (se normaliza a
+                mayúsculas); url = https://… o una ruta del sitio que empiece con /.
+        startsAt: { type: string, format: date-time, nullable: true }
+        endsAt: { type: string, format: date-time, nullable: true }
+        isActive: { type: boolean, default: true }
+        sortOrder: { type: integer, minimum: 0, default: 0 }
+        placement: { type: string, enum: [home, shop, all], default: home }
+
+    PromoBanner:
+      allOf:
+        - $ref: "#/components/schemas/PromoBannerRequest"
+        - type: object
+          properties:
+            _id: { type: string }
+            status: { type: string, enum: [active, scheduled, expired, off], description: Por interruptor y fechas. }
+            targetProblem: { type: string, nullable: true, description: "Por qué no se muestra aunque esté activo (destino que ya no sirve)." }
+            targetSummary: { $ref: "#/components/schemas/PromoBannerTarget" }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+
+    PromoBannerTarget:
+      type: object
+      nullable: true
+      description: Destino ya resuelto.
+      properties:
+        type: { type: string, enum: [none, category, coupon, url] }
+        categoryId: { type: string }
+        slug: { type: string }
+        name: { type: string }
+        code: { type: string }
+        label: { type: string, example: 20% de descuento }
+        minPurchase: { type: number, nullable: true }
+        endsAt: { type: string, format: date-time, nullable: true }
+        url: { type: string }
 
     WishlistSettings:
       type: object

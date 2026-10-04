@@ -164,6 +164,18 @@ vault, not in this repo).
   (HTML page with a POST button, so link scanners can't unsubscribe anyone;
   JWT `email_preferences`). Admin: `GET/PUT /abandoned/settings`,
   `GET /abandoned/stats`.
+- `modules/promoBanners.js` — promo banners (`/api/promo-banners`,
+  permission key `promoBanner`): title, text, image (+ optional mobile
+  image), button with a `target` (none / product category / coupon / URL),
+  `startsAt`/`endsAt`, `isActive`, `sortOrder`, `placement` home/shop/all.
+  Public `GET /public?placement=` returns active, in-date banners with the
+  target resolved (category slug, coupon code + label); a banner whose target
+  no longer works (category deleted/hidden; coupon off, expired, exhausted,
+  not started or personal) is hidden, so a coupon the checkout would reject is
+  never advertised. Staff CRUD + `GET /options` (categories and advertisable
+  coupons, without needing Products/Coupons permissions); the list shows
+  `status` (active/scheduled/expired/off) and `targetProblem`. Images go
+  through the media picker (`promoBanner` may use it).
 - `modules/wishlist.js` — back-in-stock notice for favorites
   (`/api/wishlist`, permission key `wishlist`). A "wishlist-back-in-stock"
   job (every 15 min; only if contracted and `WishlistSettings.enabled`,

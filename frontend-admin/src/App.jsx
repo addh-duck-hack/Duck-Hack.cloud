@@ -32,6 +32,8 @@ import ReviewList from "./components/ReviewList";
 import AbandonedCartPage from "./components/AbandonedCartPage";
 import LoyaltyPage from "./components/LoyaltyPage";
 import WishlistPage from "./components/WishlistPage";
+import PromoBannerList from "./components/PromoBannerList";
+import PromoBannerForm from "./components/PromoBannerForm";
 import ServiceList from "./components/ServiceList";
 import ServiceForm from "./components/ServiceForm";
 import SpecialistList from "./components/SpecialistList";
@@ -280,6 +282,18 @@ const AppRoutes = () => {
             <Route
               path="reviews"
               element={gate("reviews", <ReviewList />)}
+            />
+            <Route
+              path="promo-banners"
+              element={gate("promoBanner", <PromoBannerList />)}
+            />
+            <Route
+              path="promo-banners/new"
+              element={gate("promoBanner", <PromoBannerForm />)}
+            />
+            <Route
+              path="promo-banners/:id/edit"
+              element={gate("promoBanner", <PromoBannerForm />)}
             />
             <Route
               path="wishlist"
