@@ -9,6 +9,33 @@ import './Services.css';
 
 const formatPrice = (value) => (value === null || value === undefined ? null : Number(value).toFixed(2));
 
+// Características de un plan (StoreConfig.pricingPlans[].features, pares
+// "Nombre: valor" que se editan en el admin). Los planes guardados antes de
+// la migración (backend/scripts/migrate-pricing-plan-features.mongo.js) y los
+// de muestra de abajo todavía traen los campos fijos de hosting: se leen como
+// características con el mismo nombre que les da la migración.
+const LEGACY_PLAN_FIELDS = [
+  ['storage', 'Almacenamiento'],
+  ['emailAccounts', 'Cuentas de correo'],
+  ['bandwidth', 'Ancho de banda'],
+  ['ssl', 'SSL'],
+];
+
+const planFeatures = (plan) =>
+  plan.features?.length
+    ? plan.features
+    : LEGACY_PLAN_FIELDS.filter(([field]) => plan[field]).map(([field, name]) => ({ name, value: plan[field] }));
+
+// Ícono por nombre de característica; cualquier otra lleva una palomita.
+const FEATURE_ICONS = {
+  almacenamiento: 'fas fa-hdd',
+  'cuentas de correo': 'fas fa-envelope',
+  'ancho de banda': 'fas fa-wifi',
+  ssl: 'fas fa-lock',
+  'certificado ssl': 'fas fa-lock',
+};
+const featureIcon = (name) => FEATURE_ICONS[String(name).trim().toLowerCase()] || 'fas fa-check';
+
 const FALLBACK_COMMON_CHECKS = [
   'Soporte técnico y en español',
   'Disponibilidad del 99.9%',
@@ -185,18 +212,11 @@ const Services = () => {
             </div>
             <div className="price-body">
               <ul>
-                <li>
-                  <i className="fas fa-hdd" /> Almacenamiento: {plan.storage}
-                </li>
-                <li>
-                  <i className="fas fa-envelope" /> Cuentas de correo: {plan.emailAccounts}
-                </li>
-                <li>
-                  <i className="fas fa-wifi" /> Ancho de banda: {plan.bandwidth}
-                </li>
-                <li>
-                  <i className="fas fa-lock" /> Certificado SSL: {plan.ssl}
-                </li>
+                {planFeatures(plan).map((feature) => (
+                  <li key={feature.name}>
+                    <i className={featureIcon(feature.name)} /> {feature.name}: {feature.value}
+                  </li>
+                ))}
                 {commonChecks.map((check) => (
                   <li key={check}>
                     <i className="fas fa-check" /> {check}
