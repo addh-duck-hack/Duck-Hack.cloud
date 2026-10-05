@@ -8601,14 +8601,20 @@ components:
         description:
           type: string
           maxLength: 300
-        storage:
-          type: string
-        emailAccounts:
-          type: string
-        bandwidth:
-          type: string
-        ssl:
-          type: string
+        features:
+          type: array
+          maxItems: 20
+          description: >-
+            Características libres "Nombre: valor" (Sesiones: 4, Almacenamiento: 10 GB…).
+            Reemplazan a los campos de hosting storage/emailAccounts/bandwidth/ssl: si un
+            payload todavía los manda, se convierten a features al guardar (ver
+            backend/scripts/migrate-pricing-plan-features.mongo.js).
+          items:
+            type: object
+            properties:
+              name: { type: string, maxLength: 60 }
+              value: { type: string, maxLength: 80 }
+            required: [name, value]
         originalPrice:
           type: number
           minimum: 0

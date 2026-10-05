@@ -14,7 +14,7 @@ const NotFound = ({ standalone = false }) => {
       <div className="not-found-code">404</div>
       <h2>Página no encontrada</h2>
       <p className="not-found-path">
-        duckhack-admin://<b>{location.pathname.replace(/^\/+/, "") || "/"}</b>
+        <b>{location.pathname}</b>
       </p>
       <p>La dirección no existe o se movió. Revisa que esté bien escrita o vuelve al inicio.</p>
       <Link to={isLoggedIn ? "/admin" : "/"} className="not-found-home">

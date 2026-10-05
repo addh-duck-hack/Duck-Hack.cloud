@@ -174,14 +174,38 @@ const serviceItemSchema = new mongoose.Schema(
   { _id: false }
 );
 
+// Características de un plan: pares libres "Nombre: valor" (Sesiones: 4 ·
+// Duración: 60 min · Almacenamiento: 10 GB), igual que Product.attributes —
+// cada giro define los suyos. Reemplazan a los campos fijos de hosting
+// (storage/emailAccounts/bandwidth/ssl, ver LEGACY_PLAN_FIELDS y
+// backend/scripts/migrate-pricing-plan-features.mongo.js).
+const MAX_PLAN_FEATURES = 20;
+const MAX_PLAN_FEATURE_NAME = 60;
+const MAX_PLAN_FEATURE_VALUE = 80;
+
+const planFeatureSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true, maxlength: MAX_PLAN_FEATURE_NAME },
+    value: { type: String, required: true, trim: true, maxlength: MAX_PLAN_FEATURE_VALUE },
+  },
+  { _id: false }
+);
+
+// Campos de hosting de antes → nombre de la característica equivalente. Un
+// plan guardado antes de la migración (o un admin viejo) todavía puede
+// mandarlos: se convierten a `features` al validar, en vez de perderlos.
+const LEGACY_PLAN_FIELDS = [
+  ["storage", "Almacenamiento"],
+  ["emailAccounts", "Cuentas de correo"],
+  ["bandwidth", "Ancho de banda"],
+  ["ssl", "SSL"],
+];
+
 const pricingPlanSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 60 },
     description: { type: String, trim: true, maxlength: 300 },
-    storage: { type: String, trim: true, maxlength: 40 },
-    emailAccounts: { type: String, trim: true, maxlength: 40 },
-    bandwidth: { type: String, trim: true, maxlength: 40 },
-    ssl: { type: String, trim: true, maxlength: 60 },
+    features: { type: [planFeatureSchema], default: [] },
     originalPrice: { type: Number, min: 0, default: null },
     price: { type: Number, min: 0, default: null },
     discountPercent: { type: Number, min: 0, max: 100, default: null },
@@ -560,13 +584,41 @@ const validatePricingPlanItem = (item, index) => {
   const name = asTrimmedString(item.name);
   if (!name || name.length > 60) return `pricingPlans[${index}].name es requerido (máx. 60 caracteres).`;
   item.name = name;
-  for (const field of ["description", "storage", "emailAccounts", "bandwidth", "ssl", "extraFeaturesTitle"]) {
+  for (const field of ["description", "extraFeaturesTitle"]) {
     if (item[field] !== undefined) {
       const value = asTrimmedString(item[field]);
-      const max = field === "description" ? 300 : field === "extraFeaturesTitle" ? 120 : 40;
+      const max = field === "description" ? 300 : 120;
       if (value.length > max) return `pricingPlans[${index}].${field} excede ${max} caracteres.`;
       item[field] = value;
     }
+  }
+  if (item.features !== undefined && !Array.isArray(item.features)) return `pricingPlans[${index}].features debe ser un arreglo.`;
+  // Campos de hosting de antes: se agregan como características (sin repetir
+  // un nombre que ya venga en `features`) y se quitan del plan.
+  const legacy = LEGACY_PLAN_FIELDS.filter(([field]) => item[field] !== undefined);
+  if (legacy.length) {
+    const rawFeatures = Array.isArray(item.features) ? item.features : [];
+    const names = new Set(rawFeatures.map((f) => asTrimmedString(f?.name).toLowerCase()));
+    for (const [field, label] of legacy) {
+      const value = asTrimmedString(item[field]);
+      if (value && !names.has(label.toLowerCase())) rawFeatures.push({ name: label, value });
+      delete item[field];
+    }
+    item.features = rawFeatures;
+  }
+  if (item.features !== undefined) {
+    const features = [];
+    for (const [i, feature] of item.features.entries()) {
+      const name = asTrimmedString(feature?.name);
+      const value = asTrimmedString(feature?.value);
+      if (!name && !value) continue; // fila vacía: se descarta sin error
+      if (!name || !value) return `pricingPlans[${index}].features[${i}] necesita nombre y valor.`;
+      if (name.length > MAX_PLAN_FEATURE_NAME) return `pricingPlans[${index}].features[${i}].name excede ${MAX_PLAN_FEATURE_NAME} caracteres.`;
+      if (value.length > MAX_PLAN_FEATURE_VALUE) return `pricingPlans[${index}].features[${i}].value excede ${MAX_PLAN_FEATURE_VALUE} caracteres.`;
+      features.push({ name, value });
+    }
+    if (features.length > MAX_PLAN_FEATURES) return `pricingPlans[${index}] admite hasta ${MAX_PLAN_FEATURES} características.`;
+    item.features = features;
   }
   for (const field of ["originalPrice", "price"]) {
     if (item[field] !== undefined && item[field] !== null) {

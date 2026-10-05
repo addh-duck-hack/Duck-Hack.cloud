@@ -6,7 +6,16 @@ import logo from "../assets/logo.png";
 import { ROLES, ROLE_LABELS } from "../utils/roles";
 import { navGroupsFor } from "../utils/permissions";
 import { usePermissions } from "../hooks/usePermissions";
+import { useStoreConfig } from "../hooks/useStoreConfig";
+import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import "./AdminShell.css";
+
+// Ruta guardada por el backend (uploads/…) → URL absoluta.
+const mediaUrl = (path) => {
+  if (!path) return "";
+  if (/^https?:\/\//.test(path)) return path;
+  return `${getApiBaseUrl()}/${path.replace(/^\/+/, "")}`;
+};
 
 const ROUTE_LABELS = {
   "/admin": "panel",
@@ -48,6 +57,9 @@ const AdminShell = () => {
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  const { config: storeConfig } = useStoreConfig();
+  const storeName = storeConfig?.storeName || "";
+  const storeLogo = mediaUrl(storeConfig?.logoUrl);
   const role = localStorage.getItem("role");
   const name = localStorage.getItem("name");
   const isSuperAdmin = role === ROLES.SUPER_ADMIN;
@@ -132,10 +144,13 @@ const AdminShell = () => {
       />
 
       <aside className={`rail ${drawerOpen ? "open" : ""}`}>
+        {/* Marca de la tienda (Configurar tienda → nombre y logo); el panel es
+            "Duck-Hack OS", la plataforma, y lo dice debajo. */}
         <NavLink to="/admin" className="rail-brand">
-          <img src={logo} alt="Duck-Hack" />
-          <span>
-            duck-hack<span className="rail-brand-accent">/admin</span>
+          <img src={storeLogo || logo} alt="" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = logo; }} />
+          <span className="rail-brand-text">
+            <span className="rail-brand-name">{storeName || "Duck-Hack OS"}</span>
+            {storeName ? <small className="rail-brand-accent">Duck-Hack OS</small> : null}
           </span>
         </NavLink>
 
@@ -151,12 +166,14 @@ const AdminShell = () => {
         </div>
 
         <div className="rail-foot">
-          <div className="status">
-            <span className="dot" />
-            <a href={process.env.REACT_APP_STOREFRONT_URL || "https://mx.duck-hack.cloud"} target="_blank" rel="noopener noreferrer">
-              Ver sitio público
-            </a>
-          </div>
+          {process.env.REACT_APP_STOREFRONT_URL ? (
+            <div className="status">
+              <span className="dot" />
+              <a href={process.env.REACT_APP_STOREFRONT_URL} target="_blank" rel="noopener noreferrer">
+                Ver sitio público
+              </a>
+            </div>
+          ) : null}
         </div>
       </aside>
 
@@ -172,7 +189,7 @@ const AdminShell = () => {
               ☰
             </button>
             <span className="breadcrumb">
-              duckhack-admin://<b>{breadcrumb}</b>
+              <b>{breadcrumb}</b>
             </span>
           </div>
           {name ? (

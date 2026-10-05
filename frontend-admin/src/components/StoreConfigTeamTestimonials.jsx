@@ -16,11 +16,11 @@ const TEAM_MEMBER_FIELDS = [
 ];
 
 const TESTIMONIAL_FIELDS = [
-  { name: "name", label: "Nombre del cliente", type: "text", required: true, maxLength: 120 },
-  { name: "rubro", label: "Rubro", type: "text", maxLength: 120 },
+  { name: "name", label: "Nombre", type: "text", required: true, maxLength: 120 },
+  { name: "rubro", label: "Detalle (servicio, producto o giro)", type: "text", maxLength: 120 },
   { name: "description", label: "Descripción", type: "textarea", maxLength: 500, fullWidth: true },
-  { name: "url", label: "URL del sitio", type: "url", maxLength: 300 },
-  { name: "photoUrl", label: "Foto o captura (opcional)", type: "image", fullWidth: true },
+  { name: "url", label: "Enlace (opcional)", type: "url", maxLength: 300 },
+  { name: "photoUrl", label: "Foto (opcional)", type: "image", fullWidth: true },
   { name: "rating", label: "Calificación (1 a 5, opcional)", type: "number", min: 1, max: 5, step: 1 },
   { name: "isActive", label: "Activo", type: "boolean" },
 ];
@@ -82,7 +82,7 @@ const StoreConfigTeamTestimonials = () => {
     <section style={{ maxWidth: 1300 }}>
       <StoreConfigTabs />
       <h3>Equipo y testimonios</h3>
-      <p>Colaboradores mostrados en /nosotros y clientes destacados en /clientes.</p>
+      <p>Las personas del equipo y los testimonios de clientes que el sitio muestra en sus secciones.</p>
 
       {message ? <div className="auth-success">{message}</div> : null}
       {error ? <div className="auth-error">{error}</div> : null}
@@ -98,7 +98,7 @@ const StoreConfigTeamTestimonials = () => {
           addButtonLabel="+ Agregar colaborador"
         />
 
-        <h4 style={{ marginTop: "2rem" }}>Testimonios / clientes</h4>
+        <h4 style={{ marginTop: "2rem" }}>Testimonios</h4>
         <StoreConfigListEditor
           items={testimonials}
           onChange={setTestimonials}

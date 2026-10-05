@@ -3,6 +3,7 @@ import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import StoreConfigListEditor from "./StoreConfigListEditor";
 import StoreConfigTabs from "./StoreConfigTabs";
+import { ROLES } from "../utils/roles";
 
 const HERO_MEDIA_TYPE_OPTIONS = [
   { value: "none", label: "Ninguno" },
@@ -35,18 +36,23 @@ const HERO_SLIDE_FIELDS = [
   },
 ];
 
-const METRIC_SOURCE_OPTIONS = [
-  { value: "manual", label: "Manual" },
-  { value: "active_clients", label: "Automático — clientes activos" },
-  { value: "active_containers", label: "Automático — contenedores activos" },
+// Los orígenes automáticos solo tienen datos en la instancia de Duck-Hack
+// (clientes de la agencia y contenedores de Portainer, ver
+// backend/server.js#resolveLiveMetricSources): una tienda no los ve, salvo
+// que una métrica guardada ya use uno (para no perderlo al editar).
+const AUTO_METRIC_SOURCES = [
+  { value: "active_clients", label: "Automático — clientes de la agencia (solo Duck-Hack)" },
+  { value: "active_containers", label: "Automático — contenedores del servidor (solo Duck-Hack)" },
 ];
 
-const METRIC_FIELDS = [
-  { name: "label", label: "Etiqueta", type: "text", required: true, maxLength: 80 },
-  { name: "source", label: "Origen", type: "select", options: METRIC_SOURCE_OPTIONS, fullWidth: true },
+const metricFieldsFor = (showAutoSources) => [
+  { name: "label", label: "Etiqueta (ej. Clientas felices)", type: "text", required: true, maxLength: 80 },
+  ...(showAutoSources
+    ? [{ name: "source", label: "Origen", type: "select", options: [{ value: "manual", label: "Manual" }, ...AUTO_METRIC_SOURCES], fullWidth: true }]
+    : []),
   {
     name: "value",
-    label: "Valor (solo si el origen es Manual — si es automático, este texto se ignora)",
+    label: showAutoSources ? "Valor (solo si el origen es Manual — si es automático, este texto se ignora)" : "Valor (ej. +500)",
     type: "text",
     maxLength: 20,
     fullWidth: true,
@@ -54,8 +60,8 @@ const METRIC_FIELDS = [
 ];
 
 const COMMAND_FIELDS = [
-  { name: "cmd", label: "Título corto (ej. Hosting a tu medida)", type: "text", required: true, maxLength: 80 },
-  { name: "note", label: "Descripción (ej. Planes que se adaptan a cualquier tipo de negocio)", type: "text", maxLength: 160, fullWidth: true },
+  { name: "cmd", label: "Título corto (ej. Agenda en línea)", type: "text", required: true, maxLength: 80 },
+  { name: "note", label: "Descripción (ej. Elige servicio, día y hora en dos minutos)", type: "text", maxLength: 160, fullWidth: true },
   { name: "icon", label: "Ícono", type: "icon", maxLength: 60 },
   { name: "isActive", label: "Activo", type: "boolean" },
 ];
@@ -69,6 +75,8 @@ const StoreConfigHome = () => {
   const [error, setError] = useState("");
 
   const baseUrl = getApiBaseUrl();
+  const showAutoSources =
+    localStorage.getItem("role") === ROLES.SUPER_ADMIN || metrics.some((m) => m.source && m.source !== "manual");
 
   const getAuthHeaders = () => ({
     Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -122,11 +130,7 @@ const StoreConfigHome = () => {
     <section style={{ maxWidth: 1300 }}>
       <StoreConfigTabs />
       <h3>Home del sitio</h3>
-      <p>
-        Slides del hero principal, las métricas destacadas y los pasos ("Qué puedes hacer con nosotros")
-        de la página de inicio. Las métricas con origen automático (clientes activos / contenedores
-        activos) recalculan su valor real en cada visita — lo que escribas en "Valor" para esas se ignora.
-      </p>
+      <p>Slides del encabezado principal, las cifras destacadas y los pasos ("cómo funciona") de la página de inicio.</p>
 
       {message ? <div className="auth-success">{message}</div> : null}
       {error ? <div className="auth-error">{error}</div> : null}
@@ -149,7 +153,7 @@ const StoreConfigHome = () => {
           addButtonLabel="+ Agregar slide"
         />
 
-        <h4 style={{ marginTop: "2rem" }}>Métricas</h4>
+        <h4 style={{ marginTop: "2rem" }}>Cifras destacadas</h4>
         <StoreConfigListEditor
           items={metrics}
           onChange={setMetrics}
@@ -158,12 +162,12 @@ const StoreConfigHome = () => {
               ? `${item.label} (automático)`
               : `${item.value} — ${item.label}`
           }
-          fields={METRIC_FIELDS}
+          fields={metricFieldsFor(showAutoSources)}
           createEmptyItem={() => ({ source: "manual", value: "", label: "" })}
-          addButtonLabel="+ Agregar métrica"
+          addButtonLabel="+ Agregar cifra"
         />
 
-        <h4 style={{ marginTop: "2rem" }}>Qué puedes hacer con nosotros</h4>
+        <h4 style={{ marginTop: "2rem" }}>Pasos / cómo funciona</h4>
         <StoreConfigListEditor
           items={commands}
           onChange={setCommands}

@@ -4,7 +4,7 @@ import { NavLink } from "react-router-dom";
 const TABS = [
   { path: "/admin/store-config", label: "General", end: true },
   { path: "/admin/store-config/home", label: "Home" },
-  { path: "/admin/store-config/servicios-precios", label: "Servicios y precios" },
+  { path: "/admin/store-config/servicios-precios", label: "Secciones, planes y FAQ" },
   { path: "/admin/store-config/equipo-testimonios", label: "Equipo y testimonios" },
   { path: "/admin/store-config/contacto", label: "Contacto y horario" },
   { path: "/admin/store-config/legal", label: "Identidad legal" },
