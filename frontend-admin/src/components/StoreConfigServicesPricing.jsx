@@ -7,7 +7,7 @@ import StoreConfigTabs from "./StoreConfigTabs";
 const SERVICE_FIELDS = [
   { name: "title", label: "Título", type: "text", required: true, maxLength: 100 },
   { name: "icon", label: "Icono", type: "icon", maxLength: 60 },
-  { name: "route", label: "Ruta", type: "text", maxLength: 120 },
+  { name: "route", label: "Enlace (opcional, ej. /agendar)", type: "text", maxLength: 120 },
   { name: "description", label: "Descripción", type: "textarea", maxLength: 500, fullWidth: true },
   { name: "isActive", label: "Activo", type: "boolean" },
 ];
@@ -15,18 +15,50 @@ const SERVICE_FIELDS = [
 const PRICING_PLAN_FIELDS = [
   { name: "name", label: "Nombre del plan", type: "text", required: true, maxLength: 60 },
   { name: "description", label: "Descripción", type: "textarea", maxLength: 300, fullWidth: true },
-  { name: "storage", label: "Almacenamiento", type: "text", maxLength: 40 },
-  { name: "emailAccounts", label: "Cuentas de correo", type: "text", maxLength: 40 },
-  { name: "bandwidth", label: "Ancho de banda", type: "text", maxLength: 40 },
-  { name: "ssl", label: "SSL", type: "text", maxLength: 60 },
+  {
+    name: "features",
+    label: "Características",
+    type: "keyValueList",
+    editorProps: {
+      hint: "Lo que incluye el plan, en este orden. Ej.: Sesiones → 4 · Duración → 60 min · Envío → Gratis.",
+      suggestions: ["Sesiones", "Duración", "Incluye", "Vigencia", "Productos", "Envío", "Entregas", "Soporte"],
+      max: 20,
+      valueMaxLength: 80,
+      itemNoun: "característica",
+      namePlaceholder: "Nombre (ej. Sesiones)",
+      valuePlaceholder: "Valor (ej. 4)",
+    },
+  },
   { name: "originalPrice", label: "Precio original (MXN)", type: "number" },
   { name: "price", label: "Precio (MXN, vacío = bajo cotización)", type: "number" },
   { name: "discountPercent", label: "Descuento (%)", type: "number" },
   { name: "featured", label: "Destacado", type: "boolean" },
-  { name: "extraFeaturesTitle", label: "Título de features extra", type: "text", maxLength: 120, fullWidth: true },
-  { name: "extraFeatures", label: "Features extra", type: "stringList" },
+  { name: "extraFeaturesTitle", label: "Título de la lista adicional (opcional)", type: "text", maxLength: 120, fullWidth: true },
+  { name: "extraFeatures", label: "Lista adicional", type: "stringList" },
   { name: "isActive", label: "Activo", type: "boolean" },
 ];
+
+// Planes guardados antes de las características libres: los campos de hosting
+// (storage/emailAccounts/bandwidth/ssl) se muestran como características para
+// editarlos aquí; el backend hace la misma conversión al guardar.
+const LEGACY_PLAN_FIELDS = [
+  ["storage", "Almacenamiento"],
+  ["emailAccounts", "Cuentas de correo"],
+  ["bandwidth", "Ancho de banda"],
+  ["ssl", "SSL"],
+];
+
+const normalizePlan = (plan) => {
+  const { storage, emailAccounts, bandwidth, ssl, ...rest } = plan;
+  const legacy = { storage, emailAccounts, bandwidth, ssl };
+  const features = [...(plan.features || [])];
+  const names = new Set(features.map((f) => String(f.name || "").toLowerCase()));
+  LEGACY_PLAN_FIELDS.forEach(([field, label]) => {
+    const value = String(legacy[field] || "").trim();
+    if (value && !names.has(label.toLowerCase())) features.push({ name: label, value });
+  });
+  return { ...rest, features };
+};
 
 const FAQ_FIELDS = [
   { name: "q", label: "Pregunta", type: "text", required: true, maxLength: 200, fullWidth: true },
@@ -53,7 +85,7 @@ const StoreConfigServicesPricing = () => {
     try {
       const response = await axios.get(`${baseUrl}/api/store-config`, { headers: getAuthHeaders() });
       setServices(response.data?.services || []);
-      setPricingPlans(response.data?.pricingPlans || []);
+      setPricingPlans((response.data?.pricingPlans || []).map(normalizePlan));
       setCommonPlanChecks(response.data?.commonPlanChecks || []);
       setFaqs(response.data?.faqs || []);
       setMessage("Configuración cargada.");
@@ -82,7 +114,7 @@ const StoreConfigServicesPricing = () => {
       );
       const saved = response.data?.storeConfig || {};
       setServices(saved.services || services);
-      setPricingPlans(saved.pricingPlans || pricingPlans);
+      setPricingPlans((saved.pricingPlans || pricingPlans).map(normalizePlan));
       setCommonPlanChecks(saved.commonPlanChecks || commonPlanChecks);
       setFaqs(saved.faqs || faqs);
       setMessage(response.data?.message || "Configuración guardada.");
@@ -96,24 +128,27 @@ const StoreConfigServicesPricing = () => {
   return (
     <section style={{ maxWidth: 1300 }}>
       <StoreConfigTabs />
-      <h3>Servicios y precios</h3>
-      <p>Servicios ofrecidos, planes de hosting y preguntas frecuentes.</p>
+      <h3>Secciones, planes y FAQ</h3>
+      <p>
+        Contenido de las secciones del sitio: tarjetas de servicios, planes o paquetes con precio y preguntas
+        frecuentes. Para servicios que se agendan (duración, precio, especialistas) usa el módulo Servicios.
+      </p>
 
       {message ? <div className="auth-success">{message}</div> : null}
       {error ? <div className="auth-error">{error}</div> : null}
 
       <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
-        <h4>Servicios</h4>
+        <h4>Tarjetas de servicios</h4>
         <StoreConfigListEditor
           items={services}
           onChange={setServices}
           itemLabel={(item) => item.title}
           fields={SERVICE_FIELDS}
           createEmptyItem={() => ({ title: "", icon: "", route: "", description: "", isActive: true })}
-          addButtonLabel="+ Agregar servicio"
+          addButtonLabel="+ Agregar tarjeta"
         />
 
-        <h4 style={{ marginTop: "2rem" }}>Planes de precio</h4>
+        <h4 style={{ marginTop: "2rem" }}>Planes o paquetes</h4>
         <StoreConfigListEditor
           items={pricingPlans}
           onChange={setPricingPlans}
@@ -122,10 +157,7 @@ const StoreConfigServicesPricing = () => {
           createEmptyItem={() => ({
             name: "",
             description: "",
-            storage: "",
-            emailAccounts: "",
-            bandwidth: "",
-            ssl: "",
+            features: [],
             originalPrice: null,
             price: null,
             discountPercent: null,

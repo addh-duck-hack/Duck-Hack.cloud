@@ -30,13 +30,13 @@ export const SECTION_TYPES = {
 // en appHome.js): no tienen campos propios además del título. `field` es el
 // arreglo de StoreConfig que muestran y `tab` dónde se edita.
 const STORE_HOME_TAB = { path: "/admin/store-config/home", label: "Configurar tienda → Home" };
-const STORE_SERVICES_TAB = { path: "/admin/store-config/servicios-precios", label: "Configurar tienda → Servicios y precios" };
+const STORE_SERVICES_TAB = { path: "/admin/store-config/servicios-precios", label: "Configurar tienda → Secciones, planes y FAQ" };
 const STORE_TEAM_TAB = { path: "/admin/store-config/equipo-testimonios", label: "Configurar tienda → Equipo y testimonios" };
 
 export const STORE_SECTION_TYPES = {
   storeHero: { label: "Tienda: Hero", icon: "fas fa-film", field: "heroSlides", tab: STORE_HOME_TAB },
   storeMetrics: { label: "Tienda: Métricas", icon: "fas fa-chart-line", field: "metrics", tab: STORE_HOME_TAB },
-  storeCommands: { label: "Tienda: Comandos", icon: "fas fa-terminal", field: "commands", tab: STORE_HOME_TAB },
+  storeCommands: { label: "Tienda: Pasos", icon: "fas fa-list-ol", field: "commands", tab: STORE_HOME_TAB },
   storeServices: { label: "Tienda: Servicios", icon: "fas fa-concierge-bell", field: "services", tab: STORE_SERVICES_TAB },
   storePricingPlans: { label: "Tienda: Planes", icon: "fas fa-tags", field: "pricingPlans", tab: STORE_SERVICES_TAB },
   storeFaqs: { label: "Tienda: Preguntas frecuentes", icon: "fas fa-question-circle", field: "faqs", tab: STORE_SERVICES_TAB },

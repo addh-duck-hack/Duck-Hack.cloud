@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import MediaField from "./MediaField";
 import { FA_ICON_DATALIST_ID, FA_ICON_SUGGESTIONS } from "../utils/faIconSuggestions";
 import PhoneInput from "./PhoneInput";
+import ProductAttributesEditor from "./ProductAttributesEditor";
 
 // Chips add/remove para un campo de tipo "stringList" (ej. extraFeatures de
 // un plan de precios). Mismo patrón visual que dockerContainers en
@@ -96,6 +97,22 @@ const renderField = (field, item, onItemChange) => {
       <div key={field.name} style={{ gridColumn: "1 / span 2" }}>
         <label style={{ display: "block", marginBottom: "0.35rem" }}>{field.label}</label>
         <StringChipsEditor values={value || []} onChange={(next) => onItemChange(field.name, next)} />
+      </div>
+    );
+  }
+
+  // Pares "Nombre: valor" (ej. características de un plan). `field.editorProps`
+  // pasa textos y límites a ProductAttributesEditor.
+  if (field.type === "keyValueList") {
+    return (
+      <div key={field.name} style={{ gridColumn: "1 / span 2" }}>
+        <ProductAttributesEditor
+          value={value || []}
+          onChange={(next) => onItemChange(field.name, next)}
+          legend={field.label}
+          datalistId={`kv-${field.name}`}
+          {...field.editorProps}
+        />
       </div>
     );
   }
