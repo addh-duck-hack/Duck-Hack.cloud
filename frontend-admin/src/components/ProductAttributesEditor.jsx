@@ -22,10 +22,25 @@ const SUGGESTED_NAMES = [
 const DATALIST_ID = "product-attribute-names";
 const MAX_ATTRIBUTES = 30;
 
-// Editor de especificaciones libres "Nombre: valor" del producto, en el orden
-// en que se mostrarán en la tienda. Las filas vacías se descartan al guardar
-// (el backend también las ignora); una fila a medias la rechaza el backend.
-const ProductAttributesEditor = ({ value = [], onChange }) => {
+// Editor de pares libres "Nombre: valor", en el orden en que se mostrarán en
+// la tienda. Las filas vacías se descartan al guardar (el backend también las
+// ignora); una fila a medias la rechaza el backend. Por default es el de
+// atributos del producto; las características de un plan de precios
+// (StoreConfigListEditor, tipo "keyValueList") lo reusan con otros textos y
+// límites.
+const ProductAttributesEditor = ({
+  value = [],
+  onChange,
+  legend = "Atributos (opcional)",
+  hint = "Especificaciones que se muestran en la tienda, en este orden. Ej.: Notas de cata → Cacao, panela · Material → Barro · Talla → M.",
+  suggestions = SUGGESTED_NAMES,
+  datalistId = DATALIST_ID,
+  max = MAX_ATTRIBUTES,
+  valueMaxLength = 300,
+  itemNoun = "atributo",
+  namePlaceholder = "Nombre (ej. Tueste)",
+  valuePlaceholder = "Valor (ej. Medio)",
+}) => {
   const rows = value;
 
   const update = (index, field, fieldValue) => {
@@ -33,7 +48,7 @@ const ProductAttributesEditor = ({ value = [], onChange }) => {
   };
 
   const add = () => {
-    if (rows.length >= MAX_ATTRIBUTES) return;
+    if (rows.length >= max) return;
     onChange([...rows, { name: "", value: "" }]);
   };
 
@@ -51,14 +66,11 @@ const ProductAttributesEditor = ({ value = [], onChange }) => {
 
   return (
     <fieldset style={{ border: "1px solid var(--input-border-color)", borderRadius: 8, padding: "0.75rem 1rem", margin: "0.75rem 0", minWidth: 0 }}>
-      <legend style={{ padding: "0 0.35rem" }}>Atributos (opcional)</legend>
-      <p style={{ margin: "0 0 0.75rem", fontSize: "0.85rem", opacity: 0.8 }}>
-        Especificaciones que se muestran en la tienda, en este orden. Ej.: Notas de cata → Cacao, panela · Material →
-        Barro · Talla → M.
-      </p>
+      <legend style={{ padding: "0 0.35rem" }}>{legend}</legend>
+      <p style={{ margin: "0 0 0.75rem", fontSize: "0.85rem", opacity: 0.8 }}>{hint}</p>
 
-      <datalist id={DATALIST_ID}>
-        {SUGGESTED_NAMES.map((name) => (
+      <datalist id={datalistId}>
+        {suggestions.map((name) => (
           <option key={name} value={name} />
         ))}
       </datalist>
@@ -70,9 +82,9 @@ const ProductAttributesEditor = ({ value = [], onChange }) => {
         >
           <input
             type="text"
-            aria-label={`Nombre del atributo ${index + 1}`}
-            placeholder="Nombre (ej. Tueste)"
-            list={DATALIST_ID}
+            aria-label={`Nombre de ${itemNoun} ${index + 1}`}
+            placeholder={namePlaceholder}
+            list={datalistId}
             maxLength={60}
             value={row.name}
             onChange={(e) => update(index, "name", e.target.value)}
@@ -80,9 +92,9 @@ const ProductAttributesEditor = ({ value = [], onChange }) => {
           />
           <input
             type="text"
-            aria-label={`Valor del atributo ${index + 1}`}
-            placeholder="Valor (ej. Medio)"
-            maxLength={300}
+            aria-label={`Valor de ${itemNoun} ${index + 1}`}
+            placeholder={valuePlaceholder}
+            maxLength={valueMaxLength}
             value={row.value}
             onChange={(e) => update(index, "value", e.target.value)}
             style={{ marginBottom: 0 }}
@@ -108,8 +120,8 @@ const ProductAttributesEditor = ({ value = [], onChange }) => {
         </div>
       ))}
 
-      <button type="button" className="btn-secondary" style={{ width: "auto" }} onClick={add} disabled={rows.length >= MAX_ATTRIBUTES}>
-        <i className="fas fa-plus" aria-hidden="true" /> Agregar atributo
+      <button type="button" className="btn-secondary" style={{ width: "auto" }} onClick={add} disabled={rows.length >= max}>
+        <i className="fas fa-plus" aria-hidden="true" /> Agregar {itemNoun}
       </button>
     </fieldset>
   );

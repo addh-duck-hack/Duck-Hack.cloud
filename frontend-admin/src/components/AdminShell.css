@@ -47,14 +47,28 @@
   border-radius: 6px;
 }
 
-.rail-brand span {
+.rail-brand img {
+  object-fit: cover;
+}
+
+.rail-brand-text {
+  display: grid;
+  min-width: 0;
+}
+
+.rail-brand-name {
   font-family: var(--font-mono);
   font-size: 0.82rem;
   color: var(--heading-color);
   letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .rail-brand-accent {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
   color: var(--primary-color);
 }
 
