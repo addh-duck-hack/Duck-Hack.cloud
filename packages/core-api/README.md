@@ -16,7 +16,11 @@ vault, not in this repo).
 - `modules/mail.js` — contact-form email (`POST /api/mail/send-email`).
 - `modules/storeConfig.js` — store branding/content, singleton per deployment
   (`/api/store-config/*`, including the public `GET /public` the storefront
-  reads).
+  reads). Content is generic for any kind of store: pricing plans list their
+  own `features` (`[{ name, value }]`, like `Product.attributes`) instead of
+  the old hosting fields `storage`/`emailAccounts`/`bandwidth`/`ssl` — a
+  payload that still sends those gets them converted on save; stores with old
+  plans run `backend/scripts/migrate-pricing-plan-features.mongo.js` once.
 - `modules/categories.js` — catalog categories (`/api/categories`), with
   image, `featured`, `sortOrder` and a `slug` (what the app home sections and
   `?category=` use). `kind` = `product` or `service`; not a module of its
