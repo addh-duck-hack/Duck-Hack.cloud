@@ -34,9 +34,11 @@ const ROUTE_LABELS = {
 const matchesItem = (item, pathname) =>
   item.end ? pathname === item.path : pathname === item.path || pathname.startsWith(`${item.path}/`);
 
-const NavItem = ({ item }) => (
+// Dentro de un grupo desplegable cada entrada lleva un punto; un enlace
+// suelto lleva el ícono de su grupo (como los títulos de grupo).
+const NavItem = ({ item, icon }) => (
   <NavLink to={item.path} end={item.end} className={({ isActive }) => (isActive ? "active" : "")}>
-    <span className="dot" />
+    {icon ? <i className={`${icon} rail-group-icon`} aria-hidden="true" /> : <span className="dot" />}
     {item.label}
   </NavLink>
 );
@@ -92,7 +94,7 @@ const AdminShell = () => {
   const renderGroup = (group) => {
     // Sin título, o con una sola entrada visible: enlaces sueltos.
     if (!group.label || group.items.length === 1) {
-      return group.items.map((item) => <NavItem key={item.path} item={item} />);
+      return group.items.map((item) => <NavItem key={item.path} item={item} icon={group.icon} />);
     }
     const isOpen = Boolean(openGroups[group.id]);
     const isActive = group.id === activeGroupId;
