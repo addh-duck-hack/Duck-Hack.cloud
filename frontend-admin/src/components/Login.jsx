@@ -7,6 +7,7 @@ import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { useStoreConfig } from "../hooks/useStoreConfig";
 import { STAFF_ROLES } from "../utils/roles";
 import logo from "../assets/logo.png";
+import Alert from "./Alert";
 
 const Login = () => {
   const [userData, setUserData] = useState({
@@ -130,7 +131,7 @@ const Login = () => {
                 <button type="submit">Iniciar sesión</button>
               </form>
 
-              {message && <div className="auth-error">{message}</div>}
+              {message && <Alert type="error">{message}</Alert>}
 
               <div className="auth-link">
                 ¿No tienes cuenta?{" "}

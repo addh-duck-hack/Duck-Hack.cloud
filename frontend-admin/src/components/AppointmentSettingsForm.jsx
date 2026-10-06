@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { usePermissions } from "../hooks/usePermissions";
+import Alert from "./Alert";
 
 // Ajustes de la agenda (AppointmentSettings, packages/core-api/modules/
 // appointments.js). El horario general y los días festivos siguen en
@@ -81,15 +82,15 @@ const AppointmentSettingsForm = () => {
     }
   };
 
-  if (!form) return error ? <div className="auth-error">{error}</div> : <p>Cargando...</p>;
+  if (!form) return error ? <Alert type="error">{error}</Alert> : <p>Cargando...</p>;
 
   return (
     <section style={{ maxWidth: 1000 }}>
       <h3 style={{ marginTop: 0 }}>Ajustes de la agenda</h3>
       <p>El horario del negocio y los días festivos se configuran en "Configurar tienda".</p>
 
-      {error ? <div className="auth-error">{error}</div> : null}
-      {message ? <div className="auth-success">{message}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
+      {message ? <Alert type="success">{message}</Alert> : null}
 
       <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
         <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>

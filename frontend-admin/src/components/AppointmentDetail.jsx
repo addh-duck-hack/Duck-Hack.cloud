@@ -7,6 +7,7 @@ import { usePermissions } from "../hooks/usePermissions";
 import AppointmentDialog from "./AppointmentDialog";
 import MediaPreview from "./MediaPreview";
 import Loader from "./Loader";
+import Alert from "./Alert";
 import "./AppointmentDetail.css";
 
 // Vista de una cita (/admin/appointments/:id, módulo "appointments"). La abren
@@ -132,8 +133,8 @@ const AppointmentMedia = ({ appointment, onUpdated }) => {
           {progress || "Agregar fotos o videos (JPG, PNG, GIF hasta 10 MB · MP4, WebM hasta 50 MB)"}
         </label>
       )}
-      {notice ? <div className="auth-success">{notice}</div> : null}
-      {error ? <div className="auth-error">{error}</div> : null}
+      {notice ? <Alert type="success">{notice}</Alert> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       {media.length ? (
         <ul className="appt-media-grid">
@@ -229,7 +230,7 @@ const ReviewItem = ({ review, canModerate, onModerated }) => {
           ) : null}
         </div>
       ) : null}
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
     </div>
   );
 };
@@ -258,7 +259,7 @@ const AppointmentReviews = ({ appointment }) => {
       <h4>
         <i className="fa-solid fa-star" aria-hidden="true" /> Reseñas
       </h4>
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
       {!data && !error ? <p className="appt-muted">Cargando…</p> : null}
       {data ? (
         <>
@@ -336,7 +337,7 @@ const AppointmentDetail = () => {
   if (error && !appointment) {
     return (
       <section>
-        <div className="auth-error">{error}</div>
+        <Alert type="error">{error}</Alert>
         <Link to="/admin/appointment-list">← Volver a Citas</Link>
       </section>
     );
@@ -356,7 +357,7 @@ const AppointmentDetail = () => {
           <i className="fa-solid fa-list" aria-hidden="true" /> Citas
         </Link>
       </nav>
-      {notice ? <div className="auth-success">{notice}</div> : null}
+      {notice ? <Alert type="success">{notice}</Alert> : null}
 
       <div className="appt-detail-grid">
         <div className="appt-detail-main">

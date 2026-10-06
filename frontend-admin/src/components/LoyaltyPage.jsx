@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatDateTime } from "../utils/schedule";
+import Alert from "./Alert";
 
 // Lealtad (módulo "loyalty", packages/core-api/modules/loyalty.js): dos
 // programas con su propio interruptor — puntos por compra pagada (1 punto =
@@ -175,7 +176,7 @@ const LoyaltyPage = () => {
     }
   };
 
-  if (!form) return error ? <div className="auth-error">{error}</div> : <p>Cargando...</p>;
+  if (!form) return error ? <Alert type="error">{error}</Alert> : <p>Cargando...</p>;
 
   return (
     <section style={{ maxWidth: 1100 }}>
@@ -185,8 +186,8 @@ const LoyaltyPage = () => {
         checkout) y <strong>tarjeta de sellos</strong> por cita completada, con un beneficio que se canjea en el local.
       </p>
 
-      {error ? <div className="auth-error">{error}</div> : null}
-      {message ? <div className="auth-success">{message}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
+      {message ? <Alert type="success">{message}</Alert> : null}
 
       <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
         <fieldset>
@@ -347,8 +348,8 @@ const LoyaltyPage = () => {
             </div>
           </div>
 
-          {accountError ? <div className="auth-error">{accountError}</div> : null}
-          {accountMessage ? <div className="auth-success">{accountMessage}</div> : null}
+          {accountError ? <Alert type="error">{accountError}</Alert> : null}
+          {accountMessage ? <Alert type="success">{accountMessage}</Alert> : null}
 
           <form onSubmit={handleAdjust} style={{ maxWidth: "none", margin: 0 }}>
             <div className="form-row" style={{ display: "grid", gridTemplateColumns: "160px 140px 1fr auto", gap: "0.75rem", alignItems: "end" }}>

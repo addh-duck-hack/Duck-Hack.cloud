@@ -16,6 +16,7 @@ import {
   uploadMediaFile,
 } from "../utils/mediaApi";
 import MediaPreview from "./MediaPreview";
+import Alert from "./Alert";
 import "./MediaLibrary.css";
 
 const MediaPicker = ({
@@ -170,7 +171,7 @@ const MediaPicker = ({
           Tipos permitidos: {kindsLabel}.{multiple ? " Puedes elegir varios." : ""}
         </p>
 
-        {error ? <div className="auth-error">{error}</div> : null}
+        {error ? <Alert type="error">{error}</Alert> : null}
 
         <div className="media-picker-body">
           {isLoading ? <p>Cargando medios...</p> : null}

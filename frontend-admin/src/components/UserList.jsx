@@ -10,6 +10,7 @@ import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatCalendarDate } from "../utils/formatCalendarDate";
 import { getCurrentUserId } from "../utils/currentUser";
 import { ROLES, ROLE_LABELS } from "../utils/roles";
+import Alert from "./Alert";
 
 const formatDate = (value) => formatCalendarDate(value) || "—";
 
@@ -79,7 +80,7 @@ const UserList = () => {
       </div>
       <p>Cuentas registradas en el sitio — clientes de la tienda y staff del panel.</p>
 
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <label style={{ maxWidth: 260 }}>
         Filtrar por rol

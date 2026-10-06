@@ -53,6 +53,9 @@ module.exports = {
   // Teléfonos de México a 10 dígitos (lib/phone.js), para los validadores de
   // backend/ (AgencyClient).
   phone: phoneLib,
+  // Mensajes en español para un ValidationError de Mongoose
+  // (lib/validationMessages.js), para los handlers de backend/.
+  validation: require("./lib/validationMessages"),
   // Tareas programadas (lib/scheduler.js): backend/server.js crea el
   // scheduler, llama `registerJobs(scheduler, ctx)` de cada módulo que lo
   // tenga (contrato opcional, además de registerRoutes) y lo arranca al

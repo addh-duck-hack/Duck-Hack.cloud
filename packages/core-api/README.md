@@ -137,6 +137,12 @@ vault, not in this repo).
   storefront's order page `FRONTEND_URL/pedido/<id>?token=…`, which reads
   `GET /:id/summary` (and the ticket `GET /:id/pdf`) with `X-Order-Token` —
   every storefront that turns it on must implement that route.
+- `lib/validationMessages.js` — `describeValidationError(error)` turns a
+  Mongoose `ValidationError` into Spanish, per-field messages (`required`,
+  `maxlength` with the current length, `min`/`max`, `enum`, cast errors;
+  custom validator messages kept as-is). Used by
+  `moduleHelpers#handleMongooseError`, `modules/auth.js` and, through the
+  package's `validation` export, `backend/`'s routers.
 - `lib/phone.js` — Mexican phones, 10 digits: `normalizeMxPhone` (strips
   separators and a 52/521 prefix), `parseMxPhone(value, { required, label })`
   → `{ value }` | `{ error }`, `toWhatsappPhone` (stores 52 + 10). Used by

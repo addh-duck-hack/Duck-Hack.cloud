@@ -10,6 +10,7 @@ import esLocale from "@fullcalendar/core/locales/es";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { APPOINTMENT_STATUS_LABELS, isAgendaManager } from "../utils/schedule";
 import AppointmentDialog from "./AppointmentDialog";
+import Alert from "./Alert";
 import "./AppointmentCalendar.css";
 
 // Agenda del panel (Fase 2.4) con FullCalendar: día / semana / mes / lista.
@@ -214,7 +215,7 @@ const AppointmentCalendar = () => {
         {filteredName ? ` de ${filteredName} (sus días de descanso salen sombreados)` : " del negocio"}
       </p>
 
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <div className="agenda-calendar">
         <FullCalendar

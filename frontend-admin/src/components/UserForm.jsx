@@ -13,6 +13,7 @@ import { formatCalendarDate } from "../utils/formatCalendarDate";
 import { getCurrentUserId } from "../utils/currentUser";
 import { ROLE_LABELS, assignableRolesFor } from "../utils/roles";
 import PhoneInput from "./PhoneInput";
+import Alert from "./Alert";
 
 const formatDate = (value) => formatCalendarDate(value) || "—";
 
@@ -116,8 +117,8 @@ const UserForm = () => {
 
       <h3 style={{ marginTop: "1rem" }}>{user.name}</h3>
 
-      {message ? <div className="auth-success">{message}</div> : null}
-      {error ? <div className="auth-error">{error}</div> : null}
+      {message ? <Alert type="success">{message}</Alert> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <div style={{ margin: "1rem 0" }}>
         <p>

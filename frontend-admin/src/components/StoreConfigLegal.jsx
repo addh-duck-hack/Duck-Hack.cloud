@@ -3,6 +3,7 @@ import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import StoreConfigTabs from "./StoreConfigTabs";
 import PhoneInput from "./PhoneInput";
+import Alert from "./Alert";
 
 const initialState = {
   legalName: "",
@@ -114,8 +115,8 @@ const StoreConfigLegal = () => {
         de la tienda: Aviso de privacidad, Aviso legal y Política de devoluciones.
       </p>
 
-      {message ? <div className="auth-success">{message}</div> : null}
-      {error ? <div className="auth-error">{error}</div> : null}
+      {message ? <Alert type="success">{message}</Alert> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
         <h4 style={{ marginTop: 0 }}>Datos de la empresa</h4>

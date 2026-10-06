@@ -17,6 +17,7 @@ import {
   uploadMediaFile,
 } from "../utils/mediaApi";
 import MediaPreview from "./MediaPreview";
+import Alert from "./Alert";
 import "./MediaLibrary.css";
 
 const ACCEPTED_TYPES = acceptForKinds(["image", "gif", "video"]);
@@ -201,8 +202,8 @@ const MediaViewer = ({ item, src, galleryCategories = [], onClose, onPrev, onNex
           </button>
         </form>
 
-        {success ? <div className="auth-success">{success}</div> : null}
-        {error ? <div className="auth-error">{error}</div> : null}
+        {success ? <Alert type="success">{success}</Alert> : null}
+        {error ? <Alert type="error">{error}</Alert> : null}
 
         <div className="media-viewer-usage">
           <h4>Dónde se usa</h4>
@@ -347,7 +348,7 @@ const MediaLibrary = () => {
       </div>
       <p>Archivos de la carpeta uploads/. JPG, PNG o GIF hasta 10 MB; MP4 o WebM hasta 50 MB.</p>
 
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       {isLoading && items.length === 0 ? <p>Cargando medios...</p> : null}
       {!isLoading && visibleItems.length === 0 && !error ? <p>No hay medios todavía.</p> : null}

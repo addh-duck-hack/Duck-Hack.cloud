@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
+import Alert from "./Alert";
 
 const formatCurrency = (value) => `$${Number(value || 0).toLocaleString()}`;
 
@@ -86,7 +87,7 @@ const AgencyClientDesignDebtPaymentForm = () => {
 
       <h3>Registrar abono a deuda</h3>
 
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       {isLoadingDebt ? <p>Cargando...</p> : null}
 

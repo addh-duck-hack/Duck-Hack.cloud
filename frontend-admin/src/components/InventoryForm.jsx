@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
+import Alert from "./Alert";
 
 const initialState = { product: "", variant: "", quantity: "0", lowStockThreshold: "0", notes: "" };
 
@@ -107,7 +108,7 @@ const InventoryForm = () => {
     <section style={{ maxWidth: 1300 }}>
       <h3>{isEditing ? "Editar inventario" : "Registrar inventario"}</h3>
 
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
         <label>

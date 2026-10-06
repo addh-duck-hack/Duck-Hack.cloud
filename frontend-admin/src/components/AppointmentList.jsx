@@ -3,6 +3,7 @@ import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { APPOINTMENT_STATUS_LABELS, isAgendaManager } from "../utils/schedule";
+import Alert from "./Alert";
 import "./AppointmentList.css";
 
 // Listado de citas (módulo "appointments"; backend GET /api/appointments/list
@@ -159,7 +160,7 @@ const AppointmentList = () => {
         ) : null}
       </form>
 
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
       {isLoading && !data ? <p>Cargando...</p> : null}
       {data && !items.length ? (
         <p className="appt-empty">

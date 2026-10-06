@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatCalendarDate } from "../utils/formatCalendarDate";
 import { SOURCE_LABELS, formatMxn } from "../utils/accountingLabels";
+import Alert from "./Alert";
 
 const formatDate = (value) => formatCalendarDate(value) || "—";
 
@@ -159,7 +160,7 @@ const InvoiceForm = () => {
         que sale impreso en la factura.
       </p>
 
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
         <label>

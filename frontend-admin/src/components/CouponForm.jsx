@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
+import Alert from "./Alert";
 
 // Alta y edición de un cupón (packages/core-api/modules/coupons.js). Las
 // fechas se capturan como día de calendario: inicio a las 00:00 y fin a las
@@ -122,7 +123,7 @@ const CouponForm = () => {
       <h3>{isEditing ? `Editar cupón ${form.code}` : "Nuevo cupón"}</h3>
       {isEditing && usedCount > 0 ? <p>Este cupón se ha usado en {usedCount} pedido(s).</p> : null}
 
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
         <div className="form-row" style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "0.75rem" }}>

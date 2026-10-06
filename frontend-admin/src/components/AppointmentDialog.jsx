@@ -7,6 +7,7 @@ import { APPOINTMENT_STATUS_LABELS, formatDateTime } from "../utils/schedule";
 import PhoneInput from "./PhoneInput";
 import OrderPaymentProofs from "./OrderPaymentProofs";
 import { usePermissions } from "../hooks/usePermissions";
+import Alert from "./Alert";
 import "./AppointmentDialog.css";
 
 // Alta y detalle de una cita desde la agenda del panel
@@ -119,7 +120,7 @@ const GiftCardRedeem = ({ appointment, onDone }) => {
           </button>
         </div>
       ) : null}
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
     </details>
   );
 };
@@ -339,8 +340,8 @@ const AppointmentDialog = ({ appointment: initialAppointment, initialStart, init
           </p>
         ) : null}
 
-        {notice ? <div className="auth-success">{notice}</div> : null}
-        {error ? <div className="auth-error">{error}</div> : null}
+        {notice ? <Alert type="success">{notice}</Alert> : null}
+        {error ? <Alert type="error">{error}</Alert> : null}
 
         {isEditing && STATUS_ACTIONS[appointment.status]?.length ? (
           <div className="agenda-status-actions">

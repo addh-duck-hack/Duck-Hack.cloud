@@ -3,6 +3,7 @@ import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import StoreConfigListEditor from "./StoreConfigListEditor";
 import StoreConfigTabs from "./StoreConfigTabs";
+import Alert from "./Alert";
 
 const TEAM_MEMBER_FIELDS = [
   { name: "name", label: "Nombre", type: "text", required: true, maxLength: 100 },
@@ -84,8 +85,8 @@ const StoreConfigTeamTestimonials = () => {
       <h3>Equipo y testimonios</h3>
       <p>Las personas del equipo y los testimonios de clientes que el sitio muestra en sus secciones.</p>
 
-      {message ? <div className="auth-success">{message}</div> : null}
-      {error ? <div className="auth-error">{error}</div> : null}
+      {message ? <Alert type="success">{message}</Alert> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
         <h4>Equipo</h4>

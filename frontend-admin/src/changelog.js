@@ -11,6 +11,13 @@
 // `kind`: "new" (función nueva) | "improvement" | "fix".
 const CHANGELOG = [
   {
+    id: "2026-10-06-avisos-en-ventana",
+    date: "2026-10-06",
+    kind: "improvement",
+    title: "Avisos que no se pierden",
+    body: "Los errores y confirmaciones al guardar ahora aparecen en una ventana al centro de la pantalla, y los errores dicen exactamente qué corregir (por ejemplo, si un texto es demasiado largo).",
+  },
+  {
     id: "2026-10-06-vista-cita",
     date: "2026-10-06",
     kind: "improvement",

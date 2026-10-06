@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatCalendarDate } from "../utils/formatCalendarDate";
 import { mediaSrc } from "../utils/mediaApi";
+import Alert from "./Alert";
 
 // Banners de promociones (módulo "promoBanner",
 // packages/core-api/modules/promoBanners.js). Estado por fechas e interruptor;
@@ -92,7 +93,7 @@ const PromoBannerList = () => {
         lista. Un banner con un cupón que ya venció o se agotó deja de mostrarse.
       </p>
 
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <div style={{ overflowX: "auto" }}>
         <table>

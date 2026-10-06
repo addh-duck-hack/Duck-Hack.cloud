@@ -10,6 +10,7 @@ import { ORDER_STATUS_LABELS } from "../utils/orderStatusLabels";
 import { APPOINTMENT_STATUS_LABELS } from "../utils/schedule";
 import { getDateStatusBadge } from "../utils/dateStatusBadge";
 import SeriesBarChart from "./SeriesBarChart";
+import Alert from "./Alert";
 import "./Dashboard.css";
 
 // Inicio del panel (`/admin`), gratis para todas las tiendas: lo primero que
@@ -384,7 +385,7 @@ const Dashboard = () => {
       ) : null}
 
       {loaded && !prefs.welcomeDismissed ? <Welcome storeName={config?.storeName} can={can} onDismiss={() => save({ welcomeDismissed: true })} /> : null}
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <div className="dash-grid">
         {shown.map((w) => (
