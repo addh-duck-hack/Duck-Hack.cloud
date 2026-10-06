@@ -46,6 +46,7 @@ const { paymentProofSchema, proofRecordFrom, findProof, streamProofFile, discard
 const { createModuleAuthorizer } = require("../lib/permissions");
 const { recalculateStatus, notifyStockAlerts } = require("./inventory");
 const { resolveCoupon, reserveCouponUse, syncCouponUse } = require("../lib/coupons");
+const { findUsableCard, debitCard, creditCard, syncOrderGiftCard } = require("../lib/giftCards");
 const { hasVariants, findVariant, variantLabel, variantPricing, stockKey } = require("../lib/variants");
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -230,6 +231,21 @@ const orderSchema = new mongoose.Schema(
     // descontó del subtotal de productos; en free_shipping es 0 y el envío
     // queda en $0. `counted` = el pedido cuenta como uso del cupón (no si se
     // cancela); lo maneja syncCouponUse.
+    // Tarjeta de regalo (lib/giftCards.js, Fase 5.2): lo que se pagó con ella
+    // (también cubre el envío). `refunded` = el saldo se regresó a la tarjeta
+    // porque el pedido se canceló o se borró (syncOrderGiftCard).
+    giftCard: {
+      type: new mongoose.Schema(
+        {
+          card: { type: mongoose.Schema.Types.ObjectId, ref: "GiftCard", required: true },
+          code: { type: String, trim: true },
+          amount: { type: Number, min: 0, default: 0 },
+          refunded: { type: Boolean, default: false },
+        },
+        { _id: false }
+      ),
+      default: undefined,
+    },
     // Lealtad (lib/loyalty.js): puntos ganados al pagarse y puntos usados en
     // el checkout. Las marcas earnedCounted / redeemRefunded cambian de forma
     // atómica (nunca abona ni devuelve dos veces). Solo lo escribe el servidor.
@@ -413,6 +429,8 @@ const validateCheckoutExtras = (sendError) => (req, res, next) => {
   req.body.deliveryMethod = payload.deliveryMethod ? asTrimmedString(payload.deliveryMethod) : undefined;
   req.body.pickupPointId = payload.pickupPointId ? asTrimmedString(payload.pickupPointId) : undefined;
   req.body.couponCode = payload.couponCode ? asTrimmedString(payload.couponCode).slice(0, 40) : undefined;
+  req.body.giftCardCode = payload.giftCardCode ? asTrimmedString(payload.giftCardCode).slice(0, 40) : undefined;
+  delete req.body.giftCard;
   // Puntos de lealtad a usar (pesos). Se valida contra el saldo en el handler.
   if (payload.usePoints !== undefined && payload.usePoints !== null && payload.usePoints !== "" && Number(payload.usePoints) !== 0) {
     const usePoints = asFiniteNumber(payload.usePoints);
@@ -992,7 +1010,7 @@ function registerRoutes(app, ctx) {
         // Cupón (lib/coupons.js): el descuento se calcula aquí, nunca se toma
         // del cliente. Un cupón inválido detiene el pedido con su motivo, para
         // que el cliente no pague de más sin darse cuenta.
-        const { couponCode, usePoints, ...orderFields } = orderData;
+        const { couponCode, usePoints, giftCardCode, ...orderFields } = orderData;
         let couponResult = null;
         if (couponCode) {
           couponResult = await resolveCoupon(mongooseConnection, couponCode, {
@@ -1046,14 +1064,44 @@ function registerRoutes(app, ctx) {
           await releaseCoupon();
           return sendError(res, 409, "INSUFFICIENT_POINTS", "No tienes puntos suficientes.");
         }
+        const releasePoints = () =>
+          pointsToUse ? mongooseConnection.models.LoyaltyAccount.updateOne({ customer: req.checkoutCustomerId }, { $inc: { points: pointsToUse } }) : null;
+
+        // Tarjeta de regalo (lib/giftCards.js): paga lo que quede (productos −
+        // cupón − puntos + envío) hasta su saldo. Se cobra de forma atómica
+        // antes de guardar; si el pedido no se guarda, se regresa.
+        const dueBeforeGift = roundMoney(itemsTotal - pointsToUse + shippingCost);
+        const orderId = new mongoose.Types.ObjectId();
+        let gift = null;
+        if (giftCardCode) {
+          const found = await findUsableCard(mongooseConnection, giftCardCode);
+          if (found.error) {
+            await releaseCoupon();
+            await releasePoints();
+            return sendError(res, found.error.status, found.error.code, found.error.message);
+          }
+          const amount = roundMoney(Math.min(found.card.balance, dueBeforeGift));
+          if (amount > 0) {
+            const charged = await debitCard(mongooseConnection, found.card._id, amount, { order: orderId, note: "Compra en línea" });
+            if (!charged) {
+              await releaseCoupon();
+              await releasePoints();
+              return sendError(res, 409, "GIFT_CARD_INSUFFICIENT", "El saldo de la tarjeta cambió. Revisa e intenta de nuevo.");
+            }
+            gift = { card: found.card._id, code: found.card.code, amount };
+          }
+        }
+        const total = roundMoney(dueBeforeGift - (gift?.amount || 0));
 
         const orderNumber = await nextOrderNumber(Order);
         const order = new Order({
+          _id: orderId,
           ...orderFields,
           ...checkout,
           items: built.items,
           shippingCost,
-          total: Math.round((itemsTotal - pointsToUse + shippingCost) * 100) / 100,
+          total,
+          ...(gift ? { giftCard: gift } : {}),
           ...(pointsToUse ? { loyalty: { customer: req.checkoutCustomerId, redeemed: pointsToUse } } : {}),
           ...(couponResult
             ? {
@@ -1068,7 +1116,8 @@ function registerRoutes(app, ctx) {
               }
             : {}),
           orderNumber,
-          status: "pending",
+          // Pagado completo con la tarjeta: entra ya como pagado.
+          status: total === 0 && gift ? "confirmed" : "pending",
           // Derivado del JWT verificado en attachOptionalCustomer, nunca de
           // req.body (validateCheckoutExtras ya lo borró ahí).
           ...(req.checkoutCustomerId ? { customer: req.checkoutCustomerId } : {}),
@@ -1078,8 +1127,21 @@ function registerRoutes(app, ctx) {
         } catch (error) {
           // Si el pedido no se guardó, el uso del cupón y los puntos apartados se devuelven.
           await releaseCoupon();
-          if (pointsToUse) await mongooseConnection.models.LoyaltyAccount.updateOne({ customer: req.checkoutCustomerId }, { $inc: { points: pointsToUse } });
+          await releasePoints();
+          if (gift) await creditCard(mongooseConnection, gift.card, gift.amount, { order: orderId, note: "Pedido no se guardó" });
           throw error;
+        }
+        if (gift) {
+          // El movimiento de la tarjeta queda ligado al pedido.
+          await mongooseConnection.models.GiftCard.updateOne(
+            { _id: gift.card, movements: { $elemMatch: { order: order._id } } },
+            { $set: { "movements.$.note": `Pedido #${order.orderNumber}` } }
+          );
+        }
+        if (order.status === "confirmed") {
+          // Igual que al aprobar un pago: descuenta inventario y abona puntos.
+          await syncInventoryForOrder(Order, mongooseConnection, order);
+          await syncOrderLoyalty(Order, mongooseConnection, order);
         }
         if (pointsToUse) {
           const account = await mongooseConnection.models.LoyaltyAccount.findOne({ customer: req.checkoutCustomerId }).select("points").lean();
@@ -1149,6 +1211,7 @@ function registerRoutes(app, ctx) {
           shippingCost: order.shippingCost,
           discount: order.discount?.code ? { code: order.discount.code, type: order.discount.type, amount: order.discount.amount } : undefined,
           loyalty: order.loyalty ? { redeemed: order.loyalty.redeemed || 0, earned: order.loyalty.earnedCounted ? order.loyalty.earned : 0 } : undefined,
+          giftCard: order.giftCard?.amount ? { code: order.giftCard.code, amount: order.giftCard.amount } : undefined,
           total: order.total,
           deliveryMethod: order.deliveryMethod,
           pickupPoint: order.pickupPoint,
@@ -1336,6 +1399,7 @@ function registerRoutes(app, ctx) {
         await syncInventoryForOrder(Order, mongooseConnection, req.order);
         await syncCouponUse(Order, mongooseConnection, req.order);
         await syncOrderLoyalty(Order, mongooseConnection, req.order);
+        await syncOrderGiftCard(Order, mongooseConnection, req.order);
         if (statusChanged && STATUS_NOTIFICATIONS.includes(req.order.status)) {
           notifyOrder(req.order, req.order.status, { mongooseConnection });
         }
@@ -1431,6 +1495,7 @@ function registerRoutes(app, ctx) {
       await syncInventoryForOrder(Order, mongooseConnection, req.order, { release: true });
       await syncCouponUse(Order, mongooseConnection, req.order, { release: true });
       await syncOrderLoyalty(Order, mongooseConnection, req.order, { release: true });
+      await syncOrderGiftCard(Order, mongooseConnection, req.order, { release: true });
       await req.order.deleteOne();
       await Promise.all(proofFiles.map(discardProofFile));
       return res.status(200).json({ message: "Pedido eliminado." });

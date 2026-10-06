@@ -92,6 +92,7 @@ const { notify } = require("../lib/notify");
 const { claimEach } = require("../lib/scheduler");
 const { syncAppointmentStamps } = require("../lib/loyalty");
 const { paymentProofSchema, proofRecordFrom, findProof, streamProofFile, discardProofFile } = require("../lib/paymentProofs");
+const { findUsableCard, debitCard } = require("../lib/giftCards");
 const { createPaymentProofUploadMiddlewares } = require("../lib/uploads");
 const {
   appointmentEmailTemplate,
@@ -311,6 +312,18 @@ const appointmentSchema = new mongoose.Schema(
     depositExpiredAt: { type: Date, default: null },
     depositExpireAttempts: { type: Number, default: 0 },
     paymentProofs: { type: [paymentProofSchema], default: [] },
+    // Anticipo pagado con tarjeta de regalo (5.2, lib/giftCards.js).
+    depositGiftCard: {
+      type: new mongoose.Schema(
+        {
+          card: { type: mongoose.Schema.Types.ObjectId, ref: "GiftCard" },
+          code: { type: String, trim: true },
+          amount: { type: Number, min: 0 },
+        },
+        { _id: false }
+      ),
+      default: undefined,
+    },
   },
   { timestamps: true }
 );
@@ -995,6 +1008,7 @@ function registerRoutes(app, ctx) {
           paidAt: a.depositPaidAt,
           concept: depositConcept(a),
           spei: DEPOSIT_STATUSES.includes(a.status) ? spei : null,
+          giftCard: a.depositGiftCard?.amount ? { code: a.depositGiftCard.code, amount: a.depositGiftCard.amount } : null,
         }
       : null,
     paymentProofs: (a.paymentProofs || []).map((p) => ({
@@ -1278,6 +1292,41 @@ function registerRoutes(app, ctx) {
     }
     return appointment.save();
   };
+
+  // POST /public/:id/deposit-gift-card { code } — pagar el anticipo con una
+  // tarjeta de regalo (debe alcanzar el anticipo completo). Confirma la cita
+  // al momento (o la deja por confirmar si la agenda no confirma sola).
+  router.post("/public/:id/deposit-gift-card", publicRateLimiter, resolveCustomerAccess, ensureAwaitingDeposit, async (req, res) => {
+    try {
+      const { appointment } = req;
+      const found = await findUsableCard(mongooseConnection, req.body?.code);
+      if (found.error) return sendError(res, found.error.status, found.error.code, found.error.message);
+      if (found.card.balance < appointment.depositAmount) {
+        return sendError(
+          res,
+          409,
+          "GIFT_CARD_INSUFFICIENT",
+          `La tarjeta tiene $${found.card.balance.toLocaleString("es-MX")} y el anticipo es de $${appointment.depositAmount.toLocaleString("es-MX")}.`
+        );
+      }
+      const charged = await debitCard(mongooseConnection, found.card._id, appointment.depositAmount, {
+        appointment: appointment._id,
+        note: `Anticipo de la cita #${appointment.appointmentNumber}`,
+      });
+      if (!charged) return sendError(res, 409, "GIFT_CARD_INSUFFICIENT", "El saldo de la tarjeta cambió. Revisa e intenta de nuevo.");
+      const settings = await getSettings(mongooseConnection);
+      const from = appointment.status;
+      appointment.depositGiftCard = { card: found.card._id, code: found.card.code, amount: appointment.depositAmount };
+      appointment.depositPaidAt = new Date();
+      appointment.status = settings.autoConfirm ? "confirmed" : "pending";
+      appointment.history.push({ type: "status", from, to: appointment.status, by: "customer" });
+      await appointment.save();
+      notifyAppointment(appointment, { customer: "deposit_approved" });
+      return res.status(200).json({ message: "Pagaste el anticipo con tu tarjeta de regalo.", appointment: await customerPayload(appointment, settings) });
+    } catch (error) {
+      return handleMongooseError(sendError, res, error, "Error al pagar el anticipo con la tarjeta.");
+    }
+  });
 
   // POST /public/:id/deposit-proof — la clienta (token de la cita o sesión)
   // sube su comprobante: multipart con el archivo en `file` (JPG/PNG/PDF).

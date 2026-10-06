@@ -402,3 +402,13 @@
     gap: 0.5rem;
   }
 }
+
+/* Cobro con tarjeta de regalo dentro del diálogo de la cita. */
+.agenda-giftcard {
+  margin-bottom: 1rem;
+}
+
+.agenda-giftcard summary {
+  cursor: pointer;
+  margin-bottom: 0.5rem;
+}

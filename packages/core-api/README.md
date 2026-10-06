@@ -181,6 +181,22 @@ vault, not in this repo).
   (HTML page with a POST button, so link scanners can't unsubscribe anyone;
   JWT `email_preferences`). Admin: `GET/PUT /abandoned/settings`,
   `GET /abandoned/stats`.
+- `modules/giftCards.js` — gift cards (`/api/gift-cards`, permission key
+  `giftCards`, Fase 5.2): peso balance spent in parts. Bought on the site →
+  `pending_payment` with SPEI data (proof upload with `X-Gift-Card-Token` or
+  the buyer's session, same `lib/paymentProofs.js` engine); staff approves →
+  `active` (validity from that day) and the recipient gets the card by email
+  with a PDF (`ctx.generateGiftCardPdf`, `backend/utils/giftCardPdf.js`);
+  counter sales are active right away. Spent at checkout (`giftCardCode` in
+  `POST /api/orders/public`, refunded if the order is cancelled), at the
+  counter (`POST /redeem` by code, also allowed to `appointments`/`orders`
+  staff) or for an appointment deposit. Shared logic (codes, atomic
+  debit/credit, `syncOrderGiftCard`) in `lib/giftCards.js`; daily
+  "gift-card-expiry" job.
+- `modules/reports.js` — reports (`/api/reports`, permission key `reports`,
+  Fase 5.3): `GET /summary?from&to&groupBy` (sales, appointments, gift cards,
+  loyalty — each null if its module isn't contracted; aggregated in JS over a
+  ≤366-day range) and `GET /export?type=orders|appointments` (CSV with BOM).
 - `modules/promoBanners.js` — promo banners (`/api/promo-banners`,
   permission key `promoBanner`): title, text, image (+ optional mobile
   image), button with a `target` (none / product category / coupon / URL),
@@ -312,11 +328,13 @@ Jobs registered today (each checks its own permission key with
 | `abandoned-carts` | cart | 15 min | `abandonedCart` |
 | `wishlist-back-in-stock` | wishlist | 15 min | `wishlist` |
 | `loyalty-expiry` | loyalty | 24 h | `loyalty` (+ points with `expiryMonths`) |
+| `gift-card-expiry` | giftCards | 24 h | `giftCards` |
 
 Customer-facing links these jobs put in emails are a contract every storefront
 that sells the feature must serve: `FRONTEND_URL/cita/<id>?token=…`
 (`&accion=confirmar` / `&accion=calificar`), `FRONTEND_URL/carrito`,
-`FRONTEND_URL/tienda/<productId>`; unsubscribe links point to the backend
+`FRONTEND_URL/tienda/<productId>`, `FRONTEND_URL/tarjeta-regalo/<id>?token=…`
+(gift card purchase page); unsubscribe links point to the backend
 (`BACKEND_PUBLIC_URL/api/cart|wishlist/unsubscribe`).
 
 ### `ctx` contract

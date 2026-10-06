@@ -4,7 +4,7 @@ import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatCalendarDate } from "../utils/formatCalendarDate";
 
 // Comprobantes de pago SPEI (packages/core-api/lib/paymentProofs.js) de un
-// pedido o del anticipo de una cita (`kind`): ver el archivo, aprobar (el
+// pedido, del anticipo de una cita o de una tarjeta de regalo (`kind`): ver el archivo, aprobar (el
 // pedido pasa a "Pagado"; la cita se confirma) o rechazar con motivo (se le
 // envía al cliente), y subir uno a su nombre cuando lo mandó por WhatsApp o
 // correo. El archivo es privado: se descarga con el token y se muestra desde
@@ -39,6 +39,18 @@ const KINDS = {
     who: "clienta",
     approved: "Anticipo aprobado: la cita quedó confirmada.",
     rejected: "Comprobante rechazado: se le avisó a la clienta y tiene un plazo nuevo.",
+    customerLink: false,
+  },
+  giftCard: {
+    title: "Comprobantes de pago",
+    filePath: (id, proofId) => `/api/gift-cards/${id}/payment-proofs/${proofId}/file`,
+    reviewPath: (id, proofId) => `/api/gift-cards/${id}/payment-proofs/${proofId}/review`,
+    uploadPath: (id) => `/api/gift-cards/${id}/payment-proof`,
+    awaiting: ["pending_payment"],
+    resultKey: "giftCard",
+    who: "cliente",
+    approved: "Pago aprobado: la tarjeta quedó activa y se envió por correo.",
+    rejected: "Comprobante rechazado: se le avisó a quien compró.",
     customerLink: false,
   },
 };

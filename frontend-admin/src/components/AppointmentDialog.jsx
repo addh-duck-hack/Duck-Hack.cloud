@@ -6,6 +6,7 @@ import { formatDuration } from "./ServiceList";
 import { APPOINTMENT_STATUS_LABELS, formatDateTime } from "../utils/schedule";
 import PhoneInput from "./PhoneInput";
 import OrderPaymentProofs from "./OrderPaymentProofs";
+import { usePermissions } from "../hooks/usePermissions";
 
 // Alta y detalle de una cita desde la agenda del panel
 // (packages/core-api/modules/appointments.js, 2.4). Una cita puede llevar
@@ -39,10 +40,91 @@ const ACTION_LABELS = {
   cancelled: "Cancelar cita",
 };
 
+// Cobrar (parte de) la cita con una tarjeta de regalo (módulo giftCards):
+// buscar el código, ver el saldo y canjear ligado a la cita.
+const GiftCardRedeem = ({ appointment, onDone }) => {
+  const baseUrl = getApiBaseUrl();
+  const headers = { Authorization: `Bearer ${localStorage.getItem("token")}` };
+  const [code, setCode] = useState("");
+  const [card, setCard] = useState(null);
+  const [amount, setAmount] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const lookup = async () => {
+    setError("");
+    setCard(null);
+    try {
+      const { data } = await axios.get(`${baseUrl}/api/gift-cards/lookup`, { headers, params: { code } });
+      if (data.status !== "active") {
+        setError(data.status === "used" ? "Esa tarjeta ya no tiene saldo." : data.status === "expired" ? "Esa tarjeta ya venció." : "Esa tarjeta no está activa.");
+        return;
+      }
+      setCard(data);
+      setAmount(String(Math.min(data.balance, appointment.total)));
+    } catch (err) {
+      setError(err.response?.data?.error?.message || "No fue posible consultar la tarjeta.");
+    }
+  };
+
+  const redeem = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const { data } = await axios.post(
+        `${baseUrl}/api/gift-cards/redeem`,
+        { code: card.code, amount: Number(amount), appointment: appointment._id, note: `Cita #${appointment.appointmentNumber}` },
+        { headers }
+      );
+      setCard(null);
+      setCode("");
+      onDone(data.message);
+    } catch (err) {
+      setError(err.response?.data?.error?.message || "No fue posible cobrar con la tarjeta.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <details className="agenda-giftcard">
+      <summary>
+        <i className="fa-solid fa-gift" aria-hidden="true" /> Cobrar con tarjeta de regalo
+      </summary>
+      <div className="agenda-grid">
+        <label>
+          Código
+          <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="GC-XXXX-XXXX" />
+        </label>
+        <button type="button" className="btn-secondary" style={{ width: "auto", alignSelf: "end" }} onClick={lookup} disabled={!code.trim()}>
+          Consultar saldo
+        </button>
+      </div>
+      {card ? (
+        <div className="agenda-grid">
+          <p style={{ margin: 0, alignSelf: "end" }}>
+            Saldo: <strong>{formatMxn(card.balance)}</strong>
+            {card.recipientName ? ` · ${card.recipientName}` : ""}
+          </p>
+          <label>
+            Cobrar
+            <input type="number" min="0.01" step="0.01" max={card.balance} value={amount} onChange={(e) => setAmount(e.target.value)} />
+          </label>
+          <button type="button" style={{ width: "auto", alignSelf: "end" }} onClick={redeem} disabled={busy || !(Number(amount) > 0)}>
+            Cobrar {formatMxn(Number(amount) || 0)}
+          </button>
+        </div>
+      ) : null}
+      {error ? <div className="auth-error">{error}</div> : null}
+    </details>
+  );
+};
+
 const AppointmentDialog = ({ appointment: initialAppointment, initialStart, initialSpecialist, specialists, services, onClose, onSaved, onChanged }) => {
   // Copia local: revisar un comprobante actualiza la cita sin cerrar el diálogo.
   const [appointment, setAppointment] = useState(initialAppointment);
   const [notice, setNotice] = useState("");
+  const { can } = usePermissions();
   const isEditing = Boolean(appointment);
   const baseUrl = getApiBaseUrl();
   const getAuthHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem("token")}`, "Content-Type": "application/json" });
@@ -287,6 +369,10 @@ const AppointmentDialog = ({ appointment: initialAppointment, initialStart, init
               onChanged?.();
             }}
           />
+        ) : null}
+
+        {isEditing && can("giftCards") && ["confirmed", "pending", "completed"].includes(appointment.status) ? (
+          <GiftCardRedeem appointment={appointment} onDone={setNotice} />
         ) : null}
 
         <form onSubmit={handleSubmit} className="agenda-dialog-form">

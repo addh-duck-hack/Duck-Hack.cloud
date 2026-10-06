@@ -171,15 +171,27 @@ const renderOrderItemRowHtml = (item, textColor, textDimColor) => {
 
 // Fila "Envío" debajo de los productos — solo si el pedido cobró envío
 // (Order.shippingCost > 0; los pedidos anteriores a ese campo no lo tienen).
-const renderShippingRowHtml = (order, textColor, textDimColor) =>
-  order.shippingCost > 0
-    ? `<tr>
-    <td colspan="3" style="padding:8px 0; font-family:${bodyFont}; font-size:14px; color:${textDimColor}; border-bottom:1px solid ${BRAND.line};">Envío</td>
-    <td style="padding:8px 0; font-family:${bodyFont}; font-size:14px; color:${textColor}; border-bottom:1px solid ${BRAND.line}; text-align:right;">${formatCurrency(order.shippingCost)}</td>
+// Después del envío va lo pagado con tarjeta de regalo (también paga el envío).
+const renderShippingRowHtml = (order, textColor, textDimColor) => {
+  const gift = giftCardRowOf(order);
+  return [
+    order.shippingCost > 0 ? ["Envío", formatCurrency(order.shippingCost)] : null,
+    gift ? [gift.label, `−${formatCurrency(gift.amount)}`] : null,
+  ]
+    .filter(Boolean)
+    .map(
+      ([label, value]) => `<tr>
+    <td colspan="3" style="padding:8px 0; font-family:${bodyFont}; font-size:14px; color:${textDimColor}; border-bottom:1px solid ${BRAND.line};">${escapeHtml(label)}</td>
+    <td style="padding:8px 0; font-family:${bodyFont}; font-size:14px; color:${textColor}; border-bottom:1px solid ${BRAND.line}; text-align:right;">${value}</td>
   </tr>`
-    : "";
+    )
+    .join("");
+};
 
-const renderShippingLineText = (order) => (order.shippingCost > 0 ? `\n- Envío — ${formatCurrency(order.shippingCost)}` : "");
+const renderShippingLineText = (order) => {
+  const gift = giftCardRowOf(order);
+  return `${order.shippingCost > 0 ? `\n- Envío — ${formatCurrency(order.shippingCost)}` : ""}${gift ? `\n- ${gift.label} — −${formatCurrency(gift.amount)}` : ""}`;
+};
 
 // Fila del cupón (Order.discount, lib/coupons.js): el descuento en negativo o,
 // si fue de envío gratis, el aviso con $0.
@@ -190,6 +202,8 @@ const discountRowsOf = (order) =>
     order.discount?.code ? { label: discountLabelOf(order.discount), amount: order.discount.amount || 0 } : null,
     order.loyalty?.redeemed > 0 ? { label: "Puntos usados", amount: order.loyalty.redeemed } : null,
   ].filter(Boolean);
+// Lo pagado con tarjeta de regalo va después del envío (paga también el envío).
+const giftCardRowOf = (order) => (order.giftCard?.amount > 0 ? { label: `Tarjeta de regalo ${order.giftCard.code}`, amount: order.giftCard.amount } : null);
 const renderDiscountRowHtml = (order, textColor, textDimColor) =>
   discountRowsOf(order)
     .map(
@@ -1040,7 +1054,115 @@ const loyaltyExpiryEmailTemplate = ({ kind, branding, name, points, expiresOn, s
   return { subject: warning ? `Tus puntos vencen pronto — ${store}` : `Tus puntos vencieron — ${store}`, html, text };
 };
 
+
+// ---- Tarjetas de regalo (Fase 5.2, modules/giftCards.js) ----
+// card: { number, code, amount, balance, buyerName, recipientName, message };
+// `expiresText` ya formateado; `spei` = storeSpeiAccount; `pageUrl` = la
+// página de la compra (FRONTEND_URL/tarjeta-regalo/<id>?token=…).
+const giftCardDetails = (card, expiresText) =>
+  [
+    { label: "Código", value: card.code },
+    { label: "Saldo", value: formatCurrency(card.balance ?? card.amount) },
+    expiresText ? { label: "Vigencia", value: `Hasta el ${expiresText}` } : { label: "Vigencia", value: "Sin vencimiento" },
+    card.buyerName ? { label: "De parte de", value: card.buyerName } : null,
+    card.message ? { label: "Mensaje", value: card.message } : null,
+  ].filter(Boolean);
+
+const giftCardEmailTemplate = ({ kind, card, branding, expiresText, pageUrl, spei, reason, shopUrl }) => {
+  const store = branding.storeName || "Duck-Hack";
+  const base = { ...branding };
+  if (kind === "pending_payment") {
+    const details = [
+      { label: "Folio", value: `#${card.number}` },
+      { label: "Monto", value: formatCurrency(card.amount) },
+      { label: "Para", value: card.recipientName || card.buyerName },
+      ...(spei
+        ? [
+            spei.accountHolderName ? { label: "Beneficiario", value: spei.accountHolderName } : null,
+            spei.bank ? { label: "Banco", value: spei.bank } : null,
+            { label: "CLABE", value: spei.clabe },
+          ].filter(Boolean)
+        : []),
+      { label: "Concepto", value: `Tarjeta ${card.number}` },
+    ];
+    const { html, text } = accountActionEmailTemplate({
+      ...base,
+      title: "Tu tarjeta de regalo está apartada",
+      name: card.buyerName,
+      intro: `Gracias por regalar ${store}. Para activarla, transfiere el monto y sube tu comprobante; en cuanto lo validemos enviamos la tarjeta.`,
+      details,
+      ctaLabel: pageUrl ? "Subir mi comprobante" : undefined,
+      url: pageUrl || undefined,
+      note: pageUrl ? undefined : "Cuando transfieras, responde este correo con tu comprobante.",
+      footnote: `${store}`,
+    });
+    return { subject: `Tarjeta de regalo #${card.number}: falta tu pago — ${store}`, html, text };
+  }
+  if (kind === "delivered") {
+    const { html, text } = accountActionEmailTemplate({
+      ...base,
+      title: "¡Te regalaron una tarjeta!",
+      name: card.recipientName,
+      intro: `${card.buyerName || "Alguien especial"} te regala ${formatCurrency(card.amount)} para usar en ${store}.`,
+      details: giftCardDetails(card, expiresText),
+      ctaLabel: shopUrl ? `Visitar ${store}` : undefined,
+      url: shopUrl || undefined,
+      note: "Úsala en la tienda en línea (escribe el código al pagar) o en el salón al cobrar tu cita. Se puede usar en partes hasta agotar el saldo.",
+      footnote: "Adjuntamos tu tarjeta en PDF por si quieres imprimirla.",
+    });
+    return { subject: `Tienes una tarjeta de regalo de ${formatCurrency(card.amount)} — ${store}`, html, text };
+  }
+  if (kind === "buyer_copy") {
+    const sentTo = card.recipientEmail && card.recipientEmail !== card.buyerEmail;
+    const { html, text } = accountActionEmailTemplate({
+      ...base,
+      title: "Tu tarjeta de regalo está lista",
+      name: card.buyerName,
+      intro: sentTo
+        ? `Confirmamos tu pago y enviamos la tarjeta a ${card.recipientName} (${card.recipientEmail}).`
+        : "Confirmamos tu pago. Aquí está la tarjeta para que la entregues:",
+      details: giftCardDetails(card, expiresText),
+      footnote: "Adjuntamos la tarjeta en PDF.",
+    });
+    return { subject: `Tarjeta de regalo #${card.number} activa — ${store}`, html, text };
+  }
+  if (kind === "proof_rejected") {
+    const { html, text } = accountActionEmailTemplate({
+      ...base,
+      title: "No pudimos validar tu pago",
+      name: card.buyerName,
+      intro: "Revisamos el comprobante de tu tarjeta de regalo y no pudimos validarlo:",
+      details: [
+        { label: "Folio", value: `#${card.number}` },
+        { label: "Monto", value: formatCurrency(card.amount) },
+      ],
+      note: reason ? `Motivo: ${reason}` : undefined,
+      ctaLabel: pageUrl ? "Subir otro comprobante" : undefined,
+      url: pageUrl || undefined,
+      footnote: `${store}`,
+    });
+    return { subject: `Revisa el pago de tu tarjeta de regalo — ${store}`, html, text };
+  }
+  // business_proof: aviso al negocio.
+  const { html, text } = accountActionEmailTemplate({
+    ...base,
+    title: kind === "business_new" ? "Nueva tarjeta de regalo por pagar" : "Llegó un comprobante de tarjeta de regalo",
+    intro: kind === "business_new" ? "Se pidió una tarjeta de regalo desde el sitio:" : "Revísalo en el panel para activar la tarjeta:",
+    details: [
+      { label: "Folio", value: `#${card.number}` },
+      { label: "Monto", value: formatCurrency(card.amount) },
+      { label: "Compra", value: `${card.buyerName} (${card.buyerEmail})` },
+      { label: "Para", value: card.recipientName || card.buyerName },
+    ],
+    ctaLabel: pageUrl ? "Abrir en el panel" : undefined,
+    url: pageUrl || undefined,
+    footnote: "Aviso automático de tarjetas de regalo.",
+  });
+  return { subject: `${kind === "business_new" ? "Nueva tarjeta de regalo" : "Comprobante de tarjeta"} #${card.number} — ${card.buyerName}`, html, text };
+};
+
 module.exports = {
+  giftCardEmailTemplate,
   wishlistBackInStockEmailTemplate,
   appointmentReviewRequestEmailTemplate,
   loyaltyRewardEmailTemplate,
