@@ -44,6 +44,7 @@ import ServiceForm from "./components/ServiceForm";
 import SpecialistList from "./components/SpecialistList";
 import SpecialistForm from "./components/SpecialistForm";
 import TimeBlockList from "./components/TimeBlockList";
+import AppointmentList from "./components/AppointmentList";
 import AppointmentSettingsForm from "./components/AppointmentSettingsForm";
 import { isAgendaManager } from "./utils/schedule";
 import InventoryList from "./components/InventoryList";
@@ -221,6 +222,10 @@ const AppRoutes = () => {
                   <AppointmentCalendar />
                 </Suspense>
               )}
+            />
+            <Route
+              path="appointment-list"
+              element={gate("appointments", <AppointmentList />)}
             />
             <Route
               path="specialists"
