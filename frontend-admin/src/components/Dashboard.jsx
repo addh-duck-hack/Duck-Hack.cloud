@@ -137,10 +137,10 @@ const TodayAppointments = ({ data }) => {
       {data.items.map((a) => (
         <li key={a._id}>
           <span className="dash-time">{formatTime(a.start, data.timezone)}</span>
-          <span className="dash-grow">
+          <Link to={`/admin/appointments/${a._id}`} className="dash-grow">
             {a.customerName}
             <small className="dash-muted"> · {a.services.join(" + ")} · {a.specialistName}</small>
-          </span>
+          </Link>
           <span className="dash-muted">{APPOINTMENT_STATUS_LABELS[a.status] || a.status}</span>
         </li>
       ))}

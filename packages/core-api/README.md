@@ -106,6 +106,14 @@ vault, not in this repo).
   slot. An "appointment-deposit-expiry" job (every 5 min) cancels overdue
   `pending_deposit` appointments (`cancelledBy: "system"`) and emails the
   customer and the business. Staff can also book with `requireDeposit`.
+  Appointment photos/videos (`media`, up to 30): staff first records that
+  the customer allows publishing them (`PUT /:id/media-consent`), then
+  `POST /:id/media` uploads through the same pipeline as `/api/media` into
+  the **public** media library (titled "Cita #N · customer"); `DELETE
+  /:id/media/:fileName` detaches and deletes the file unless something else
+  uses it (`lib/mediaUsages.js`). `GET /:id/reviews` returns this
+  appointment's review plus the customer's review history (needs `reviews`
+  contracted). The customer-facing views never include `media`.
 - `modules/products.js` — product catalog (`/api/products`). Optional
   variants (`options` + `variants`, logic in `lib/variants.js`): each variant
   has its own SKU, stock and optional price/image; `lib/purchaseLimits.js
@@ -257,7 +265,8 @@ vault, not in this repo).
 - `modules/media.js` — admin media library over the `uploads/` folder
   (`/api/media`): lists files from disk, uploads images/GIF/MP4/WebM, edits
   title + alt text (stored in the `Media` collection, the file itself is never
-  renamed), and deletes with a usage check (Product/User/StoreConfig/AppHome).
+  renamed), and deletes with a usage check (`lib/mediaUsages.js`:
+  Product/User/StoreConfig/AppHome/Appointment).
   Files can be flagged `inGallery` (+ free `galleryCategory`) for the public
   portfolio at `GET /api/media/public`.
 - `modules/permissions.js` — per-store permissions (`/api/permissions`):

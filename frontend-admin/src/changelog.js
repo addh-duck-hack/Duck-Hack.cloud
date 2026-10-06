@@ -11,6 +11,14 @@
 // `kind`: "new" (función nueva) | "improvement" | "fix".
 const CHANGELOG = [
   {
+    id: "2026-10-06-vista-cita",
+    date: "2026-10-06",
+    kind: "improvement",
+    modules: ["appointments"],
+    title: "Cada cita con su propia página",
+    body: "Al abrir una cita desde la agenda, el listado o el Inicio ves todo su detalle en una página: puedes agregar fotos y videos (con la autorización de la clienta) y ver su calificación y sus reseñas anteriores.",
+  },
+  {
     id: "2026-10-06-listado-citas",
     date: "2026-10-06",
     kind: "new",
