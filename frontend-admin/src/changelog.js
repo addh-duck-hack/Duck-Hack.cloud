@@ -11,6 +11,14 @@
 // `kind`: "new" (función nueva) | "improvement" | "fix".
 const CHANGELOG = [
   {
+    id: "2026-10-06-descripcion-larga",
+    date: "2026-10-06",
+    kind: "improvement",
+    modules: ["products"],
+    title: "Descripciones de producto más largas",
+    body: "La descripción de un producto ahora admite hasta 20,000 caracteres (antes 2,000), con un contador mientras escribes.",
+  },
+  {
     id: "2026-10-06-avisos-en-ventana",
     date: "2026-10-06",
     kind: "improvement",

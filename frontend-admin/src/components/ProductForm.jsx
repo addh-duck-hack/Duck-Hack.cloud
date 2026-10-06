@@ -7,6 +7,9 @@ import ProductAttributesEditor from "./ProductAttributesEditor";
 import ProductVariantsEditor from "./ProductVariantsEditor";
 import Alert from "./Alert";
 
+// Mismo máximo que Product.description (packages/core-api/modules/products.js).
+const DESCRIPTION_MAX = 20000;
+
 const initialState = {
   name: "",
   sku: "",
@@ -186,7 +189,10 @@ const ProductForm = () => {
 
         <label>
           Descripción
-          <textarea name="description" value={form.description} onChange={handleChange} rows={3} />
+          <textarea name="description" value={form.description} onChange={handleChange} rows={8} maxLength={DESCRIPTION_MAX} />
+          <small style={{ display: "block", textAlign: "right", opacity: 0.75, color: form.description.length > DESCRIPTION_MAX * 0.9 ? "var(--primary-color)" : undefined }}>
+            {form.description.length.toLocaleString("es-MX")} / {DESCRIPTION_MAX.toLocaleString("es-MX")} caracteres (el HTML cuenta)
+          </small>
         </label>
 
         <div className="form-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
