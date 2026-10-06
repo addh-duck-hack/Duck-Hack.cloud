@@ -21,6 +21,7 @@ const mediaUrl = (path) => {
 const ROUTE_LABELS = {
   "/admin": "inicio",
   "/admin/server": "servidor",
+  "/admin/appointment-list": "citas",
   "/admin/store-config": "store-config",
   "/admin/agency-clients": "clientes",
   "/admin/products": "products",

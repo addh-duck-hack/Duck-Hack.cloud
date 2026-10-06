@@ -2803,6 +2803,33 @@ paths:
         "409":
           description: SLOT_TAKEN, OUTSIDE_HOURS o SPECIALIST_DOESNT_DO_SERVICE
 
+  /api/appointments/list:
+    get:
+      tags: [Appointments]
+      summary: Listado de citas del panel (paginado)
+      operationId: listAppointmentsPaged
+      description: >-
+        Módulo `appointments`. Sin límite de rango, por pestaña: `today` (el día en la zona de la
+        agenda), `upcoming` (desde ahora, la más cercana primero) o `past` (la más reciente
+        primero). `counts` trae cuántas hay en cada pestaña con los mismos filtros. Mismo alcance
+        que la agenda: una collaborator solo ve su especialista (sin especialista ligada, vacío).
+      parameters:
+        - { in: query, name: when, schema: { type: string, enum: [today, upcoming, past], default: upcoming } }
+        - { in: query, name: status, schema: { type: string }, description: "Uno o varios separados por coma." }
+        - { in: query, name: specialist, schema: { type: string } }
+        - { in: query, name: q, schema: { type: string, maxLength: 80 }, description: "Nombre, correo, servicio o teléfono (3+ dígitos)." }
+        - { in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 25 } }
+      responses:
+        "200":
+          description: "`{ items, total, page, pages, counts: { today, upcoming, past }, timezone }`"
+        "400":
+          description: VALIDATION_ERROR (specialist no válido)
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: MODULE_NOT_ALLOWED
+
   /api/appointments/{id}:
     parameters:
       - { in: path, name: id, required: true, schema: { type: string } }

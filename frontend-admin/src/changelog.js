@@ -11,6 +11,14 @@
 // `kind`: "new" (función nueva) | "improvement" | "fix".
 const CHANGELOG = [
   {
+    id: "2026-10-06-listado-citas",
+    date: "2026-10-06",
+    kind: "new",
+    modules: ["appointments"],
+    title: "Listado de citas",
+    body: "En Servicios → Citas ves todas las citas de hoy, las próximas y el historial, con búsqueda por clienta, teléfono o servicio y filtros por estado y especialista.",
+  },
+  {
     id: "2026-10-06-inicio",
     date: "2026-10-06",
     kind: "new",
