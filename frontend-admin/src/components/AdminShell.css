@@ -383,3 +383,16 @@
     display: block;
   }
 }
+
+/* Contador de novedades sin leer junto a "Inicio" en el menú. */
+.rail-badge {
+  margin-left: auto;
+  min-width: 1.2rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--primary-color);
+  color: var(--on-accent, #03141c);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-align: center;
+}

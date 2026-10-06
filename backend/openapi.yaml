@@ -66,6 +66,10 @@ tags:
       cita. Las del sitio se pagan por SPEI con comprobante; las de mostrador nacen activas.
   - name: Reports
     description: Reportes de ventas, citas, tarjetas y lealtad (módulo reports).
+  - name: Dashboard
+    description: >-
+      Inicio del admin, para todo el staff y sin clave de permisos propia: cada sección solo si
+      el rol tiene el módulo del que sale.
   - name: StoreConfig
   - name: Permissions
     description: Permisos por tienda — módulos contratados y qué puede usar cada rol (solo super_admin los configura)
@@ -4646,6 +4650,56 @@ paths:
         "409":
           description: APPOINTMENT_NOT_AWAITING_DEPOSIT, GIFT_CARD_INSUFFICIENT u otro error de la tarjeta
 
+  /api/dashboard/summary:
+    get:
+      tags: [Dashboard]
+      summary: Resumen del Inicio
+      operationId: getDashboardSummary
+      description: >-
+        Staff (customer → 403). Solo trae las secciones de los módulos que el rol tiene
+        (contratado + permitido; super_admin todo): `atAGlance` (orders: ventas de hoy, del mes y
+        7 días, mismas consultas que Reportes), `todo` (conteos con enlace: comprobantes,
+        pedidos por enviar, citas por confirmar, anticipos, tarjetas, reseñas, inventario),
+        `todayAppointments` (appointments; una colaboradora solo su especialista, `notLinked` si
+        no tiene), `latestOrders`, `lowStock` (inventory) y `balances` (giftCards / loyalty).
+      responses:
+        "200":
+          description: "`{ modules, timezone, widgets }`"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: No es staff
+
+  /api/dashboard/preferences:
+    get:
+      tags: [Dashboard]
+      summary: Mis preferencias del Inicio
+      operationId: getDashboardPreferences
+      responses:
+        "200":
+          description: Preferencias
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DashboardPreferences" }
+    put:
+      tags: [Dashboard]
+      summary: Guardar mis preferencias del Inicio
+      operationId: updateDashboardPreferences
+      description: Solo cambia los campos que vienen. No se editan por PUT /api/users/{id}.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DashboardPreferences" }
+      responses:
+        "200":
+          description: Preferencias guardadas
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DashboardPreferences" }
+        "400":
+          description: VALIDATION_ERROR (id de tarjeta no válido o más de 30)
+
   /api/reports/summary:
     get:
       tags: [Reports]
@@ -8497,6 +8551,14 @@ components:
             Anticipo: la fecha límite nunca es después de N horas antes de la cita (12 por default).
             Una tarea programada (cada 5 min) cancela las citas pending_deposit vencidas y avisa a la
             clienta y al negocio.
+
+    DashboardPreferences:
+      type: object
+      properties:
+        hidden: { type: array, maxItems: 30, items: { type: string, maxLength: 40 }, description: Tarjetas ocultas. }
+        order: { type: array, maxItems: 30, items: { type: string, maxLength: 40 }, description: Orden de las tarjetas. }
+        welcomeDismissed: { type: boolean }
+        changelogSeen: { type: string, description: "Id de la última novedad leída (frontend-admin/src/changelog.js)." }
 
     PromoBannerRequest:
       type: object
