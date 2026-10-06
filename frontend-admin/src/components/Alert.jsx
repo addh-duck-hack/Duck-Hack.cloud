@@ -2,11 +2,11 @@ import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import "./Alert.css";
 
-// Resultado de una acción (error / éxito): además del aviso en su lugar de
-// siempre, abre un modal para que se vea aunque la persona haya hecho scroll
-// (un "Error de validación" arriba del formulario pasaba desapercibido al
-// guardar desde abajo). Se usa igual que el <div className="auth-error"> de
-// antes: `{error ? <Alert type="error">{error}</Alert> : null}`.
+// Resultado de una acción (error / éxito) en un modal al centro, para que se
+// vea aunque la persona haya hecho scroll (un error arriba del formulario
+// pasaba desapercibido al guardar desde abajo). Solo el modal: la franja en
+// línea de antes repetía lo mismo. Se usa donde iba el
+// <div className="auth-error">: `{error ? <Alert type="error">{error}</Alert> : null}`.
 // - Error: se cierra con "Entendido", Escape o clic afuera.
 // - Éxito: se cierra solo a los 4 s (o antes con el botón).
 // - Si el mensaje cambia, o el aviso desaparece y vuelve (lo normal: cada
@@ -42,33 +42,28 @@ const Alert = ({ type = "error", children }) => {
     };
   }, [open, isError]);
 
-  return (
-    <>
-      <div className={`auth-${isError ? "error" : "success"}`}>{children}</div>
-      {open
-        ? createPortal(
-            <div className="alert-backdrop" onClick={() => setOpen(false)}>
-              <div
-                className={`alert-modal alert-modal--${isError ? "error" : "success"}`}
-                role={isError ? "alertdialog" : "status"}
-                aria-modal="true"
-                aria-labelledby="alert-modal-title"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <i className={`fa-solid ${isError ? "fa-circle-exclamation" : "fa-circle-check"} alert-modal-icon`} aria-hidden="true" />
-                <h4 id="alert-modal-title">{isError ? "No se pudo completar" : "Listo"}</h4>
-                <div className="alert-modal-body">{children}</div>
-                <button type="button" ref={buttonRef} onClick={() => setOpen(false)}>
-                  {isError ? "Entendido" : "Aceptar"}
-                </button>
-                {!isError ? <span className="alert-modal-timer" style={{ animationDuration: `${SUCCESS_MS}ms` }} /> : null}
-              </div>
-            </div>,
-            document.body
-          )
-        : null}
-    </>
-  );
+  return open
+    ? createPortal(
+      <div className="alert-backdrop" onClick={() => setOpen(false)}>
+        <div
+          className={`alert-modal alert-modal--${isError ? "error" : "success"}`}
+          role={isError ? "alertdialog" : "status"}
+          aria-modal="true"
+          aria-labelledby="alert-modal-title"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <i className={`fa-solid ${isError ? "fa-circle-exclamation" : "fa-circle-check"} alert-modal-icon`} aria-hidden="true" />
+          <h4 id="alert-modal-title">{isError ? "No se pudo completar" : "Listo"}</h4>
+          <div className="alert-modal-body">{children}</div>
+          <button type="button" ref={buttonRef} onClick={() => setOpen(false)}>
+            {isError ? "Entendido" : "Aceptar"}
+          </button>
+          {!isError ? <span className="alert-modal-timer" style={{ animationDuration: `${SUCCESS_MS}ms` }} /> : null}
+        </div>
+      </div>,
+      document.body
+    )
+    : null;
 };
 
 export default Alert;

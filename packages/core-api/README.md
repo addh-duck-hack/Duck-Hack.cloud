@@ -31,7 +31,10 @@ vault, not in this repo).
   duration, buffer (free time after), price / "from" price, image,
   `bookableOnline`, `deposit` (stored now, charged with the SPEI deposits).
   Public `GET /public` (active, ordered by category then service, no
-  deposit/buffer). A service used in appointments can't be deleted (409).
+  deposit/buffer). `GET /public/:id/media` lists the photos/videos of
+  appointments with that service whose customer gave `mediaConsent` (path +
+  kind only, newest first, missing files skipped) — the storefront's service
+  page gallery. A service used in appointments can't be deleted (409).
   Appointments with several services add up the durations and keep the
   largest buffer.
 - `modules/appointments.js` — appointments (`/api/appointments`, permission
@@ -162,7 +165,13 @@ vault, not in this repo).
   back to pending). Everything enters `pending`; approving/unpublishing/
   deleting recalculates `Product.ratingAvg`/`ratingCount` (read-only fields,
   ignored in product payloads). Public `GET /public?product=` shows approved
-  only, with a short name ("Ana G.") and a 1–5 distribution.
+  only, with a short name ("Ana G.") and a 1–5 distribution; `?service=`
+  does the same with the approved post-appointment reviews of appointments
+  that included that service (each with the `services` done).
+  `GET /mine` (customer's profile) lists her product reviews (by account)
+  and her post-appointment reviews (by account **or email**, since guests
+  review from the email link), each with `kind` plus `productName` or
+  `appointment` (number, services, start).
   Post-appointment reviews (4.2): `GET /appointment/:id` + `POST /appointment`
   with the appointment's `X-Appointment-Token` (guest) or the owner's session;
   only `completed` appointments, one review per appointment (partial unique

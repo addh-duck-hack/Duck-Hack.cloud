@@ -138,6 +138,7 @@ function registerRoutes(app, ctx) {
   // Vista del cliente de su propia reseña (con estado y motivo de rechazo).
   const ownView = (review) => ({
     _id: review._id,
+    kind: review.target.kind,
     product: review.target.id,
     rating: review.rating,
     comment: review.comment,
@@ -153,16 +154,28 @@ function registerRoutes(app, ctx) {
     comment: review.comment,
     customerName: shortName(review.customerName),
     createdAt: review.createdAt,
+    // Reseña de cita: qué servicios se hizo (sin especialista ni fecha exacta).
+    ...(review.target?.kind === "appointment" ? { services: review.appointmentInfo?.services || [] } : {}),
   });
 
   // ---- públicas ----
-  // GET /public?product=&page=&limit= → reseñas aprobadas + resumen
-  // (promedio, conteo y cuántas de cada estrella).
+  // GET /public?product=|service=&page=&limit= → reseñas aprobadas + resumen
+  // (promedio, conteo y cuántas de cada estrella). Con `service`: las
+  // reseñas post-cita de las citas que incluyeron ese servicio.
   router.get("/public", async (req, res) => {
     try {
       const productId = req.query.product;
-      if (!isValidObjectId(productId)) return sendError(res, 400, "VALIDATION_ERROR", "product no válido.");
-      const match = { "target.kind": "product", "target.id": new mongoose.Types.ObjectId(String(productId)), status: "approved" };
+      const serviceId = req.query.service;
+      let match;
+      if (serviceId !== undefined) {
+        if (!isValidObjectId(serviceId)) return sendError(res, 400, "VALIDATION_ERROR", "service no válido.");
+        const Appointment = mongooseConnection.models.Appointment;
+        const appointmentIds = Appointment ? await Appointment.distinct("_id", { "services.service": new mongoose.Types.ObjectId(String(serviceId)) }) : [];
+        match = { "target.kind": "appointment", "target.id": { $in: appointmentIds }, status: "approved" };
+      } else {
+        if (!isValidObjectId(productId)) return sendError(res, 400, "VALIDATION_ERROR", "product no válido.");
+        match = { "target.kind": "product", "target.id": new mongoose.Types.ObjectId(String(productId)), status: "approved" };
+      }
       const limit = Math.min(Math.max(Math.floor(asFiniteNumber(req.query.limit) || 10), 1), MAX_PUBLIC_LIMIT);
       const page = Math.max(Math.floor(asFiniteNumber(req.query.page) || 1), 1);
 
@@ -342,10 +355,36 @@ function registerRoutes(app, ctx) {
   });
 
   // Mis reseñas (para "Calificar" / "Ya calificaste" en Mis pedidos).
+  // Productos (por cuenta) y calificaciones de citas (por cuenta o por
+  // correo: la reseña post-cita se puede dejar desde el enlace del correo sin
+  // sesión y entonces queda solo con el correo). Cada una dice qué es: nombre
+  // del producto o número/servicios/fecha de la cita.
   router.get("/mine", async (req, res) => {
     try {
-      const reviews = await Review.find({ customer: req.user.id, "target.kind": "product" }).sort({ createdAt: -1 }).lean();
-      return res.status(200).json({ items: reviews.map(ownView) });
+      const me = await mongooseConnection.models.User?.findById(req.user.id).select("email").lean();
+      const owner = [{ customer: req.user.id }];
+      if (me?.email) owner.push({ "target.kind": "appointment", customerEmail: me.email });
+      const reviews = await Review.find({ $or: owner }).sort({ createdAt: -1 }).lean();
+      const productIds = reviews.filter((r) => r.target.kind === "product").map((r) => r.target.id);
+      const Product = mongooseConnection.models.Product;
+      const products = productIds.length && Product ? await Product.find({ _id: { $in: productIds } }).select("name").lean() : [];
+      const productName = new Map(products.map((pr) => [String(pr._id), pr.name]));
+      const items = reviews.map((review) => {
+        const view = ownView(review);
+        if (review.target.kind === "appointment") {
+          delete view.product;
+          view.appointment = {
+            _id: review.target.id,
+            appointmentNumber: review.appointmentInfo?.appointmentNumber ?? null,
+            services: review.appointmentInfo?.services || [],
+            start: review.appointmentInfo?.start || null,
+          };
+        } else {
+          view.productName = productName.get(String(review.target.id)) || "";
+        }
+        return view;
+      });
+      return res.status(200).json({ items });
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al listar tus reseñas.");
     }
