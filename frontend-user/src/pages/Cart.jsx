@@ -40,6 +40,10 @@ const Cart = () => {
   const [coupon, setCoupon] = useState(null);
   const [couponError, setCouponError] = useState('');
   const [usePoints, setUsePoints] = useState('');
+  // Tarjeta de regalo (POST /api/gift-cards/check): paga lo que quede, envío incluido.
+  const [giftInput, setGiftInput] = useState('');
+  const [gift, setGift] = useState(null); // { code, balance }
+  const [giftError, setGiftError] = useState('');
   const [delivery, setDelivery] = useState('');
   const [pickupId, setPickupId] = useState('');
   const [contact, setContact] = useState({ customerName: '', customerEmail: '', customerPhone: '' });
@@ -126,7 +130,25 @@ const Cart = () => {
   const maxPoints = points ? Math.min(balance, round2((itemsTotal * points.maxRedeemPercent) / 100)) : 0;
   const pointsUsed = Math.min(Number(usePoints) || 0, maxPoints);
   const shipping = shippingFor(config, delivery, itemsTotal, coupon?.freeShipping);
-  const total = round2(itemsTotal - pointsUsed + shipping);
+  const dueBeforeGift = round2(itemsTotal - pointsUsed + shipping);
+  const giftApplied = gift ? round2(Math.min(gift.balance, dueBeforeGift)) : 0;
+  const total = round2(dueBeforeGift - giftApplied);
+
+  const applyGift = async () => {
+    if (!giftInput.trim()) return;
+    setGiftError('');
+    try {
+      const data = await apiFetch('/api/gift-cards/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: giftInput.trim() }),
+      });
+      setGift({ code: data.code, balance: data.balance });
+      setGiftInput('');
+    } catch (err) {
+      setGiftError(errorText(err));
+    }
+  };
   const earnPreview = points ? round2(((itemsTotal - pointsUsed) * points.earnPercent) / 100) : 0;
   const canUsePoints = points && maxPoints > 0 && maxPoints >= (points.minRedeem || 0);
 
@@ -159,6 +181,7 @@ const Cart = () => {
         ...(notes.trim() ? { notes: notes.trim() } : {}),
         ...(coupon ? { couponCode: coupon.code } : {}),
         ...(pointsUsed > 0 ? { usePoints: pointsUsed } : {}),
+        ...(gift ? { giftCardCode: gift.code } : {}),
       };
       const data = await apiFetch('/api/orders/public', {
         method: 'POST',
@@ -171,6 +194,7 @@ const Cart = () => {
     } catch (err) {
       if (String(err.code || '').startsWith('COUPON_')) setCoupon(null);
       if (String(err.code || '').includes('POINTS')) setUsePoints('');
+      if (String(err.code || '').startsWith('GIFT_CARD_')) setGift(null);
       setError(errorText(err, 'No pudimos crear tu pedido.'));
     } finally {
       setSending(false);
@@ -305,6 +329,21 @@ const Cart = () => {
             <Notice type="error">{couponError}</Notice>
           </div>
 
+          <div className="coupon-box">
+            {gift ? (
+              <p className="ok">
+                <i className="fa-solid fa-gift" aria-hidden="true" /> Tarjeta <strong>{gift.code}</strong> · saldo {money(gift.balance)}{' '}
+                <button type="button" className="link-btn" onClick={() => setGift(null)}>Quitar</button>
+              </p>
+            ) : (
+              <div className="inline-form">
+                <input placeholder="Tarjeta de regalo" value={giftInput} onChange={(e) => { setGiftError(''); setGiftInput(e.target.value.toUpperCase()); }} aria-label="Código de tarjeta de regalo" />
+                <button type="button" className="btn btn--ghost btn--small" onClick={applyGift}>Usar</button>
+              </div>
+            )}
+            <Notice type="error">{giftError}</Notice>
+          </div>
+
           {points ? (
             <div className="points-box">
               <p><i className="fa-solid fa-coins" aria-hidden="true" /> Tienes <strong>{money(balance)}</strong> en puntos.</p>
@@ -324,9 +363,11 @@ const Cart = () => {
             {discount ? <li><span>Cupón</span><span>−{money(discount)}</span></li> : null}
             {pointsUsed ? <li><span>Puntos</span><span>−{money(pointsUsed)}</span></li> : null}
             <li><span>Envío</span><span>{shipping ? money(shipping) : 'Gratis'}</span></li>
+            {giftApplied ? <li><span>Tarjeta de regalo</span><span>−{money(giftApplied)}</span></li> : null}
             <li className="total"><span>Total</span><span>{money(total)}</span></li>
           </ul>
           {points && earnPreview > 0 ? <small className="muted">Con esta compra ganas aprox. {money(earnPreview)} en puntos al confirmarse el pago.</small> : null}
+          {gift && total === 0 ? <small className="ok">Tu tarjeta cubre todo: el pedido queda pagado al confirmarlo.</small> : null}
           {!isAuthenticated ? <small className="muted">Las compras con cuenta suman puntos de lealtad.</small> : null}
           <Notice type="error">{error}</Notice>
           <button type="submit" className="btn btn--block" disabled={sending}>{sending ? 'Enviando…' : 'Confirmar pedido'}</button>

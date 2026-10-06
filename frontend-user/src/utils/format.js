@@ -66,6 +66,8 @@ export const ORDER_STATUS = {
 };
 
 export const APPOINTMENT_STATUS = {
+  pending_deposit: 'Esperando anticipo',
+  deposit_review: 'Revisando tu anticipo',
   pending: 'Por confirmar',
   confirmed: 'Confirmada',
   completed: 'Completada',

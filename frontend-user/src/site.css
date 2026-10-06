@@ -281,3 +281,12 @@ legend { font-family: var(--font-heading); font-size: 1.2rem; font-weight: 700; 
 .auth__links { display: flex; justify-content: space-between; gap: 1rem; margin-top: 1rem; font-size: .9rem; }
 
 .legal { line-height: 1.7; }
+
+/* Tarjetas de regalo y pagos por transferencia */
+.gift-card { background: linear-gradient(135deg, var(--brand), var(--accent)); color: #fff; border: 0; display: grid; gap: .3rem; }
+.gift-card .muted { color: rgba(255,255,255,.8); }
+.gift-card__amount { font-family: var(--font-heading); font-size: 2.6rem; margin: 0; }
+.gift-card__code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 1.4rem; letter-spacing: .08em; background: #fff; color: var(--brand); padding: .4rem .8rem; border-radius: 8px; justify-self: start; margin: .3rem 0; }
+.gift-card .btn--ghost { color: #fff; border-color: #fff; justify-self: start; }
+.spei dd { word-break: break-all; }
+details summary { cursor: pointer; color: var(--brand); margin: .3rem 0; }

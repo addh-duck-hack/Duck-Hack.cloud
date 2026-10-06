@@ -23,6 +23,7 @@ const TABS = [
   ['pedidos', 'Mis pedidos'],
   ['favoritos', 'Favoritos'],
   ['resenas', 'Mis reseñas'],
+  ['tarjetas', 'Tarjetas de regalo'],
   ['datos', 'Mis datos'],
 ];
 
@@ -155,6 +156,32 @@ const Favorites = () => {
 };
 
 const REVIEW_STATUS = { pending: 'En revisión', approved: 'Publicada', rejected: 'No publicada' };
+
+// Tarjetas de regalo que compré (con enlace a la compra) y las que me regalaron.
+const GIFT_STATUS_LABEL = { pending_payment: 'Esperando pago', active: 'Activa', used: 'Sin saldo', expired: 'Vencida', cancelled: 'Cancelada' };
+const MyGiftCards = () => {
+  const { data, isLoading } = useApi('/api/gift-cards/mine', getAuthHeader());
+  const items = listItems(data);
+  if (isLoading) return <Loading />;
+  if (!items.length) return <p className="muted">Aún no tienes tarjetas de regalo. <Link to="/tarjeta-regalo">Regala una</Link>.</p>;
+  return (
+    <ul className="plain stack">
+      {items.map((c) => (
+        <li key={c._id} className="card row-card">
+          <div>
+            <strong>{money(c.amount)} · {c.role === 'received' ? `De ${c.buyerName}` : `Para ${c.recipientName || 'ti'}`}</strong>
+            <small className="muted">
+              {c.code ? `${c.code} · saldo ${money(c.balance)}` : 'Se activa al validar el pago'}
+              {c.expiresAt ? ` · vence ${fmtShortDate(c.expiresAt)}` : ''}
+            </small>
+          </div>
+          <span className="tag">{GIFT_STATUS_LABEL[c.status] || c.status}</span>
+          {c.role === 'bought' ? <Link to={`/tarjeta-regalo/${c._id}`}>Ver</Link> : null}
+        </li>
+      ))}
+    </ul>
+  );
+};
 
 const MyReviews = () => {
   const { data, isLoading } = useApi('/api/reviews/mine', getAuthHeader());
@@ -305,7 +332,7 @@ const Profile = () => {
   );
 };
 
-const PANELS = { puntos: Loyalty, citas: Appointments, pedidos: Orders, favoritos: Favorites, resenas: MyReviews, datos: Profile };
+const PANELS = { puntos: Loyalty, citas: Appointments, pedidos: Orders, favoritos: Favorites, resenas: MyReviews, tarjetas: MyGiftCards, datos: Profile };
 
 const Account = () => {
   const { isAuthenticated, user, logout } = useAuth();

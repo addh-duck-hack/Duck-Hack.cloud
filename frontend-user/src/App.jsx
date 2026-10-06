@@ -21,6 +21,7 @@ import { Contact, Legal, NotFound } from './pages/Info';
 import Order from './pages/Order';
 import Product from './pages/Product';
 import Services from './pages/Services';
+import { GiftCardPurchase, GiftCardShop } from './pages/GiftCards';
 import Shop from './pages/Shop';
 
 const App = () => (
@@ -45,6 +46,8 @@ const App = () => (
                 <Route path="/users/verify" element={<VerifyEmail />} />
                 <Route path="/olvide-contrasena" element={<ForgotPassword />} />
                 <Route path="/restablecer-contrasena" element={<ResetPassword />} />
+                <Route path="/tarjeta-regalo" element={<GiftCardShop />} />
+                <Route path="/tarjeta-regalo/:id" element={<GiftCardPurchase />} />
                 <Route path="/contacto" element={<Contact />} />
                 <Route path="/legal/:page" element={<Legal />} />
                 <Route path="*" element={<NotFound />} />

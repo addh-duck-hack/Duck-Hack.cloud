@@ -10,6 +10,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { getAuthHeader } from '../hooks/useAuth';
 import SlotPicker from '../ui/SlotPicker';
+import { ProofUpload, SpeiBox } from '../ui/Payment';
 import { Loading, Notice, StarInput, Stars } from '../ui/bits';
 import { apiFetch } from '../utils/apiClient';
 import { APPOINTMENT_STATUS, errorText, fmtDate, fmtDuration, fmtTime, folio, money } from '../utils/format';
@@ -94,6 +95,50 @@ const ReviewBox = ({ appointmentId, headers, highlight }) => {
   );
 };
 
+// Anticipo: datos para transferir, subir el comprobante o pagar con una
+// tarjeta de regalo (POST /public/:id/deposit-gift-card).
+const DepositBox = ({ appointment: a, headers, busy, onPayGiftCard, onUploaded }) => {
+  const [code, setCode] = useState('');
+  const d = a.deposit;
+  const tz = a.timezone;
+  return (
+    <section className="card card--highlight">
+      <h2>{a.status === 'deposit_review' ? 'Estamos revisando tu anticipo' : 'Aparta tu cita con el anticipo'}</h2>
+      {a.status === 'pending_deposit' ? (
+        <p className="muted">
+          Transfiere {money(d.amount)} y sube tu comprobante antes del {fmtDate(d.dueAt, tz)} a las {fmtTime(d.dueAt, tz)}; si no, el horario se libera.
+          El resto se paga en el salón.
+        </p>
+      ) : (
+        <p className="muted">Te avisamos por correo en cuanto lo validemos.</p>
+      )}
+      {a.status === 'pending_deposit' ? <SpeiBox spei={d.spei} amount={d.amount} concept={d.concept} /> : null}
+      <ProofUpload
+        proofs={a.paymentProofs}
+        canUpload={a.canUploadProof}
+        uploadPath={`/api/appointments/public/${a._id}/deposit-proof`}
+        headers={headers}
+        onUploaded={onUploaded}
+      />
+      {a.status === 'pending_deposit' ? (
+        <details>
+          <summary>¿Tienes una tarjeta de regalo?</summary>
+          <form
+            className="inline-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              onPayGiftCard(code.trim());
+            }}
+          >
+            <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="GC-XXXX-XXXX" aria-label="Código de la tarjeta" />
+            <button className="btn btn--small" disabled={busy || !code.trim()}>Pagar anticipo</button>
+          </form>
+        </details>
+      ) : null}
+    </section>
+  );
+};
+
 const Appointment = () => {
   const { id } = useParams();
   const [params] = useSearchParams();
@@ -106,7 +151,13 @@ const Appointment = () => {
   const [appointment, setAppointment] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [message, setMessage] = useState(params.get('nueva') ? '¡Listo! Tu cita quedó agendada. Te mandamos los detalles por correo.' : '');
+  const [message, setMessage] = useState(
+    params.get('nueva') === 'anticipo'
+      ? 'Tu horario quedó apartado. Para confirmarlo, transfiere el anticipo y sube tu comprobante aquí abajo.'
+      : params.get('nueva')
+        ? '¡Listo! Tu cita quedó agendada. Te mandamos los detalles por correo.'
+        : ''
+  );
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState(''); // '' | 'cancel' | 'reschedule'
@@ -185,7 +236,8 @@ const Appointment = () => {
 
   const a = appointment;
   const tz = a.timezone;
-  const upcoming = ['pending', 'confirmed'].includes(a.status) && new Date(a.start) > new Date();
+  const awaitingDeposit = ['pending_deposit', 'deposit_review'].includes(a.status);
+  const upcoming = ['pending', 'confirmed', ...(awaitingDeposit ? [a.status] : [])].includes(a.status) && new Date(a.start) > new Date();
 
   return (
     <div className="wrap narrow">
@@ -208,7 +260,19 @@ const Appointment = () => {
         {a.attendanceConfirmedAt ? <p className="ok"><i className="fa-solid fa-circle-check" aria-hidden="true" /> Confirmaste tu asistencia.</p> : null}
       </section>
 
-      {upcoming && !a.attendanceConfirmedAt ? (
+      {a.deposit && awaitingDeposit ? (
+        <DepositBox appointment={a} headers={headers} busy={busy} onPayGiftCard={(code) => post('deposit-gift-card', { code }, 'Pagaste el anticipo con tu tarjeta.')} onUploaded={(data) => {
+          setMessage('');
+          if (data.appointment) setAppointment(data.appointment);
+        }} />
+      ) : a.deposit?.paidAt ? (
+        <p className="ok">
+          <i className="fa-solid fa-circle-check" aria-hidden="true" /> Anticipo de {money(a.deposit.amount)} recibido
+          {a.deposit.giftCard ? ` (con tu tarjeta ${a.deposit.giftCard.code})` : ''}.
+        </p>
+      ) : null}
+
+      {upcoming && !awaitingDeposit && !a.attendanceConfirmedAt ? (
         <section className={`card ${action === 'confirmar' ? 'card--highlight' : ''}`}>
           <h2>¿Nos vemos?</h2>
           <p className="muted">Avísanos que sí vienes para apartar tu lugar.</p>

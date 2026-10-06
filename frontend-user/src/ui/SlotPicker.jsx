@@ -30,7 +30,7 @@ const SlotPicker = ({ serviceIds, specialist = 'any', maxDaysAhead = 30, timezon
       .then((data) => {
         if (cancelled) return;
         setDays((data.days || []).filter((d) => d.available));
-        onQuote?.({ durationMin: data.durationMin, total: data.total });
+        onQuote?.({ durationMin: data.durationMin, total: data.total, depositAmount: data.depositAmount || 0 });
       })
       .catch((err) => !cancelled && setError(errorText(err)))
       .finally(() => !cancelled && setLoadingDays(false));

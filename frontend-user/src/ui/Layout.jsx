@@ -88,6 +88,7 @@ const Footer = () => {
           <ul className="plain">
             <li><Link to="/servicios">Servicios</Link></li>
             <li><Link to="/tienda">Tienda</Link></li>
+            <li><Link to="/tarjeta-regalo">Tarjetas de regalo</Link></li>
             <li><Link to="/legal/privacidad">Aviso de privacidad</Link></li>
             <li><Link to="/legal/aviso">Aviso legal</Link></li>
             <li><Link to="/legal/devoluciones">Cambios y devoluciones</Link></li>

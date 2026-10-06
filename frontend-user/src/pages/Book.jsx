@@ -72,7 +72,7 @@ const Book = () => {
         body: JSON.stringify({ services: ids, specialist: specialist || 'any', start: slot.start, ...form, notes: form.notes || undefined }),
       });
       rememberAppointmentToken(data.appointment._id, data.appointmentAccessToken);
-      navigate(`/cita/${data.appointment._id}?nueva=1`);
+      navigate(`/cita/${data.appointment._id}?nueva=${data.appointment.status === 'pending_deposit' ? 'anticipo' : '1'}`);
     } catch (err) {
       if (err.code === 'SLOT_TAKEN') setSlot(null);
       setError(errorText(err));
@@ -152,10 +152,16 @@ const Book = () => {
           <h2>Resumen</h2>
           {slot ? <p><i className="fa-regular fa-calendar" aria-hidden="true" /> {fmtDate(slot.start, settings.timezone)} a las {fmtTime(slot.start, settings.timezone)}</p> : <p className="muted">Sin horario elegido.</p>}
           {quote ? <p>Duración: {fmtDuration(quote.durationMin)} · Total estimado: <strong>{money(quote.total)}</strong></p> : null}
+          {quote?.depositAmount ? (
+            <p className="loyalty-hint">
+              <i className="fa-solid fa-money-bill-transfer" aria-hidden="true" /> Estos servicios piden un anticipo de {money(quote.depositAmount)} por
+              transferencia (o con tarjeta de regalo) para confirmar la cita; el resto se paga en el salón.
+            </p>
+          ) : null}
           {stamps?.enabled ? <p className="loyalty-hint"><i className="fa-solid fa-stamp" aria-hidden="true" /> Esta cita suma un sello: al juntar {stamps.goal} ganas {stamps.reward}.</p> : null}
           <Notice type="error">{error}</Notice>
           <button type="submit" className="btn btn--block" disabled={sending}>{sending ? 'Agendando…' : 'Confirmar cita'}</button>
-          <small className="muted">El pago se hace en el salón. Te mandamos la confirmación por correo.</small>
+          <small className="muted">{quote?.depositAmount ? "Te mandamos por correo los datos para el anticipo." : "El pago se hace en el salón. Te mandamos la confirmación por correo."}</small>
         </aside>
       </form>
     </div>

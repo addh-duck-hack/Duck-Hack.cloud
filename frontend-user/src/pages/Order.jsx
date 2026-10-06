@@ -123,6 +123,7 @@ const Order = () => {
           {order.discount?.amount ? <li><span>Cupón {order.discount.code}</span><span>−{money(order.discount.amount)}</span></li> : null}
           {order.loyalty?.redeemed ? <li><span>Puntos usados</span><span>−{money(order.loyalty.redeemed)}</span></li> : null}
           <li><span>Envío</span><span>{order.shippingCost ? money(order.shippingCost) : 'Gratis'}</span></li>
+          {order.giftCard?.amount ? <li><span>Tarjeta de regalo {order.giftCard.code}</span><span>−{money(order.giftCard.amount)}</span></li> : null}
           <li className="total"><span>Total</span><span>{money(order.total)}</span></li>
         </ul>
         {order.loyalty?.earned ? <p className="ok"><i className="fa-solid fa-coins" aria-hidden="true" /> Ganaste {money(order.loyalty.earned)} en puntos con este pedido.</p> : null}
