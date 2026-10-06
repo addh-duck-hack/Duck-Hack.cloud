@@ -72,14 +72,15 @@ const StoreConfigContact = () => {
     setWhatsapp({ ...emptyWhatsapp, ...(data?.whatsappButton || {}) });
   };
 
-  const loadConfig = async () => {
+  // Al entrar, sin aviso; con "Recargar" (acción de la persona), sí.
+  const loadConfig = async ({ announce = false } = {}) => {
     setIsLoading(true);
     setError("");
     setMessage("");
     try {
       const response = await axios.get(`${baseUrl}/api/store-config`, { headers: getAuthHeaders() });
       applyConfig(response.data);
-      setMessage("Configuración cargada.");
+      if (announce) setMessage("Se recargó la configuración guardada.");
     } catch (err) {
       setError(err.response?.data?.error?.message || "No fue posible cargar la configuración.");
     } finally {
@@ -315,7 +316,7 @@ const StoreConfigContact = () => {
           <button type="submit" disabled={isLoading} style={{ width: "auto" }}>
             {isLoading ? "Guardando..." : "Guardar"}
           </button>
-          <button type="button" onClick={loadConfig} disabled={isLoading} className="btn-secondary" style={{ width: "auto" }}>
+          <button type="button" onClick={() => loadConfig({ announce: true })} disabled={isLoading} className="btn-secondary" style={{ width: "auto" }}>
             Recargar
           </button>
         </div>

@@ -92,7 +92,8 @@ const StoreConfigManager = () => {
     isActive: typeof data?.isActive === "boolean" ? data.isActive : true,
   });
 
-  const loadConfig = async () => {
+  // Al entrar, sin aviso; con "Recargar" (acción de la persona), sí.
+  const loadConfig = async ({ announce = false } = {}) => {
     setIsLoading(true);
     setError("");
     setMessage("");
@@ -101,7 +102,7 @@ const StoreConfigManager = () => {
         headers: getAuthHeaders(),
       });
       setForm(mapApiToForm(response.data));
-      setMessage("Configuración cargada.");
+      if (announce) setMessage("Se recargó la configuración guardada.");
     } catch (err) {
       const msg = err.response?.data?.error?.message || "No fue posible cargar la configuración.";
       setError(msg);
@@ -305,7 +306,7 @@ const StoreConfigManager = () => {
           <button type="submit" disabled={isLoading} style={{ width: "auto" }}>
             {isLoading ? "Guardando..." : "Guardar configuración"}
           </button>
-          <button type="button" onClick={loadConfig} disabled={isLoading} className="btn-secondary" style={{ width: "auto" }}>
+          <button type="button" onClick={() => loadConfig({ announce: true })} disabled={isLoading} className="btn-secondary" style={{ width: "auto" }}>
             Recargar
           </button>
         </div>

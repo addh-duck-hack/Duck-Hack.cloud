@@ -2633,6 +2633,25 @@ paths:
                     items:
                       $ref: "#/components/schemas/PublicService"
 
+  /api/services/public/{id}/media:
+    get:
+      tags: [Services]
+      summary: Fotos y videos públicos de un servicio
+      operationId: getPublicServiceMedia
+      security: []
+      description: >-
+        Fotos y videos de citas con este servicio cuya clienta autorizó subirlos al sitio
+        (`Appointment.mediaConsent`). Solo `path` y `kind` (nada de la clienta), los más recientes
+        primero; se omiten los archivos que ya no existen. Servicio inactivo → lista vacía.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 48, default: 24 } }
+      responses:
+        "200":
+          description: "`{ items: [{ path, kind: image|gif|video }] }`"
+        "400":
+          description: INVALID_OBJECT_ID
+
   /api/services/public/{id}:
     get:
       tags: [Services]
@@ -4858,11 +4877,16 @@ paths:
   /api/reviews/public:
     get:
       tags: [Reviews]
-      summary: Reseñas aprobadas de un producto
+      summary: Reseñas aprobadas de un producto o de un servicio
       operationId: listPublicReviews
       security: []
+      description: >-
+        `product` o `service` (uno de los dos). Con `service`: las reseñas post-cita aprobadas de
+        las citas que incluyeron ese servicio; cada una trae `services` (lo que se hizo en esa
+        cita), sin especialista ni fecha de la cita.
       parameters:
-        - { in: query, name: product, required: true, schema: { type: string } }
+        - { in: query, name: product, schema: { type: string } }
+        - { in: query, name: service, schema: { type: string } }
         - { in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }
         - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 50, default: 10 } }
       responses:
@@ -4935,6 +4959,10 @@ paths:
       tags: [Reviews]
       summary: Mis reseñas
       operationId: listMyReviews
+      description: >-
+        Reseñas de productos de la cuenta y calificaciones de citas (por la cuenta o por el correo de
+        la clienta, para incluir las que dejó desde el enlace del correo sin sesión), las más
+        recientes primero.
       responses:
         "200":
           description: Reseñas del cliente con su estado (y motivo si se rechazó)
@@ -8875,7 +8903,17 @@ components:
       type: object
       properties:
         _id: { type: string }
-        product: { type: string }
+        kind: { type: string, enum: [product, appointment] }
+        product: { type: string, description: Solo en reseñas de producto. }
+        productName: { type: string, description: "Solo en GET /mine, reseñas de producto." }
+        appointment:
+          type: object
+          description: "Solo en GET /mine, calificaciones de cita."
+          properties:
+            _id: { type: string }
+            appointmentNumber: { type: integer, nullable: true }
+            services: { type: array, items: { type: string } }
+            start: { type: string, format: date-time, nullable: true }
         rating: { type: integer }
         comment: { type: string }
         status: { type: string, enum: [pending, approved, rejected] }
