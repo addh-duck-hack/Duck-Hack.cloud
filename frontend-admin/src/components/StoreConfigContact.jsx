@@ -3,6 +3,7 @@ import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import StoreConfigTabs from "./StoreConfigTabs";
 import PhoneInput from "./PhoneInput";
+import Alert from "./Alert";
 
 // Pestaña "Contacto y horario": ubicación del negocio (mapa y "Cómo llegar"),
 // horario de atención por día (hasta dos turnos), días festivos y botón de
@@ -137,8 +138,8 @@ const StoreConfigContact = () => {
       <h3>Contacto y horario</h3>
       <p>Lo que la tienda muestra en Contacto y ubicación, y el botón de WhatsApp.</p>
 
-      {message ? <div className="auth-success">{message}</div> : null}
-      {error ? <div className="auth-error">{error}</div> : null}
+      {message ? <Alert type="success">{message}</Alert> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
         <h4>Ubicación</h4>

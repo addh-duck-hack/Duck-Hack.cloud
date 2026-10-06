@@ -5,6 +5,7 @@ import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import MediaField from "./MediaField";
 import WeeklyHoursEditor from "./WeeklyHoursEditor";
 import { formatDuration } from "./ServiceList";
+import Alert from "./Alert";
 
 // Alta y edición de una especialista: datos, servicios que hace, horario
 // semanal y cuenta ligada (opcional).
@@ -143,7 +144,7 @@ const SpecialistForm = () => {
     <section style={{ maxWidth: 1300 }}>
       <h3>{isEditing ? "Editar especialista" : "Nueva especialista"}</h3>
 
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
         <div className="form-row" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: "0.75rem" }}>

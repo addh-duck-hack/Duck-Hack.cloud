@@ -3,6 +3,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatCalendarDate } from "../utils/formatCalendarDate";
+import Alert from "./Alert";
 
 // Cupones de descuento (módulo "coupons" de los permisos). Los usos los
 // cuenta el backend (packages/core-api/lib/coupons.js): un pedido cancelado
@@ -84,7 +85,7 @@ const CouponList = () => {
         </label>
       ) : null}
 
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <div style={{ overflowX: "auto" }}>
         <table>

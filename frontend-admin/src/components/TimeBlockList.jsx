@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatDateTime, isAgendaManager } from "../utils/schedule";
+import Alert from "./Alert";
 
 // Bloqueos de horario (comida, vacaciones, cursos): en ese tiempo no se puede
 // agendar. La administración bloquea a cualquier especialista o a todo el
@@ -109,7 +110,7 @@ const TimeBlockList = () => {
       <h3 style={{ marginTop: 0 }}>Bloqueos de horario</h3>
       <p>En un horario bloqueado no se puede agendar: comida, vacaciones, cursos o un día que no abran.</p>
 
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: "0 0 1.5rem" }}>
         <div className="form-row" style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr 1fr 1fr", gap: "0.75rem", alignItems: "end" }}>

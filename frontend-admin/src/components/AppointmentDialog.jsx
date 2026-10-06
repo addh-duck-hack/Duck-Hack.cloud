@@ -7,6 +7,8 @@ import { APPOINTMENT_STATUS_LABELS, formatDateTime } from "../utils/schedule";
 import PhoneInput from "./PhoneInput";
 import OrderPaymentProofs from "./OrderPaymentProofs";
 import { usePermissions } from "../hooks/usePermissions";
+import Alert from "./Alert";
+import "./AppointmentDialog.css";
 
 // Alta y detalle de una cita desde la agenda del panel
 // (packages/core-api/modules/appointments.js, 2.4). Una cita puede llevar
@@ -14,6 +16,9 @@ import { usePermissions } from "../hooks/usePermissions";
 // del de la especialista (o sobre un bloqueo), o ella no tiene asignado algún
 // servicio, el backend responde 409 y aquí se pregunta si guardar de todos
 // modos (`force`). Empalmada con otra cita nunca se guarda.
+//
+// Dos formas: modal (alta desde un hueco de la agenda) o, con `asPage`, el
+// cuerpo de la vista de la cita (AppointmentDetail.jsx, /admin/appointments/:id).
 
 const formatMxn = (value) => Number(value || 0).toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 const pad = (n) => String(n).padStart(2, "0");
@@ -115,12 +120,12 @@ const GiftCardRedeem = ({ appointment, onDone }) => {
           </button>
         </div>
       ) : null}
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
     </details>
   );
 };
 
-const AppointmentDialog = ({ appointment: initialAppointment, initialStart, initialSpecialist, specialists, services, onClose, onSaved, onChanged }) => {
+const AppointmentDialog = ({ appointment: initialAppointment, initialStart, initialSpecialist, specialists, services, onClose, onSaved, onChanged, asPage = false }) => {
   // Copia local: revisar un comprobante actualiza la cita sin cerrar el diálogo.
   const [appointment, setAppointment] = useState(initialAppointment);
   const [notice, setNotice] = useState("");
@@ -172,10 +177,11 @@ const AppointmentDialog = ({ appointment: initialAppointment, initialStart, init
   }, [appointment?._id]);
 
   useEffect(() => {
+    if (asPage) return undefined;
     const onKey = (event) => event.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, asPage]);
 
   const serviceById = useMemo(() => new Map(services.map((s) => [String(s._id), s])), [services]);
   const chosen = form.services.map((id) => serviceById.get(id) || appointment?.services.find((s) => String(s.service) === id)).filter(Boolean);
@@ -274,17 +280,18 @@ const AppointmentDialog = ({ appointment: initialAppointment, initialStart, init
 
   const isClosed = appointment && ["cancelled", "completed", "no_show"].includes(appointment.status);
 
-  return createPortal(
-    <div className="agenda-dialog-backdrop" onClick={onClose}>
-      <div className="agenda-dialog" role="dialog" aria-modal="true" aria-labelledby="agenda-dialog-title" onClick={(e) => e.stopPropagation()}>
+  const body = (
+    <>
         <header className="agenda-dialog-head">
           <h3 id="agenda-dialog-title">
             {isEditing ? `Cita #${appointment.appointmentNumber}` : "Nueva cita"}
             {isEditing ? <span className={`agenda-status agenda-status--${appointment.status}`}>{APPOINTMENT_STATUS_LABELS[appointment.status]}</span> : null}
           </h3>
-          <button type="button" className="agenda-dialog-close" onClick={onClose} aria-label="Cerrar">
-            <i className="fas fa-times" aria-hidden="true" />
-          </button>
+          {!asPage ? (
+            <button type="button" className="agenda-dialog-close" onClick={onClose} aria-label="Cerrar">
+              <i className="fas fa-times" aria-hidden="true" />
+            </button>
+          ) : null}
         </header>
 
         {isEditing ? (
@@ -333,8 +340,8 @@ const AppointmentDialog = ({ appointment: initialAppointment, initialStart, init
           </p>
         ) : null}
 
-        {notice ? <div className="auth-success">{notice}</div> : null}
-        {error ? <div className="auth-error">{error}</div> : null}
+        {notice ? <Alert type="success">{notice}</Alert> : null}
+        {error ? <Alert type="error">{error}</Alert> : null}
 
         {isEditing && STATUS_ACTIONS[appointment.status]?.length ? (
           <div className="agenda-status-actions">
@@ -496,11 +503,22 @@ const AppointmentDialog = ({ appointment: initialAppointment, initialStart, init
                 {isSaving ? "Guardando..." : isEditing ? "Guardar cambios" : "Agendar"}
               </button>
             ) : null}
-            <button type="button" className="btn-secondary" onClick={onClose}>
-              Cerrar
-            </button>
+            {!asPage ? (
+              <button type="button" className="btn-secondary" onClick={onClose}>
+                Cerrar
+              </button>
+            ) : null}
           </footer>
         </form>
+    </>
+  );
+
+  if (asPage) return <div className="agenda-dialog agenda-dialog--page">{body}</div>;
+
+  return createPortal(
+    <div className="agenda-dialog-backdrop" onClick={onClose}>
+      <div className="agenda-dialog" role="dialog" aria-modal="true" aria-labelledby="agenda-dialog-title" onClick={(e) => e.stopPropagation()}>
+        {body}
       </div>
     </div>,
     document.body

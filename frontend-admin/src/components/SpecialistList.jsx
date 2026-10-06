@@ -3,6 +3,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { WEEK_DAYS } from "../utils/schedule";
+import Alert from "./Alert";
 
 // Especialistas de la agenda (módulo "appointments",
 // packages/core-api/modules/appointments.js). Solo la administración del
@@ -66,7 +67,7 @@ const SpecialistList = () => {
         propia agenda.
       </p>
 
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <div style={{ overflowX: "auto" }}>
         <table>

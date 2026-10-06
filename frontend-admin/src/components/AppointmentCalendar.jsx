@@ -10,6 +10,7 @@ import esLocale from "@fullcalendar/core/locales/es";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { APPOINTMENT_STATUS_LABELS, isAgendaManager } from "../utils/schedule";
 import AppointmentDialog from "./AppointmentDialog";
+import Alert from "./Alert";
 import "./AppointmentCalendar.css";
 
 // Agenda del panel (Fase 2.4) con FullCalendar: día / semana / mes / lista.
@@ -18,8 +19,8 @@ import "./AppointmentCalendar.css";
 // - Arrastrar una cita la reprograma (el backend valida; fuera de horario
 //   pregunta, empalmada la regresa a su lugar). La duración sale de los
 //   servicios, así que no se estira con el mouse: se cambia en el detalle.
-// - Clic o arrastre en un hueco: alta manual con esa hora. Clic en una cita:
-//   detalle (estado, servicios, notas).
+// - Clic o arrastre en un hueco: alta manual con esa hora (modal). Clic en
+//   una cita: su vista (AppointmentDetail.jsx, /admin/appointments/:id).
 // - Bloqueos: los de una especialista son bloques rayados con su color y
 //   "motivo · especialista"; los de todo el negocio, fondo gris "Cerrado".
 //   Clic en un bloqueo lleva a "Bloqueos".
@@ -214,7 +215,7 @@ const AppointmentCalendar = () => {
         {filteredName ? ` de ${filteredName} (sus días de descanso salen sombreados)` : " del negocio"}
       </p>
 
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <div className="agenda-calendar">
         <FullCalendar
@@ -249,7 +250,7 @@ const AppointmentCalendar = () => {
           eventDrop={handleDrop}
           eventClick={(info) => {
             const { appointment, block } = info.event.extendedProps;
-            if (appointment) setDialog({ appointment });
+            if (appointment) navigate(`/admin/appointments/${appointment._id}`);
             else if (block) navigate("/admin/time-blocks");
           }}
           eventDidMount={(info) => {

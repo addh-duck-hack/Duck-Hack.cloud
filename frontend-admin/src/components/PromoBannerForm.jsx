@@ -3,6 +3,7 @@ import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import MediaField from "./MediaField";
+import Alert from "./Alert";
 
 // Alta y edición de un banner de promociones
 // (packages/core-api/modules/promoBanners.js). Las fechas son días de
@@ -141,7 +142,7 @@ const PromoBannerForm = () => {
     <section style={{ maxWidth: 1100 }}>
       <h3>{isEditing ? "Editar banner" : "Nuevo banner"}</h3>
       {targetProblem ? <div className="auth-error">Este banner no se muestra en el sitio: {targetProblem}</div> : null}
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
         <div className="form-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>

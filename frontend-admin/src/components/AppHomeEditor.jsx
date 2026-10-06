@@ -11,6 +11,7 @@ import { SECTION_TYPES, STORE_SECTION_TYPES, createSection, summarizeSection } f
 import AppConfigTabs from "./AppConfigTabs";
 import AppHomeSectionForm from "./AppHomeSectionForm";
 import Loader from "./Loader";
+import Alert from "./Alert";
 import "./AppHomeEditor.css";
 
 const getAuthHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem("token")}` });
@@ -175,8 +176,8 @@ const AppHomeEditor = () => {
       </div>
 
       {isDirty ? <div className="app-home-dirty">Tienes cambios sin guardar.</div> : null}
-      {message ? <div className="auth-success">{message}</div> : null}
-      {error ? <div className="auth-error">{error}</div> : null}
+      {message ? <Alert type="success">{message}</Alert> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <div className="app-home-tabs">
         <button type="button" className={`btn-secondary${view === "visual" ? " active" : ""}`} onClick={() => switchView("visual")}>

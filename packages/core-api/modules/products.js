@@ -71,11 +71,15 @@ const productVariantSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true },
 });
 
+const PRODUCT_DESCRIPTION_MAX = 20000;
+
 const productSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true, minlength: 1, maxlength: 200 },
     sku: { type: String, required: true, trim: true, uppercase: true, unique: true, maxlength: 60 },
-    description: { type: String, trim: true, maxlength: 2000 },
+    // HTML (etiquetas incluidas): 20 000 caracteres dan para una ficha larga y
+    // quedan muy por debajo del límite de 100 KB de express.json().
+    description: { type: String, trim: true, maxlength: PRODUCT_DESCRIPTION_MAX },
     price: { type: Number, required: true, min: 0 },
     compareAtPrice: { type: Number, min: 0 },
     category: { type: mongoose.Schema.Types.ObjectId, ref: "Category", default: null },

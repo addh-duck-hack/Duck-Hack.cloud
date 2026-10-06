@@ -3,6 +3,7 @@ import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import StoreConfigListEditor, { StringChipsEditor } from "./StoreConfigListEditor";
 import StoreConfigTabs from "./StoreConfigTabs";
+import Alert from "./Alert";
 
 const SERVICE_FIELDS = [
   { name: "title", label: "Título", type: "text", required: true, maxLength: 100 },
@@ -134,8 +135,8 @@ const StoreConfigServicesPricing = () => {
         frecuentes. Para servicios que se agendan (duración, precio, especialistas) usa el módulo Servicios.
       </p>
 
-      {message ? <div className="auth-success">{message}</div> : null}
-      {error ? <div className="auth-error">{error}</div> : null}
+      {message ? <Alert type="success">{message}</Alert> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
         <h4>Tarjetas de servicios</h4>

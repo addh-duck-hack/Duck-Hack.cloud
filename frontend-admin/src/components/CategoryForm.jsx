@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import MediaField from "./MediaField";
 import { CATEGORY_KINDS } from "../utils/categoryKinds";
+import Alert from "./Alert";
 
 const initialState = {
   name: "",
@@ -103,7 +104,7 @@ const CategoryForm = ({ kind = "product" }) => {
         {kind === "service" ? " de servicios" : ""}
       </h3>
 
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
         <label>

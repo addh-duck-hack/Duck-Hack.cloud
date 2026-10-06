@@ -3,6 +3,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { CATEGORY_KINDS } from "../utils/categoryKinds";
+import Alert from "./Alert";
 
 // Categorías del catálogo: de productos (módulo "Productos" de los permisos)
 // o de servicios (módulo "Servicios"), según `kind`. Las destacadas son las
@@ -57,7 +58,7 @@ const CategoryList = ({ kind = "product" }) => {
       </div>
       <p>{config.intro}</p>
 
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <table>
         <thead>

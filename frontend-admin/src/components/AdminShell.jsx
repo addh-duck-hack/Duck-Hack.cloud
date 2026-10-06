@@ -148,7 +148,11 @@ const AdminShell = () => {
 
   const breadcrumb =
     ROUTE_LABELS[location.pathname] ||
-    (location.pathname.startsWith("/admin/agency-clients") ? "clientes" : location.pathname.replace(/^\/admin\/?/, ""));
+    (location.pathname.startsWith("/admin/agency-clients")
+      ? "clientes"
+      : /^\/admin\/appointments\/[0-9a-f]{24}$/i.test(location.pathname)
+        ? "cita"
+        : location.pathname.replace(/^\/admin\/?/, ""));
 
   return (
     <div className="admin-shell">

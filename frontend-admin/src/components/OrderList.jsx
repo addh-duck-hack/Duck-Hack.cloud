@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatCalendarDate } from "../utils/formatCalendarDate";
 import { ORDER_STATUSES, ORDER_STATUS_LABELS, paymentLabelOf } from "../utils/orderStatusLabels";
+import Alert from "./Alert";
 
 const formatMxn = (value) => Number(value || 0).toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 const formatDate = (value) => formatCalendarDate(value) || "—";
@@ -48,7 +49,7 @@ const OrderList = () => {
       </div>
       <p>Incluye tanto los pedidos creados aquí como los del checkout público de la tienda.</p>
 
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <label style={{ maxWidth: 260 }}>
         Filtrar por estado

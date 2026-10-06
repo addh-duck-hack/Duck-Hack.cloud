@@ -4,6 +4,7 @@
 // paquete no debe importar nada de la app que lo consume (ver README.md,
 // sección "Scope boundary"), así que lo poco que necesita vive aquí.
 const mongoose = require("mongoose");
+const { describeValidationError } = require("./validationMessages");
 
 const sanitizeDoc = (doc) => {
   if (!doc) return null;
@@ -16,8 +17,8 @@ const sanitizeDoc = (doc) => {
 // importarse — es la app consumidora quien decide el formato de error.
 const handleMongooseError = (sendError, res, error, fallbackMessage) => {
   if (error?.name === "ValidationError") {
-    const messages = Object.values(error.errors || {}).map((e) => e.message);
-    return sendError(res, 400, "VALIDATION_ERROR", "Error de validación", messages);
+    const { message, details } = describeValidationError(error);
+    return sendError(res, 400, "VALIDATION_ERROR", message, details);
   }
   if (error?.code === 11000) {
     return sendError(res, 409, "DUPLICATE_KEY", "Conflicto de unicidad.");

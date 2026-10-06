@@ -1,16 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { APPOINTMENT_STATUS_LABELS, isAgendaManager } from "../utils/schedule";
-import AppointmentDialog from "./AppointmentDialog";
+import Alert from "./Alert";
 import "./AppointmentList.css";
 
 // Listado de citas (módulo "appointments"; backend GET /api/appointments/list
 // en packages/core-api/modules/appointments.js): lo que la agenda no deja ver
 // de un vistazo — todas las de hoy, las próximas y el historial, con búsqueda
-// y filtros. Clic en una cita abre el mismo detalle que la agenda
-// (AppointmentDialog). Una colaboradora solo ve las de su especialista.
+// y filtros. Clic en una cita abre su vista (AppointmentDetail.jsx). Una
+// colaboradora solo ve las de su especialista.
 
 const TABS = [
   { id: "today", label: "Hoy" },
@@ -40,6 +40,7 @@ const formatWhen = (value, tz, withDate) =>
 const PAGE_SIZE = 25;
 
 const AppointmentList = () => {
+  const navigate = useNavigate();
   const isManager = isAgendaManager(localStorage.getItem("role"));
   const [when, setWhen] = useState("upcoming");
   const [status, setStatus] = useState("");
@@ -51,8 +52,6 @@ const AppointmentList = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [specialists, setSpecialists] = useState([]);
-  const [services, setServices] = useState([]);
-  const [dialog, setDialog] = useState(null);
 
   const baseUrl = getApiBaseUrl();
   const headers = useMemo(() => ({ Authorization: `Bearer ${localStorage.getItem("token")}` }), []);
@@ -62,10 +61,6 @@ const AppointmentList = () => {
       .get(`${baseUrl}/api/appointments/specialists`, { headers })
       .then((r) => setSpecialists(r.data?.items || []))
       .catch(() => setSpecialists([]));
-    axios
-      .get(`${baseUrl}/api/services`, { headers })
-      .then((r) => setServices(r.data?.items || []))
-      .catch(() => setServices([]));
   }, [baseUrl, headers]);
 
   const load = useCallback(async () => {
@@ -165,7 +160,7 @@ const AppointmentList = () => {
         ) : null}
       </form>
 
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
       {isLoading && !data ? <p>Cargando...</p> : null}
       {data && !items.length ? (
         <p className="appt-empty">
@@ -188,7 +183,7 @@ const AppointmentList = () => {
             </thead>
             <tbody>
               {items.map((a) => (
-                <tr key={a._id} onClick={() => setDialog(a)} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && setDialog(a)}>
+                <tr key={a._id} onClick={() => navigate(`/admin/appointments/${a._id}`)} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && navigate(`/admin/appointments/${a._id}`)}>
                   <td className="appt-when">{formatWhen(a.start, tz, when !== "today")}</td>
                   <td>
                     {a.customerName}
@@ -231,19 +226,6 @@ const AppointmentList = () => {
         </div>
       ) : null}
 
-      {dialog ? (
-        <AppointmentDialog
-          appointment={dialog}
-          specialists={specialists}
-          services={services}
-          onClose={() => setDialog(null)}
-          onSaved={() => {
-            setDialog(null);
-            load();
-          }}
-          onChanged={load}
-        />
-      ) : null}
     </section>
   );
 };

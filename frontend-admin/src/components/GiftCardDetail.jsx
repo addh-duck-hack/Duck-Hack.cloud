@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import OrderPaymentProofs from "./OrderPaymentProofs";
 import { GIFT_CARD_STATUS, formatDay, formatMxn } from "./GiftCardList";
+import Alert from "./Alert";
 
 // Detalle de una tarjeta de regalo: datos, comprobantes (aprobar = activar y
 // enviar), canje en el local, ajuste de saldo, vigencia, reenvío, PDF y
@@ -87,7 +88,7 @@ const GiftCardDetail = () => {
     return (
       <section>
         <Link to="/admin/gift-cards">← Tarjetas de regalo</Link>
-        {error ? <div className="auth-error">{error}</div> : <p>Cargando...</p>}
+        {error ? <Alert type="error">{error}</Alert> : <p>Cargando...</p>}
       </section>
     );
   }
@@ -101,8 +102,8 @@ const GiftCardDetail = () => {
       <h3 style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
         Tarjeta #{card.number} <span className={`badge badge-${info.color}`}>{info.label}</span>
       </h3>
-      {message ? <div className="auth-success">{message}</div> : null}
-      {error ? <div className="auth-error">{error}</div> : null}
+      {message ? <Alert type="success">{message}</Alert> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.75rem" }}>
         <div>

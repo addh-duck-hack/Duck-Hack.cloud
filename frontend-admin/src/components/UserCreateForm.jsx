@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { ROLES, ROLE_LABELS, assignableRolesFor } from "../utils/roles";
 import PhoneInput from "./PhoneInput";
+import Alert from "./Alert";
 
 const INITIAL_FORM = { name: "", email: "", password: "", phone: "", role: ROLES.COLLABORATOR };
 
@@ -57,7 +58,7 @@ const UserCreateForm = () => {
         correo de por medio.
       </p>
 
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
         <label>
