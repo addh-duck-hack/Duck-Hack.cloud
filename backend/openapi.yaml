@@ -59,6 +59,13 @@ tags:
     description: >-
       Lealtad (módulo loyalty): puntos por compra pagada (1 punto = $1, canjeables en el
       checkout) y tarjeta de sellos por cita completada. Cada programa con su interruptor.
+  - name: GiftCards
+    description: >-
+      Tarjetas de regalo (módulo giftCards): saldo en pesos que se usa en partes en el
+      checkout (giftCardCode), en el local (canje desde el panel) o para el anticipo de una
+      cita. Las del sitio se pagan por SPEI con comprobante; las de mostrador nacen activas.
+  - name: Reports
+    description: Reportes de ventas, citas, tarjetas y lealtad (módulo reports).
   - name: StoreConfig
   - name: Permissions
     description: Permisos por tienda — módulos contratados y qué puede usar cada rol (solo super_admin los configura)
@@ -2760,7 +2767,9 @@ paths:
         ni paso; cualquier servicio activo (también los que no se agendan en línea). Fuera del
         horario de la especialista o sobre un bloqueo → 409 OUTSIDE_HOURS; con un servicio que
         ella no tiene asignado → 409 SPECIALIST_DOESNT_DO_SERVICE; con `force: true` se guarda
-        igual. Empalmada con otra cita, nunca (409 SLOT_TAKEN).
+        igual. Empalmada con otra cita, nunca (409 SLOT_TAKEN). Con `requireDeposit: true` la cita
+        entra `pending_deposit` con el anticipo de sus servicios (400 DEPOSIT_NOT_CONFIGURED si
+        ninguno lo pide).
       requestBody:
         required: true
         content:
@@ -2778,6 +2787,7 @@ paths:
                 staffNotes: { type: string }
                 source: { type: string, enum: [phone, walk_in] }
                 status: { type: string, enum: [confirmed, pending] }
+                requireDeposit: { type: boolean, description: "Pedir el anticipo de los servicios (Fase 5.1)." }
                 force: { type: boolean }
                 notifyCustomer: { type: boolean, default: true, description: false = no mandar el correo a la clienta. }
               required: [services, specialist, start, customerName]
@@ -2823,7 +2833,7 @@ paths:
                 start: { type: string, format: date-time }
                 specialist: { type: string }
                 services: { type: array, items: { type: string } }
-                status: { type: string, enum: [pending, confirmed, completed, no_show, cancelled] }
+                status: { type: string, enum: [pending_deposit, deposit_review, pending, confirmed, completed, no_show, cancelled] }
                 customerName: { type: string }
                 customerEmail: { type: string }
                 customerPhone: { type: string }
@@ -2874,6 +2884,7 @@ paths:
                   timezone: { type: string }
                   durationMin: { type: integer }
                   total: { type: number }
+                  depositAmount: { type: number, description: "Anticipo de esos servicios (0 = no piden)." }
                   date: { type: string }
                   slots:
                     type: array
@@ -2904,7 +2915,9 @@ paths:
         Bearer opcional de clienta (la cita queda en su cuenta). "any" asigna a la especialista
         con menos citas ese día. Un candado por especialista evita citas empalmadas; dentro
         se vuelve a revisar la disponibilidad. Estado `confirmed` o `pending` según
-        `autoConfirm`. Manda el correo a la clienta (.ics + Google Calendar + enlace
+        `autoConfirm`; si los servicios piden anticipo y la tienda tiene cuenta SPEI,
+        `pending_deposit` con `deposit` (monto, fecha límite y cuenta; el correo lleva los datos
+        para transferir). Manda el correo a la clienta (.ics + Google Calendar + enlace
         FRONTEND_URL/cita/<id>?token=…, ruta que cada storefront debe implementar) y el aviso
         al negocio. Devuelve `appointmentAccessToken` (header X-Appointment-Token para
         ver/cancelar/reprogramar sin cuenta; vence 30 días después de la cita). Rate limit 20 / 10 min.
@@ -2937,7 +2950,9 @@ paths:
         "400":
           description: VALIDATION_ERROR, SERVICE_NOT_AVAILABLE, SPECIALIST_NOT_AVAILABLE o SPECIALIST_REQUIRED
         "409":
-          description: SLOT_TAKEN (ocupado, fuera de horario, no alineado o fuera de anticipación / días)
+          description: >-
+            SLOT_TAKEN (ocupado, fuera de horario, no alineado o fuera de anticipación / días) o
+            DEPOSIT_TOO_LATE (los servicios piden anticipo y ya no hay tiempo antes del corte)
         "503":
           description: TRY_AGAIN (no se pudo tomar el candado)
 
@@ -3014,6 +3029,109 @@ paths:
           description: APPOINTMENT_TOKEN_INVALID o TOKEN_REQUIRED
         "409":
           description: APPOINTMENT_NOT_CHANGEABLE (cancelada, completada o ya pasó)
+
+  /api/appointments/public/{id}/deposit-proof:
+    post:
+      tags: [Appointments]
+      summary: Subir el comprobante del anticipo
+      operationId: uploadAppointmentDepositProof
+      security: []
+      description: >-
+        Fase 5.1. Mismo acceso que GET /public/{id} (X-Appointment-Token o sesión de la dueña).
+        Multipart con el archivo en `file` (JPG/PNG/PDF, hasta 8 MB, carpeta privada). Solo citas
+        pending_deposit / deposit_review con anticipo, hasta 10 comprobantes; la cita pasa a
+        deposit_review y se avisa al negocio. Rate limit 20 / 15 min.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+        - { in: header, name: X-Appointment-Token, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+              required: [file]
+      responses:
+        "201":
+          description: "Recibido: `{ message, appointment }` (CustomerAppointment)"
+        "400":
+          description: Archivo no válido
+        "401":
+          description: APPOINTMENT_TOKEN_INVALID o TOKEN_REQUIRED
+        "409":
+          description: APPOINTMENT_NOT_AWAITING_DEPOSIT o TOO_MANY_PAYMENT_PROOFS
+
+  /api/appointments/{id}/deposit-proof:
+    post:
+      tags: [Appointments]
+      summary: Subir el comprobante del anticipo a nombre de la clienta (staff)
+      operationId: uploadAppointmentDepositProofStaff
+      description: Módulo `appointments`. Igual que la ruta pública; queda `uploadedBy staff`.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+              required: [file]
+      responses:
+        "201":
+          description: "`{ message, appointment }` (Appointment)"
+        "409":
+          description: APPOINTMENT_NOT_AWAITING_DEPOSIT o TOO_MANY_PAYMENT_PROOFS
+
+  /api/appointments/{id}/deposit-proofs/{proofId}/file:
+    get:
+      tags: [Appointments]
+      summary: Archivo de un comprobante de anticipo (staff)
+      operationId: getAppointmentDepositProofFile
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+        - { in: path, name: proofId, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: El archivo (inline, sin caché)
+        "404":
+          description: PAYMENT_PROOF_NOT_FOUND o PAYMENT_PROOF_FILE_NOT_FOUND
+
+  /api/appointments/{id}/deposit-proofs/{proofId}/review:
+    post:
+      tags: [Appointments]
+      summary: Aprobar o rechazar un comprobante de anticipo
+      operationId: reviewAppointmentDepositProof
+      description: >-
+        Módulo `appointments`. Aprobar marca `depositPaidAt` y confirma la cita (o la deja
+        `pending` si la agenda no confirma sola); correo "Recibimos tu anticipo". Rechazar (con
+        motivo, se le manda a la clienta) la regresa a pending_deposit con una fecha límite nueva
+        si no quedan otros comprobantes por revisar.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+        - { in: path, name: proofId, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                decision: { type: string, enum: [approve, reject] }
+                reason: { type: string, maxLength: 500 }
+              required: [decision]
+      responses:
+        "200":
+          description: "`{ message, appointment }` (Appointment)"
+        "400":
+          description: VALIDATION_ERROR (decisión o motivo faltante)
+        "404":
+          description: PAYMENT_PROOF_NOT_FOUND
+        "409":
+          description: PAYMENT_PROOF_ALREADY_REVIEWED
 
   /api/appointments/public/{id}/reschedule:
     post:
@@ -4071,6 +4189,498 @@ paths:
                   rewardsAvailable: { type: integer }
         "403":
           $ref: "#/components/responses/Forbidden"
+
+  /api/gift-cards/public/settings:
+    get:
+      tags: [GiftCards]
+      summary: Reglas de venta para el storefront
+      operationId: getPublicGiftCardSettings
+      security: []
+      responses:
+        "200":
+          description: "`available` = contratado, encendido y con cuenta SPEI."
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  available: { type: boolean }
+                  suggestedAmounts: { type: array, items: { type: number } }
+                  minAmount: { type: number }
+                  maxAmount: { type: number }
+                  allowCustomAmount: { type: boolean }
+                  validityMonths: { type: integer, description: "0 = no vence." }
+
+  /api/gift-cards/public:
+    post:
+      tags: [GiftCards]
+      summary: Comprar una tarjeta (queda esperando su pago)
+      operationId: buyGiftCard
+      security: []
+      description: >-
+        Bearer opcional de cliente. Monto entre min y max (o uno de los sugeridos si no se
+        permite otro). Correo a quien compra con los datos SPEI y el enlace
+        FRONTEND_URL/tarjeta-regalo/<id>?token=… (página que cada storefront que venda tarjetas
+        debe implementar) y aviso al negocio. Devuelve `giftCardAccessToken` (header
+        X-Gift-Card-Token). Rate limit 10 / 10 min.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount: { type: number }
+                buyerName: { type: string }
+                buyerEmail: { type: string }
+                buyerPhone: { type: string }
+                recipientName: { type: string }
+                recipientEmail: { type: string, description: "Vacío = la tarjeta le llega a quien compra." }
+                message: { type: string, maxLength: 300 }
+              required: [amount, buyerName, buyerEmail]
+      responses:
+        "201":
+          description: "`{ message, giftCard (PublicGiftCard), giftCardAccessToken }`"
+        "400":
+          description: INVALID_AMOUNT o VALIDATION_ERROR
+        "409":
+          description: GIFT_CARDS_NOT_AVAILABLE
+
+  /api/gift-cards/check:
+    post:
+      tags: [GiftCards]
+      summary: Saldo de un código
+      operationId: checkGiftCard
+      security: []
+      description: Acepta el código con o sin guiones. Rate limit 30 / 10 min.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code: { type: string, example: GC-7KQ2-M9XW }
+              required: [code]
+      responses:
+        "200":
+          description: "`{ code, balance, expiresAt }`"
+        "404":
+          description: GIFT_CARD_NOT_FOUND
+        "409":
+          description: GIFT_CARD_NOT_ACTIVE, GIFT_CARD_EXPIRED, GIFT_CARD_EMPTY o GIFT_CARD_CANCELLED
+
+  /api/gift-cards/public/{id}:
+    get:
+      tags: [GiftCards]
+      summary: Mi compra de tarjeta
+      operationId: getPublicGiftCard
+      security: []
+      description: >-
+        Con X-Gift-Card-Token o sesión de quien compró (cuenta o mismo correo). `code` y
+        `balance` solo cuando ya está activa; `payment` (cuenta SPEI y concepto) mientras espera
+        su pago.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+        - { in: header, name: X-Gift-Card-Token, schema: { type: string } }
+      responses:
+        "200":
+          description: "`{ giftCard }` (PublicGiftCard)"
+        "401":
+          description: GIFT_CARD_TOKEN_INVALID o TOKEN_REQUIRED
+        "404":
+          description: GIFT_CARD_NOT_FOUND
+
+  /api/gift-cards/public/{id}/payment-proof:
+    post:
+      tags: [GiftCards]
+      summary: Subir el comprobante de pago de la tarjeta
+      operationId: uploadGiftCardProof
+      security: []
+      description: Mismo acceso que GET /public/{id}. Multipart `file` (JPG/PNG/PDF). Avisa al negocio.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "201":
+          description: "`{ message, giftCard }`"
+        "409":
+          description: GIFT_CARD_NOT_AWAITING_PAYMENT o TOO_MANY_PAYMENT_PROOFS
+
+  /api/gift-cards/public/{id}/pdf:
+    get:
+      tags: [GiftCards]
+      summary: Tarjeta imprimible en PDF (quien compró)
+      operationId: getPublicGiftCardPdf
+      security: []
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: PDF
+        "409":
+          description: GIFT_CARD_NOT_ACTIVE
+
+  /api/gift-cards/mine:
+    get:
+      tags: [GiftCards]
+      summary: Mis tarjetas (compradas y recibidas)
+      operationId: listMyGiftCards
+      responses:
+        "200":
+          description: "`{ items }` (PublicGiftCard + `role`: bought | received)"
+
+  /api/gift-cards/settings:
+    get:
+      tags: [GiftCards]
+      summary: Ajustes de tarjetas
+      operationId: getGiftCardSettings
+      responses:
+        "200":
+          description: Ajustes
+    put:
+      tags: [GiftCards]
+      summary: Guardar ajustes de tarjetas
+      operationId: updateGiftCardSettings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled: { type: boolean }
+                suggestedAmounts: { type: array, items: { type: number }, maxItems: 8 }
+                minAmount: { type: number }
+                maxAmount: { type: number }
+                allowCustomAmount: { type: boolean }
+                validityMonths: { type: integer, minimum: 0, maximum: 60 }
+      responses:
+        "200":
+          description: "`{ message, settings }`"
+        "400":
+          description: VALIDATION_ERROR (p. ej. mínimo mayor al máximo)
+
+  /api/gift-cards:
+    get:
+      tags: [GiftCards]
+      summary: Listar tarjetas
+      operationId: listGiftCards
+      parameters:
+        - { in: query, name: status, schema: { type: string }, description: "Uno o varios separados por coma." }
+        - { in: query, name: q, schema: { type: string }, description: Código, folio, nombre o correo. }
+      responses:
+        "200":
+          description: "`{ items, pendingReview }` (sin movimientos ni comprobantes)"
+    post:
+      tags: [GiftCards]
+      summary: Venta en mostrador (queda activa y se envía)
+      operationId: sellGiftCard
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount: { type: number }
+                buyerName: { type: string }
+                buyerEmail: { type: string }
+                buyerPhone: { type: string }
+                recipientName: { type: string }
+                recipientEmail: { type: string }
+                message: { type: string }
+                paymentNote: { type: string, example: Efectivo }
+              required: [amount, buyerName]
+      responses:
+        "201":
+          description: "`{ message, giftCard }`"
+
+  /api/gift-cards/lookup:
+    get:
+      tags: [GiftCards]
+      summary: Consultar por código (staff)
+      operationId: lookupGiftCard
+      description: Módulo giftCards, o appointments / orders si giftCards está contratado (cobrar una cita).
+      parameters:
+        - { in: query, name: code, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: "`{ _id, number, code, status, balance, amount, expiresAt, recipientName }`"
+        "404":
+          description: GIFT_CARD_NOT_FOUND
+
+  /api/gift-cards/redeem:
+    post:
+      tags: [GiftCards]
+      summary: Canjear por código (staff)
+      operationId: redeemGiftCardByCode
+      description: Mismo acceso que /lookup. Cargo atómico; `appointment` liga el movimiento a una cita.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code: { type: string }
+                amount: { type: number }
+                note: { type: string }
+                appointment: { type: string }
+              required: [code, amount]
+      responses:
+        "200":
+          description: "`{ message, giftCard }`"
+        "409":
+          description: GIFT_CARD_INSUFFICIENT, GIFT_CARD_EXPIRED o GIFT_CARD_NOT_ACTIVE
+
+  /api/gift-cards/{id}:
+    get:
+      tags: [GiftCards]
+      summary: Detalle (con movimientos y comprobantes)
+      operationId: getGiftCard
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Tarjeta
+        "404":
+          description: GIFT_CARD_NOT_FOUND
+
+  /api/gift-cards/{id}/pdf:
+    get:
+      tags: [GiftCards]
+      summary: Tarjeta en PDF (staff)
+      operationId: getGiftCardPdf
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: PDF
+
+  /api/gift-cards/{id}/payment-proof:
+    post:
+      tags: [GiftCards]
+      summary: Subir comprobante a nombre de quien compró (staff)
+      operationId: uploadGiftCardProofStaff
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "201":
+          description: "`{ message, giftCard }`"
+
+  /api/gift-cards/{id}/payment-proofs/{proofId}/file:
+    get:
+      tags: [GiftCards]
+      summary: Archivo de un comprobante (staff)
+      operationId: getGiftCardProofFile
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+        - { in: path, name: proofId, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Archivo
+
+  /api/gift-cards/{id}/payment-proofs/{proofId}/review:
+    post:
+      tags: [GiftCards]
+      summary: Aprobar (activa y envía la tarjeta) o rechazar un comprobante
+      operationId: reviewGiftCardProof
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+        - { in: path, name: proofId, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                decision: { type: string, enum: [approve, reject] }
+                reason: { type: string }
+              required: [decision]
+      responses:
+        "200":
+          description: "`{ message, giftCard }`"
+        "409":
+          description: PAYMENT_PROOF_ALREADY_REVIEWED
+
+  /api/gift-cards/{id}/redeem:
+    post:
+      tags: [GiftCards]
+      summary: Canjear (staff)
+      operationId: redeemGiftCard
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount: { type: number }
+                note: { type: string }
+                appointment: { type: string }
+              required: [amount]
+      responses:
+        "200":
+          description: "`{ message, giftCard }`"
+        "409":
+          description: GIFT_CARD_INSUFFICIENT, GIFT_CARD_EXPIRED o GIFT_CARD_NOT_ACTIVE
+
+  /api/gift-cards/{id}/adjust:
+    post:
+      tags: [GiftCards]
+      summary: Ajustar saldo (+/−, con motivo)
+      operationId: adjustGiftCard
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                delta: { type: number }
+                note: { type: string }
+              required: [delta, note]
+      responses:
+        "200":
+          description: "`{ message, giftCard }`"
+
+  /api/gift-cards/{id}/extend:
+    post:
+      tags: [GiftCards]
+      summary: Cambiar la vigencia (reactiva una vencida)
+      operationId: extendGiftCard
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expiresAt: { type: string, format: date-time, nullable: true, description: "null = no vence." }
+      responses:
+        "200":
+          description: "`{ message, giftCard }`"
+
+  /api/gift-cards/{id}/cancel:
+    post:
+      tags: [GiftCards]
+      summary: Cancelar la tarjeta (el saldo se pierde)
+      operationId: cancelGiftCard
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string }
+      responses:
+        "200":
+          description: "`{ message, giftCard }`"
+
+  /api/gift-cards/{id}/resend:
+    post:
+      tags: [GiftCards]
+      summary: Reenviar la tarjeta por correo
+      operationId: resendGiftCard
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                recipientEmail: { type: string, description: "Corrige el correo de quien la recibe." }
+      responses:
+        "200":
+          description: "`{ message, giftCard }`"
+
+  /api/appointments/public/{id}/deposit-gift-card:
+    post:
+      tags: [Appointments]
+      summary: Pagar el anticipo con una tarjeta de regalo
+      operationId: payAppointmentDepositWithGiftCard
+      security: []
+      description: >-
+        Mismo acceso que GET /api/appointments/public/{id}. La tarjeta debe cubrir el anticipo
+        completo; se cobra de forma atómica y la cita se confirma (o queda `pending` sin
+        autoConfirm). `deposit.giftCard` queda en la cita.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+        - { in: header, name: X-Appointment-Token, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code: { type: string }
+              required: [code]
+      responses:
+        "200":
+          description: "`{ message, appointment }`"
+        "409":
+          description: APPOINTMENT_NOT_AWAITING_DEPOSIT, GIFT_CARD_INSUFFICIENT u otro error de la tarjeta
+
+  /api/reports/summary:
+    get:
+      tags: [Reports]
+      summary: Reporte del rango
+      operationId: getReportSummary
+      description: >-
+        Módulo reports. Fechas locales de la agenda (AppointmentSettings.timezone). Sin fechas:
+        últimos 30 días; hasta 366 días. `groupBy` automático: por día hasta 62 días, si no por
+        mes. Cada sección es null si su módulo (orders, appointments, giftCards, loyalty) no está
+        contratado. Ventas = pedidos pagados por fecha de alta (total + lo pagado con tarjeta).
+      parameters:
+        - { in: query, name: from, schema: { type: string, format: date } }
+        - { in: query, name: to, schema: { type: string, format: date } }
+        - { in: query, name: groupBy, schema: { type: string, enum: [day, week, month] } }
+      responses:
+        "200":
+          description: "`{ range, sales, appointments, giftCards, loyalty }`"
+        "400":
+          description: VALIDATION_ERROR (rango)
+
+  /api/reports/export:
+    get:
+      tags: [Reports]
+      summary: Exportar a CSV
+      operationId: exportReport
+      description: CSV UTF-8 con BOM (abre bien en Excel), una fila por pedido o por cita del rango.
+      parameters:
+        - { in: query, name: type, schema: { type: string, enum: [orders, appointments], default: orders } }
+        - { in: query, name: from, schema: { type: string, format: date } }
+        - { in: query, name: to, schema: { type: string, format: date } }
+      responses:
+        "200":
+          description: text/csv
+        "400":
+          description: VALIDATION_ERROR
 
   /api/reviews/public:
     get:
@@ -7673,6 +8283,17 @@ components:
           $ref: "#/components/schemas/OrderDiscount"
         loyalty:
           $ref: "#/components/schemas/OrderLoyalty"
+        giftCard:
+          type: object
+          readOnly: true
+          description: >-
+            Pagado con tarjeta de regalo (también cubre el envío). `refunded` = el saldo regresó a
+            la tarjeta porque el pedido se canceló o se borró (y se vuelve a cobrar si se reactiva).
+          properties:
+            card: { type: string }
+            code: { type: string }
+            amount: { type: number }
+            refunded: { type: boolean }
         inventoryDeducted:
           type: boolean
           readOnly: true
@@ -7712,7 +8333,13 @@ components:
             customer: { type: string, nullable: true }
             source: { type: string, enum: [web, phone, walk_in] }
             staffNotes: { type: string }
-            cancelledBy: { type: string, nullable: true, enum: [customer, staff] }
+            cancelledBy: { type: string, nullable: true, enum: [customer, staff, system], description: "system = anticipo vencido." }
+            depositAmount: { type: number }
+            depositDueAt: { type: string, format: date-time, nullable: true }
+            depositPaidAt: { type: string, format: date-time, nullable: true }
+            paymentProofs:
+              type: array
+              items: { $ref: "#/components/schemas/PaymentProof" }
             cancelReason: { type: string }
             scheduledAt: { type: string, format: date-time, description: Cuándo se fijó el horario actual (alta o última reprogramación). }
             reminderSentAt: { type: string, format: date-time, nullable: true }
@@ -7733,7 +8360,7 @@ components:
       properties:
         _id: { type: string }
         appointmentNumber: { type: integer }
-        status: { type: string, enum: [pending, confirmed, completed, no_show, cancelled] }
+        status: { type: string, enum: [pending_deposit, deposit_review, pending, confirmed, completed, no_show, cancelled] }
         start: { type: string, format: date-time }
         end: { type: string, format: date-time }
         durationMin: { type: integer, description: Suma de los servicios. }
@@ -7761,6 +8388,35 @@ components:
         changeDeadline: { type: string, format: date-time }
         cancelledAt: { type: string, format: date-time, nullable: true }
         attendanceConfirmedAt: { type: string, format: date-time, nullable: true, description: La clienta confirmó que asiste (desde el recordatorio). }
+        deposit:
+          type: object
+          nullable: true
+          description: >-
+            Anticipo (Fase 5.1); null si la cita no lo pide. `spei` (cuenta a la que transferir) solo
+            mientras espera el anticipo (pending_deposit / deposit_review).
+          properties:
+            amount: { type: number }
+            dueAt: { type: string, format: date-time, nullable: true }
+            paidAt: { type: string, format: date-time, nullable: true }
+            concept: { type: string, example: Cita 12 }
+            spei:
+              type: object
+              nullable: true
+              properties:
+                accountHolderName: { type: string }
+                bank: { type: string }
+                clabe: { type: string }
+                phone: { type: string }
+        paymentProofs:
+          type: array
+          items:
+            type: object
+            properties:
+              _id: { type: string }
+              status: { type: string, enum: [pending, approved, rejected] }
+              uploadedAt: { type: string, format: date-time }
+              rejectReason: { type: string }
+        canUploadProof: { type: boolean }
 
     WeeklyShift:
       type: object
@@ -7832,6 +8488,15 @@ components:
             si `reviews` y `appointments` están contratados; no se manda si ya calificó ni a citas
             que terminaron hace más de 14 días.
         reviewRequestHoursAfter: { type: integer, minimum: 1, maximum: 72, description: Horas después de terminar la cita (2 por default). }
+        depositHours: { type: integer, minimum: 1, maximum: 168, description: "Anticipo: horas para subir el comprobante (24 por default)." }
+        depositCutoffHours:
+          type: integer
+          minimum: 0
+          maximum: 168
+          description: >-
+            Anticipo: la fecha límite nunca es después de N horas antes de la cita (12 por default).
+            Una tarea programada (cada 5 min) cancela las citas pending_deposit vencidas y avisa a la
+            clienta y al negocio.
 
     PromoBannerRequest:
       type: object
@@ -8419,6 +9084,14 @@ components:
             POINTS_UNDER_MINIMUM). Se apartan de forma atómica al crear el
             pedido; sin saldo suficiente → 409 INSUFFICIENT_POINTS. total =
             productos − cupón − puntos + envío.
+        giftCardCode:
+          type: string
+          description: >-
+            Tarjeta de regalo (Fase 5.2): paga lo que quede (productos − cupón − puntos + envío)
+            hasta su saldo; se cobra de forma atómica al crear el pedido. Si cubre todo, el pedido
+            entra `confirmed` (total 0). Errores GIFT_CARD_NOT_FOUND (404), GIFT_CARD_NOT_ACTIVE,
+            GIFT_CARD_EXPIRED, GIFT_CARD_EMPTY, GIFT_CARD_CANCELLED o GIFT_CARD_INSUFFICIENT (409).
+            total = productos − cupón − puntos + envío − tarjeta.
       required: [customerName, customerEmail, items]
 
     OrderUpdateRequest:

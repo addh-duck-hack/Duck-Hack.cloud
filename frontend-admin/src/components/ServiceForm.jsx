@@ -5,9 +5,9 @@ import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import MediaField from "./MediaField";
 import { formatDuration } from "./ServiceList";
 
-// Alta y edición de un servicio (packages/core-api/modules/services.js). El
-// anticipo se guarda desde ya; se cobra cuando la tienda active los anticipos
-// por SPEI (Fase 5 del Roadmap).
+// Alta y edición de un servicio (packages/core-api/modules/services.js). Con
+// anticipo, las citas del sitio esperan el comprobante SPEI antes de
+// confirmarse (modules/appointments.js, Fase 5.1).
 
 const initialState = {
   name: "",
@@ -174,7 +174,7 @@ const ServiceForm = () => {
               <option value="fixed">Monto fijo ($)</option>
               <option value="percent">Porcentaje del precio (%)</option>
             </select>
-            <small>Se cobra cuando se activen los anticipos por SPEI.</small>
+            <small>Las citas del sitio con este servicio esperan el anticipo por SPEI antes de confirmarse (plazos en Ajustes de agenda).</small>
           </label>
           {form.depositType !== "none" ? (
             <label>

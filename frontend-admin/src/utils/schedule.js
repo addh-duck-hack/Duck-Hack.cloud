@@ -26,6 +26,8 @@ export const formatDateTime = (value) =>
   new Date(value).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });
 
 export const APPOINTMENT_STATUS_LABELS = {
+  pending_deposit: "Esperando anticipo",
+  deposit_review: "Anticipo en revisión",
   pending: "Por confirmar",
   confirmed: "Confirmada",
   completed: "Completada",
