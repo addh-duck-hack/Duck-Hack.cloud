@@ -90,7 +90,7 @@ const AppointmentCalendar = () => {
             end: a.end,
             backgroundColor: a.specialist?.color || "#4abdfc",
             borderColor: a.specialist?.color || "#4abdfc",
-            editable: ["pending", "confirmed"].includes(a.status),
+            editable: ["pending_deposit", "deposit_review", "pending", "confirmed"].includes(a.status),
             classNames: [`agenda-event--${a.status}`],
             extendedProps: { appointment: a },
           }));
@@ -281,6 +281,7 @@ const AppointmentCalendar = () => {
             setDialog(null);
             refetch();
           }}
+          onChanged={refetch}
         />
       ) : null}
     </section>

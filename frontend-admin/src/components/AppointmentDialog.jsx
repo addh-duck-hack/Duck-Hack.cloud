@@ -5,6 +5,7 @@ import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatDuration } from "./ServiceList";
 import { APPOINTMENT_STATUS_LABELS, formatDateTime } from "../utils/schedule";
 import PhoneInput from "./PhoneInput";
+import OrderPaymentProofs from "./OrderPaymentProofs";
 
 // Alta y detalle de una cita desde la agenda del panel
 // (packages/core-api/modules/appointments.js, 2.4). Una cita puede llevar
@@ -19,8 +20,12 @@ const dateInput = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.ge
 const timeInput = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 const FORCEABLE = ["OUTSIDE_HOURS", "SPECIALIST_DOESNT_DO_SERVICE"];
 
-// Siguientes estados que tiene sentido ofrecer desde cada uno.
+// Siguientes estados que tiene sentido ofrecer desde cada uno. Desde
+// "esperando anticipo", confirmar = el negocio ya recibió el anticipo por otro
+// medio (efectivo, otra cuenta); lo normal es aprobar el comprobante abajo.
 const STATUS_ACTIONS = {
+  pending_deposit: ["confirmed", "cancelled"],
+  deposit_review: ["confirmed", "cancelled"],
   pending: ["confirmed", "cancelled"],
   confirmed: ["completed", "no_show", "cancelled"],
   completed: ["confirmed"],
@@ -34,7 +39,10 @@ const ACTION_LABELS = {
   cancelled: "Cancelar cita",
 };
 
-const AppointmentDialog = ({ appointment, initialStart, initialSpecialist, specialists, services, onClose, onSaved }) => {
+const AppointmentDialog = ({ appointment: initialAppointment, initialStart, initialSpecialist, specialists, services, onClose, onSaved, onChanged }) => {
+  // Copia local: revisar un comprobante actualiza la cita sin cerrar el diálogo.
+  const [appointment, setAppointment] = useState(initialAppointment);
+  const [notice, setNotice] = useState("");
   const isEditing = Boolean(appointment);
   const baseUrl = getApiBaseUrl();
   const getAuthHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem("token")}`, "Content-Type": "application/json" });
@@ -52,6 +60,7 @@ const AppointmentDialog = ({ appointment, initialStart, initialSpecialist, speci
     staffNotes: appointment?.staffNotes || "",
     source: "phone",
     cancelReason: "",
+    requireDeposit: false,
   }));
   const [addService, setAddService] = useState("");
   // Aviso por correo a la clienta en este cambio (si tiene correo y los
@@ -91,6 +100,13 @@ const AppointmentDialog = ({ appointment, initialStart, initialSpecialist, speci
   const totalDuration = chosen.reduce((sum, s) => sum + s.durationMin, 0);
   const totalPrice = chosen.reduce((sum, s) => sum + s.price, 0);
   const specialist = specialists.find((s) => String(s._id) === String(form.specialist));
+  // Anticipo que pedirían los servicios elegidos (Servicios → anticipo).
+  const depositPreview = chosen.reduce((sum, s) => {
+    const dep = s.deposit || {};
+    if (dep.type === "fixed") return sum + (Number(dep.value) || 0);
+    if (dep.type === "percent") return sum + ((Number(dep.value) || 0) * s.price) / 100;
+    return sum;
+  }, 0);
   const notDone = chosen.filter((s) => specialist && !(specialist.services || []).some((x) => String(x._id || x) === String(s._id || s.service)));
 
   const set = (field) => (event) => {
@@ -157,6 +173,7 @@ const AppointmentDialog = ({ appointment, initialStart, initialSpecialist, speci
     };
     if (!isEditing) {
       Object.assign(body, { services: form.services, specialist: form.specialist, start: startIso(), source: form.source });
+      if (form.requireDeposit && depositPreview > 0) body.requireDeposit = true;
     } else {
       // Solo lo que cambió: si no se mueve horario/servicios/especialista, el
       // backend no vuelve a revisar el lugar (y no pregunta por el horario).
@@ -192,7 +209,9 @@ const AppointmentDialog = ({ appointment, initialStart, initialSpecialist, speci
           <p className="agenda-dialog-meta">
             {appointment.source === "web" ? "Agendada en el sitio" : appointment.source === "walk_in" ? "En mostrador" : "Por teléfono"} ·{" "}
             {formatDateTime(appointment.createdAt)}
-            {appointment.cancelledAt ? ` · Cancelada por ${appointment.cancelledBy === "customer" ? "la clienta" : "el negocio"}${appointment.cancelReason ? `: ${appointment.cancelReason}` : ""}` : ""}
+            {appointment.cancelledAt
+              ? ` · Cancelada por ${appointment.cancelledBy === "customer" ? "la clienta" : appointment.cancelledBy === "system" ? "el sistema" : "el negocio"}${appointment.cancelReason ? `: ${appointment.cancelReason}` : ""}`
+              : ""}
           </p>
         ) : null}
 
@@ -219,6 +238,20 @@ const AppointmentDialog = ({ appointment, initialStart, initialSpecialist, speci
           </p>
         ) : null}
 
+        {isEditing && appointment.depositAmount ? (
+          <p className="agenda-dialog-meta">
+            <i className="fa-solid fa-money-bill-transfer" aria-hidden="true" /> Anticipo {formatMxn(appointment.depositAmount)} ·{" "}
+            {appointment.depositPaidAt
+              ? `recibido ${formatDateTime(appointment.depositPaidAt)}`
+              : appointment.status === "pending_deposit"
+                ? `fecha límite ${formatDateTime(appointment.depositDueAt)} (si no llega, la cita se libera sola)`
+                : appointment.status === "deposit_review"
+                  ? "comprobante por revisar"
+                  : "no se recibió"}
+          </p>
+        ) : null}
+
+        {notice ? <div className="auth-success">{notice}</div> : null}
         {error ? <div className="auth-error">{error}</div> : null}
 
         {isEditing && STATUS_ACTIONS[appointment.status]?.length ? (
@@ -231,13 +264,29 @@ const AppointmentDialog = ({ appointment, initialStart, initialSpecialist, speci
                 onClick={() => changeStatus(status)}
                 disabled={isSaving}
               >
-                {appointment.status === "cancelled" && status === "confirmed" ? "Reactivar" : ACTION_LABELS[status]}
+                {appointment.status === "cancelled" && status === "confirmed"
+                  ? "Reactivar"
+                  : ["pending_deposit", "deposit_review"].includes(appointment.status) && status === "confirmed"
+                    ? "Confirmar (anticipo recibido)"
+                    : ACTION_LABELS[status]}
               </button>
             ))}
             {appointment.status !== "cancelled" ? (
               <input type="text" value={form.cancelReason} onChange={set("cancelReason")} maxLength={300} placeholder="Motivo si la cancelas (opcional)" />
             ) : null}
           </div>
+        ) : null}
+
+        {isEditing && appointment.depositAmount ? (
+          <OrderPaymentProofs
+            order={appointment}
+            kind="appointment"
+            onChange={(updated, message) => {
+              if (updated) setAppointment(updated);
+              setNotice(message);
+              onChanged?.();
+            }}
+          />
         ) : null}
 
         <form onSubmit={handleSubmit} className="agenda-dialog-form">
@@ -318,6 +367,13 @@ const AppointmentDialog = ({ appointment, initialStart, initialSpecialist, speci
                 <input type="email" value={form.customerEmail} onChange={set("customerEmail")} maxLength={160} />
               </label>
             </div>
+
+            {!isEditing && depositPreview > 0 ? (
+              <label className="agenda-notify">
+                <input type="checkbox" checked={form.requireDeposit} onChange={(e) => setForm((prev) => ({ ...prev, requireDeposit: e.target.checked }))} />
+                Pedir anticipo de {formatMxn(Math.min(depositPreview, totalPrice))} (la cita espera el comprobante y se libera sola si vence)
+              </label>
+            ) : null}
 
             {!isEditing ? (
               <label>

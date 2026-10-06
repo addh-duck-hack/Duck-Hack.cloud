@@ -93,6 +93,19 @@ vault, not in this repo).
   (`reviewRequestSentAt`), with `FRONTEND_URL/cita/<id>?token=…&accion=calificar`
   — skipped if the appointment was already reviewed. Runs only if `reviews`
   and `appointments` are contracted and `reviewRequestEnabled`.
+  SPEI deposit (5.1): when the booked services ask for one (`Service.deposit`,
+  fixed or % of the price) and the store has an SPEI account (first active
+  SPEI payment method, else `speiPayment` — `lib/emailTemplates.js
+  #storeSpeiAccount`), a site booking enters `pending_deposit` with
+  `depositAmount` and `depositDueAt` (now + `depositHours`, never later than
+  `depositCutoffHours` before the start; too close → `409 DEPOSIT_TOO_LATE`).
+  The customer uploads her proof (`POST /public/:id/deposit-proof`, same
+  `lib/paymentProofs.js` engine as orders) → `deposit_review`; staff approves
+  (→ `confirmed`, or `pending` without `autoConfirm`) or rejects with a reason
+  (→ `pending_deposit` with a new deadline). Both deposit statuses hold the
+  slot. An "appointment-deposit-expiry" job (every 5 min) cancels overdue
+  `pending_deposit` appointments (`cancelledBy: "system"`) and emails the
+  customer and the business. Staff can also book with `requireDeposit`.
 - `modules/products.js` — product catalog (`/api/products`). Optional
   variants (`options` + `variants`, logic in `lib/variants.js`): each variant
   has its own SKU, stock and optional price/image; `lib/purchaseLimits.js
@@ -295,6 +308,7 @@ Jobs registered today (each checks its own permission key with
 | --- | --- | --- | --- |
 | `appointment-reminders` | appointments | 1 min | `reminders` + `appointments` |
 | `appointment-review-requests` | appointments | 15 min | `reviews` + `appointments` |
+| `appointment-deposit-expiry` | appointments | 5 min | `appointments` |
 | `abandoned-carts` | cart | 15 min | `abandonedCart` |
 | `wishlist-back-in-stock` | wishlist | 15 min | `wishlist` |
 | `loyalty-expiry` | loyalty | 24 h | `loyalty` (+ points with `expiryMonths`) |

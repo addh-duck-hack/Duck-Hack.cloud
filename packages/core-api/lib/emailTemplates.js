@@ -258,6 +258,21 @@ const resolveSpeiAccount = (order, storeConfig) => {
   };
 };
 
+// Cuenta SPEI de la tienda para cobros que no son pedidos (anticipo de una
+// cita, tarjeta de regalo): la del primer método de pago SPEI activo con
+// CLABE, o la cuenta general speiPayment. null si no hay ninguna.
+const storeSpeiAccount = (storeConfig) => {
+  const method = (storeConfig?.paymentMethods || []).find((m) => m.type === "spei" && m.isActive !== false && m.spei?.clabe);
+  const spei = method?.spei || (storeConfig?.speiPayment?.clabe ? storeConfig.speiPayment : null);
+  if (!spei) return null;
+  return {
+    accountHolderName: spei.accountHolderName || "",
+    bank: spei.bank || "",
+    clabe: spei.clabe,
+    phone: spei.phone || "",
+  };
+};
+
 // Botón del correo (mismo estilo que accountActionEmailTemplate).
 const ctaButtonHtml = (label, url, color) => `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:16px 0 8px;">
           <tr>
@@ -715,6 +730,46 @@ const APPOINTMENT_EMAILS = {
     title: "Tu cita se canceló",
     intro: () => "Tu cita se canceló. Si quieres, agenda otra cuando gustes.",
   },
+  // Anticipo (Fase 5.1).
+  booked_deposit: {
+    subject: (n, store) => `Aparta tu cita con tu anticipo — ${store}`,
+    title: "Tu horario está apartado",
+    intro: (store) => `Gracias por agendar en ${store}. Para confirmar tu cita, transfiere el anticipo y sube tu comprobante antes de la fecha límite; si no, el horario se libera.`,
+  },
+  deposit_approved: {
+    subject: (n, store) => `Recibimos tu anticipo — ${store}`,
+    title: "¡Recibimos tu anticipo!",
+    intro: (store) => `${store} validó tu anticipo. Te esperamos:`,
+  },
+  deposit_rejected: {
+    subject: (n, store) => `Revisa tu anticipo — ${store}`,
+    title: "No pudimos validar tu comprobante",
+    intro: () => "Tu horario sigue apartado, pero necesitamos un comprobante válido de tu anticipo antes de la nueva fecha límite:",
+  },
+  deposit_expired: {
+    subject: (n, store) => `Tu cita se liberó — ${store}`,
+    title: "Tu cita se liberó",
+    intro: () => "No recibimos el anticipo a tiempo, así que el horario se liberó. Si aún quieres tu cita, agenda de nuevo cuando gustes.",
+  },
+};
+
+const DEPOSIT_AWAITING_KINDS = ["booked_deposit", "deposit_rejected"];
+
+// Renglones del anticipo: monto, lo ya validado o, si se espera, la cuenta,
+// el concepto y la fecha límite.
+const depositDetails = (deposit) => {
+  if (!deposit?.amount) return [];
+  const rows = [{ label: "Anticipo", value: formatCurrency(deposit.amount) }];
+  if (deposit.awaiting) {
+    if (deposit.spei) {
+      if (deposit.spei.accountHolderName) rows.push({ label: "Beneficiario", value: deposit.spei.accountHolderName });
+      if (deposit.spei.bank) rows.push({ label: "Banco", value: deposit.spei.bank });
+      rows.push({ label: "CLABE", value: deposit.spei.clabe });
+    }
+    if (deposit.concept) rows.push({ label: "Concepto", value: deposit.concept });
+    if (deposit.dueText) rows.push({ label: "Fecha límite", value: deposit.dueText });
+  }
+  return rows;
 };
 
 const appointmentDetails = ({ appointment, when, address }) =>
@@ -728,22 +783,30 @@ const appointmentDetails = ({ appointment, when, address }) =>
     address ? { label: "Dónde", value: address } : null,
   ].filter(Boolean);
 
-const appointmentEmailTemplate = ({ kind, appointment, when, address, branding, manageUrl, confirmUrl, googleUrl, reason, changeHours }) => {
+const appointmentEmailTemplate = ({ kind, appointment, when, address, branding, manageUrl, confirmUrl, googleUrl, reason, changeHours, deposit }) => {
   const config = APPOINTMENT_EMAILS[kind];
   const store = branding.storeName || "Duck-Hack";
-  const isCancelled = kind === "cancelled";
+  const isCancelled = kind === "cancelled" || kind === "deposit_expired";
   const isReminder = kind === "reminder";
+  const awaitingDeposit = DEPOSIT_AWAITING_KINDS.includes(kind);
   const notes = [];
   if (isReminder && !manageUrl) notes.push("Si no puedes asistir, avísanos para liberar tu horario.");
-  if (isCancelled && reason) notes.push(`Motivo: ${reason}`);
+  if ((isCancelled || kind === "deposit_rejected") && reason) notes.push(`Motivo: ${reason}`);
+  if (awaitingDeposit) {
+    notes.push(
+      manageUrl
+        ? "Cuando transfieras, sube tu comprobante desde la página de tu cita."
+        : "Cuando transfieras, responde este correo con tu comprobante."
+    );
+  }
   if (!isCancelled && changeHours) notes.push(`Puedes cancelar o reprogramar hasta ${changeHours} horas antes.`);
   const { html, text } = accountActionEmailTemplate({
     ...branding,
     title: config.title,
     name: appointment.customerName,
     intro: config.intro(store),
-    details: appointmentDetails({ appointment, when, address }),
-    ctaLabel: isCancelled ? "Agendar otra cita" : isReminder ? "Confirmo mi asistencia" : "Ver mi cita",
+    details: [...appointmentDetails({ appointment, when, address }), ...depositDetails({ ...deposit, awaiting: awaitingDeposit })],
+    ctaLabel: isCancelled ? "Agendar otra cita" : isReminder ? "Confirmo mi asistencia" : awaitingDeposit ? "Subir mi comprobante" : "Ver mi cita",
     url: (isReminder ? confirmUrl : manageUrl) || undefined,
     links: [
       isReminder && manageUrl ? { label: "Reprogramar o cancelar", url: manageUrl } : null,
@@ -761,6 +824,19 @@ const APPOINTMENT_BUSINESS_EMAILS = {
   new: { subject: (a) => `Nueva cita #${a.appointmentNumber} — ${a.customerName}`, title: "Nueva cita", intro: "Se agendó una cita desde el sitio:" },
   cancelled: { subject: (a) => `Cita #${a.appointmentNumber} cancelada por la clienta`, title: "La clienta canceló su cita", intro: "Este horario quedó libre:" },
   rescheduled: { subject: (a) => `Cita #${a.appointmentNumber} reprogramada por la clienta`, title: "La clienta cambió su cita", intro: "La cita quedó en este nuevo horario:" },
+  // Anticipo (Fase 5.1).
+  deposit_proof: { subject: (a) => `Comprobante de anticipo — cita #${a.appointmentNumber}`, title: "Llegó un comprobante de anticipo", intro: "Revísalo en la agenda para confirmar la cita:" },
+  deposit_expired: { subject: (a) => `Cita #${a.appointmentNumber} liberada: no se pagó el anticipo`, title: "Se liberó una cita sin anticipo", intro: "No llegó el anticipo a tiempo y el horario quedó libre:" },
+};
+
+const APPOINTMENT_STATUS_LABELS = {
+  pending_deposit: "Esperando anticipo",
+  deposit_review: "Anticipo en revisión",
+  pending: "Por confirmar",
+  confirmed: "Confirmada",
+  completed: "Completada",
+  no_show: "No asistió",
+  cancelled: "Cancelada",
 };
 
 const appointmentBusinessEmailTemplate = ({ kind, appointment, when, previousWhen, branding, adminUrl, reason }) => {
@@ -773,7 +849,8 @@ const appointmentBusinessEmailTemplate = ({ kind, appointment, when, previousWhe
     previousWhen ? { label: "Antes", value: previousWhen } : null,
     appointment.notes ? { label: "Notas", value: appointment.notes } : null,
     reason ? { label: "Motivo", value: reason } : null,
-    { label: "Estado", value: appointment.status === "pending" ? "Por confirmar" : appointment.status === "cancelled" ? "Cancelada" : "Confirmada" },
+    appointment.depositAmount ? { label: "Anticipo", value: formatCurrency(appointment.depositAmount) } : null,
+    { label: "Estado", value: APPOINTMENT_STATUS_LABELS[appointment.status] || appointment.status },
   ].filter(Boolean);
   const { html, text } = accountActionEmailTemplate({
     ...branding,
@@ -782,7 +859,14 @@ const appointmentBusinessEmailTemplate = ({ kind, appointment, when, previousWhe
     details,
     ctaLabel: adminUrl ? "Abrir la agenda" : undefined,
     url: adminUrl || undefined,
-    note: appointment.status === "pending" && kind === "new" ? "Está por confirmar: confírmala desde la agenda del panel." : undefined,
+    note:
+      appointment.status === "pending" && kind === "new"
+        ? "Está por confirmar: confírmala desde la agenda del panel."
+        : appointment.status === "pending_deposit" && kind === "new"
+          ? "Espera el anticipo: se confirma cuando apruebes su comprobante, o se libera sola si vence."
+          : kind === "deposit_proof"
+            ? "Apruébalo o recházalo desde la cita en la agenda."
+            : undefined,
     footnote: "Aviso automático de la agenda.",
   });
   return { subject: config.subject(appointment), html, text };
@@ -965,6 +1049,7 @@ module.exports = {
   appointmentEmailTemplate,
   appointmentBusinessEmailTemplate,
   resolveSpeiAccount,
+  storeSpeiAccount,
   paymentTypeOf,
   lowStockEmailTemplate,
   orderStatusEmailTemplate,

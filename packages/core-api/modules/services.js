@@ -9,7 +9,9 @@
 //
 // Una cita puede llevar varios servicios: su duración es la suma de
 // `durationMin` y el tiempo entre citas, el mayor `bufferMin` de los elegidos.
-// `deposit` (anticipo) se captura ya y se cobra en la Fase 5.
+// `deposit` (anticipo, fijo o % del precio): las citas del sitio que lo
+// incluyen esperan el comprobante SPEI antes de confirmarse (Fase 5.1, ver
+// modules/appointments.js).
 const express = require("express");
 const mongoose = require("mongoose");
 const {

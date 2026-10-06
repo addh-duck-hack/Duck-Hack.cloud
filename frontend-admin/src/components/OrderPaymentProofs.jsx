@@ -3,21 +3,48 @@ import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatCalendarDate } from "../utils/formatCalendarDate";
 
-// Comprobantes de pago SPEI de un pedido (packages/core-api/lib/paymentProofs.js):
-// ver el archivo, aprobar (el pedido pasa a "Pagado" y descuenta inventario)
-// o rechazar con motivo (se le envía al cliente), y subir uno a nombre del
-// cliente cuando lo mandó por WhatsApp o correo. El archivo es privado: se
-// descarga con el token y se muestra desde memoria (blob), nunca por URL
-// pública.
+// Comprobantes de pago SPEI (packages/core-api/lib/paymentProofs.js) de un
+// pedido o del anticipo de una cita (`kind`): ver el archivo, aprobar (el
+// pedido pasa a "Pagado"; la cita se confirma) o rechazar con motivo (se le
+// envía al cliente), y subir uno a su nombre cuando lo mandó por WhatsApp o
+// correo. El archivo es privado: se descarga con el token y se muestra desde
+// memoria (blob), nunca por URL pública.
 
 const PROOF_STATUS = {
   pending: { label: "Por revisar", color: "yellow" },
   approved: { label: "Aprobado", color: "green" },
   rejected: { label: "Rechazado", color: "red" },
 };
-const AWAITING_PAYMENT = ["pending", "payment_review"];
+// Rutas y textos por tipo de documento.
+const KINDS = {
+  order: {
+    title: "Comprobantes de pago",
+    filePath: (id, proofId) => `/api/orders/${id}/payment-proofs/${proofId}/file`,
+    reviewPath: (id, proofId) => `/api/orders/${id}/payment-proofs/${proofId}/review`,
+    uploadPath: (id) => `/api/orders/${id}/payment-proof`,
+    awaiting: ["pending", "payment_review"],
+    resultKey: "order",
+    who: "cliente",
+    approved: "Comprobante aprobado: el pedido quedó como pagado.",
+    rejected: "Comprobante rechazado: se le avisó al cliente.",
+    customerLink: true,
+  },
+  appointment: {
+    title: "Comprobantes del anticipo",
+    filePath: (id, proofId) => `/api/appointments/${id}/deposit-proofs/${proofId}/file`,
+    reviewPath: (id, proofId) => `/api/appointments/${id}/deposit-proofs/${proofId}/review`,
+    uploadPath: (id) => `/api/appointments/${id}/deposit-proof`,
+    awaiting: ["pending_deposit", "deposit_review"],
+    resultKey: "appointment",
+    who: "clienta",
+    approved: "Anticipo aprobado: la cita quedó confirmada.",
+    rejected: "Comprobante rechazado: se le avisó a la clienta y tiene un plazo nuevo.",
+    customerLink: false,
+  },
+};
 
-const OrderPaymentProofs = ({ order, onChange }) => {
+const OrderPaymentProofs = ({ order, onChange, kind = "order" }) => {
+  const config = KINDS[kind];
   const [preview, setPreview] = useState(null); // { proofId, url, isPdf }
   const [rejecting, setRejecting] = useState(null); // proofId
   const [reason, setReason] = useState("");
@@ -40,7 +67,7 @@ const OrderPaymentProofs = ({ order, onChange }) => {
       return;
     }
     try {
-      const response = await axios.get(`${baseUrl}/api/orders/${order._id}/payment-proofs/${proof._id}/file`, {
+      const response = await axios.get(`${baseUrl}${config.filePath(order._id, proof._id)}`, {
         headers: getAuthHeaders(),
         responseType: "blob",
       });
@@ -55,13 +82,13 @@ const OrderPaymentProofs = ({ order, onChange }) => {
     setError("");
     try {
       const response = await axios.post(
-        `${baseUrl}/api/orders/${order._id}/payment-proofs/${proof._id}/review`,
+        `${baseUrl}${config.reviewPath(order._id, proof._id)}`,
         decision === "reject" ? { decision, reason } : { decision },
         { headers: { ...getAuthHeaders(), "Content-Type": "application/json" } }
       );
       setRejecting(null);
       setReason("");
-      onChange(response.data.order, decision === "approve" ? "Comprobante aprobado: el pedido quedó como pagado." : "Comprobante rechazado: se le avisó al cliente.");
+      onChange(response.data[config.resultKey], decision === "approve" ? config.approved : config.rejected);
     } catch (err) {
       setError(err.response?.data?.error?.message || "No fue posible revisar el comprobante.");
     } finally {
@@ -105,10 +132,10 @@ const OrderPaymentProofs = ({ order, onChange }) => {
     try {
       const body = new FormData();
       body.append("file", file);
-      const response = await axios.post(`${baseUrl}/api/orders/${order._id}/payment-proof`, body, { headers: getAuthHeaders() });
+      const response = await axios.post(`${baseUrl}${config.uploadPath(order._id)}`, body, { headers: getAuthHeaders() });
       setFile(null);
       event.target.reset();
-      onChange(response.data.order, "Comprobante agregado: revísalo para aprobar el pago.");
+      onChange(response.data[config.resultKey], "Comprobante agregado: revísalo para aprobar el pago.");
     } catch (err) {
       setError(err.response?.data?.error?.message || "No fue posible subir el comprobante.");
     } finally {
@@ -118,7 +145,7 @@ const OrderPaymentProofs = ({ order, onChange }) => {
 
   return (
     <div style={{ marginTop: "1.5rem" }}>
-      <h4>Comprobantes de pago</h4>
+      <h4>{config.title}</h4>
       {error ? <div className="auth-error">{error}</div> : null}
 
       {proofs.length === 0 ? <p>Sin comprobantes todavía.</p> : null}
@@ -141,7 +168,7 @@ const OrderPaymentProofs = ({ order, onChange }) => {
                   <React.Fragment key={proof._id}>
                     <tr>
                       <td>{formatCalendarDate(proof.uploadedAt) || "—"}</td>
-                      <td>{proof.uploadedBy === "staff" ? "Tienda" : "Cliente"}</td>
+                      <td>{proof.uploadedBy === "staff" ? "Tienda" : kind === "appointment" ? "Clienta" : "Cliente"}</td>
                       <td>{proof.mimeType === "application/pdf" ? "PDF" : "Imagen"}</td>
                       <td>
                         <span className={`badge badge-${info.color}`}>{info.label}</span>
@@ -178,12 +205,12 @@ const OrderPaymentProofs = ({ order, onChange }) => {
                       <tr>
                         <td colSpan={5}>
                           <label>
-                            Motivo del rechazo (se le envía al cliente)
+                            Motivo del rechazo (se le envía a{config.who === "clienta" ? " la clienta" : "l cliente"})
                             <input
                               type="text"
                               value={reason}
                               maxLength={500}
-                              placeholder="Ej. El monto no coincide con el total del pedido"
+                              placeholder={kind === "appointment" ? "Ej. El monto no coincide con el anticipo" : "Ej. El monto no coincide con el total del pedido"}
                               onChange={(e) => setReason(e.target.value)}
                             />
                           </label>
@@ -217,7 +244,7 @@ const OrderPaymentProofs = ({ order, onChange }) => {
         </div>
       ) : null}
 
-      {AWAITING_PAYMENT.includes(order.status) ? (
+      {config.customerLink && config.awaiting.includes(order.status) ? (
         <div style={{ marginTop: "1rem" }}>
           <button type="button" className="btn-secondary" style={{ width: "auto" }} onClick={copyCustomerLink}>
             <i className="fas fa-link" aria-hidden="true" /> Copiar enlace para el cliente
@@ -226,10 +253,10 @@ const OrderPaymentProofs = ({ order, onChange }) => {
         </div>
       ) : null}
 
-      {AWAITING_PAYMENT.includes(order.status) ? (
+      {config.awaiting.includes(order.status) ? (
         <form onSubmit={upload} style={{ maxWidth: "none", margin: "1rem 0 0" }}>
           <label>
-            Subir comprobante a nombre del cliente (JPG, PNG o PDF, máx. 8 MB)
+            Subir comprobante a nombre de{config.who === "clienta" ? " la clienta" : "l cliente"} (JPG, PNG o PDF, máx. 8 MB)
             <input type="file" accept="image/jpeg,image/png,application/pdf" onChange={(e) => setFile(e.target.files?.[0] || null)} />
           </label>
           <button type="submit" disabled={busy || !file} style={{ width: "auto" }}>

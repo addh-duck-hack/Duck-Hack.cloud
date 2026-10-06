@@ -2760,7 +2760,9 @@ paths:
         ni paso; cualquier servicio activo (también los que no se agendan en línea). Fuera del
         horario de la especialista o sobre un bloqueo → 409 OUTSIDE_HOURS; con un servicio que
         ella no tiene asignado → 409 SPECIALIST_DOESNT_DO_SERVICE; con `force: true` se guarda
-        igual. Empalmada con otra cita, nunca (409 SLOT_TAKEN).
+        igual. Empalmada con otra cita, nunca (409 SLOT_TAKEN). Con `requireDeposit: true` la cita
+        entra `pending_deposit` con el anticipo de sus servicios (400 DEPOSIT_NOT_CONFIGURED si
+        ninguno lo pide).
       requestBody:
         required: true
         content:
@@ -2778,6 +2780,7 @@ paths:
                 staffNotes: { type: string }
                 source: { type: string, enum: [phone, walk_in] }
                 status: { type: string, enum: [confirmed, pending] }
+                requireDeposit: { type: boolean, description: "Pedir el anticipo de los servicios (Fase 5.1)." }
                 force: { type: boolean }
                 notifyCustomer: { type: boolean, default: true, description: false = no mandar el correo a la clienta. }
               required: [services, specialist, start, customerName]
@@ -2823,7 +2826,7 @@ paths:
                 start: { type: string, format: date-time }
                 specialist: { type: string }
                 services: { type: array, items: { type: string } }
-                status: { type: string, enum: [pending, confirmed, completed, no_show, cancelled] }
+                status: { type: string, enum: [pending_deposit, deposit_review, pending, confirmed, completed, no_show, cancelled] }
                 customerName: { type: string }
                 customerEmail: { type: string }
                 customerPhone: { type: string }
@@ -2874,6 +2877,7 @@ paths:
                   timezone: { type: string }
                   durationMin: { type: integer }
                   total: { type: number }
+                  depositAmount: { type: number, description: "Anticipo de esos servicios (0 = no piden)." }
                   date: { type: string }
                   slots:
                     type: array
@@ -2904,7 +2908,9 @@ paths:
         Bearer opcional de clienta (la cita queda en su cuenta). "any" asigna a la especialista
         con menos citas ese día. Un candado por especialista evita citas empalmadas; dentro
         se vuelve a revisar la disponibilidad. Estado `confirmed` o `pending` según
-        `autoConfirm`. Manda el correo a la clienta (.ics + Google Calendar + enlace
+        `autoConfirm`; si los servicios piden anticipo y la tienda tiene cuenta SPEI,
+        `pending_deposit` con `deposit` (monto, fecha límite y cuenta; el correo lleva los datos
+        para transferir). Manda el correo a la clienta (.ics + Google Calendar + enlace
         FRONTEND_URL/cita/<id>?token=…, ruta que cada storefront debe implementar) y el aviso
         al negocio. Devuelve `appointmentAccessToken` (header X-Appointment-Token para
         ver/cancelar/reprogramar sin cuenta; vence 30 días después de la cita). Rate limit 20 / 10 min.
@@ -2937,7 +2943,9 @@ paths:
         "400":
           description: VALIDATION_ERROR, SERVICE_NOT_AVAILABLE, SPECIALIST_NOT_AVAILABLE o SPECIALIST_REQUIRED
         "409":
-          description: SLOT_TAKEN (ocupado, fuera de horario, no alineado o fuera de anticipación / días)
+          description: >-
+            SLOT_TAKEN (ocupado, fuera de horario, no alineado o fuera de anticipación / días) o
+            DEPOSIT_TOO_LATE (los servicios piden anticipo y ya no hay tiempo antes del corte)
         "503":
           description: TRY_AGAIN (no se pudo tomar el candado)
 
@@ -3014,6 +3022,109 @@ paths:
           description: APPOINTMENT_TOKEN_INVALID o TOKEN_REQUIRED
         "409":
           description: APPOINTMENT_NOT_CHANGEABLE (cancelada, completada o ya pasó)
+
+  /api/appointments/public/{id}/deposit-proof:
+    post:
+      tags: [Appointments]
+      summary: Subir el comprobante del anticipo
+      operationId: uploadAppointmentDepositProof
+      security: []
+      description: >-
+        Fase 5.1. Mismo acceso que GET /public/{id} (X-Appointment-Token o sesión de la dueña).
+        Multipart con el archivo en `file` (JPG/PNG/PDF, hasta 8 MB, carpeta privada). Solo citas
+        pending_deposit / deposit_review con anticipo, hasta 10 comprobantes; la cita pasa a
+        deposit_review y se avisa al negocio. Rate limit 20 / 15 min.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+        - { in: header, name: X-Appointment-Token, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+              required: [file]
+      responses:
+        "201":
+          description: "Recibido: `{ message, appointment }` (CustomerAppointment)"
+        "400":
+          description: Archivo no válido
+        "401":
+          description: APPOINTMENT_TOKEN_INVALID o TOKEN_REQUIRED
+        "409":
+          description: APPOINTMENT_NOT_AWAITING_DEPOSIT o TOO_MANY_PAYMENT_PROOFS
+
+  /api/appointments/{id}/deposit-proof:
+    post:
+      tags: [Appointments]
+      summary: Subir el comprobante del anticipo a nombre de la clienta (staff)
+      operationId: uploadAppointmentDepositProofStaff
+      description: Módulo `appointments`. Igual que la ruta pública; queda `uploadedBy staff`.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+              required: [file]
+      responses:
+        "201":
+          description: "`{ message, appointment }` (Appointment)"
+        "409":
+          description: APPOINTMENT_NOT_AWAITING_DEPOSIT o TOO_MANY_PAYMENT_PROOFS
+
+  /api/appointments/{id}/deposit-proofs/{proofId}/file:
+    get:
+      tags: [Appointments]
+      summary: Archivo de un comprobante de anticipo (staff)
+      operationId: getAppointmentDepositProofFile
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+        - { in: path, name: proofId, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: El archivo (inline, sin caché)
+        "404":
+          description: PAYMENT_PROOF_NOT_FOUND o PAYMENT_PROOF_FILE_NOT_FOUND
+
+  /api/appointments/{id}/deposit-proofs/{proofId}/review:
+    post:
+      tags: [Appointments]
+      summary: Aprobar o rechazar un comprobante de anticipo
+      operationId: reviewAppointmentDepositProof
+      description: >-
+        Módulo `appointments`. Aprobar marca `depositPaidAt` y confirma la cita (o la deja
+        `pending` si la agenda no confirma sola); correo "Recibimos tu anticipo". Rechazar (con
+        motivo, se le manda a la clienta) la regresa a pending_deposit con una fecha límite nueva
+        si no quedan otros comprobantes por revisar.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+        - { in: path, name: proofId, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                decision: { type: string, enum: [approve, reject] }
+                reason: { type: string, maxLength: 500 }
+              required: [decision]
+      responses:
+        "200":
+          description: "`{ message, appointment }` (Appointment)"
+        "400":
+          description: VALIDATION_ERROR (decisión o motivo faltante)
+        "404":
+          description: PAYMENT_PROOF_NOT_FOUND
+        "409":
+          description: PAYMENT_PROOF_ALREADY_REVIEWED
 
   /api/appointments/public/{id}/reschedule:
     post:
@@ -7712,7 +7823,13 @@ components:
             customer: { type: string, nullable: true }
             source: { type: string, enum: [web, phone, walk_in] }
             staffNotes: { type: string }
-            cancelledBy: { type: string, nullable: true, enum: [customer, staff] }
+            cancelledBy: { type: string, nullable: true, enum: [customer, staff, system], description: "system = anticipo vencido." }
+            depositAmount: { type: number }
+            depositDueAt: { type: string, format: date-time, nullable: true }
+            depositPaidAt: { type: string, format: date-time, nullable: true }
+            paymentProofs:
+              type: array
+              items: { $ref: "#/components/schemas/PaymentProof" }
             cancelReason: { type: string }
             scheduledAt: { type: string, format: date-time, description: Cuándo se fijó el horario actual (alta o última reprogramación). }
             reminderSentAt: { type: string, format: date-time, nullable: true }
@@ -7733,7 +7850,7 @@ components:
       properties:
         _id: { type: string }
         appointmentNumber: { type: integer }
-        status: { type: string, enum: [pending, confirmed, completed, no_show, cancelled] }
+        status: { type: string, enum: [pending_deposit, deposit_review, pending, confirmed, completed, no_show, cancelled] }
         start: { type: string, format: date-time }
         end: { type: string, format: date-time }
         durationMin: { type: integer, description: Suma de los servicios. }
@@ -7761,6 +7878,35 @@ components:
         changeDeadline: { type: string, format: date-time }
         cancelledAt: { type: string, format: date-time, nullable: true }
         attendanceConfirmedAt: { type: string, format: date-time, nullable: true, description: La clienta confirmó que asiste (desde el recordatorio). }
+        deposit:
+          type: object
+          nullable: true
+          description: >-
+            Anticipo (Fase 5.1); null si la cita no lo pide. `spei` (cuenta a la que transferir) solo
+            mientras espera el anticipo (pending_deposit / deposit_review).
+          properties:
+            amount: { type: number }
+            dueAt: { type: string, format: date-time, nullable: true }
+            paidAt: { type: string, format: date-time, nullable: true }
+            concept: { type: string, example: Cita 12 }
+            spei:
+              type: object
+              nullable: true
+              properties:
+                accountHolderName: { type: string }
+                bank: { type: string }
+                clabe: { type: string }
+                phone: { type: string }
+        paymentProofs:
+          type: array
+          items:
+            type: object
+            properties:
+              _id: { type: string }
+              status: { type: string, enum: [pending, approved, rejected] }
+              uploadedAt: { type: string, format: date-time }
+              rejectReason: { type: string }
+        canUploadProof: { type: boolean }
 
     WeeklyShift:
       type: object
@@ -7832,6 +7978,15 @@ components:
             si `reviews` y `appointments` están contratados; no se manda si ya calificó ni a citas
             que terminaron hace más de 14 días.
         reviewRequestHoursAfter: { type: integer, minimum: 1, maximum: 72, description: Horas después de terminar la cita (2 por default). }
+        depositHours: { type: integer, minimum: 1, maximum: 168, description: "Anticipo: horas para subir el comprobante (24 por default)." }
+        depositCutoffHours:
+          type: integer
+          minimum: 0
+          maximum: 168
+          description: >-
+            Anticipo: la fecha límite nunca es después de N horas antes de la cita (12 por default).
+            Una tarea programada (cada 5 min) cancela las citas pending_deposit vencidas y avisa a la
+            clienta y al negocio.
 
     PromoBannerRequest:
       type: object

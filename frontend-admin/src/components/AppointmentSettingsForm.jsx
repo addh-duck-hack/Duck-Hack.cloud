@@ -31,6 +31,8 @@ const AppointmentSettingsForm = () => {
           maxDaysAhead: String(data.maxDaysAhead),
           reminderHoursBefore: String(data.reminderHoursBefore ?? 24),
           reviewRequestHoursAfter: String(data.reviewRequestHoursAfter ?? 2),
+          depositHours: String(data.depositHours ?? 24),
+          depositCutoffHours: String(data.depositCutoffHours ?? 12),
           minHoursToChange: String(data.minHoursToChange),
         })
       )
@@ -59,6 +61,8 @@ const AppointmentSettingsForm = () => {
         ...(can("reviews")
           ? { reviewRequestEnabled: form.reviewRequestEnabled, reviewRequestHoursAfter: Number(form.reviewRequestHoursAfter) }
           : {}),
+        depositHours: Number(form.depositHours),
+        depositCutoffHours: Number(form.depositCutoffHours),
         slotStepMin: Number(form.slotStepMin),
         minNoticeMin: Math.round(Number(form.minNoticeHours) * 60),
         maxDaysAhead: Number(form.maxDaysAhead),
@@ -192,6 +196,25 @@ const AppointmentSettingsForm = () => {
             <small>Una sola vez por cita. Las calificaciones llegan a Reseñas → Citas para aprobarlas y, si quieres, publicarlas como testimonio.</small>
           </fieldset>
         ) : null}
+
+        <fieldset style={{ marginTop: "0.75rem" }}>
+          <legend>Anticipo</legend>
+          <div className="form-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+            <label>
+              Horas para subir el comprobante
+              <input type="number" name="depositHours" min="1" max="168" step="1" value={form.depositHours} onChange={handleChange} required />
+            </label>
+            <label>
+              Y a más tardar, horas antes de la cita
+              <input type="number" name="depositCutoffHours" min="0" max="168" step="1" value={form.depositCutoffHours} onChange={handleChange} required />
+            </label>
+          </div>
+          <small>
+            Aplica a los servicios con anticipo (se configura en cada servicio) y solo si la tienda tiene una cuenta SPEI en Configurar
+            tienda → Ventas y pagos. La cita queda apartada mientras tanto; si no llega el comprobante a tiempo, se cancela sola y se avisa
+            a la clienta.
+          </small>
+        </fieldset>
 
         <div className="form-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
           <label>
