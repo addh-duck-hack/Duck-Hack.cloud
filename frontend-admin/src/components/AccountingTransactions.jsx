@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatCalendarDate } from "../utils/formatCalendarDate";
 import { SOURCE_LABELS, formatMxn } from "../utils/accountingLabels";
+import Alert from "./Alert";
 
 const initialForm = { type: "expense", amount: "", date: "", category: "", description: "", client: "" };
 
@@ -173,8 +174,8 @@ const AccountingTransactions = () => {
         </div>
       </div>
 
-      {message ? <div className="auth-success">{message}</div> : null}
-      {error ? <div className="auth-error">{error}</div> : null}
+      {message ? <Alert type="success">{message}</Alert> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       {/* El formulario sí lleva un tope propio (a diferencia de la sección,
           que ya no lo tiene para que la tabla de abajo use todo el ancho)

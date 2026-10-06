@@ -3,6 +3,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import MonthlyBarChart from "./MonthlyBarChart";
+import Alert from "./Alert";
 
 const MONTH_LABELS = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -87,8 +88,8 @@ const AccountingDashboard = () => {
         </div>
       </div>
 
-      {message ? <div className="auth-success">{message}</div> : null}
-      {error ? <div className="auth-error">{error}</div> : null}
+      {message ? <Alert type="success">{message}</Alert> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       {showOpeningBalanceForm ? (
         <form onSubmit={handleOpeningBalanceSubmit} style={{ maxWidth: 400, marginTop: "1rem" }}>

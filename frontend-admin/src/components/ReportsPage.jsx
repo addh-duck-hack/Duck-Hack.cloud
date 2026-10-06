@@ -4,6 +4,7 @@ import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { ORDER_STATUS_LABELS } from "../utils/orderStatusLabels";
 import { APPOINTMENT_STATUS_LABELS } from "../utils/schedule";
 import SeriesBarChart from "./SeriesBarChart";
+import Alert from "./Alert";
 
 // Reportes (módulo "reports"; backend packages/core-api/modules/reports.js):
 // ventas de la tienda y citas del salón en un rango de fechas, con cifras,
@@ -154,7 +155,7 @@ const ReportsPage = () => {
         </label>
         {isLoading ? <span style={{ color: "var(--placeholder-color)" }}>Cargando...</span> : null}
       </div>
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       {data && !sales && !appts ? <p>No hay módulos de ventas ni de citas contratados para reportar.</p> : null}
 

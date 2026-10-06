@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
+import Alert from "./Alert";
 
 const initialForm = { paidAt: "", coversUntil: "", amount: "", notes: "" };
 
@@ -48,7 +49,7 @@ const AgencyClientHostingPaymentForm = () => {
 
       <h3>Registrar pago de hosting</h3>
 
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
         <label>

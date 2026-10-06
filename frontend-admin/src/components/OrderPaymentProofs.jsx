@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatCalendarDate } from "../utils/formatCalendarDate";
+import Alert from "./Alert";
 
 // Comprobantes de pago SPEI (packages/core-api/lib/paymentProofs.js) de un
 // pedido, del anticipo de una cita o de una tarjeta de regalo (`kind`): ver el archivo, aprobar (el
@@ -158,7 +159,7 @@ const OrderPaymentProofs = ({ order, onChange, kind = "order" }) => {
   return (
     <div style={{ marginTop: "1.5rem" }}>
       <h4>{config.title}</h4>
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       {proofs.length === 0 ? <p>Sin comprobantes todavía.</p> : null}
       {proofs.length > 0 ? (

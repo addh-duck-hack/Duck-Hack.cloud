@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatCalendarDate } from "../utils/formatCalendarDate";
 import { SOURCE_LABELS, formatMxn } from "../utils/accountingLabels";
+import Alert from "./Alert";
 
 const formatDate = (value) => formatCalendarDate(value) || "—";
 
@@ -83,7 +84,7 @@ const InvoiceList = () => {
       </div>
       <p>Comprobantes de pago en PDF sin validez fiscal. Selecciona movimientos del mismo cliente y mes para facturarlos juntos.</p>
 
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <label style={{ maxWidth: 300 }}>
         Filtrar por cliente

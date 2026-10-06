@@ -93,7 +93,10 @@ const { claimEach } = require("../lib/scheduler");
 const { syncAppointmentStamps } = require("../lib/loyalty");
 const { paymentProofSchema, proofRecordFrom, findProof, streamProofFile, discardProofFile } = require("../lib/paymentProofs");
 const { findUsableCard, debitCard } = require("../lib/giftCards");
-const { createPaymentProofUploadMiddlewares } = require("../lib/uploads");
+const fs = require("fs");
+const path = require("path");
+const { createPaymentProofUploadMiddlewares, createMediaUploadMiddlewares, resolveUploadsDir } = require("../lib/uploads");
+const { findMediaUsages } = require("../lib/mediaUsages");
 const {
   appointmentEmailTemplate,
   appointmentBusinessEmailTemplate,
@@ -118,6 +121,8 @@ const APPOINTMENT_STATUSES = ["pending_deposit", "deposit_review", "pending", "c
 // Esperan el anticipo (5.1): apartan el horario pero aún no están confirmadas.
 const DEPOSIT_STATUSES = ["pending_deposit", "deposit_review"];
 const MAX_DEPOSIT_PROOFS = 10;
+const MAX_APPOINTMENT_MEDIA = 30;
+const SAFE_MEDIA_FILE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 // Plazo mínimo que se le da a la clienta para pagar el anticipo.
 const MIN_DEPOSIT_WINDOW_MIN = 30;
 // Estados en los que la clienta todavía puede cancelar o reprogramar.
@@ -324,10 +329,40 @@ const appointmentSchema = new mongoose.Schema(
       ),
       default: undefined,
     },
+    // Fotos / videos de la cita (antes y después, el trabajo terminado). Se
+    // guardan en la biblioteca de medios (URL pública, modules/media.js), así
+    // que solo se suben si la clienta lo autorizó (`mediaConsent`, lo marca
+    // el staff). No salen en la vista de la clienta.
+    media: {
+      type: [
+        new mongoose.Schema(
+          {
+            path: { type: String, required: true, trim: true },
+            kind: { type: String, enum: ["image", "gif", "video"], required: true },
+            addedAt: { type: Date, default: Date.now },
+            addedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+    },
+    mediaConsent: {
+      type: new mongoose.Schema(
+        {
+          given: { type: Boolean, default: false },
+          at: { type: Date, default: null },
+          by: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+        },
+        { _id: false }
+      ),
+      default: undefined,
+    },
   },
   { timestamps: true }
 );
 appointmentSchema.index({ specialist: 1, start: 1 });
+appointmentSchema.index({ "media.path": 1 });
 appointmentSchema.index({ status: 1, depositDueAt: 1, depositExpiredAt: 1 });
 appointmentSchema.index({ status: 1, start: 1, reminderSentAt: 1 });
 appointmentSchema.index({ status: 1, end: 1, reviewRequestSentAt: 1 });
@@ -1974,6 +2009,143 @@ function registerRoutes(app, ctx) {
   staff.get(ID, ensureStaffAppointment, async (req, res) => {
     await req.appointment.populate("specialist", "name color");
     return res.status(200).json(staffView(req.appointment));
+  });
+
+  const respondWithAppointment = async (res, status, appointment, message) => {
+    await appointment.populate("specialist", "name color");
+    return res.status(status).json({ message, appointment: staffView(appointment) });
+  };
+
+  // ---- Fotos y videos de la cita ----
+  // Van a la biblioteca de medios (URL pública, modules/media.js), así que
+  // primero el staff marca que la clienta autorizó subirlas al sitio
+  // (`mediaConsent`). Sin eso, 409 MEDIA_CONSENT_REQUIRED.
+  staff.put(`${ID}/media-consent`, ensureStaffAppointment, async (req, res) => {
+    try {
+      const given = req.body?.given;
+      if (typeof given !== "boolean") return sendError(res, 400, "VALIDATION_ERROR", "given debe ser true o false.");
+      const { appointment } = req;
+      // Retirar el permiso con fotos puestas: primero se quitan (y se borran
+      // de la biblioteca), para no dejar publicado lo que ya no autorizó.
+      if (!given && appointment.media.length) {
+        return sendError(res, 409, "MEDIA_ATTACHED", "Primero quita las fotos y videos de la cita; al quitarlos se borran de la biblioteca de medios.");
+      }
+      appointment.mediaConsent = { given, at: new Date(), by: req.user.id };
+      await appointment.save();
+      return respondWithAppointment(res, 200, appointment, given ? "Autorización registrada." : "Autorización retirada.");
+    } catch (error) {
+      return handleMongooseError(sendError, res, error, "Error al guardar la autorización.");
+    }
+  });
+
+  const mediaUpload = createMediaUploadMiddlewares({ fieldName: "media", filePrefix: "media", maxImageSizeMB: 10, maxVideoSizeMB: 50, sendError });
+  // Antes de leer el archivo: sin autorización o con el máximo, ni se sube.
+  const canAddMedia = (req, res, next) => {
+    if (!req.appointment.mediaConsent?.given) {
+      return sendError(res, 409, "MEDIA_CONSENT_REQUIRED", "Primero marca que la clienta autorizó subir sus fotos al sitio.");
+    }
+    if (req.appointment.media.length >= MAX_APPOINTMENT_MEDIA) {
+      return sendError(res, 409, "MEDIA_LIMIT", `Una cita admite hasta ${MAX_APPOINTMENT_MEDIA} fotos o videos.`);
+    }
+    return next();
+  };
+  const discardMediaFile = async (fileName) => {
+    const uploadsDir = resolveUploadsDir();
+    if (!fileName || !uploadsDir) return;
+    await fs.promises.unlink(path.join(uploadsDir, fileName)).catch(() => {});
+    await mongooseConnection.models.Media?.deleteOne({ fileName }).catch(() => {});
+  };
+
+  staff.post(`${ID}/media`, ensureStaffAppointment, canAddMedia, mediaUpload.uploadMiddleware, mediaUpload.sanitizeAndStoreMiddleware, async (req, res) => {
+    if (!req.savedMedia) return sendError(res, 400, "FILE_REQUIRED", "Se requiere un archivo en el campo media.");
+    const { appointment } = req;
+    const { fileName, path: mediaPath, kind } = req.savedMedia;
+    try {
+      // En la biblioteca con un título que diga de qué cita es.
+      await mongooseConnection.models.Media?.create({
+        fileName,
+        title: `Cita #${appointment.appointmentNumber} · ${appointment.customerName}`.slice(0, 200),
+        altText: appointment.services.map((sv) => sv.name).join(" + ").slice(0, 500),
+        uploadedBy: req.user.id,
+      });
+      // Condicionado: si en medio retiraron el permiso o se llenó, no entra.
+      const updated = await Appointment.findOneAndUpdate(
+        { _id: appointment._id, "mediaConsent.given": true, [`media.${MAX_APPOINTMENT_MEDIA - 1}`]: { $exists: false } },
+        { $push: { media: { path: mediaPath, kind, addedBy: req.user.id } } },
+        { new: true }
+      );
+      if (!updated) {
+        await discardMediaFile(fileName);
+        return sendError(res, 409, "MEDIA_CONSENT_REQUIRED", "La cita ya no admite fotos (sin autorización o llena).");
+      }
+      return respondWithAppointment(res, 201, updated, "Agregado a la cita y a la biblioteca de medios.");
+    } catch (error) {
+      await discardMediaFile(fileName);
+      return handleMongooseError(sendError, res, error, "Error al guardar el archivo.");
+    }
+  });
+
+  // Quitar: sale de la cita y, si nada más lo usa (producto, Configurar
+  // tienda, galería del sitio, otra cita…), también se borra de la biblioteca.
+  staff.delete(`${ID}/media/:fileName`, ensureStaffAppointment, async (req, res) => {
+    try {
+      const { fileName } = req.params;
+      if (!SAFE_MEDIA_FILE.test(fileName || "")) return sendError(res, 400, "INVALID_FILE_NAME", "Nombre de archivo no válido.");
+      const mediaPath = `uploads/${fileName}`;
+      const { appointment } = req;
+      if (!appointment.media.some((m) => m.path === mediaPath)) return sendError(res, 404, "MEDIA_NOT_FOUND", "Ese archivo no está en la cita.");
+      const updated = await Appointment.findByIdAndUpdate(appointment._id, { $pull: { media: { path: mediaPath } } }, { new: true });
+      const usages = await findMediaUsages(mongooseConnection, mediaPath, { exceptAppointment: appointment._id });
+      const doc = await mongooseConnection.models.Media?.findOne({ fileName }).select("inGallery").lean();
+      const keep = usages.length > 0 || Boolean(doc?.inGallery);
+      if (!keep) await discardMediaFile(fileName);
+      return respondWithAppointment(
+        res,
+        200,
+        updated,
+        keep ? "Se quitó de la cita; sigue en la biblioteca de medios porque se usa en otro lugar." : "Se quitó de la cita y se borró de la biblioteca de medios."
+      );
+    } catch (error) {
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al quitar el archivo.");
+    }
+  });
+
+  // ---- Reseñas (módulo reviews) ----
+  // La de esta cita y el historial de la clienta (por cuenta o correo): otras
+  // citas y productos. Si la tienda no tiene Reseñas contratado, `enabled: false`.
+  staff.get(`${ID}/reviews`, ensureStaffAppointment, async (req, res) => {
+    try {
+      const Review = mongooseConnection.models.Review;
+      if (!Review || !(await isModuleContracted(mongooseConnection, "reviews"))) return res.status(200).json({ enabled: false, review: null, history: [] });
+      const { appointment } = req;
+      const review = await Review.findOne({ "target.kind": "appointment", "target.id": appointment._id }).lean();
+      const owner = [];
+      if (appointment.customer) owner.push({ customer: appointment.customer });
+      if (appointment.customerEmail) owner.push({ customerEmail: appointment.customerEmail });
+      const history = owner.length
+        ? await Review.find({ $or: owner, ...(review ? { _id: { $ne: review._id } } : {}) }).sort({ createdAt: -1 }).limit(20).lean()
+        : [];
+      const productIds = history.filter((r) => r.target.kind === "product").map((r) => r.target.id);
+      const products = productIds.length && mongooseConnection.models.Product ? await mongooseConnection.models.Product.find({ _id: { $in: productIds } }).select("name").lean() : [];
+      const productName = new Map(products.map((p) => [String(p._id), p.name]));
+      const view = (r) => ({
+        _id: r._id,
+        kind: r.target.kind,
+        targetId: r.target.id,
+        label:
+          r.target.kind === "appointment"
+            ? `Cita #${r.appointmentInfo?.appointmentNumber ?? "?"}${r.appointmentInfo?.services?.length ? ` · ${r.appointmentInfo.services.join(" + ")}` : ""}`
+            : productName.get(String(r.target.id)) || "Producto",
+        rating: r.rating,
+        comment: r.comment,
+        status: r.status,
+        rejectionReason: r.rejectionReason,
+        createdAt: r.createdAt,
+      });
+      return res.status(200).json({ enabled: true, review: review ? view(review) : null, history: history.map(view) });
+    } catch (error) {
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al consultar las reseñas.");
+    }
   });
 
   // ---- Anticipo (5.1) ----

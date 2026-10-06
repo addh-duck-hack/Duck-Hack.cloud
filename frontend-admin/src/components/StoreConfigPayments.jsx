@@ -4,6 +4,7 @@ import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { MEXICAN_BANKS } from "../utils/mexicanBanks";
 import StoreConfigListEditor from "./StoreConfigListEditor";
 import StoreConfigTabs from "./StoreConfigTabs";
+import Alert from "./Alert";
 
 // Pestaña "Ventas y pagos": límite de compra y lo que el cliente elige en el
 // checkout de la tienda (pasos "Entrega" y "Pago"). Ver
@@ -252,8 +253,8 @@ const StoreConfigPayments = () => {
         pagan.
       </p>
 
-      {message ? <div className="auth-success">{message}</div> : null}
-      {error ? <div className="auth-error">{error}</div> : null}
+      {message ? <Alert type="success">{message}</Alert> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
       {noDeliveryOption ? (
         <div className="auth-error">
           No hay ninguna forma de entrega disponible: activa el envío a domicilio o agrega un punto de venta activo.

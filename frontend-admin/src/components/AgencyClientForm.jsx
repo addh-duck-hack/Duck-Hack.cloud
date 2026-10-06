@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { HOSTING_PLANS, HOSTING_PLAN_IDS, formatMxn } from "../utils/hostingPlans";
 import PhoneInput from "./PhoneInput";
+import Alert from "./Alert";
 
 const initialState = {
   businessName: "",
@@ -161,8 +162,8 @@ const AgencyClientForm = () => {
 
       <h3>{isEditing ? "Editar cliente" : "Nuevo cliente"}</h3>
 
-      {message ? <div className="auth-success">{message}</div> : null}
-      {error ? <div className="auth-error">{error}</div> : null}
+      {message ? <Alert type="success">{message}</Alert> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
         <h4>Datos generales</h4>

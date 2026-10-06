@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatDateTime } from "../utils/schedule";
+import Alert from "./Alert";
 
 // Lista de deseos (módulo "wishlist", packages/core-api/modules/wishlist.js):
 // interruptor del aviso "volvió a estar disponible", avisos de los últimos 30
@@ -59,7 +60,7 @@ const WishlistPage = () => {
     }
   };
 
-  if (enabled === null) return error ? <div className="auth-error">{error}</div> : <p>Cargando...</p>;
+  if (enabled === null) return error ? <Alert type="error">{error}</Alert> : <p>Cargando...</p>;
 
   return (
     <section style={{ maxWidth: 1100 }}>
@@ -69,8 +70,8 @@ const WishlistPage = () => {
         cliente cada vez que se reabastece; pueden darse de baja desde el propio correo.
       </p>
 
-      {error ? <div className="auth-error">{error}</div> : null}
-      {message ? <div className="auth-success">{message}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
+      {message ? <Alert type="success">{message}</Alert> : null}
 
       <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
         <input type="checkbox" checked={enabled} onChange={toggle} disabled={isSaving} style={{ width: "auto" }} />

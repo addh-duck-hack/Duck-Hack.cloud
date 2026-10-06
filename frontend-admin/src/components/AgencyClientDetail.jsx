@@ -7,6 +7,7 @@ import { getDateStatusBadge } from "../utils/dateStatusBadge";
 import { formatBytes } from "../utils/formatBytes";
 import { formatCalendarDate } from "../utils/formatCalendarDate";
 import { SOURCE_LABELS } from "../utils/accountingLabels";
+import Alert from "./Alert";
 
 const formatCurrency = (value) => `$${Number(value || 0).toLocaleString()}`;
 const formatDate = (value) => formatCalendarDate(value) || "—";
@@ -232,8 +233,8 @@ const AgencyClientDetail = () => {
         ) : null}
       </div>
 
-      {message ? <div className="auth-success">{message}</div> : null}
-      {error ? <div className="auth-error">{error}</div> : null}
+      {message ? <Alert type="success">{message}</Alert> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       {client ? (
         <>
