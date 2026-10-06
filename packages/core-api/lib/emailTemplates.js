@@ -463,10 +463,14 @@ const PAYMENT_METHOD_LABELS = {
 // Encabezado compartido (logo + nombre de tienda) entre las plantillas de
 // pedido — extraído para que orderConfirmationEmailTemplate y
 // orderNotificationEmailTemplate se vean idénticas en esta parte.
+// Encabezado de todos los correos: logo de la tienda (si hay) + nombre. El
+// logo va acotado con CSS en línea (40 px de alto, hasta 160 de ancho, sin
+// deformarse): varios clientes de correo ignoran los atributos width/height y
+// lo mostrarían a su tamaño real.
 const renderOrderEmailHeader = (storeName, logoAbsoluteUrl) => `
   <tr>
     <td align="center" style="padding-bottom:24px;">
-      ${logoAbsoluteUrl ? `<img src="${logoAbsoluteUrl}" width="32" height="32" alt="${escapeHtml(storeName)}" style="display:inline-block; vertical-align:middle; border-radius:8px;" />` : ""}
+      ${logoAbsoluteUrl ? `<img src="${logoAbsoluteUrl}" height="40" alt="${escapeHtml(storeName)}" style="display:inline-block; vertical-align:middle; height:40px; width:auto; max-height:40px; max-width:160px; object-fit:contain; border:0; border-radius:6px;" />` : ""}
       <span style="display:inline-block; vertical-align:middle; margin-left:10px; font-family:${monoFont}; font-size:18px; color:${BRAND.white}; letter-spacing:0.02em;">${escapeHtml(storeName)}</span>
     </td>
   </tr>`;
@@ -906,7 +910,7 @@ const wishlistBackInStockEmailTemplate = ({ branding, name, product, productUrl,
             <h1 style="margin:0 0 16px; font-family:${monoFont}; font-size:20px; color:${BRAND.white}; font-weight:700;">¡Ya está disponible!</h1>
             <p style="margin:0 0 20px; font-family:${bodyFont}; font-size:15px; line-height:1.6; color:${BRAND.textDim};">${safeName ? `Hola ${safeName}, u` : "U"}n producto de tus favoritos volvió a tener existencias:</p>
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-              ${product.imageUrl ? `<td width="96" style="padding:0 16px 0 0;"><img src="${product.imageUrl}" width="88" height="88" alt="" style="display:block; border-radius:10px; object-fit:cover;" /></td>` : ""}
+              ${product.imageUrl ? `<td width="96" style="padding:0 16px 0 0;"><img src="${product.imageUrl}" width="88" height="88" alt="" style="display:block; width:88px; height:88px; border-radius:10px; object-fit:cover;" /></td>` : ""}
               <td style="font-family:${bodyFont}; font-size:16px; color:${BRAND.white};">
                 <strong>${escapeHtml(product.name)}</strong><br />
                 <span style="color:${BRAND.textDim}; font-size:14px;">${price}</span>
@@ -965,7 +969,7 @@ const abandonedCartEmailTemplate = ({ branding, name, items, total, cartUrl, cou
     .map(
       (item) => `<tr>
         <td width="56" style="padding:8px 12px 8px 0; border-bottom:1px solid ${BRAND.line};">
-          ${item.imageUrl ? `<img src="${item.imageUrl}" width="48" height="48" alt="" style="display:block; border-radius:8px; object-fit:cover;" />` : ""}
+          ${item.imageUrl ? `<img src="${item.imageUrl}" width="48" height="48" alt="" style="display:block; width:48px; height:48px; border-radius:8px; object-fit:cover;" />` : ""}
         </td>
         <td style="padding:8px 0; border-bottom:1px solid ${BRAND.line}; font-family:${bodyFont}; font-size:14px; color:${BRAND.white};">
           ${escapeHtml(item.name)}${item.variantLabel ? `<br /><span style="color:${BRAND.textDim}; font-size:12px;">${escapeHtml(item.variantLabel)}</span>` : ""}

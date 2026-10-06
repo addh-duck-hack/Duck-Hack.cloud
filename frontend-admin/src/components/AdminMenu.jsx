@@ -75,7 +75,7 @@ const AdminMenu = () => {
 
   return (
     <div>
-      <h2>Panel administrativo</h2>
+      <h2>Servidor</h2>
       {canSeePanel ? (
         <>
           <section style={{ marginTop: "2.5rem" }}>
