@@ -23,7 +23,10 @@ const {
   getOrCreateModel,
 } = require("../lib/moduleHelpers");
 const { createModuleAuthorizer } = require("../lib/permissions");
+const fs = require("fs");
+const path = require("path");
 const { findCategoryByRef, toPublicCategory } = require("./categories");
+const { resolveUploadsDir } = require("../lib/uploads");
 
 const DEPOSIT_TYPES = ["none", "fixed", "percent"];
 const MAX_DURATION_MIN = 600;
@@ -185,6 +188,39 @@ function registerRoutes(app, ctx) {
       return res.status(200).json(toPublicService(service));
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al consultar el servicio.");
+    }
+  });
+
+  // GET /public/:id/media?limit= — fotos y videos de citas con este servicio
+  // cuya clienta autorizó subirlos al sitio (Appointment.mediaConsent, ver
+  // modules/appointments.js). Solo la ruta y el tipo: nada de la clienta. Los
+  // más recientes primero; se omiten los que ya no están en disco.
+  const MAX_SERVICE_MEDIA = 48;
+  router.get("/public/:id/media", validateObjectIdParam, async (req, res) => {
+    try {
+      const service = await Service.findOne({ _id: req.params.id, isActive: true }).select("_id").lean();
+      const Appointment = mongooseConnection.models.Appointment;
+      if (!service || !Appointment) return res.status(200).json({ items: [] });
+      const limit = Math.min(MAX_SERVICE_MEDIA, Math.max(1, Number.parseInt(req.query.limit, 10) || 24));
+      const appointments = await Appointment.find({ "services.service": service._id, "mediaConsent.given": true, "media.0": { $exists: true } })
+        .sort({ start: -1 })
+        .select("media")
+        .limit(MAX_SERVICE_MEDIA)
+        .lean();
+      const uploadsDir = resolveUploadsDir();
+      const items = [];
+      for (const appointment of appointments) {
+        for (const item of [...appointment.media].reverse()) {
+          if (items.length >= limit) break;
+          const fileName = path.basename(item.path || "");
+          if (!uploadsDir || !fileName || !(await fs.promises.stat(path.join(uploadsDir, fileName)).then((st) => st.isFile()).catch(() => false))) continue;
+          items.push({ path: `uploads/${fileName}`, kind: item.kind });
+        }
+        if (items.length >= limit) break;
+      }
+      return res.status(200).json({ items });
+    } catch (error) {
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al consultar las fotos del servicio.");
     }
   });
 

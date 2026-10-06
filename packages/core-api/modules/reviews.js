@@ -153,16 +153,28 @@ function registerRoutes(app, ctx) {
     comment: review.comment,
     customerName: shortName(review.customerName),
     createdAt: review.createdAt,
+    // Reseña de cita: qué servicios se hizo (sin especialista ni fecha exacta).
+    ...(review.target?.kind === "appointment" ? { services: review.appointmentInfo?.services || [] } : {}),
   });
 
   // ---- públicas ----
-  // GET /public?product=&page=&limit= → reseñas aprobadas + resumen
-  // (promedio, conteo y cuántas de cada estrella).
+  // GET /public?product=|service=&page=&limit= → reseñas aprobadas + resumen
+  // (promedio, conteo y cuántas de cada estrella). Con `service`: las
+  // reseñas post-cita de las citas que incluyeron ese servicio.
   router.get("/public", async (req, res) => {
     try {
       const productId = req.query.product;
-      if (!isValidObjectId(productId)) return sendError(res, 400, "VALIDATION_ERROR", "product no válido.");
-      const match = { "target.kind": "product", "target.id": new mongoose.Types.ObjectId(String(productId)), status: "approved" };
+      const serviceId = req.query.service;
+      let match;
+      if (serviceId !== undefined) {
+        if (!isValidObjectId(serviceId)) return sendError(res, 400, "VALIDATION_ERROR", "service no válido.");
+        const Appointment = mongooseConnection.models.Appointment;
+        const appointmentIds = Appointment ? await Appointment.distinct("_id", { "services.service": new mongoose.Types.ObjectId(String(serviceId)) }) : [];
+        match = { "target.kind": "appointment", "target.id": { $in: appointmentIds }, status: "approved" };
+      } else {
+        if (!isValidObjectId(productId)) return sendError(res, 400, "VALIDATION_ERROR", "product no válido.");
+        match = { "target.kind": "product", "target.id": new mongoose.Types.ObjectId(String(productId)), status: "approved" };
+      }
       const limit = Math.min(Math.max(Math.floor(asFiniteNumber(req.query.limit) || 10), 1), MAX_PUBLIC_LIMIT);
       const page = Math.max(Math.floor(asFiniteNumber(req.query.page) || 1), 1);
 
