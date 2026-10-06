@@ -1,0 +1,122 @@
+/* Listado de citas (AppointmentList.jsx). */
+.appt-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.appt-list-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: auto;
+  text-decoration: none;
+}
+
+.appt-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin: 1.2rem 0 0.4rem;
+  border-bottom: 1px solid var(--input-border-color);
+  overflow-x: auto;
+}
+
+.appt-tab {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 2px solid transparent;
+  color: var(--placeholder-color);
+  white-space: nowrap;
+}
+
+.appt-tab:hover,
+.appt-tab:focus-visible {
+  color: var(--text-color);
+}
+
+.appt-tab.is-active {
+  color: var(--heading-color);
+  border-bottom-color: var(--primary-color);
+  font-weight: 600;
+}
+
+.appt-tab-count {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--input-border-color);
+}
+
+.appt-filters {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  max-width: none;
+  margin: 1rem 0;
+}
+
+.appt-filters select,
+.appt-filters button {
+  width: auto;
+}
+
+.appt-filters input {
+  flex: 1 1 220px;
+  width: auto;
+}
+
+.appt-table tbody tr {
+  cursor: pointer;
+}
+
+.appt-table tbody tr:hover,
+.appt-table tbody tr:focus-visible {
+  background: rgba(74, 189, 252, 0.08);
+}
+
+.appt-when {
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.appt-sub {
+  display: block;
+  opacity: 0.7;
+}
+
+.appt-specialist {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.appt-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  flex: none;
+}
+
+.appt-empty {
+  color: var(--placeholder-color);
+}
+
+.appt-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.appt-pager button {
+  width: auto;
+}

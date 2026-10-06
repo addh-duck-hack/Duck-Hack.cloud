@@ -1804,6 +1804,67 @@ function registerRoutes(app, ctx) {
     }
   });
 
+  // GET /list?when=today|upcoming|past&status=&specialist=&q=&page=&limit= —
+  // listado paginado sin límite de rango (la vista "Citas" del panel, junto a la
+  // agenda). Próximas: desde ahora, la más cercana primero; pasadas: la más
+  // reciente primero; hoy: el día en la zona de la agenda. Mismo alcance que
+  // la agenda (colaboradora: solo su especialista). `counts` = cuántas hay en
+  // cada pestaña con los mismos filtros.
+  const LIST_WHEN = ["today", "upcoming", "past"];
+  staff.get("/list", async (req, res) => {
+    try {
+      const when = LIST_WHEN.includes(req.query.when) ? req.query.when : "upcoming";
+      const limit = Math.min(100, Math.max(1, Number.parseInt(req.query.limit, 10) || 25));
+      const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+      const empty = { items: [], total: 0, page, pages: 0, counts: { today: 0, upcoming: 0, past: 0 } };
+
+      const base = {};
+      const scope = await scopeOf(req);
+      if (scope.none) return res.status(200).json(empty);
+      if (scope.specialistId) base.specialist = scope.specialistId;
+      else if (req.query.specialist) {
+        if (!isValidObjectId(req.query.specialist)) return sendError(res, 400, "VALIDATION_ERROR", "specialist no válido.");
+        base.specialist = req.query.specialist;
+      }
+      if (req.query.status) {
+        const statuses = String(req.query.status).split(",").filter((st) => APPOINTMENT_STATUSES.includes(st));
+        if (statuses.length) base.status = { $in: statuses };
+      }
+      const q = asTrimmedString(req.query.q).slice(0, 80);
+      if (q) {
+        const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+        const digits = q.replace(/\D/g, "");
+        base.$or = [{ customerName: rx }, { customerEmail: rx }, { "services.name": rx }, ...(digits.length >= 3 ? [{ customerPhone: new RegExp(digits) }] : [])];
+      }
+
+      const settings = await getSettings(mongooseConnection);
+      const now = new Date();
+      const today = utcToLocal(now.getTime(), settings.timezone).date;
+      const dayStart = new Date(localToUtc(today, "00:00", settings.timezone));
+      const dayEnd = new Date(localToUtc(addDays(today, 1), "00:00", settings.timezone));
+      const ranges = {
+        today: { start: { $gte: dayStart, $lt: dayEnd } },
+        upcoming: { start: { $gte: now } },
+        past: { start: { $lt: now } },
+      };
+      const filter = { ...base, ...ranges[when] };
+
+      const [items, today_, upcoming, past] = await Promise.all([
+        Appointment.find(filter)
+          .sort({ start: when === "past" ? -1 : 1 })
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .populate("specialist", "name color")
+          .lean(),
+        ...LIST_WHEN.map((w) => Appointment.countDocuments({ ...base, ...ranges[w] })),
+      ]);
+      const counts = { today: today_, upcoming, past };
+      return res.status(200).json({ items: items.map(staffView), total: counts[when], page, pages: Math.ceil(counts[when] / limit), counts, timezone: settings.timezone });
+    } catch (error) {
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al listar las citas.");
+    }
+  });
+
   // Datos de contacto en el panel: nombre obligatorio; correo y teléfono opcionales.
   const validateStaffContact = (payload, { partial }) => {
     const out = {};
