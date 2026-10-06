@@ -4959,6 +4959,10 @@ paths:
       tags: [Reviews]
       summary: Mis reseñas
       operationId: listMyReviews
+      description: >-
+        Reseñas de productos de la cuenta y calificaciones de citas (por la cuenta o por el correo de
+        la clienta, para incluir las que dejó desde el enlace del correo sin sesión), las más
+        recientes primero.
       responses:
         "200":
           description: Reseñas del cliente con su estado (y motivo si se rechazó)
@@ -8899,7 +8903,17 @@ components:
       type: object
       properties:
         _id: { type: string }
-        product: { type: string }
+        kind: { type: string, enum: [product, appointment] }
+        product: { type: string, description: Solo en reseñas de producto. }
+        productName: { type: string, description: "Solo en GET /mine, reseñas de producto." }
+        appointment:
+          type: object
+          description: "Solo en GET /mine, calificaciones de cita."
+          properties:
+            _id: { type: string }
+            appointmentNumber: { type: integer, nullable: true }
+            services: { type: array, items: { type: string } }
+            start: { type: string, format: date-time, nullable: true }
         rating: { type: integer }
         comment: { type: string }
         status: { type: string, enum: [pending, approved, rejected] }

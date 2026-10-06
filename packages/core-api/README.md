@@ -168,6 +168,10 @@ vault, not in this repo).
   only, with a short name ("Ana G.") and a 1–5 distribution; `?service=`
   does the same with the approved post-appointment reviews of appointments
   that included that service (each with the `services` done).
+  `GET /mine` (customer's profile) lists her product reviews (by account)
+  and her post-appointment reviews (by account **or email**, since guests
+  review from the email link), each with `kind` plus `productName` or
+  `appointment` (number, services, start).
   Post-appointment reviews (4.2): `GET /appointment/:id` + `POST /appointment`
   with the appointment's `X-Appointment-Token` (guest) or the owner's session;
   only `completed` appointments, one review per appointment (partial unique
