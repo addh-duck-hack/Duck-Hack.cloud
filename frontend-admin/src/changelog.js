@@ -11,6 +11,38 @@
 // `kind`: "new" (función nueva) | "improvement" | "fix".
 const CHANGELOG = [
   {
+    id: "2026-10-06-mayoreo",
+    date: "2026-10-06",
+    kind: "new",
+    modules: ["wholesale"],
+    title: "Mayoreo",
+    body: "En Negocio → Mayoreo registras a los negocios que te compran por volumen, con sus días de crédito y descuento, sus ventas (al entregarlas se descuenta el inventario), los abonos que te van pagando y quién te debe y desde cuándo.",
+  },
+  {
+    id: "2026-10-06-contabilidad-tienda",
+    date: "2026-10-06",
+    kind: "new",
+    modules: ["storeAccounting"],
+    title: "Contabilidad de la tienda",
+    body: "En Negocio → Contabilidad ves tus ingresos y gastos por mes: las ventas, tarjetas de regalo, anticipos y abonos entran solos, y tú registras renta, sueldos y demás gastos. También puedes exportarlo a Excel.",
+  },
+  {
+    id: "2026-10-06-compras-proveedores",
+    date: "2026-10-06",
+    kind: "new",
+    modules: ["storeAccounting"],
+    title: "Compras a proveedores",
+    body: "Registra a tus proveedores y lo que les compras: al recibir una compra sube tu inventario y al pagarla queda como gasto, así sabes también cuánto les debes.",
+  },
+  {
+    id: "2026-10-06-historial-inventario",
+    date: "2026-10-06",
+    kind: "improvement",
+    modules: ["inventory"],
+    title: "Historial de inventario",
+    body: "En Inventario → Historial ves cada entrada y salida de producto (pedidos, ventas, compras y ajustes a mano) con quién la hizo; al corregir una cantidad puedes anotar el motivo.",
+  },
+  {
     id: "2026-10-06-descripcion-larga",
     date: "2026-10-06",
     kind: "improvement",

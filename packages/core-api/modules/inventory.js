@@ -1,8 +1,7 @@
 // Inventario: un registro de stock por producto, o uno por variante si el
-// producto tiene variantes (lib/variants.js). Roadmap eCommerce (ver
-// frontend-admin/src/components/AdminMenu.jsx). No modela un histórico de
-// movimientos en esta entrega — quantity se ajusta directo, igual de simple
-// que el resto de los módulos nuevos (ver plan).
+// producto tiene variantes (lib/variants.js). Cada cambio de cantidad deja un
+// renglón en InventoryMovement (lib/stockMovements.js): el alta y la edición a
+// mano desde aquí, y pedidos/mayoreo/compras vía adjustStock.
 const express = require("express");
 const mongoose = require("mongoose");
 const {
@@ -15,8 +14,14 @@ const {
 } = require("../lib/moduleHelpers");
 const { createModuleAuthorizer } = require("../lib/permissions");
 const { hasVariants, findVariant, variantLabel } = require("../lib/variants");
-const { sendMail } = require("../lib/mailer");
-const { lowStockEmailTemplate } = require("../lib/emailTemplates");
+const {
+  MOVEMENT_REASONS,
+  inventoryMovementSchema,
+  getMovementModel,
+  recalculateStatus,
+  notifyStockAlerts,
+  recordMovement,
+} = require("../lib/stockMovements");
 
 const inventorySchema = new mongoose.Schema(
   {
@@ -38,59 +43,6 @@ inventorySchema.index({ status: 1 });
 // Antes el único era solo `product` (índice "product_1"); al pasar a variantes
 // hay que borrarlo en cada tienda: backend/scripts/migrate-categories-variants.mongo.js.
 inventorySchema.index({ product: 1, variant: 1 }, { unique: true });
-
-const recalculateStatus = (quantity, threshold) => {
-  if (quantity <= 0) return "out_of_stock";
-  if (quantity <= threshold) return "low_stock";
-  return "in_stock";
-};
-
-// Alertas de inventario (§4.3 del Roadmap de cotizaciones): un correo a la
-// tienda cuando un registro EMPEORA de estado (in_stock → low_stock,
-// cualquiera → out_of_stock). Reabastecer o volver a guardar sin cambio no
-// avisa. `changes`: [{ item, previousStatus }] con item ya guardado; varios
-// cambios (p. ej. todos los renglones de un pedido confirmado) van en un solo
-// correo. Respeta StoreConfig.lowStockAlerts. Best-effort: nunca lanza.
-const STATUS_RANK = { in_stock: 0, low_stock: 1, out_of_stock: 2 };
-
-const notifyStockAlerts = async (mongooseConnection, changes) => {
-  try {
-    const worsened = changes.filter(({ item, previousStatus }) => STATUS_RANK[item.status] > (STATUS_RANK[previousStatus] ?? 0));
-    if (worsened.length === 0) return;
-
-    const { StoreConfig, Product } = mongooseConnection.models;
-    const storeConfig = StoreConfig ? await StoreConfig.findOne({ singletonKey: "default" }).lean() : null;
-    if (storeConfig?.lowStockAlerts === false) return;
-    const to = process.env.CONTACT_EMAIL_TO || process.env.EMAIL_USER;
-    if (!to || !Product) return;
-
-    const products = await Product.find({ _id: { $in: worsened.map(({ item }) => item.product) } })
-      .select("name sku options variants")
-      .lean();
-    const byId = new Map(products.map((p) => [String(p._id), p]));
-    const items = worsened.map(({ item }) => {
-      const product = byId.get(String(item.product)) || {};
-      const variant = item.variant ? findVariant(product, item.variant) : null;
-      return {
-        name: product.name || "Producto",
-        variantLabel: variant ? variantLabel(product, variant) : undefined,
-        sku: variant?.sku || product.sku,
-        quantity: item.quantity,
-        threshold: item.lowStockThreshold || 0,
-        status: item.status,
-      };
-    });
-
-    const backendPublicUrl = (process.env.BACKEND_PUBLIC_URL || "").replace(/\/+$/, "");
-    const logoAbsoluteUrl = backendPublicUrl && storeConfig?.logoUrl
-      ? `${backendPublicUrl}/${String(storeConfig.logoUrl).replace(/^\/+/, "")}`
-      : undefined;
-    const { subject, html, text } = lowStockEmailTemplate({ items, storeConfig, logoAbsoluteUrl });
-    await sendMail({ to, subject, text, html });
-  } catch (error) {
-    console.error("No fue posible enviar la alerta de inventario:", error.message);
-  }
-};
 
 const validatePayload = (sendError) => (req, res, next) => {
   const payload = req.body || {};
@@ -132,6 +84,8 @@ const validatePayload = (sendError) => (req, res, next) => {
   }
 
   if (payload.notes !== undefined) req.body.notes = asTrimmedString(payload.notes);
+  // Motivo del ajuste a mano (va al historial, no al registro).
+  req.body.movementNote = asTrimmedString(payload.movementNote).slice(0, 300);
 
   // status nunca se acepta del cliente.
   delete req.body.status;
@@ -142,6 +96,7 @@ const validatePayload = (sendError) => (req, res, next) => {
 function registerRoutes(app, ctx) {
   const { mongooseConnection, verifyToken, sendError } = ctx;
   const Inventory = getOrCreateModel(mongooseConnection, "Inventory", inventorySchema);
+  const InventoryMovement = getMovementModel(mongooseConnection);
 
   const router = express.Router();
   router.use(verifyToken);
@@ -150,6 +105,8 @@ function registerRoutes(app, ctx) {
   const { authorizeModule } = createModuleAuthorizer({ mongooseConnection, sendError });
   const canRead = authorizeModule("inventory");
   const canWrite = authorizeModule("inventory");
+  // Mayoreo y Compras eligen producto con su existencia a la vista.
+  const canReadStock = authorizeModule("inventory", { alsoBy: ["wholesale", "storeAccounting"] });
 
   const validateObjectIdParam = (paramName) => (req, res, next) => {
     if (!isValidObjectId(req.params?.[paramName])) {
@@ -188,7 +145,46 @@ function registerRoutes(app, ctx) {
     return doc;
   };
 
-  router.get("/", canRead, async (req, res) => {
+  // Historial de movimientos (más recientes primero), paginado por `before`
+  // (createdAt del último renglón recibido).
+  router.get("/movements", canRead, async (req, res) => {
+    try {
+      const filter = {};
+      if (req.query.product && isValidObjectId(req.query.product)) filter.product = req.query.product;
+      if (req.query.variant && isValidObjectId(req.query.variant)) filter.variant = req.query.variant;
+      if (MOVEMENT_REASONS.includes(req.query.reason)) filter.reason = req.query.reason;
+      const createdAt = {};
+      const from = req.query.from ? new Date(req.query.from) : null;
+      const to = req.query.to ? new Date(req.query.to) : null;
+      const before = req.query.before ? new Date(req.query.before) : null;
+      if (from && !Number.isNaN(+from)) createdAt.$gte = from;
+      if (to && !Number.isNaN(+to)) createdAt.$lt = to;
+      if (before && !Number.isNaN(+before)) createdAt.$lt = createdAt.$lt && createdAt.$lt < before ? createdAt.$lt : before;
+      if (Object.keys(createdAt).length) filter.createdAt = createdAt;
+      const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+
+      const rows = await InventoryMovement.find(filter)
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .populate("product", "name sku options variants")
+        .populate("by", "name email")
+        .lean();
+      const items = rows.map((row) => {
+        const product = row.product && typeof row.product === "object" ? row.product : null;
+        const variant = product && row.variant ? findVariant(product, row.variant) : null;
+        return {
+          ...sanitizeDoc(row),
+          product: product ? { _id: product._id, name: product.name, sku: product.sku } : row.product,
+          variantLabel: variant ? variantLabel(product, variant) : null,
+        };
+      });
+      return res.status(200).json({ items, hasMore: rows.length === limit });
+    } catch (error) {
+      return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al consultar el historial de inventario.");
+    }
+  });
+
+  router.get("/", canReadStock, async (req, res) => {
     try {
       const filter = {};
       if (req.query.status) filter.status = req.query.status;
@@ -220,6 +216,14 @@ function registerRoutes(app, ctx) {
       const status = recalculateStatus(req.body.quantity, req.body.lowStockThreshold || 0);
       const item = new Inventory({ ...req.body, status });
       await item.save();
+      await recordMovement(mongooseConnection, {
+        product: item.product,
+        variant: item.variant,
+        delta: item.quantity,
+        quantityAfter: item.quantity,
+        reason: "initial",
+        by: req.user?.id,
+      });
       return res.status(201).json({ message: "Inventario registrado.", inventory: sanitizeDoc(item) });
     } catch (error) {
       if (error?.code === 11000) {
@@ -244,12 +248,22 @@ function registerRoutes(app, ctx) {
       try {
         // product es inmutable después de creado (un registro = un producto).
         const previousStatus = req.inventoryItem.status;
+        const previousQuantity = req.inventoryItem.quantity;
         if (req.body.quantity !== undefined) req.inventoryItem.quantity = req.body.quantity;
         if (req.body.lowStockThreshold !== undefined) req.inventoryItem.lowStockThreshold = req.body.lowStockThreshold;
         if (req.body.notes !== undefined) req.inventoryItem.notes = req.body.notes;
         req.inventoryItem.status = recalculateStatus(req.inventoryItem.quantity, req.inventoryItem.lowStockThreshold || 0);
 
         await req.inventoryItem.save();
+        await recordMovement(mongooseConnection, {
+          product: req.inventoryItem.product,
+          variant: req.inventoryItem.variant,
+          delta: req.inventoryItem.quantity - previousQuantity,
+          quantityAfter: req.inventoryItem.quantity,
+          reason: "manual_adjust",
+          note: req.body.movementNote,
+          by: req.user?.id,
+        });
         notifyStockAlerts(mongooseConnection, [{ item: req.inventoryItem, previousStatus }]);
         return res.status(200).json({ message: "Inventario actualizado.", inventory: sanitizeDoc(req.inventoryItem) });
       } catch (error) {
@@ -273,11 +287,8 @@ function registerRoutes(app, ctx) {
 module.exports = {
   name: "inventory",
   registerRoutes,
-  models: { Inventory: inventorySchema },
-  // Reutilizado por modules/orders.js al descontar/restaurar stock cuando un
-  // pedido entra o sale de "confirmed" — mismo criterio de cálculo que este
-  // módulo usa para su propio CRUD, para no tener dos copias de la regla.
+  models: { Inventory: inventorySchema, InventoryMovement: inventoryMovementSchema },
+  // Viven en lib/stockMovements.js; se re-exportan por compatibilidad.
   recalculateStatus,
-  // Y este, para avisar si confirmar un pedido dejó productos en su mínimo.
   notifyStockAlerts,
 };

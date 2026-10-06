@@ -54,9 +54,14 @@ const InventoryList = () => {
     <section>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
         <h3 style={{ margin: 0 }}>Inventario</h3>
-        <button type="button" onClick={() => navigate("/admin/inventory/new")} style={{ width: "auto" }}>
-          Registrar inventario
-        </button>
+        <div style={{ display: "flex", gap: "0.75rem" }}>
+          <button type="button" className="btn-secondary" onClick={() => navigate("/admin/inventory/movements")} style={{ width: "auto" }}>
+            Historial
+          </button>
+          <button type="button" onClick={() => navigate("/admin/inventory/new")} style={{ width: "auto" }}>
+            Registrar inventario
+          </button>
+        </div>
       </div>
       <p>Un registro por producto, o uno por variante si el producto tiene variantes. El estado se calcula solo, no se edita directo.</p>
 
