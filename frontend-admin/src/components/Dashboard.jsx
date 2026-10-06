@@ -8,6 +8,7 @@ import { useDashboardPrefs } from "../hooks/useDashboardPrefs";
 import { CHANGELOG_KINDS } from "../changelog";
 import { ORDER_STATUS_LABELS } from "../utils/orderStatusLabels";
 import { APPOINTMENT_STATUS_LABELS } from "../utils/schedule";
+import { getDateStatusBadge } from "../utils/dateStatusBadge";
 import SeriesBarChart from "./SeriesBarChart";
 import "./Dashboard.css";
 
@@ -230,11 +231,66 @@ const Server = () => {
   );
 };
 
+// Hosting de los clientes de la agencia (módulo agencyClients, en la práctica
+// solo la instancia de Duck-Hack): vencidos, sin pagos y por vencer, con la
+// misma regla de colores que la lista de Clientes (utils/dateStatusBadge.js).
+const HostingDue = () => {
+  const [clients, setClients] = useState(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    axios
+      .get(`${getApiBaseUrl()}/api/agency-clients`, { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } })
+      .then(({ data }) => setClients(data.items || []))
+      .catch((err) => setError(err.response?.data?.error?.message || "No fue posible cargar los clientes."));
+  }, []);
+  if (error) return <Empty>{error}</Empty>;
+  if (!clients) return <p className="dash-muted">Cargando…</p>;
+
+  const due = clients
+    .filter((c) => c.isActive !== false && c.hostingPlan !== "free")
+    .map((c) => ({ client: c, badge: getDateStatusBadge(c.hostingPaidUntil, { emptyLabel: "Sin pagos" }) }))
+    .filter(({ badge }) => badge.color !== "green")
+    .sort((a, b) => new Date(a.client.hostingPaidUntil || 0) - new Date(b.client.hostingPaidUntil || 0));
+  const overdue = due.filter(({ badge }) => badge.color === "red").length;
+
+  return due.length ? (
+    <>
+      <div className="dash-stats">
+        <div>
+          <small>Vencidos o sin pagos</small>
+          <strong>{overdue}</strong>
+        </div>
+        <div>
+          <small>Por vencer</small>
+          <strong>{due.length - overdue}</strong>
+        </div>
+      </div>
+      <ul className="dash-list">
+        {due.map(({ client, badge }) => (
+          <li key={client._id}>
+            <Link className="dash-grow" to={`/admin/agency-clients/${client._id}`}>
+              {client.businessName}
+            </Link>
+            {client.hostingMonthlyCost ? <span className="dash-muted">{formatMxn(client.hostingMonthlyCost)}/mes</span> : null}
+            <span className={`badge badge-${badge.color}`}>{badge.label}</span>
+          </li>
+        ))}
+        <li>
+          <Link to="/admin/agency-clients">Ir a Clientes →</Link>
+        </li>
+      </ul>
+    </>
+  ) : (
+    <Empty>Todos los clientes están al día con su hosting.</Empty>
+  );
+};
+
 // Catálogo: id (lo que se guarda en las preferencias), título, ícono, quién
 // la puede ver y con qué datos se pinta. El orden es el de por default.
 const WIDGETS = [
   { id: "news", title: "Lo nuevo en tu panel", icon: "fa-solid fa-bullhorn", available: () => true, render: () => <News /> },
   { id: "todo", title: "Pendientes", icon: "fa-solid fa-list-check", available: (can, w) => Boolean(w), render: (w) => <Todo items={w.todo} /> },
+  { id: "hostingDue", title: "Hosting de clientes", icon: "fa-solid fa-file-invoice-dollar", available: (can) => can("agencyClients"), render: () => <HostingDue /> },
   { id: "atAGlance", title: "De un vistazo", icon: "fa-solid fa-chart-column", available: (can, w) => Boolean(w?.atAGlance), render: (w) => <AtAGlance data={w.atAGlance} /> },
   { id: "todayAppointments", title: "Citas de hoy", icon: "fa-solid fa-calendar-day", available: (can, w) => Boolean(w?.todayAppointments), render: (w) => <TodayAppointments data={w.todayAppointments} /> },
   { id: "latestOrders", title: "Últimos pedidos", icon: "fa-solid fa-receipt", available: (can, w) => Boolean(w?.latestOrders), render: (w) => <LatestOrders items={w.latestOrders} /> },
