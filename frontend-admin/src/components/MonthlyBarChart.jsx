@@ -17,7 +17,7 @@ const currencyFormatterPrecise = new Intl.NumberFormat("es-MX", { style: "curren
 
 // Algoritmo estándar de "nice numbers" para topes de eje (Heckbert) — evita
 // topes raros como "$1,847" y da ticks redondos (100/200/500/1000...).
-const niceCeil = (value) => {
+export const niceCeil = (value) => {
   if (!(value > 0)) return 100;
   const magnitude = 10 ** Math.floor(Math.log10(value));
   const normalized = value / magnitude;
@@ -31,7 +31,7 @@ const niceCeil = (value) => {
 
 // Path con esquinas superiores redondeadas y base cuadrada (anclada a la
 // línea base) — spec de la skill dataviz para barras/columnas.
-const roundedTopRectPath = (x, y, w, h, r) => {
+export const roundedTopRectPath = (x, y, w, h, r) => {
   if (h <= 0) return "";
   const radius = Math.min(r, w / 2, h);
   return `M${x},${y + h} L${x},${y + radius} Q${x},${y} ${x + radius},${y} L${x + w - radius},${y} Q${x + w},${y} ${x + w},${y + radius} L${x + w},${y + h} Z`;

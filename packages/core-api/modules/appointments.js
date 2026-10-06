@@ -58,6 +58,16 @@
 // (`reviewRequestSentAt`); no se manda si ya calificó. Solo corre si `reviews`
 // y `appointments` están contratados y `reviewRequestEnabled`.
 //
+// 5.1 — anticipo SPEI: si los servicios piden anticipo (`Service.deposit`,
+// fijo o % del precio) y la tienda tiene una cuenta SPEI, la cita del sitio
+// entra `pending_deposit` con `depositAmount` y `depositDueAt` (ahora +
+// `depositHours`, nunca después de `depositCutoffHours` antes de la cita).
+// La clienta sube su comprobante (lib/paymentProofs.js) → `deposit_review` →
+// el staff lo aprueba (→ confirmed, o pending sin confirmación automática) o
+// lo rechaza (→ pending_deposit con plazo nuevo). Una tarea programada
+// cancela las que vencen sin comprobante y avisa a la clienta y al negocio.
+// Los dos estados apartan el horario igual que una cita confirmada.
+//
 // Quién administra: dentro del permiso `appointments`, especialistas,
 // ajustes y bloqueos de todo el negocio son de "encargadas" (super_admin y
 // store_admin). Una collaborator solo ve su especialista y bloquea su propio
@@ -81,7 +91,15 @@ const { normalizeMxPhone } = require("../lib/phone");
 const { notify } = require("../lib/notify");
 const { claimEach } = require("../lib/scheduler");
 const { syncAppointmentStamps } = require("../lib/loyalty");
-const { appointmentEmailTemplate, appointmentBusinessEmailTemplate, appointmentReviewRequestEmailTemplate } = require("../lib/emailTemplates");
+const { paymentProofSchema, proofRecordFrom, findProof, streamProofFile, discardProofFile } = require("../lib/paymentProofs");
+const { findUsableCard, debitCard } = require("../lib/giftCards");
+const { createPaymentProofUploadMiddlewares } = require("../lib/uploads");
+const {
+  appointmentEmailTemplate,
+  appointmentBusinessEmailTemplate,
+  appointmentReviewRequestEmailTemplate,
+  storeSpeiAccount,
+} = require("../lib/emailTemplates");
 const { buildIcs, googleCalendarUrl } = require("../lib/ics");
 const { MINUTE, isValidDate, addDays, localToUtc, utcToLocal, overlaps, workingWindows, slotsForDay } = require("../lib/availability");
 
@@ -96,9 +114,14 @@ const MAX_SERVICES_PER_APPOINTMENT = 5;
 // Rango máximo de días en una consulta de disponibilidad por calendario.
 const MAX_RANGE_DAYS = 62;
 const LOCK_MS = 10 * 1000;
-const APPOINTMENT_STATUSES = ["pending", "confirmed", "completed", "no_show", "cancelled"];
+const APPOINTMENT_STATUSES = ["pending_deposit", "deposit_review", "pending", "confirmed", "completed", "no_show", "cancelled"];
+// Esperan el anticipo (5.1): apartan el horario pero aún no están confirmadas.
+const DEPOSIT_STATUSES = ["pending_deposit", "deposit_review"];
+const MAX_DEPOSIT_PROOFS = 10;
+// Plazo mínimo que se le da a la clienta para pagar el anticipo.
+const MIN_DEPOSIT_WINDOW_MIN = 30;
 // Estados en los que la clienta todavía puede cancelar o reprogramar.
-const CHANGEABLE_STATUSES = ["pending", "confirmed"];
+const CHANGEABLE_STATUSES = ["pending_deposit", "deposit_review", "pending", "confirmed"];
 const PHONE_DIGITS = /^\d{10}$/;
 
 const weeklyShiftSchema = new mongoose.Schema(
@@ -166,6 +189,8 @@ const DEFAULT_SETTINGS = Object.freeze({
   reminderHoursBefore: 24,
   reviewRequestEnabled: true,
   reviewRequestHoursAfter: 2,
+  depositHours: 24,
+  depositCutoffHours: 12,
 });
 // La invitación a calificar solo se manda a citas que terminaron hace menos de esto.
 const REVIEW_REQUEST_MAX_AGE_DAYS = 14;
@@ -199,6 +224,10 @@ const appointmentSettingsSchema = new mongoose.Schema(
     // Reseña post-cita (4.2, módulo `reviews`): correo X horas después de terminar.
     reviewRequestEnabled: { type: Boolean, default: DEFAULT_SETTINGS.reviewRequestEnabled },
     reviewRequestHoursAfter: { type: Number, min: 1, max: 72, default: DEFAULT_SETTINGS.reviewRequestHoursAfter },
+    // Anticipo (5.1): horas para subir el comprobante, y a más tardar N horas
+    // antes de la cita.
+    depositHours: { type: Number, min: 1, max: 168, default: DEFAULT_SETTINGS.depositHours },
+    depositCutoffHours: { type: Number, min: 0, max: 168, default: DEFAULT_SETTINGS.depositCutoffHours },
     // Último folio de cita (se incrementa de forma atómica al agendar).
     lastAppointmentNumber: { type: Number, default: 0 },
   },
@@ -257,7 +286,7 @@ const appointmentSchema = new mongoose.Schema(
     notes: { type: String, trim: true, maxlength: 500, default: "" },
     staffNotes: { type: String, trim: true, maxlength: 1000, default: "" },
     cancelledAt: { type: Date, default: null },
-    cancelledBy: { type: String, enum: ["customer", "staff", null], default: null },
+    cancelledBy: { type: String, enum: ["customer", "staff", "system", null], default: null },
     cancelReason: { type: String, trim: true, maxlength: 300, default: "" },
     history: { type: [appointmentHistorySchema], default: [] },
     // Cuándo se fijó el horario actual (alta o última reprogramación): no se
@@ -274,10 +303,32 @@ const appointmentSchema = new mongoose.Schema(
     // Invitación a calificar (4.2): enviada una sola vez (claimEach).
     reviewRequestSentAt: { type: Date, default: null },
     reviewRequestAttempts: { type: Number, default: 0 },
+    // Anticipo (5.1): 0 = no pide. `depositDueAt` = fecha límite para subir el
+    // comprobante; `depositPaidAt` = cuándo se validó; `depositExpiredAt` lo
+    // marca la tarea que libera las vencidas (claimEach).
+    depositAmount: { type: Number, default: 0, min: 0 },
+    depositDueAt: { type: Date, default: null },
+    depositPaidAt: { type: Date, default: null },
+    depositExpiredAt: { type: Date, default: null },
+    depositExpireAttempts: { type: Number, default: 0 },
+    paymentProofs: { type: [paymentProofSchema], default: [] },
+    // Anticipo pagado con tarjeta de regalo (5.2, lib/giftCards.js).
+    depositGiftCard: {
+      type: new mongoose.Schema(
+        {
+          card: { type: mongoose.Schema.Types.ObjectId, ref: "GiftCard" },
+          code: { type: String, trim: true },
+          amount: { type: Number, min: 0 },
+        },
+        { _id: false }
+      ),
+      default: undefined,
+    },
   },
   { timestamps: true }
 );
 appointmentSchema.index({ specialist: 1, start: 1 });
+appointmentSchema.index({ status: 1, depositDueAt: 1, depositExpiredAt: 1 });
 appointmentSchema.index({ status: 1, start: 1, reminderSentAt: 1 });
 appointmentSchema.index({ status: 1, end: 1, reviewRequestSentAt: 1 });
 appointmentSchema.index({ specialist: 1, status: 1, start: 1, blockedUntil: 1 });
@@ -383,7 +434,9 @@ const validateSettingsPayload = (sendError) => (req, res, next) => {
     integerIn("minHoursToChange", 0, 14 * 24) ||
     integerIn("slotStepMin", 5, 60) ||
     integerIn("reminderHoursBefore", 1, 72) ||
-    integerIn("reviewRequestHoursAfter", 1, 72);
+    integerIn("reviewRequestHoursAfter", 1, 72) ||
+    integerIn("depositHours", 1, 168) ||
+    integerIn("depositCutoffHours", 0, 168);
   if (numberError) return sendError(res, 400, "VALIDATION_ERROR", numberError);
   if (out.slotStepMin !== undefined && ![5, 10, 15, 20, 30, 60].includes(out.slotStepMin)) {
     return sendError(res, 400, "VALIDATION_ERROR", "slotStepMin debe ser 5, 10, 15, 20, 30 o 60.");
@@ -437,6 +490,25 @@ const parseIdList = (value) => {
 // registerRoutes).
 const reminderRunners = new WeakMap();
 const reviewRequestRunners = new WeakMap();
+const depositExpiryRunners = new WeakMap();
+
+// Anticipo de una lista de servicios (Service.deposit: fijo o % de su
+// precio), sin pasar del total.
+const depositAmountOf = (services) => {
+  const sum = services.reduce((acc, sv) => {
+    const dep = sv.deposit || {};
+    if (dep.type === "fixed") return acc + (Number(dep.value) || 0);
+    if (dep.type === "percent") return acc + ((Number(dep.value) || 0) * sv.price) / 100;
+    return acc;
+  }, 0);
+  const total = services.reduce((acc, sv) => acc + sv.price, 0);
+  return Math.round(Math.min(sum, total) * 100) / 100;
+};
+
+// Fecha límite del anticipo: ahora + depositHours, pero a más tardar
+// depositCutoffHours antes de la cita.
+const depositDueAtFor = (startMs, settings, now = Date.now()) =>
+  new Date(Math.min(now + settings.depositHours * 60 * MINUTE, startMs - settings.depositCutoffHours * 60 * MINUTE));
 
 function registerRoutes(app, ctx) {
   const { mongooseConnection, verifyToken, sendError } = ctx;
@@ -501,6 +573,14 @@ function registerRoutes(app, ctx) {
     return `${base}${APPOINTMENT_PAGE_PATH}/${appointment._id}?token=${encodeURIComponent(token)}`;
   };
 
+  // Cuenta SPEI a la que se transfiere el anticipo (la de la tienda).
+  const loadSpeiAccount = async () => {
+    const StoreConfig = mongooseConnection.models.StoreConfig;
+    const config = StoreConfig ? await StoreConfig.findOne({ singletonKey: "default" }).select("paymentMethods speiPayment").lean() : null;
+    return storeSpeiAccount(config);
+  };
+  const depositConcept = (appointment) => `Cita ${appointment.appointmentNumber}`;
+
   const loadBranding = async () => {
     const StoreConfig = mongooseConnection.models.StoreConfig;
     const config = StoreConfig
@@ -527,8 +607,13 @@ function registerRoutes(app, ctx) {
 
     // El recordatorio tiene su propio interruptor (reminderEnabled), no emailCustomer.
     if (customerKind && (settings.emailCustomer || customerKind === "reminder") && appointment.customerEmail) {
-      const kind = customerKind === "booked" && appointment.status === "pending" ? "booked_pending" : customerKind;
-      const cancelled = kind === "cancelled";
+      const kind =
+        customerKind === "booked" && appointment.status === "pending"
+          ? "booked_pending"
+          : customerKind === "booked" && appointment.status === "pending_deposit"
+            ? "booked_deposit"
+            : customerKind;
+      const cancelled = kind === "cancelled" || kind === "deposit_expired";
       const summary = `${appointment.services.map((sv) => sv.name).join(" + ")} — ${branding.storeName}`;
       const manageUrl = customerAppointmentUrl(appointment);
       const description = [
@@ -560,6 +645,14 @@ function registerRoutes(app, ctx) {
         googleUrl: googleCalendarUrl(event),
         reason,
         changeHours: settings.minHoursToChange,
+        deposit: appointment.depositAmount
+          ? {
+              amount: appointment.depositAmount,
+              dueText: appointment.depositDueAt ? formatWhen(appointment.depositDueAt, settings.timezone) : "",
+              spei: await loadSpeiAccount(),
+              concept: depositConcept(appointment),
+            }
+          : undefined,
       });
       await notify({
         channel: "email",
@@ -667,6 +760,36 @@ function registerRoutes(app, ctx) {
   };
   reviewRequestRunners.set(mongooseConnection, runReviewRequests);
 
+  // ---- Anticipos vencidos (5.1) ----
+  // Cancela las citas que siguen esperando su anticipo después de la fecha
+  // límite (libera el horario) y avisa a la clienta y al negocio. Una con
+  // comprobante en revisión no vence: espera al staff.
+  const DEPOSIT_EXPIRED_REASON = "No se recibió el anticipo a tiempo.";
+  const runDepositExpiry = async ({ now = new Date() } = {}) => {
+    if (!(await isModuleContracted(mongooseConnection, "appointments"))) return { skipped: "not_contracted" };
+    return claimEach({
+      Model: Appointment,
+      filter: { status: "pending_deposit", depositDueAt: { $ne: null, $lte: now } },
+      markField: "depositExpiredAt",
+      attemptsField: "depositExpireAttempts",
+      sort: { depositDueAt: 1 },
+      now,
+      handle: async (appointment) => {
+        // Condicionado al estado: si entre tanto subió su comprobante, no se toca.
+        const cancelled = await Appointment.findOneAndUpdate(
+          { _id: appointment._id, status: "pending_deposit" },
+          {
+            $set: { status: "cancelled", cancelledAt: now, cancelledBy: "system", cancelReason: DEPOSIT_EXPIRED_REASON },
+            $push: { history: { type: "status", from: "pending_deposit", to: "cancelled", by: "system", at: now } },
+          },
+          { new: true }
+        );
+        if (cancelled) notifyAppointment(cancelled, { customer: "deposit_expired", business: "deposit_expired", reason: DEPOSIT_EXPIRED_REASON });
+      },
+    });
+  };
+  depositExpiryRunners.set(mongooseConnection, runDepositExpiry);
+
   // Sin await desde los handlers: un correo fallido no tumba la cita.
   const notifyAppointment = (appointment, kinds) => {
     sendAppointmentEmails(appointment, kinds).catch((error) => {
@@ -697,6 +820,7 @@ function registerRoutes(app, ctx) {
       durationMin: services.reduce((sum, sv) => sum + sv.durationMin, 0),
       bufferMin: Math.max(0, ...services.map((sv) => sv.bufferMin || 0)),
       total: Math.round(services.reduce((sum, sv) => sum + sv.price, 0) * 100) / 100,
+      depositAmount: depositAmountOf(services),
     };
   };
 
@@ -857,7 +981,7 @@ function registerRoutes(app, ctx) {
     CHANGEABLE_STATUSES.includes(appointment.status) && Date.now() <= +changeDeadlineOf(appointment, settings);
 
   // Lo que ve la clienta de su cita (sin notas internas).
-  const customerView = (a, settings) => ({
+  const customerView = (a, settings, spei = null) => ({
     _id: a._id,
     appointmentNumber: a.appointmentNumber,
     status: a.status,
@@ -876,7 +1000,28 @@ function registerRoutes(app, ctx) {
     changeDeadline: changeDeadlineOf(a, settings),
     cancelledAt: a.cancelledAt,
     attendanceConfirmedAt: a.attendanceConfirmedAt || null,
+    // Anticipo (5.1): la cuenta solo mientras se espera.
+    deposit: a.depositAmount
+      ? {
+          amount: a.depositAmount,
+          dueAt: a.depositDueAt,
+          paidAt: a.depositPaidAt,
+          concept: depositConcept(a),
+          spei: DEPOSIT_STATUSES.includes(a.status) ? spei : null,
+          giftCard: a.depositGiftCard?.amount ? { code: a.depositGiftCard.code, amount: a.depositGiftCard.amount } : null,
+        }
+      : null,
+    paymentProofs: (a.paymentProofs || []).map((p) => ({
+      _id: p._id,
+      status: p.status,
+      uploadedAt: p.uploadedAt,
+      rejectReason: p.status === "rejected" ? p.rejectReason : undefined,
+    })),
+    canUploadProof: DEPOSIT_STATUSES.includes(a.status) && (a.paymentProofs || []).length < MAX_DEPOSIT_PROOFS,
   });
+  // Con la cuenta SPEI si la cita espera su anticipo.
+  const customerPayload = async (a, settings) =>
+    customerView(a, settings, DEPOSIT_STATUSES.includes(a.status) ? await loadSpeiAccount() : null);
 
   // Bearer opcional de clienta (como el checkout de pedidos): si es válido y
   // es customer, la cita queda en su cuenta; si no, sigue como invitada.
@@ -948,7 +1093,7 @@ function registerRoutes(app, ctx) {
         settings,
         enforce: true,
       });
-      const base = { timezone: settings.timezone, durationMin: resolved.durationMin, total: resolved.total };
+      const base = { timezone: settings.timezone, durationMin: resolved.durationMin, total: resolved.total, depositAmount: resolved.depositAmount };
       if (req.query.date) {
         const slots = [...availability.get(dates[0]).entries()]
           .sort((a, b) => a[0] - b[0])
@@ -1001,6 +1146,21 @@ function registerRoutes(app, ctx) {
         candidates = await orderByLoad(candidates, utcToLocal(startMs, settings.timezone).date, settings.timezone);
       }
 
+      // Anticipo: solo si la tienda tiene a dónde recibirlo.
+      let deposit = null;
+      if (resolved.depositAmount > 0 && (await loadSpeiAccount())) {
+        const dueAt = depositDueAtFor(startMs, settings);
+        if (+dueAt - Date.now() < MIN_DEPOSIT_WINDOW_MIN * MINUTE) {
+          return sendError(
+            res,
+            409,
+            "DEPOSIT_TOO_LATE",
+            `Esta cita pide anticipo: agéndala con al menos ${settings.depositCutoffHours + 1} horas de anticipación o llámanos.`
+          );
+        }
+        deposit = { depositAmount: resolved.depositAmount, depositDueAt: dueAt };
+      }
+
       const customer = optionalCustomer(req);
       const appointment = await bookSlot({
         candidates,
@@ -1023,8 +1183,9 @@ function registerRoutes(app, ctx) {
             start: new Date(startMs),
             end: new Date(startMs + resolved.durationMin * MINUTE),
             blockedUntil: new Date(startMs + (resolved.durationMin + resolved.bufferMin) * MINUTE),
-            status: settings.autoConfirm ? "confirmed" : "pending",
+            status: deposit ? "pending_deposit" : settings.autoConfirm ? "confirmed" : "pending",
             source: "web",
+            ...(deposit || {}),
           }),
       });
       if (!appointment) {
@@ -1032,8 +1193,13 @@ function registerRoutes(app, ctx) {
       }
       notifyAppointment(appointment, { customer: "booked", business: "new" });
       return res.status(201).json({
-        message: appointment.status === "confirmed" ? "¡Tu cita está agendada!" : "Recibimos tu cita; te avisaremos cuando la confirmemos.",
-        appointment: customerView(appointment, settings),
+        message:
+          appointment.status === "confirmed"
+            ? "¡Tu cita está agendada!"
+            : appointment.status === "pending_deposit"
+              ? "Tu horario quedó apartado: transfiere el anticipo y sube tu comprobante para confirmarla."
+              : "Recibimos tu cita; te avisaremos cuando la confirmemos.",
+        appointment: await customerPayload(appointment, settings),
         appointmentAccessToken: signAppointmentAccessToken({ appointmentId: appointment._id, validUntil: appointment.end }),
       });
     } catch (error) {
@@ -1084,8 +1250,108 @@ function registerRoutes(app, ctx) {
 
   router.get("/public/:id", resolveCustomerAccess, async (req, res) => {
     const settings = await getSettings(mongooseConnection);
-    return res.status(200).json({ appointment: customerView(req.appointment, settings) });
+    return res.status(200).json({ appointment: await customerPayload(req.appointment, settings) });
   });
+
+  // ---- Anticipo (5.1): comprobantes ----
+  // La nueva fecha límite al reprogramar o al rechazar un comprobante: la
+  // regla normal, pero nunca menos de MIN_DEPOSIT_WINDOW_MIN desde ahora.
+  const refreshedDueAt = (startMs, settings, { keepEarlier } = {}) => {
+    let due = +depositDueAtFor(startMs, settings);
+    if (keepEarlier) due = Math.min(due, +keepEarlier);
+    return new Date(Math.max(due, Date.now() + MIN_DEPOSIT_WINDOW_MIN * MINUTE));
+  };
+
+  // Solo a una cita que espera su anticipo.
+  const ensureAwaitingDeposit = (req, res, next) => {
+    const { appointment } = req;
+    if (!DEPOSIT_STATUSES.includes(appointment.status) || !appointment.depositAmount) {
+      return sendError(res, 409, "APPOINTMENT_NOT_AWAITING_DEPOSIT", "Esta cita no está esperando un anticipo.");
+    }
+    if ((appointment.paymentProofs || []).length >= MAX_DEPOSIT_PROOFS) {
+      return sendError(res, 409, "TOO_MANY_PAYMENT_PROOFS", `Esta cita ya tiene ${MAX_DEPOSIT_PROOFS} comprobantes; comunícate con nosotros.`);
+    }
+    return next();
+  };
+
+  const proofRateLimiter = createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    code: "RATE_LIMIT_PAYMENT_PROOF_EXCEEDED",
+    message: "Demasiados comprobantes enviados. Intenta de nuevo en unos minutos.",
+    sendError,
+  });
+  const proofUpload = createPaymentProofUploadMiddlewares({ fieldName: "file", sendError });
+
+  // Guarda el comprobante y pasa la cita a "en revisión".
+  const attachDepositProof = async (appointment, savedProof, { uploadedBy, userId }) => {
+    appointment.paymentProofs.push(proofRecordFrom(savedProof, { uploadedBy, userId }));
+    if (appointment.status === "pending_deposit") {
+      appointment.history.push({ type: "status", from: "pending_deposit", to: "deposit_review", by: uploadedBy, user: userId || null });
+      appointment.status = "deposit_review";
+    }
+    return appointment.save();
+  };
+
+  // POST /public/:id/deposit-gift-card { code } — pagar el anticipo con una
+  // tarjeta de regalo (debe alcanzar el anticipo completo). Confirma la cita
+  // al momento (o la deja por confirmar si la agenda no confirma sola).
+  router.post("/public/:id/deposit-gift-card", publicRateLimiter, resolveCustomerAccess, ensureAwaitingDeposit, async (req, res) => {
+    try {
+      const { appointment } = req;
+      const found = await findUsableCard(mongooseConnection, req.body?.code);
+      if (found.error) return sendError(res, found.error.status, found.error.code, found.error.message);
+      if (found.card.balance < appointment.depositAmount) {
+        return sendError(
+          res,
+          409,
+          "GIFT_CARD_INSUFFICIENT",
+          `La tarjeta tiene $${found.card.balance.toLocaleString("es-MX")} y el anticipo es de $${appointment.depositAmount.toLocaleString("es-MX")}.`
+        );
+      }
+      const charged = await debitCard(mongooseConnection, found.card._id, appointment.depositAmount, {
+        appointment: appointment._id,
+        note: `Anticipo de la cita #${appointment.appointmentNumber}`,
+      });
+      if (!charged) return sendError(res, 409, "GIFT_CARD_INSUFFICIENT", "El saldo de la tarjeta cambió. Revisa e intenta de nuevo.");
+      const settings = await getSettings(mongooseConnection);
+      const from = appointment.status;
+      appointment.depositGiftCard = { card: found.card._id, code: found.card.code, amount: appointment.depositAmount };
+      appointment.depositPaidAt = new Date();
+      appointment.status = settings.autoConfirm ? "confirmed" : "pending";
+      appointment.history.push({ type: "status", from, to: appointment.status, by: "customer" });
+      await appointment.save();
+      notifyAppointment(appointment, { customer: "deposit_approved" });
+      return res.status(200).json({ message: "Pagaste el anticipo con tu tarjeta de regalo.", appointment: await customerPayload(appointment, settings) });
+    } catch (error) {
+      return handleMongooseError(sendError, res, error, "Error al pagar el anticipo con la tarjeta.");
+    }
+  });
+
+  // POST /public/:id/deposit-proof — la clienta (token de la cita o sesión)
+  // sube su comprobante: multipart con el archivo en `file` (JPG/PNG/PDF).
+  router.post(
+    "/public/:id/deposit-proof",
+    proofRateLimiter,
+    resolveCustomerAccess,
+    ensureAwaitingDeposit,
+    proofUpload.uploadMiddleware,
+    proofUpload.sanitizeAndStoreMiddleware,
+    async (req, res) => {
+      try {
+        const settings = await getSettings(mongooseConnection);
+        const appointment = await attachDepositProof(req.appointment, req.savedProof, { uploadedBy: "customer" });
+        notifyAppointment(appointment, { business: "deposit_proof" });
+        return res.status(201).json({
+          message: "Recibimos tu comprobante. Te avisaremos en cuanto lo validemos.",
+          appointment: await customerPayload(appointment, settings),
+        });
+      } catch (error) {
+        await discardProofFile(req.savedProof?.fileName);
+        return handleMongooseError(sendError, res, error, "Error al guardar el comprobante.");
+      }
+    }
+  );
 
   // Cancelar desde el sitio: { reason? }. Respeta minHoursToChange.
   router.post("/public/:id/cancel", publicRateLimiter, resolveCustomerAccess, async (req, res) => {
@@ -1185,6 +1451,9 @@ function registerRoutes(app, ctx) {
           appointment.blockedUntil = new Date(startMs + (appointment.durationMin + appointment.bufferMin) * MINUTE);
           appointment.history.push({ type: "rescheduled", from: before, to: { start: appointment.start, specialist: sp.name }, by: "customer" });
           resetReminder(appointment);
+          if (appointment.status === "pending_deposit" && appointment.depositDueAt) {
+            appointment.depositDueAt = refreshedDueAt(startMs, settings, { keepEarlier: appointment.depositDueAt });
+          }
           return appointment.save();
         },
       });
@@ -1575,10 +1844,20 @@ function registerRoutes(app, ctx) {
       const startMs = Date.parse(payload.start);
       if (Number.isNaN(startMs)) return sendError(res, 400, "VALIDATION_ERROR", "start debe ser una fecha y hora válida.");
       const source = ["phone", "walk_in"].includes(payload.source) ? payload.source : "phone";
-      const status = payload.status === "pending" ? "pending" : "confirmed";
+      let status = payload.status === "pending" ? "pending" : "confirmed";
 
       const resolved = await resolveServices(payload.services, { publicOnly: false });
       if (resolved.error) return sendError(res, resolved.error.status, resolved.error.code, resolved.error.message);
+      // Anticipo opcional en el alta manual (`requireDeposit: true`): queda
+      // esperando el comprobante igual que una cita del sitio.
+      let deposit = {};
+      if (payload.requireDeposit === true) {
+        if (!(resolved.depositAmount > 0)) {
+          return sendError(res, 400, "DEPOSIT_NOT_CONFIGURED", "Ninguno de esos servicios pide anticipo (configúralo en Servicios).");
+        }
+        status = "pending_deposit";
+        deposit = { depositAmount: resolved.depositAmount, depositDueAt: refreshedDueAt(startMs, settings) };
+      }
       const { specialist, error } = await loadStaffSpecialist(req, payload.specialist);
       if (error) return sendError(res, ...error);
       const missing = resolved.services.filter((sv) => !specialist.services.some((id) => String(id) === String(sv._id)));
@@ -1604,6 +1883,7 @@ function registerRoutes(app, ctx) {
           blockedUntil: new Date(startMs + (resolved.durationMin + resolved.bufferMin) * MINUTE),
           status,
           source,
+          ...deposit,
           history: [{ type: "status", from: null, to: status, by: "staff", user: req.user.id }],
         });
       });
@@ -1633,6 +1913,84 @@ function registerRoutes(app, ctx) {
   staff.get(ID, ensureStaffAppointment, async (req, res) => {
     await req.appointment.populate("specialist", "name color");
     return res.status(200).json(staffView(req.appointment));
+  });
+
+  // ---- Anticipo (5.1) ----
+  // El staff sube el comprobante que la clienta mandó por WhatsApp o correo.
+  staff.post(
+    `${ID}/deposit-proof`,
+    ensureStaffAppointment,
+    ensureAwaitingDeposit,
+    proofUpload.uploadMiddleware,
+    proofUpload.sanitizeAndStoreMiddleware,
+    async (req, res) => {
+      try {
+        const appointment = await attachDepositProof(req.appointment, req.savedProof, { uploadedBy: "staff", userId: req.user.id });
+        await appointment.populate("specialist", "name color");
+        return res.status(201).json({ message: "Comprobante agregado.", appointment: staffView(appointment) });
+      } catch (error) {
+        await discardProofFile(req.savedProof?.fileName);
+        return handleMongooseError(sendError, res, error, "Error al guardar el comprobante.");
+      }
+    }
+  );
+
+  staff.get(`${ID}/deposit-proofs/:proofId([0-9a-fA-F]{24})/file`, ensureStaffAppointment, async (req, res) => {
+    const proof = findProof(req.appointment, req.params.proofId);
+    if (!proof) return sendError(res, 404, "PAYMENT_PROOF_NOT_FOUND", "Comprobante no encontrado.");
+    const sent = await streamProofFile(res, proof);
+    if (!sent) return sendError(res, 404, "PAYMENT_PROOF_FILE_NOT_FOUND", "El archivo del comprobante ya no existe.");
+    return undefined;
+  });
+
+  // { decision: "approve" | "reject", reason } — aprobar confirma la cita
+  // (o la deja por confirmar si la agenda no confirma sola); rechazar la
+  // regresa a "esperando anticipo" con un plazo nuevo.
+  staff.post(`${ID}/deposit-proofs/:proofId([0-9a-fA-F]{24})/review`, ensureStaffAppointment, async (req, res) => {
+    try {
+      const { appointment } = req;
+      const decision = asTrimmedString(req.body?.decision);
+      const reason = asTrimmedString(req.body?.reason).slice(0, 500);
+      if (!["approve", "reject"].includes(decision)) {
+        return sendError(res, 400, "VALIDATION_ERROR", 'decision debe ser "approve" o "reject".');
+      }
+      if (decision === "reject" && !reason) {
+        return sendError(res, 400, "VALIDATION_ERROR", "Escribe el motivo del rechazo (se le envía a la clienta).");
+      }
+      const proof = findProof(appointment, req.params.proofId);
+      if (!proof) return sendError(res, 404, "PAYMENT_PROOF_NOT_FOUND", "Comprobante no encontrado.");
+      if (proof.status !== "pending") return sendError(res, 409, "PAYMENT_PROOF_ALREADY_REVIEWED", "Este comprobante ya fue revisado.");
+
+      const settings = await getSettings(mongooseConnection);
+      const previousStatus = appointment.status;
+      proof.status = decision === "approve" ? "approved" : "rejected";
+      proof.reviewedBy = req.user.id;
+      proof.reviewedAt = new Date();
+      if (decision === "reject") proof.rejectReason = reason;
+
+      if (decision === "approve") {
+        appointment.depositPaidAt = appointment.depositPaidAt || new Date();
+        if (DEPOSIT_STATUSES.includes(previousStatus)) appointment.status = settings.autoConfirm ? "confirmed" : "pending";
+      } else if (previousStatus === "deposit_review" && !appointment.paymentProofs.some((p) => p.status === "pending")) {
+        appointment.status = "pending_deposit";
+        appointment.depositDueAt = refreshedDueAt(+appointment.start, settings);
+        appointment.depositExpiredAt = null;
+        appointment.depositExpireAttempts = 0;
+      }
+      if (appointment.status !== previousStatus) {
+        appointment.history.push({ type: "status", from: previousStatus, to: appointment.status, by: "staff", user: req.user.id });
+      }
+      await appointment.save();
+      if (decision === "approve" && appointment.status !== previousStatus) notifyAppointment(appointment, { customer: "deposit_approved" });
+      if (decision === "reject") notifyAppointment(appointment, { customer: "deposit_rejected", reason });
+      await appointment.populate("specialist", "name color");
+      return res.status(200).json({
+        message: decision === "approve" ? "Anticipo aprobado." : "Comprobante rechazado.",
+        appointment: staffView(appointment),
+      });
+    } catch (error) {
+      return handleMongooseError(sendError, res, error, "Error al revisar el comprobante.");
+    }
   });
 
   // PUT /:id — cualquiera de: { start, specialist, services, status,
@@ -1707,6 +2065,9 @@ function registerRoutes(app, ctx) {
             appointment.history.push({ type: "rescheduled", from: { start: before.start, specialist: before.specialist }, to: { start: appointment.start, specialist: appointment.specialistName }, by: "staff", user: req.user.id });
             if (startMs !== +before.start) resetReminder(appointment);
           }
+          if (appointment.status === "pending_deposit" && appointment.depositDueAt && startMs !== +before.start) {
+            appointment.depositDueAt = refreshedDueAt(startMs, settings, { keepEarlier: appointment.depositDueAt });
+          }
         }
         if (nextStatus !== appointment.status) {
           appointment.status = nextStatus;
@@ -1719,6 +2080,18 @@ function registerRoutes(app, ctx) {
             appointment.cancelledBy = null;
             appointment.cancelReason = "";
             resetReminder(appointment);
+          }
+          // Anticipo: confirmarla a mano = el negocio ya lo recibió (efectivo,
+          // otra cuenta…); regresarla a "esperando anticipo" da plazo nuevo.
+          if (DEPOSIT_STATUSES.includes(before.status) && ["pending", "confirmed", "completed"].includes(nextStatus) && appointment.depositAmount) {
+            appointment.depositPaidAt = appointment.depositPaidAt || new Date();
+          }
+          if (nextStatus === "pending_deposit") {
+            if (!appointment.depositAmount) throw Object.assign(new Error("sin anticipo"), { code: "NO_DEPOSIT" });
+            appointment.depositPaidAt = null;
+            appointment.depositDueAt = refreshedDueAt(+appointment.start, settings);
+            appointment.depositExpiredAt = null;
+            appointment.depositExpireAttempts = 0;
           }
           appointment.history.push({ type: "status", from: before.status, to: nextStatus, by: "staff", user: req.user.id });
         }
@@ -1746,14 +2119,17 @@ function registerRoutes(app, ctx) {
         const moved = +saved.start !== +previous.start || String(saved.specialist) !== previous.specialist;
         let kind = null;
         if (saved.status === "cancelled" && previous.status !== "cancelled") kind = "cancelled";
-        else if (moved && ["pending", "confirmed"].includes(saved.status)) kind = "rescheduled";
-        else if (saved.status === "confirmed" && ["pending", "cancelled"].includes(previous.status)) kind = "confirmed";
+        else if (moved && CHANGEABLE_STATUSES.includes(saved.status)) kind = "rescheduled";
+        else if (saved.status === "confirmed" && ["pending", "cancelled", ...DEPOSIT_STATUSES].includes(previous.status)) kind = "confirmed";
         if (kind) notifyAppointment(saved, { customer: kind, reason: kind === "cancelled" ? saved.cancelReason : undefined });
       }
       await saved.populate("specialist", "name color");
       return res.status(200).json({ message: "Cita actualizada.", appointment: staffView(saved) });
     } catch (error) {
       if (error?.code === "LOCK_TIMEOUT") return sendError(res, 503, "TRY_AGAIN", error.message);
+      if (error?.code === "NO_DEPOSIT") {
+        return sendError(res, 400, "DEPOSIT_NOT_CONFIGURED", "Esta cita no tiene anticipo; agrégalo en el alta o en los servicios.");
+      }
       return handleMongooseError(sendError, res, error, "Error al actualizar la cita.");
     }
   });
@@ -1762,13 +2138,15 @@ function registerRoutes(app, ctx) {
   app.use("/api/appointments", router);
 }
 
-// Tareas programadas (lib/scheduler.js): recordatorios cada minuto e
-// invitaciones a calificar cada 15 min.
+// Tareas programadas (lib/scheduler.js): recordatorios cada minuto,
+// invitaciones a calificar cada 15 min y anticipos vencidos cada 5 min.
 function registerJobs(scheduler, ctx) {
   const runReminders = reminderRunners.get(ctx.mongooseConnection);
   if (runReminders) scheduler.register("appointment-reminders", 60 * 1000, runReminders);
   const runReviewRequests = reviewRequestRunners.get(ctx.mongooseConnection);
   if (runReviewRequests) scheduler.register("appointment-review-requests", 15 * 60 * 1000, runReviewRequests);
+  const runDepositExpiry = depositExpiryRunners.get(ctx.mongooseConnection);
+  if (runDepositExpiry) scheduler.register("appointment-deposit-expiry", 5 * 60 * 1000, runDepositExpiry);
 }
 
 module.exports = {

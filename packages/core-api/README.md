@@ -93,6 +93,19 @@ vault, not in this repo).
   (`reviewRequestSentAt`), with `FRONTEND_URL/cita/<id>?token=…&accion=calificar`
   — skipped if the appointment was already reviewed. Runs only if `reviews`
   and `appointments` are contracted and `reviewRequestEnabled`.
+  SPEI deposit (5.1): when the booked services ask for one (`Service.deposit`,
+  fixed or % of the price) and the store has an SPEI account (first active
+  SPEI payment method, else `speiPayment` — `lib/emailTemplates.js
+  #storeSpeiAccount`), a site booking enters `pending_deposit` with
+  `depositAmount` and `depositDueAt` (now + `depositHours`, never later than
+  `depositCutoffHours` before the start; too close → `409 DEPOSIT_TOO_LATE`).
+  The customer uploads her proof (`POST /public/:id/deposit-proof`, same
+  `lib/paymentProofs.js` engine as orders) → `deposit_review`; staff approves
+  (→ `confirmed`, or `pending` without `autoConfirm`) or rejects with a reason
+  (→ `pending_deposit` with a new deadline). Both deposit statuses hold the
+  slot. An "appointment-deposit-expiry" job (every 5 min) cancels overdue
+  `pending_deposit` appointments (`cancelledBy: "system"`) and emails the
+  customer and the business. Staff can also book with `requireDeposit`.
 - `modules/products.js` — product catalog (`/api/products`). Optional
   variants (`options` + `variants`, logic in `lib/variants.js`): each variant
   has its own SKU, stock and optional price/image; `lib/purchaseLimits.js
@@ -168,6 +181,22 @@ vault, not in this repo).
   (HTML page with a POST button, so link scanners can't unsubscribe anyone;
   JWT `email_preferences`). Admin: `GET/PUT /abandoned/settings`,
   `GET /abandoned/stats`.
+- `modules/giftCards.js` — gift cards (`/api/gift-cards`, permission key
+  `giftCards`, Fase 5.2): peso balance spent in parts. Bought on the site →
+  `pending_payment` with SPEI data (proof upload with `X-Gift-Card-Token` or
+  the buyer's session, same `lib/paymentProofs.js` engine); staff approves →
+  `active` (validity from that day) and the recipient gets the card by email
+  with a PDF (`ctx.generateGiftCardPdf`, `backend/utils/giftCardPdf.js`);
+  counter sales are active right away. Spent at checkout (`giftCardCode` in
+  `POST /api/orders/public`, refunded if the order is cancelled), at the
+  counter (`POST /redeem` by code, also allowed to `appointments`/`orders`
+  staff) or for an appointment deposit. Shared logic (codes, atomic
+  debit/credit, `syncOrderGiftCard`) in `lib/giftCards.js`; daily
+  "gift-card-expiry" job.
+- `modules/reports.js` — reports (`/api/reports`, permission key `reports`,
+  Fase 5.3): `GET /summary?from&to&groupBy` (sales, appointments, gift cards,
+  loyalty — each null if its module isn't contracted; aggregated in JS over a
+  ≤366-day range) and `GET /export?type=orders|appointments` (CSV with BOM).
 - `modules/promoBanners.js` — promo banners (`/api/promo-banners`,
   permission key `promoBanner`): title, text, image (+ optional mobile
   image), button with a `target` (none / product category / coupon / URL),
@@ -295,14 +324,17 @@ Jobs registered today (each checks its own permission key with
 | --- | --- | --- | --- |
 | `appointment-reminders` | appointments | 1 min | `reminders` + `appointments` |
 | `appointment-review-requests` | appointments | 15 min | `reviews` + `appointments` |
+| `appointment-deposit-expiry` | appointments | 5 min | `appointments` |
 | `abandoned-carts` | cart | 15 min | `abandonedCart` |
 | `wishlist-back-in-stock` | wishlist | 15 min | `wishlist` |
 | `loyalty-expiry` | loyalty | 24 h | `loyalty` (+ points with `expiryMonths`) |
+| `gift-card-expiry` | giftCards | 24 h | `giftCards` |
 
 Customer-facing links these jobs put in emails are a contract every storefront
 that sells the feature must serve: `FRONTEND_URL/cita/<id>?token=…`
 (`&accion=confirmar` / `&accion=calificar`), `FRONTEND_URL/carrito`,
-`FRONTEND_URL/tienda/<productId>`; unsubscribe links point to the backend
+`FRONTEND_URL/tienda/<productId>`, `FRONTEND_URL/tarjeta-regalo/<id>?token=…`
+(gift card purchase page); unsubscribe links point to the backend
 (`BACKEND_PUBLIC_URL/api/cart|wishlist/unsubscribe`).
 
 ### `ctx` contract

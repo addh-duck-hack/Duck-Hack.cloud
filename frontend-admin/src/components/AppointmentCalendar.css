@@ -129,7 +129,14 @@
   color: var(--text-color);
 }
 
-/* Por confirmar: rayado; completada / no asistió / cancelada: apagadas. */
+/* Por confirmar y esperando anticipo: rayado; completada / no asistió /
+   cancelada: apagadas. */
+.agenda-calendar .agenda-event--pending_deposit,
+.agenda-calendar .agenda-event--deposit_review {
+  background-image: repeating-linear-gradient(135deg, rgba(0, 0, 0, 0.25) 0 6px, transparent 6px 12px);
+  border-style: dashed;
+}
+
 .agenda-calendar .agenda-event--pending {
   background-image: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.35) 0 6px, transparent 6px 12px);
 }
@@ -269,6 +276,8 @@
   color: var(--link-color);
 }
 
+.agenda-status--pending_deposit,
+.agenda-status--deposit_review,
 .agenda-status--pending {
   background: rgba(248, 175, 17, 0.18);
   color: var(--primary-color);
@@ -392,4 +401,14 @@
     flex-direction: column;
     gap: 0.5rem;
   }
+}
+
+/* Cobro con tarjeta de regalo dentro del diálogo de la cita. */
+.agenda-giftcard {
+  margin-bottom: 1rem;
+}
+
+.agenda-giftcard summary {
+  cursor: pointer;
+  margin-bottom: 0.5rem;
 }

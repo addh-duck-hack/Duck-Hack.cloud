@@ -8,6 +8,7 @@ const ACCESS_TOKEN_TYPE = "access";
 const EMAIL_VERIFICATION_TOKEN_TYPE = "email_verification";
 const PASSWORD_RESET_TOKEN_TYPE = "password_reset";
 const ORDER_ACCESS_TOKEN_TYPE = "order_access";
+const GIFT_CARD_ACCESS_TOKEN_TYPE = "gift_card_access";
 const APPOINTMENT_ACCESS_TOKEN_TYPE = "appointment_access";
 const EMAIL_PREFERENCES_TOKEN_TYPE = "email_preferences";
 // Opcionales (no están en requiredVars para no romper .env existentes).
@@ -220,6 +221,37 @@ const verifyAppointmentAccessToken = (token) => {
   return decoded;
 };
 
+// Acceso de quien compró una tarjeta de regalo sin cuenta a SU compra (ver
+// el estado, subir el comprobante de pago, descargar la tarjeta; header
+// X-Gift-Card-Token). Lo devuelve POST /api/gift-cards/public y solo sirve
+// para esa tarjeta (`gid`). Vence en 400 días (más que la vigencia default).
+const signGiftCardAccessToken = ({ giftCardId }) => {
+  const config = readJwtConfig();
+  const subject = String(giftCardId);
+  return jwt.sign({ gid: subject, tokenType: GIFT_CARD_ACCESS_TOKEN_TYPE }, config.secret, {
+    algorithm: JWT_ALGORITHM,
+    issuer: config.issuer,
+    audience: config.audience,
+    subject,
+    expiresIn: "400d",
+  });
+};
+
+const verifyGiftCardAccessToken = (token) => {
+  const config = readJwtConfig();
+  const decoded = jwt.verify(token, config.secret, {
+    algorithms: [JWT_ALGORITHM],
+    issuer: config.issuer,
+    audience: config.audience,
+  });
+  if (decoded.tokenType !== GIFT_CARD_ACCESS_TOKEN_TYPE) {
+    const error = new Error("Tipo de token inválido para la tarjeta de regalo.");
+    error.code = "JWT_INVALID_TOKEN_TYPE";
+    throw error;
+  }
+  return decoded;
+};
+
 // Enlace "No quiero recibir estos correos" (carrito abandonado,
 // modules/cart.js): solo sirve para apagar esa preferencia (`pref`) de esa
 // cuenta (`uid`). Vence en 180 días.
@@ -257,6 +289,8 @@ module.exports = {
   verifyAppointmentAccessToken,
   signOrderAccessToken,
   verifyOrderAccessToken,
+  signGiftCardAccessToken,
+  verifyGiftCardAccessToken,
   signEmailVerificationToken,
   signPasswordResetToken,
   verifyAccessToken,
