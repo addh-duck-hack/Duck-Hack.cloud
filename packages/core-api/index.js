@@ -14,6 +14,7 @@ const wishlist = require("./modules/wishlist");
 const promoBanners = require("./modules/promoBanners");
 const giftCards = require("./modules/giftCards");
 const reports = require("./modules/reports");
+const dashboard = require("./modules/dashboard");
 const reviews = require("./modules/reviews");
 const media = require("./modules/media");
 const appHome = require("./modules/appHome");
@@ -35,7 +36,7 @@ const notifyLib = require("./lib/notify");
 // — no es estrictamente necesario ya que todos los módulos se montan de
 // forma síncrona antes de que el server empiece a aceptar requests, pero
 // mantiene el orden legible.
-const modules = [auth, mail, storeConfig, categories, services, appointments, products, inventory, orders, coupons, cart, loyalty, wishlist, promoBanners, giftCards, reviews, reports, media, appHome, permissions];
+const modules = [auth, mail, storeConfig, categories, services, appointments, products, inventory, orders, coupons, cart, loyalty, wishlist, promoBanners, giftCards, reviews, reports, dashboard, media, appHome, permissions];
 
 module.exports = {
   modules,

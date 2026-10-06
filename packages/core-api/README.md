@@ -197,6 +197,14 @@ vault, not in this repo).
   Fase 5.3): `GET /summary?from&to&groupBy` (sales, appointments, gift cards,
   loyalty — each null if its module isn't contracted; aggregated in JS over a
   ≤366-day range) and `GET /export?type=orders|appointments` (CSV with BOM).
+- `modules/dashboard.js` — the admin's "Inicio" (`/api/dashboard`), free for
+  every store (no permission key of its own): `GET /summary` only returns the
+  sections whose source module the role has (pending tasks, sales at a
+  glance, today's appointments — a collaborator only her specialist's —,
+  latest orders, low stock, gift card/loyalty balances); `GET/PUT
+  /preferences` stores `User.dashboardPreferences` (hidden/ordered widgets,
+  welcome dismissed, last changelog entry read). Sales figures come from
+  `lib/reportQueries.js`, shared with `modules/reports.js`.
 - `modules/promoBanners.js` — promo banners (`/api/promo-banners`,
   permission key `promoBanner`): title, text, image (+ optional mobile
   image), button with a `target` (none / product category / coupon / URL),

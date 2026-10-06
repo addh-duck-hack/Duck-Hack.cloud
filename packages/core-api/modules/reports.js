@@ -13,53 +13,16 @@
 // - Tarjetas de regalo y lealtad: vendidas/canjeadas y puntos ganados/usados.
 // GET /export?type=orders|appointments&from&to — CSV para Excel.
 //
-// Se agrega en JS sobre consultas acotadas (un año como máximo): una tienda
+// Las consultas de ventas y fechas viven en lib/reportQueries.js (las usa
+// también el Inicio, modules/dashboard.js). Se agrega en JS sobre consultas acotadas (un año como máximo): una tienda
 // tiene miles de pedidos, no millones, y así no depende de la versión de Mongo
 // ($dateTrunc es 5.0+).
 const express = require("express");
 const { createModuleAuthorizer, isModuleContracted } = require("../lib/permissions");
+const { DAY, round2, localMidnight, localDate, periodKey, allPeriods, salesSummary, timezoneOf } = require("../lib/reportQueries");
 
-const PAID_STATUSES = ["confirmed", "processing", "shipped", "delivered", "ready_for_pickup", "picked_up"];
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_DAYS = 366;
-const DAY = 24 * 60 * 60 * 1000;
-const round2 = (n) => Math.round(Number(n || 0) * 100) / 100;
-
-// Medianoche local (zona `tz`) de una fecha AAAA-MM-DD, en UTC.
-const localMidnight = (dateStr, tz) => {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const guess = Date.UTC(y, m - 1, d);
-  const parts = new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })
-    .formatToParts(new Date(guess))
-    .reduce((acc, p) => ({ ...acc, [p.type]: p.value }), {});
-  const asLocal = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute);
-  return new Date(guess - (asLocal - guess));
-};
-
-const localDate = (date, tz) => new Date(date).toLocaleDateString("en-CA", { timeZone: tz });
-
-// Clave del periodo de una fecha: día (AAAA-MM-DD), semana (lunes) o mes (AAAA-MM).
-const periodKey = (date, tz, groupBy) => {
-  const day = localDate(date, tz);
-  if (groupBy === "month") return day.slice(0, 7);
-  if (groupBy === "week") {
-    const d = new Date(`${day}T12:00:00Z`);
-    const offset = (d.getUTCDay() + 6) % 7;
-    return new Date(+d - offset * DAY).toISOString().slice(0, 10);
-  }
-  return day;
-};
-
-// Todos los periodos del rango, para que la serie no tenga huecos.
-const allPeriods = (from, to, groupBy) => {
-  const keys = [];
-  for (let d = new Date(`${from}T12:00:00Z`); d <= new Date(`${to}T12:00:00Z`); d = new Date(+d + DAY)) {
-    const key = periodKey(d, "UTC", groupBy);
-    if (keys[keys.length - 1] !== key) keys.push(key);
-  }
-  return [...new Set(keys)];
-};
-
 const pct = (part, whole) => (whole > 0 ? Math.round((part / whole) * 1000) / 10 : 0);
 
 const csvCell = (value) => {
@@ -74,15 +37,9 @@ function registerRoutes(app, ctx) {
   router.use(verifyToken);
   router.use(createModuleAuthorizer({ mongooseConnection, sendError }).authorizeModule("reports"));
 
-  const timezoneOf = async () => {
-    const Settings = mongooseConnection.models.AppointmentSettings;
-    const doc = Settings ? await Settings.findOne({ singletonKey: "default" }).select("timezone").lean() : null;
-    return doc?.timezone || "America/Mexico_City";
-  };
-
   // from/to/groupBy validados → { from, to, start, end, groupBy, tz } o { error }.
   const parseRange = async (query) => {
-    const tz = await timezoneOf();
+    const tz = await timezoneOf(mongooseConnection);
     const today = localDate(new Date(), tz);
     const to = DATE_PATTERN.test(query.to || "") ? query.to : today;
     const from = DATE_PATTERN.test(query.from || "") ? query.from : localDate(+localMidnight(to, tz) - 29 * DAY, tz);
@@ -94,71 +51,7 @@ function registerRoutes(app, ctx) {
     return { from, to, start, end, groupBy, tz };
   };
 
-  const salesReport = async ({ start, end, groupBy, tz, from, to }) => {
-    const Order = mongooseConnection.models.Order;
-    if (!Order) return null;
-    const orders = await Order.find({ createdAt: { $gte: start, $lt: end } })
-      .select("status total giftCard discount loyalty shippingCost items customerEmail createdAt deliveryMethod")
-      .lean();
-    const paid = orders.filter((o) => PAID_STATUSES.includes(o.status));
-    const valueOf = (o) => round2((o.total || 0) + (o.giftCard?.refunded ? 0 : o.giftCard?.amount || 0));
-    const revenue = round2(paid.reduce((s, o) => s + valueOf(o), 0));
-
-    const series = new Map(allPeriods(from, to, groupBy).map((k) => [k, { period: k, orders: 0, revenue: 0 }]));
-    for (const o of paid) {
-      const row = series.get(periodKey(o.createdAt, tz, groupBy));
-      if (row) {
-        row.orders += 1;
-        row.revenue = round2(row.revenue + valueOf(o));
-      }
-    }
-
-    const byStatus = {};
-    for (const o of orders) byStatus[o.status] = (byStatus[o.status] || 0) + 1;
-
-    const products = new Map();
-    for (const o of paid) {
-      for (const item of o.items || []) {
-        const key = `${item.product}|${item.variant || ""}`;
-        const row = products.get(key) || { product: item.product, name: item.productName + (item.variantLabel ? ` · ${item.variantLabel}` : ""), quantity: 0, revenue: 0 };
-        row.quantity += item.quantity || 0;
-        row.revenue = round2(row.revenue + (item.subtotal || 0));
-        products.set(key, row);
-      }
-    }
-
-    // Clientes por correo: nuevos = su primer pedido pagado cae en el rango.
-    const emails = [...new Set(paid.map((o) => o.customerEmail).filter(Boolean))];
-    const before = emails.length
-      ? await Order.distinct("customerEmail", { customerEmail: { $in: emails }, status: { $in: PAID_STATUSES }, createdAt: { $lt: start } })
-      : [];
-    const coupons = new Map();
-    for (const o of paid) {
-      if (!o.discount?.code) continue;
-      const row = coupons.get(o.discount.code) || { code: o.discount.code, uses: 0, discount: 0 };
-      row.uses += 1;
-      row.discount = round2(row.discount + (o.discount.amount || 0));
-      coupons.set(o.discount.code, row);
-    }
-
-    return {
-      orders: paid.length,
-      revenue,
-      avgTicket: paid.length ? round2(revenue / paid.length) : 0,
-      itemsSold: [...products.values()].reduce((s, p) => s + p.quantity, 0),
-      discounts: round2(paid.reduce((s, o) => s + (o.discount?.amount || 0), 0)),
-      pointsRedeemed: round2(paid.reduce((s, o) => s + (o.loyalty?.redeemed || 0), 0)),
-      giftCardPaid: round2(paid.reduce((s, o) => s + (o.giftCard?.refunded ? 0 : o.giftCard?.amount || 0), 0)),
-      shipping: round2(paid.reduce((s, o) => s + (o.shippingCost || 0), 0)),
-      allOrders: orders.length,
-      series: [...series.values()],
-      byStatus: Object.entries(byStatus).map(([status, count]) => ({ status, count })).sort((a, b) => b.count - a.count),
-      topProducts: [...products.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 10),
-      customers: { total: emails.length, returning: before.length, new: emails.length - before.length },
-      coupons: [...coupons.values()].sort((a, b) => b.uses - a.uses),
-      deliveryMethods: ["shipping", "pickup"].map((m) => ({ method: m, count: paid.filter((o) => o.deliveryMethod === m).length })),
-    };
-  };
+  const salesReport = (range) => salesSummary(mongooseConnection, range);
 
   const appointmentsReport = async ({ start, end, groupBy, tz, from, to }) => {
     const Appointment = mongooseConnection.models.Appointment;
