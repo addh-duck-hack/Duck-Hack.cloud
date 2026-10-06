@@ -47,6 +47,16 @@ Object.entries(STORE_SECTION_TYPES).forEach(([type, def]) => {
   SECTION_TYPES[type] = { ...def, create: () => ({}) };
 });
 
+// Secciones que muestran contenido de otro módulo del panel (no de Configurar
+// tienda): "promoBanners" = los banners de promociones del Inicio (módulo
+// Banners), mismos que en el sitio web. Sin campos propios además del título.
+export const MODULE_SECTION_TYPES = {
+  promoBanners: { label: "Banners de promociones", icon: "fas fa-rectangle-ad", path: "/admin/promo-banners", pathLabel: "Banners" },
+};
+Object.entries(MODULE_SECTION_TYPES).forEach(([type, def]) => {
+  SECTION_TYPES[type] = { ...def, create: () => ({}) };
+});
+
 // Elementos que la app mostrará de una sección de tienda: los activos
 // (métricas no tienen isActive, cuentan todas). Mismo criterio que el backend.
 export const countActiveStoreItems = (storeConfig, type) => {
@@ -83,7 +93,12 @@ const newId = () =>
 export const createSection = (type) => ({ id: newId(), type, visible: true, title: "", ...SECTION_TYPES[type].create() });
 
 // Resumen de una línea para la lista del editor.
-export const summarizeSection = (section, productsById, storeConfig) => {
+// `promoCount`: banners vigentes del Inicio (null si no se pudieron consultar).
+export const summarizeSection = (section, productsById, storeConfig, promoCount = null) => {
+  if (section.type === "promoBanners") {
+    if (promoCount === null) return "Banners de promociones del Inicio";
+    return promoCount ? `${promoCount} banner(s) vigente(s) del Inicio` : "Sin banners vigentes para el Inicio — no se mostrará";
+  }
   if (STORE_SECTION_TYPES[section.type]) {
     const count = countActiveStoreItems(storeConfig, section.type);
     return count ? `${count} elemento(s) activo(s) en la tienda` : "Sin elementos activos en la tienda — no se mostrará";

@@ -6634,7 +6634,11 @@ paths:
         carrusel sin productos no se envía. Las secciones `store*` (hero,
         métricas, comandos, servicios, planes, FAQs, equipo, testimonios)
         reutilizan el contenido de Configurar tienda y vienen resueltas en
-        `items`. **La app debe ignorar los `type`
+        `items`. La sección `promoBanners` muestra los banners de promociones
+        del Inicio (placement `home` o `all`; mismas reglas y forma que
+        `GET /api/promo-banners/public?placement=home`) en `items`; no se envía
+        si no hay banners vigentes o la tienda no contrató `promoBanner`.
+        **La app debe ignorar los `type`
         que no conozca**, para que una versión vieja siga funcionando cuando
         se agregue un tipo nuevo. Si nunca se ha configurado, `sections` es `[]`.
       responses:
@@ -7170,6 +7174,7 @@ components:
         - $ref: "#/components/schemas/AppHomeStoreFaqsSection"
         - $ref: "#/components/schemas/AppHomeStoreTeamSection"
         - $ref: "#/components/schemas/AppHomeStoreTestimonialsSection"
+        - $ref: "#/components/schemas/AppHomePromoBannersSection"
       discriminator:
         propertyName: type
         mapping:
@@ -7185,6 +7190,7 @@ components:
           storeFaqs: "#/components/schemas/AppHomeStoreFaqsSection"
           storeTeam: "#/components/schemas/AppHomeStoreTeamSection"
           storeTestimonials: "#/components/schemas/AppHomeStoreTestimonialsSection"
+          promoBanners: "#/components/schemas/AppHomePromoBannersSection"
 
     AppHomeStoreHeroSection:
       type: object
@@ -7372,6 +7378,46 @@ components:
           readOnly: true
           items:
             $ref: "#/components/schemas/TeamMember"
+      required: [type]
+
+    AppHomePromoBannersSection:
+      type: object
+      description: >
+        Banners de promociones del módulo Banners marcados para el Inicio
+        (placement `home` o `all`). No guarda contenido propio; en
+        GET /api/app-home/public trae `items` con la misma forma y reglas que
+        GET /api/promo-banners/public?placement=home (activos, en fechas, destino
+        vigente: `target` resuelto como category {slug, name}, coupon {code, label,
+        minPurchase, endsAt}, url {url} o none). Sin banners vigentes, o sin el
+        módulo `promoBanner` contratado, no se envía.
+      properties:
+        id:
+          type: string
+          maxLength: 40
+        type:
+          type: string
+          enum: [promoBanners]
+        visible:
+          type: boolean
+          default: true
+        title:
+          type: string
+          maxLength: 120
+        items:
+          type: array
+          readOnly: true
+          items:
+            type: object
+            properties:
+              _id: { type: string }
+              title: { type: string }
+              text: { type: string }
+              image: { type: string, description: Ruta de Medios (uploads/...) }
+              mobileImage: { type: string }
+              buttonLabel: { type: string }
+              placement: { type: string, enum: [home, all] }
+              endsAt: { type: string, format: date-time, nullable: true }
+              target: { type: object, additionalProperties: true }
       required: [type]
 
     AppHomeStoreTestimonialsSection:

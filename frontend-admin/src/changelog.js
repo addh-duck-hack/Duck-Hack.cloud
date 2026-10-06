@@ -11,6 +11,14 @@
 // `kind`: "new" (función nueva) | "improvement" | "fix".
 const CHANGELOG = [
   {
+    id: "2026-10-06-app-banners-promociones",
+    date: "2026-10-06",
+    kind: "new",
+    modules: ["appConfig"],
+    title: "Banners de promociones en la app",
+    body: "En Configurar App → Home ya puedes agregar la sección \"Banners de promociones\": muestra en la app los mismos banners del Inicio que ves en tu sitio web, y se actualiza sola cuando los editas en Banners.",
+  },
+  {
     id: "2026-10-06-mayoreo",
     date: "2026-10-06",
     kind: "new",
