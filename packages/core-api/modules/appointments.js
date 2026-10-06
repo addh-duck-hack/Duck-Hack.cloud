@@ -363,6 +363,8 @@ const appointmentSchema = new mongoose.Schema(
 );
 appointmentSchema.index({ specialist: 1, start: 1 });
 appointmentSchema.index({ "media.path": 1 });
+// Reseñas y fotos públicas de un servicio (modules/reviews.js, services.js).
+appointmentSchema.index({ "services.service": 1, start: -1 });
 appointmentSchema.index({ status: 1, depositDueAt: 1, depositExpiredAt: 1 });
 appointmentSchema.index({ status: 1, start: 1, reminderSentAt: 1 });
 appointmentSchema.index({ status: 1, end: 1, reviewRequestSentAt: 1 });
