@@ -38,6 +38,8 @@ const PERMISSION_MODULES = [
   { key: "giftCards", label: "Tarjetas de regalo" },
   { key: "reviews", label: "Reseñas" },
   { key: "reports", label: "Reportes" },
+  { key: "wholesale", label: "Mayoreo (clientes, ventas y cuentas por cobrar)" },
+  { key: "storeAccounting", label: "Contabilidad de la tienda (gastos, compras y proveedores)" },
   { key: "media", label: "Medios" },
   { key: "users", label: "Usuarios" },
   { key: "agencyClients", label: "Clientes" },

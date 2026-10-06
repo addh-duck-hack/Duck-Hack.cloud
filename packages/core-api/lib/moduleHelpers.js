@@ -40,7 +40,22 @@ const isValidObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
 // más de una vez sobre la misma conexión (hot-reload en dev, tests).
 const getOrCreateModel = (connection, name, schema) => connection.models[name] || connection.model(name, schema);
 
+// Crea un documento con folio consecutivo (`field` = máximo + 1, índice
+// único). Si dos altas toman el mismo número a la vez, la segunda choca con
+// el índice y se reintenta con el siguiente.
+const createWithFolio = async (Model, field, data, attempts = 5) => {
+  for (let i = 0; ; i += 1) {
+    const last = await Model.findOne({ [field]: { $ne: null } }).sort({ [field]: -1 }).select(field).lean();
+    try {
+      return await Model.create({ ...data, [field]: (last?.[field] || 0) + 1 });
+    } catch (error) {
+      if (error?.code !== 11000 || !error?.keyPattern?.[field] || i >= attempts - 1) throw error;
+    }
+  }
+};
+
 module.exports = {
+  createWithFolio,
   sanitizeDoc,
   handleMongooseError,
   asTrimmedString,
