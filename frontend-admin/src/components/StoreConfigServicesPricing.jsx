@@ -79,7 +79,8 @@ const StoreConfigServicesPricing = () => {
   const baseUrl = getApiBaseUrl();
   const getAuthHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem("token")}` });
 
-  const loadConfig = async () => {
+  // Al entrar, sin aviso; con "Recargar" (acción de la persona), sí.
+  const loadConfig = async ({ announce = false } = {}) => {
     setIsLoading(true);
     setError("");
     setMessage("");
@@ -89,7 +90,7 @@ const StoreConfigServicesPricing = () => {
       setPricingPlans((response.data?.pricingPlans || []).map(normalizePlan));
       setCommonPlanChecks(response.data?.commonPlanChecks || []);
       setFaqs(response.data?.faqs || []);
-      setMessage("Configuración cargada.");
+      if (announce) setMessage("Se recargó la configuración guardada.");
     } catch (err) {
       setError(err.response?.data?.error?.message || "No fue posible cargar la configuración.");
     } finally {
@@ -187,7 +188,7 @@ const StoreConfigServicesPricing = () => {
           <button type="submit" disabled={isLoading} style={{ width: "auto" }}>
             {isLoading ? "Guardando..." : "Guardar"}
           </button>
-          <button type="button" onClick={loadConfig} disabled={isLoading} className="btn-secondary" style={{ width: "auto" }}>
+          <button type="button" onClick={() => loadConfig({ announce: true })} disabled={isLoading} className="btn-secondary" style={{ width: "auto" }}>
             Recargar
           </button>
         </div>
