@@ -10,6 +10,7 @@ import PromoBanners from '../ui/PromoBanners';
 import RichText from '../ui/RichText';
 import { Stars } from '../ui/bits';
 import { fmtDuration, mediaUrl, money } from '../utils/format';
+import { htmlExcerpt } from '../utils/htmlExcerpt';
 import { listItems, normalizeProduct } from '../utils/products';
 
 const Hero = () => {
@@ -35,24 +36,38 @@ const Hero = () => {
   );
 };
 
-export const ServiceCard = ({ service }) => (
-  <article className="card service-card">
-    {service.image ? <img src={mediaUrl(service.image)} alt="" loading="lazy" /> : null}
-    <div className="service-card__body">
-      <h3>{service.name}</h3>
-      {service.description ? <RichText html={service.description} className="muted" /> : null}
-      <p className="service-card__meta">
-        <span><i className="fa-regular fa-clock" aria-hidden="true" /> {fmtDuration(service.durationMin)}</span>
-        <strong>{service.priceFrom ? 'Desde ' : ''}{money(service.price)}</strong>
-      </p>
-      {service.bookableOnline !== false ? (
-        <Link className="btn btn--small" to={`/agendar?servicio=${service._id}`}>Agendar</Link>
-      ) : (
-        <small className="muted">Agenda por teléfono o WhatsApp</small>
-      )}
-    </div>
-  </article>
-);
+// Tarjeta de servicio (Inicio y Servicios): un extracto de la descripción en
+// texto plano; la imagen y el nombre llevan a su página (/servicios/:id) con
+// la descripción completa, fotos y reseñas.
+export const ServiceCard = ({ service }) => {
+  const to = `/servicios/${service._id}`;
+  const excerpt = htmlExcerpt(service.description, 150);
+  return (
+    <article className="card service-card">
+      {service.image ? (
+        <Link to={to} className="service-card__media" tabIndex={-1} aria-hidden="true">
+          <img src={mediaUrl(service.image)} alt="" loading="lazy" />
+        </Link>
+      ) : null}
+      <div className="service-card__body">
+        <h3><Link to={to} className="service-card__link">{service.name}</Link></h3>
+        {excerpt ? <p className="muted service-card__excerpt">{excerpt}</p> : null}
+        <p className="service-card__meta">
+          <span><i className="fa-regular fa-clock" aria-hidden="true" /> {fmtDuration(service.durationMin)}</span>
+          <strong>{service.priceFrom ? 'Desde ' : ''}{money(service.price)}</strong>
+        </p>
+        <div className="service-card__actions">
+          {service.bookableOnline !== false ? (
+            <Link className="btn btn--small" to={`/agendar?servicio=${service._id}`}>Agendar</Link>
+          ) : (
+            <small className="muted">Agenda por teléfono o WhatsApp</small>
+          )}
+          <Link className="service-card__more" to={to}>Ver detalles <i className="fa-solid fa-arrow-right" aria-hidden="true" /></Link>
+        </div>
+      </div>
+    </article>
+  );
+};
 
 const Specialists = () => {
   const { data } = useApi('/api/appointments/specialists/public');

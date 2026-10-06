@@ -21,6 +21,7 @@ import { Contact, Legal, NotFound } from './pages/Info';
 import Order from './pages/Order';
 import Product from './pages/Product';
 import Services from './pages/Services';
+import ServiceDetail from './pages/ServiceDetail';
 import { GiftCardPurchase, GiftCardShop } from './pages/GiftCards';
 import Shop from './pages/Shop';
 
@@ -34,6 +35,7 @@ const App = () => (
               <Route element={<Layout />}>
                 <Route path="/" element={<Home />} />
                 <Route path="/servicios" element={<Services />} />
+                <Route path="/servicios/:id" element={<ServiceDetail />} />
                 <Route path="/agendar" element={<Book />} />
                 <Route path="/cita/:id" element={<Appointment />} />
                 <Route path="/tienda" element={<Shop />} />

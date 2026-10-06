@@ -156,6 +156,47 @@ legend { font-family: var(--font-heading); font-size: 1.2rem; font-weight: 700; 
 .service-card__body h3 { margin: 0; }
 .service-card__meta { display: flex; justify-content: space-between; margin: 0; }
 .service-card .btn { justify-self: start; }
+/* Tarjeta con extracto: imagen y nombre llevan a /servicios/:id. */
+.service-card { transition: transform .15s ease, box-shadow .15s ease; }
+.service-card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0, 0, 0, .08); }
+.service-card__media { display: block; overflow: hidden; }
+.service-card__media img { transition: transform .3s ease; }
+.service-card:hover .service-card__media img { transform: scale(1.03); }
+.service-card__link { color: inherit; text-decoration: none; }
+.service-card__link:hover { color: var(--brand); }
+.service-card__excerpt { margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.service-card__actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .6rem; margin-top: auto; }
+.service-card__more { font-size: .9rem; white-space: nowrap; }
+
+/* Página del servicio (ServiceDetail.jsx). */
+.service-detail .product__main { aspect-ratio: 4 / 3; }
+.service-detail__facts { display: flex; align-items: center; gap: 1.2rem; flex-wrap: wrap; margin: 0; }
+.service-detail__rating { color: inherit; text-decoration: none; justify-self: start; }
+.service-detail .btn { justify-self: start; }
+.service-gallery { list-style: none; padding: 0; margin: 1rem 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .6rem; }
+.service-gallery button { position: relative; display: block; width: 100%; aspect-ratio: 1; padding: 0; border: 0; border-radius: var(--radius); overflow: hidden; background: var(--soft); cursor: zoom-in; }
+.service-gallery img, .service-gallery video { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .3s ease; }
+.service-gallery button:hover img, .service-gallery button:hover video { transform: scale(1.04); }
+.service-gallery button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.service-gallery__play { position: absolute; inset: 0; margin: auto; width: 2.6rem; height: 2.6rem; display: grid; place-items: center; border-radius: 50%; background: rgba(0, 0, 0, .55); color: #fff; pointer-events: none; }
+.lightbox { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 3rem 3.5rem; background: rgba(15, 10, 12, .92); }
+.lightbox__body { display: grid; justify-items: center; gap: .6rem; color: #fff; }
+.lightbox__body img, .lightbox__body video { max-width: min(1000px, 100%); max-height: calc(100vh - 8rem); border-radius: 8px; }
+.lightbox__close, .lightbox__nav { position: absolute; border: 0; background: rgba(255, 255, 255, .12); color: #fff; width: 2.6rem; height: 2.6rem; border-radius: 50%; cursor: pointer; font-size: 1.1rem; }
+.lightbox__close { top: 1rem; right: 1rem; }
+.lightbox__nav { top: 50%; transform: translateY(-50%); }
+.lightbox__nav--prev { left: .8rem; }
+.lightbox__nav--next { right: .8rem; }
+.lightbox__close:hover, .lightbox__nav:hover { background: rgba(255, 255, 255, .25); }
+@media (max-width: 600px) { .lightbox { padding: 3.5rem .5rem; } .lightbox__nav { top: auto; bottom: 1rem; transform: none; } }
+.review-summary { display: flex; flex-wrap: wrap; gap: 1.5rem 2.5rem; align-items: center; margin: 1rem 0 1.4rem; }
+.review-summary__score { display: grid; justify-items: center; gap: .2rem; }
+.review-summary__score strong { font-size: 2.6rem; line-height: 1; }
+.review-summary__bars { list-style: none; padding: 0; margin: 0; display: grid; gap: .3rem; min-width: min(320px, 100%); }
+.review-summary__bars li { display: grid; grid-template-columns: 2.5rem 1fr 2rem; align-items: center; gap: .6rem; font-size: .85rem; }
+.review-summary__bars .bar { height: .5rem; border-radius: 999px; background: var(--soft); overflow: hidden; }
+.review-summary__bars .bar span { display: block; height: 100%; background: var(--brand); border-radius: inherit; }
+@media (prefers-reduced-motion: reduce) { .service-card, .service-card__media img, .service-gallery img, .service-gallery video { transition: none; } }
 .person { text-align: center; display: grid; justify-items: center; gap: .4rem; }
 .person img, .avatar { width: 110px; height: 110px; border-radius: 50%; object-fit: cover; }
 .avatar { display: grid; place-items: center; background: var(--soft); color: var(--brand); font-size: 2.4rem; font-family: var(--font-heading); }
