@@ -2,7 +2,7 @@
 //
 // Imagen de cabecera a todo lo ancho que se difumina hacia el fondo (registrada
 // como hero: la barra superior flota encima), encabezado + línea de envío
-// gratis (umbral de useCart), pastillas de
+// gratis (umbral de useCart), banners de promociones (PromoBanners), pastillas de
 // categoría (la elegida vive en ?categoria= para poder compartir o volver) y
 // una cuadrícula de ProductCard. Pensado para un catálogo chico (10–15
 // productos): sin orden ni paginación. Mientras carga muestra tarjetas
@@ -14,6 +14,7 @@ import { useProducts, groupByCategory } from '../hooks/useProducts';
 import { useCart, formatMxn } from '../hooks/useCart';
 import { useHeroRef } from '../hooks/useHero';
 import ProductCard from '../components/ProductCard';
+import PromoBanners from '../components/PromoBanners';
 import shopHeaderImage from '../assets/shop-header.jpg';
 import './Shop.css';
 
@@ -64,6 +65,8 @@ const Shop = () => {
             </p>
           ) : null}
         </header>
+
+        <PromoBanners placement="shop" className="promo-banners--inline" />
 
         {!isLoading && chapters.length > 1 ? (
           <nav className="shop-filters" aria-label="Categorías">
