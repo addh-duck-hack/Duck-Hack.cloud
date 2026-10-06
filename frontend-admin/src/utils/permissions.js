@@ -63,7 +63,7 @@ export const MODULE_NAV = [
 // son entradas que no son módulo asignable (solo super_admin). `bottom` = va
 // abajo, en la sección de sesión (junto a "Cerrar sesión"), no en la navegación.
 export const NAV_GROUPS = [
-  { id: "panel", modules: ["panel"] },
+  { id: "panel", icon: "fa-solid fa-gauge-high", modules: ["panel"] },
   { id: "config", label: "Configuración", icon: "fa-solid fa-gear", modules: ["storeConfig", "appConfig"] },
   { id: "services", label: "Servicios", icon: "fa-solid fa-spa", modules: ["appointments", "services"] },
   {
@@ -73,10 +73,10 @@ export const NAV_GROUPS = [
     modules: ["products", "inventory", "orders", "coupons", "promoBanner", "abandonedCart", "wishlist", "reviews"],
   },
   // Lealtad, tarjetas de regalo y reportes sirven a la tienda y al salón: enlaces sueltos.
-  { id: "loyalty", modules: ["loyalty"] },
-  { id: "giftCards", modules: ["giftCards"] },
-  { id: "reports", modules: ["reports"] },
-  { id: "media", modules: ["media"] },
+  { id: "loyalty", icon: "fa-solid fa-award", modules: ["loyalty"] },
+  { id: "giftCards", icon: "fa-solid fa-gift", modules: ["giftCards"] },
+  { id: "reports", icon: "fa-solid fa-chart-column", modules: ["reports"] },
+  { id: "media", icon: "fa-solid fa-photo-film", modules: ["media"] },
   {
     id: "users",
     label: "Usuarios",
