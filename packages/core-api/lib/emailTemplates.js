@@ -171,15 +171,27 @@ const renderOrderItemRowHtml = (item, textColor, textDimColor) => {
 
 // Fila "Envío" debajo de los productos — solo si el pedido cobró envío
 // (Order.shippingCost > 0; los pedidos anteriores a ese campo no lo tienen).
-const renderShippingRowHtml = (order, textColor, textDimColor) =>
-  order.shippingCost > 0
-    ? `<tr>
-    <td colspan="3" style="padding:8px 0; font-family:${bodyFont}; font-size:14px; color:${textDimColor}; border-bottom:1px solid ${BRAND.line};">Envío</td>
-    <td style="padding:8px 0; font-family:${bodyFont}; font-size:14px; color:${textColor}; border-bottom:1px solid ${BRAND.line}; text-align:right;">${formatCurrency(order.shippingCost)}</td>
+// Después del envío va lo pagado con tarjeta de regalo (también paga el envío).
+const renderShippingRowHtml = (order, textColor, textDimColor) => {
+  const gift = giftCardRowOf(order);
+  return [
+    order.shippingCost > 0 ? ["Envío", formatCurrency(order.shippingCost)] : null,
+    gift ? [gift.label, `−${formatCurrency(gift.amount)}`] : null,
+  ]
+    .filter(Boolean)
+    .map(
+      ([label, value]) => `<tr>
+    <td colspan="3" style="padding:8px 0; font-family:${bodyFont}; font-size:14px; color:${textDimColor}; border-bottom:1px solid ${BRAND.line};">${escapeHtml(label)}</td>
+    <td style="padding:8px 0; font-family:${bodyFont}; font-size:14px; color:${textColor}; border-bottom:1px solid ${BRAND.line}; text-align:right;">${value}</td>
   </tr>`
-    : "";
+    )
+    .join("");
+};
 
-const renderShippingLineText = (order) => (order.shippingCost > 0 ? `\n- Envío — ${formatCurrency(order.shippingCost)}` : "");
+const renderShippingLineText = (order) => {
+  const gift = giftCardRowOf(order);
+  return `${order.shippingCost > 0 ? `\n- Envío — ${formatCurrency(order.shippingCost)}` : ""}${gift ? `\n- ${gift.label} — −${formatCurrency(gift.amount)}` : ""}`;
+};
 
 // Fila del cupón (Order.discount, lib/coupons.js): el descuento en negativo o,
 // si fue de envío gratis, el aviso con $0.
@@ -190,6 +202,8 @@ const discountRowsOf = (order) =>
     order.discount?.code ? { label: discountLabelOf(order.discount), amount: order.discount.amount || 0 } : null,
     order.loyalty?.redeemed > 0 ? { label: "Puntos usados", amount: order.loyalty.redeemed } : null,
   ].filter(Boolean);
+// Lo pagado con tarjeta de regalo va después del envío (paga también el envío).
+const giftCardRowOf = (order) => (order.giftCard?.amount > 0 ? { label: `Tarjeta de regalo ${order.giftCard.code}`, amount: order.giftCard.amount } : null);
 const renderDiscountRowHtml = (order, textColor, textDimColor) =>
   discountRowsOf(order)
     .map(
@@ -250,6 +264,21 @@ const resolveSpeiAccount = (order, storeConfig) => {
   const method = (storeConfig?.paymentMethods || []).find((m) => String(m._id) === String(order.paymentMethod));
   const spei = method?.spei?.clabe ? method.spei : storeConfig?.speiPayment;
   if (!spei?.clabe) return null;
+  return {
+    accountHolderName: spei.accountHolderName || "",
+    bank: spei.bank || "",
+    clabe: spei.clabe,
+    phone: spei.phone || "",
+  };
+};
+
+// Cuenta SPEI de la tienda para cobros que no son pedidos (anticipo de una
+// cita, tarjeta de regalo): la del primer método de pago SPEI activo con
+// CLABE, o la cuenta general speiPayment. null si no hay ninguna.
+const storeSpeiAccount = (storeConfig) => {
+  const method = (storeConfig?.paymentMethods || []).find((m) => m.type === "spei" && m.isActive !== false && m.spei?.clabe);
+  const spei = method?.spei || (storeConfig?.speiPayment?.clabe ? storeConfig.speiPayment : null);
+  if (!spei) return null;
   return {
     accountHolderName: spei.accountHolderName || "",
     bank: spei.bank || "",
@@ -715,6 +744,46 @@ const APPOINTMENT_EMAILS = {
     title: "Tu cita se canceló",
     intro: () => "Tu cita se canceló. Si quieres, agenda otra cuando gustes.",
   },
+  // Anticipo (Fase 5.1).
+  booked_deposit: {
+    subject: (n, store) => `Aparta tu cita con tu anticipo — ${store}`,
+    title: "Tu horario está apartado",
+    intro: (store) => `Gracias por agendar en ${store}. Para confirmar tu cita, transfiere el anticipo y sube tu comprobante antes de la fecha límite; si no, el horario se libera.`,
+  },
+  deposit_approved: {
+    subject: (n, store) => `Recibimos tu anticipo — ${store}`,
+    title: "¡Recibimos tu anticipo!",
+    intro: (store) => `${store} validó tu anticipo. Te esperamos:`,
+  },
+  deposit_rejected: {
+    subject: (n, store) => `Revisa tu anticipo — ${store}`,
+    title: "No pudimos validar tu comprobante",
+    intro: () => "Tu horario sigue apartado, pero necesitamos un comprobante válido de tu anticipo antes de la nueva fecha límite:",
+  },
+  deposit_expired: {
+    subject: (n, store) => `Tu cita se liberó — ${store}`,
+    title: "Tu cita se liberó",
+    intro: () => "No recibimos el anticipo a tiempo, así que el horario se liberó. Si aún quieres tu cita, agenda de nuevo cuando gustes.",
+  },
+};
+
+const DEPOSIT_AWAITING_KINDS = ["booked_deposit", "deposit_rejected"];
+
+// Renglones del anticipo: monto, lo ya validado o, si se espera, la cuenta,
+// el concepto y la fecha límite.
+const depositDetails = (deposit) => {
+  if (!deposit?.amount) return [];
+  const rows = [{ label: "Anticipo", value: formatCurrency(deposit.amount) }];
+  if (deposit.awaiting) {
+    if (deposit.spei) {
+      if (deposit.spei.accountHolderName) rows.push({ label: "Beneficiario", value: deposit.spei.accountHolderName });
+      if (deposit.spei.bank) rows.push({ label: "Banco", value: deposit.spei.bank });
+      rows.push({ label: "CLABE", value: deposit.spei.clabe });
+    }
+    if (deposit.concept) rows.push({ label: "Concepto", value: deposit.concept });
+    if (deposit.dueText) rows.push({ label: "Fecha límite", value: deposit.dueText });
+  }
+  return rows;
 };
 
 const appointmentDetails = ({ appointment, when, address }) =>
@@ -728,22 +797,30 @@ const appointmentDetails = ({ appointment, when, address }) =>
     address ? { label: "Dónde", value: address } : null,
   ].filter(Boolean);
 
-const appointmentEmailTemplate = ({ kind, appointment, when, address, branding, manageUrl, confirmUrl, googleUrl, reason, changeHours }) => {
+const appointmentEmailTemplate = ({ kind, appointment, when, address, branding, manageUrl, confirmUrl, googleUrl, reason, changeHours, deposit }) => {
   const config = APPOINTMENT_EMAILS[kind];
   const store = branding.storeName || "Duck-Hack";
-  const isCancelled = kind === "cancelled";
+  const isCancelled = kind === "cancelled" || kind === "deposit_expired";
   const isReminder = kind === "reminder";
+  const awaitingDeposit = DEPOSIT_AWAITING_KINDS.includes(kind);
   const notes = [];
   if (isReminder && !manageUrl) notes.push("Si no puedes asistir, avísanos para liberar tu horario.");
-  if (isCancelled && reason) notes.push(`Motivo: ${reason}`);
+  if ((isCancelled || kind === "deposit_rejected") && reason) notes.push(`Motivo: ${reason}`);
+  if (awaitingDeposit) {
+    notes.push(
+      manageUrl
+        ? "Cuando transfieras, sube tu comprobante desde la página de tu cita."
+        : "Cuando transfieras, responde este correo con tu comprobante."
+    );
+  }
   if (!isCancelled && changeHours) notes.push(`Puedes cancelar o reprogramar hasta ${changeHours} horas antes.`);
   const { html, text } = accountActionEmailTemplate({
     ...branding,
     title: config.title,
     name: appointment.customerName,
     intro: config.intro(store),
-    details: appointmentDetails({ appointment, when, address }),
-    ctaLabel: isCancelled ? "Agendar otra cita" : isReminder ? "Confirmo mi asistencia" : "Ver mi cita",
+    details: [...appointmentDetails({ appointment, when, address }), ...depositDetails({ ...deposit, awaiting: awaitingDeposit })],
+    ctaLabel: isCancelled ? "Agendar otra cita" : isReminder ? "Confirmo mi asistencia" : awaitingDeposit ? "Subir mi comprobante" : "Ver mi cita",
     url: (isReminder ? confirmUrl : manageUrl) || undefined,
     links: [
       isReminder && manageUrl ? { label: "Reprogramar o cancelar", url: manageUrl } : null,
@@ -761,6 +838,19 @@ const APPOINTMENT_BUSINESS_EMAILS = {
   new: { subject: (a) => `Nueva cita #${a.appointmentNumber} — ${a.customerName}`, title: "Nueva cita", intro: "Se agendó una cita desde el sitio:" },
   cancelled: { subject: (a) => `Cita #${a.appointmentNumber} cancelada por la clienta`, title: "La clienta canceló su cita", intro: "Este horario quedó libre:" },
   rescheduled: { subject: (a) => `Cita #${a.appointmentNumber} reprogramada por la clienta`, title: "La clienta cambió su cita", intro: "La cita quedó en este nuevo horario:" },
+  // Anticipo (Fase 5.1).
+  deposit_proof: { subject: (a) => `Comprobante de anticipo — cita #${a.appointmentNumber}`, title: "Llegó un comprobante de anticipo", intro: "Revísalo en la agenda para confirmar la cita:" },
+  deposit_expired: { subject: (a) => `Cita #${a.appointmentNumber} liberada: no se pagó el anticipo`, title: "Se liberó una cita sin anticipo", intro: "No llegó el anticipo a tiempo y el horario quedó libre:" },
+};
+
+const APPOINTMENT_STATUS_LABELS = {
+  pending_deposit: "Esperando anticipo",
+  deposit_review: "Anticipo en revisión",
+  pending: "Por confirmar",
+  confirmed: "Confirmada",
+  completed: "Completada",
+  no_show: "No asistió",
+  cancelled: "Cancelada",
 };
 
 const appointmentBusinessEmailTemplate = ({ kind, appointment, when, previousWhen, branding, adminUrl, reason }) => {
@@ -773,7 +863,8 @@ const appointmentBusinessEmailTemplate = ({ kind, appointment, when, previousWhe
     previousWhen ? { label: "Antes", value: previousWhen } : null,
     appointment.notes ? { label: "Notas", value: appointment.notes } : null,
     reason ? { label: "Motivo", value: reason } : null,
-    { label: "Estado", value: appointment.status === "pending" ? "Por confirmar" : appointment.status === "cancelled" ? "Cancelada" : "Confirmada" },
+    appointment.depositAmount ? { label: "Anticipo", value: formatCurrency(appointment.depositAmount) } : null,
+    { label: "Estado", value: APPOINTMENT_STATUS_LABELS[appointment.status] || appointment.status },
   ].filter(Boolean);
   const { html, text } = accountActionEmailTemplate({
     ...branding,
@@ -782,7 +873,14 @@ const appointmentBusinessEmailTemplate = ({ kind, appointment, when, previousWhe
     details,
     ctaLabel: adminUrl ? "Abrir la agenda" : undefined,
     url: adminUrl || undefined,
-    note: appointment.status === "pending" && kind === "new" ? "Está por confirmar: confírmala desde la agenda del panel." : undefined,
+    note:
+      appointment.status === "pending" && kind === "new"
+        ? "Está por confirmar: confírmala desde la agenda del panel."
+        : appointment.status === "pending_deposit" && kind === "new"
+          ? "Espera el anticipo: se confirma cuando apruebes su comprobante, o se libera sola si vence."
+          : kind === "deposit_proof"
+            ? "Apruébalo o recházalo desde la cita en la agenda."
+            : undefined,
     footnote: "Aviso automático de la agenda.",
   });
   return { subject: config.subject(appointment), html, text };
@@ -956,7 +1054,115 @@ const loyaltyExpiryEmailTemplate = ({ kind, branding, name, points, expiresOn, s
   return { subject: warning ? `Tus puntos vencen pronto — ${store}` : `Tus puntos vencieron — ${store}`, html, text };
 };
 
+
+// ---- Tarjetas de regalo (Fase 5.2, modules/giftCards.js) ----
+// card: { number, code, amount, balance, buyerName, recipientName, message };
+// `expiresText` ya formateado; `spei` = storeSpeiAccount; `pageUrl` = la
+// página de la compra (FRONTEND_URL/tarjeta-regalo/<id>?token=…).
+const giftCardDetails = (card, expiresText) =>
+  [
+    { label: "Código", value: card.code },
+    { label: "Saldo", value: formatCurrency(card.balance ?? card.amount) },
+    expiresText ? { label: "Vigencia", value: `Hasta el ${expiresText}` } : { label: "Vigencia", value: "Sin vencimiento" },
+    card.buyerName ? { label: "De parte de", value: card.buyerName } : null,
+    card.message ? { label: "Mensaje", value: card.message } : null,
+  ].filter(Boolean);
+
+const giftCardEmailTemplate = ({ kind, card, branding, expiresText, pageUrl, spei, reason, shopUrl }) => {
+  const store = branding.storeName || "Duck-Hack";
+  const base = { ...branding };
+  if (kind === "pending_payment") {
+    const details = [
+      { label: "Folio", value: `#${card.number}` },
+      { label: "Monto", value: formatCurrency(card.amount) },
+      { label: "Para", value: card.recipientName || card.buyerName },
+      ...(spei
+        ? [
+            spei.accountHolderName ? { label: "Beneficiario", value: spei.accountHolderName } : null,
+            spei.bank ? { label: "Banco", value: spei.bank } : null,
+            { label: "CLABE", value: spei.clabe },
+          ].filter(Boolean)
+        : []),
+      { label: "Concepto", value: `Tarjeta ${card.number}` },
+    ];
+    const { html, text } = accountActionEmailTemplate({
+      ...base,
+      title: "Tu tarjeta de regalo está apartada",
+      name: card.buyerName,
+      intro: `Gracias por regalar ${store}. Para activarla, transfiere el monto y sube tu comprobante; en cuanto lo validemos enviamos la tarjeta.`,
+      details,
+      ctaLabel: pageUrl ? "Subir mi comprobante" : undefined,
+      url: pageUrl || undefined,
+      note: pageUrl ? undefined : "Cuando transfieras, responde este correo con tu comprobante.",
+      footnote: `${store}`,
+    });
+    return { subject: `Tarjeta de regalo #${card.number}: falta tu pago — ${store}`, html, text };
+  }
+  if (kind === "delivered") {
+    const { html, text } = accountActionEmailTemplate({
+      ...base,
+      title: "¡Te regalaron una tarjeta!",
+      name: card.recipientName,
+      intro: `${card.buyerName || "Alguien especial"} te regala ${formatCurrency(card.amount)} para usar en ${store}.`,
+      details: giftCardDetails(card, expiresText),
+      ctaLabel: shopUrl ? `Visitar ${store}` : undefined,
+      url: shopUrl || undefined,
+      note: "Úsala en la tienda en línea (escribe el código al pagar) o en el salón al cobrar tu cita. Se puede usar en partes hasta agotar el saldo.",
+      footnote: "Adjuntamos tu tarjeta en PDF por si quieres imprimirla.",
+    });
+    return { subject: `Tienes una tarjeta de regalo de ${formatCurrency(card.amount)} — ${store}`, html, text };
+  }
+  if (kind === "buyer_copy") {
+    const sentTo = card.recipientEmail && card.recipientEmail !== card.buyerEmail;
+    const { html, text } = accountActionEmailTemplate({
+      ...base,
+      title: "Tu tarjeta de regalo está lista",
+      name: card.buyerName,
+      intro: sentTo
+        ? `Confirmamos tu pago y enviamos la tarjeta a ${card.recipientName} (${card.recipientEmail}).`
+        : "Confirmamos tu pago. Aquí está la tarjeta para que la entregues:",
+      details: giftCardDetails(card, expiresText),
+      footnote: "Adjuntamos la tarjeta en PDF.",
+    });
+    return { subject: `Tarjeta de regalo #${card.number} activa — ${store}`, html, text };
+  }
+  if (kind === "proof_rejected") {
+    const { html, text } = accountActionEmailTemplate({
+      ...base,
+      title: "No pudimos validar tu pago",
+      name: card.buyerName,
+      intro: "Revisamos el comprobante de tu tarjeta de regalo y no pudimos validarlo:",
+      details: [
+        { label: "Folio", value: `#${card.number}` },
+        { label: "Monto", value: formatCurrency(card.amount) },
+      ],
+      note: reason ? `Motivo: ${reason}` : undefined,
+      ctaLabel: pageUrl ? "Subir otro comprobante" : undefined,
+      url: pageUrl || undefined,
+      footnote: `${store}`,
+    });
+    return { subject: `Revisa el pago de tu tarjeta de regalo — ${store}`, html, text };
+  }
+  // business_proof: aviso al negocio.
+  const { html, text } = accountActionEmailTemplate({
+    ...base,
+    title: kind === "business_new" ? "Nueva tarjeta de regalo por pagar" : "Llegó un comprobante de tarjeta de regalo",
+    intro: kind === "business_new" ? "Se pidió una tarjeta de regalo desde el sitio:" : "Revísalo en el panel para activar la tarjeta:",
+    details: [
+      { label: "Folio", value: `#${card.number}` },
+      { label: "Monto", value: formatCurrency(card.amount) },
+      { label: "Compra", value: `${card.buyerName} (${card.buyerEmail})` },
+      { label: "Para", value: card.recipientName || card.buyerName },
+    ],
+    ctaLabel: pageUrl ? "Abrir en el panel" : undefined,
+    url: pageUrl || undefined,
+    footnote: "Aviso automático de tarjetas de regalo.",
+  });
+  return { subject: `${kind === "business_new" ? "Nueva tarjeta de regalo" : "Comprobante de tarjeta"} #${card.number} — ${card.buyerName}`, html, text };
+};
+
 module.exports = {
+  giftCardEmailTemplate,
   wishlistBackInStockEmailTemplate,
   appointmentReviewRequestEmailTemplate,
   loyaltyRewardEmailTemplate,
@@ -965,6 +1171,7 @@ module.exports = {
   appointmentEmailTemplate,
   appointmentBusinessEmailTemplate,
   resolveSpeiAccount,
+  storeSpeiAccount,
   paymentTypeOf,
   lowStockEmailTemplate,
   orderStatusEmailTemplate,

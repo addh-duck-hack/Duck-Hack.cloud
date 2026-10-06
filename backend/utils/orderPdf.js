@@ -240,6 +240,17 @@ const generateOrderPdf = (order, storeConfig, outputStream) => {
     rowY += 24;
   }
 
+  // Pagado con tarjeta de regalo (Order.giftCard): después del envío.
+  if (order.giftCard && order.giftCard.amount > 0) {
+    doc
+      .fillColor(BRAND_TEXT_DIM)
+      .font("Helvetica")
+      .fontSize(10)
+      .text(`Tarjeta de regalo ${order.giftCard.code}`, 50, rowY, { width: 280 })
+      .text(`-${formatCurrency(order.giftCard.amount)}`, 482, rowY, { width: 80, align: "right" });
+    rowY += 24;
+  }
+
   doc.moveTo(50, rowY).lineTo(562, rowY).strokeColor(BRAND_LINE).lineWidth(1).stroke();
 
   doc

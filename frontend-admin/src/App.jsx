@@ -32,6 +32,9 @@ import ReviewList from "./components/ReviewList";
 import AbandonedCartPage from "./components/AbandonedCartPage";
 import LoyaltyPage from "./components/LoyaltyPage";
 import WishlistPage from "./components/WishlistPage";
+import GiftCardList from "./components/GiftCardList";
+import GiftCardDetail from "./components/GiftCardDetail";
+import ReportsPage from "./components/ReportsPage";
 import PromoBannerList from "./components/PromoBannerList";
 import PromoBannerForm from "./components/PromoBannerForm";
 import ServiceList from "./components/ServiceList";
@@ -298,6 +301,18 @@ const AppRoutes = () => {
             <Route
               path="wishlist"
               element={gate("wishlist", <WishlistPage />)}
+            />
+            <Route
+              path="gift-cards"
+              element={gate("giftCards", <GiftCardList />)}
+            />
+            <Route
+              path="gift-cards/:id"
+              element={gate("giftCards", <GiftCardDetail />)}
+            />
+            <Route
+              path="reports"
+              element={gate("reports", <ReportsPage />)}
             />
             <Route
               path="loyalty"

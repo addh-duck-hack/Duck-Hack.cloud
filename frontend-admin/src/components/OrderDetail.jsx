@@ -189,6 +189,12 @@ const OrderDetail = () => {
       {order.shippingCost > 0 ? (
         <p style={{ marginTop: "0.75rem", marginBottom: 0 }}>Envío: {formatMxn(order.shippingCost)}</p>
       ) : null}
+      {order.giftCard?.amount > 0 ? (
+        <p style={{ marginTop: "0.75rem", marginBottom: 0 }}>
+          Pagado con tarjeta de regalo <strong>{order.giftCard.code}</strong>: −{formatMxn(order.giftCard.amount)}
+          {order.giftCard.refunded ? " (devuelto a la tarjeta)" : ""}
+        </p>
+      ) : null}
       <p style={{ marginTop: "0.75rem" }}>
         <strong>Total: {formatMxn(order.total)}</strong>
       </p>

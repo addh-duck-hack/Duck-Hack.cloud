@@ -42,6 +42,8 @@ export const MODULE_NAV = [
   { key: "wishlist", items: [{ path: "/admin/wishlist", label: "Lista de deseos" }] },
   { key: "reviews", items: [{ path: "/admin/reviews", label: "Reseñas" }] },
   { key: "loyalty", items: [{ path: "/admin/loyalty", label: "Lealtad" }] },
+  { key: "giftCards", items: [{ path: "/admin/gift-cards", label: "Tarjetas de regalo" }] },
+  { key: "reports", items: [{ path: "/admin/reports", label: "Reportes" }] },
   { key: "media", items: [{ path: "/admin/media", label: "Medios" }] },
   { key: "users", items: [{ path: "/admin/users", label: "Usuarios" }] },
   { key: "agencyClients", items: [{ path: "/admin/agency-clients", label: "Clientes" }] },
@@ -70,8 +72,10 @@ export const NAV_GROUPS = [
     icon: "fa-solid fa-store",
     modules: ["products", "inventory", "orders", "coupons", "promoBanner", "abandonedCart", "wishlist", "reviews"],
   },
-  // Lealtad sirve a la tienda (puntos) y al salón (sellos): enlace suelto.
+  // Lealtad, tarjetas de regalo y reportes sirven a la tienda y al salón: enlaces sueltos.
   { id: "loyalty", modules: ["loyalty"] },
+  { id: "giftCards", modules: ["giftCards"] },
+  { id: "reports", modules: ["reports"] },
   { id: "media", modules: ["media"] },
   {
     id: "users",

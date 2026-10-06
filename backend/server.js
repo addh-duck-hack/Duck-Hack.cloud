@@ -10,6 +10,7 @@ const { modules: coreApiModules, auth, scheduler: schedulerLib } = require("@duc
 const AgencyClient = require("./models/agencyClient.model");
 const { getRunningContainersCount } = require("./utils/portainerClient");
 const { generateOrderPdf } = require("./utils/orderPdf");
+const { generateGiftCardPdf } = require("./utils/giftCardPdf");
 
 // Auth/Users vive ahora en @duck-hack/core-api (packages/core-api/modules/auth.js)
 // — verifyToken/authorizeRoles se arman acá con createAuthMiddleware(sendError)
@@ -53,7 +54,7 @@ const corsOptions = {
   // storefront, ver packages/core-api/modules/orders.js#resolveOrderActor).
   // Un header que no esté aquí lo bloquea el navegador en el preflight
   // ("Failed to fetch"), aunque el backend lo acepte.
-  allowedHeaders: ["Content-Type", "Authorization", "X-Order-Token", "X-Appointment-Token"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Order-Token", "X-Appointment-Token", "X-Gift-Card-Token"],
   optionsSuccessStatus: 204,
 };
 
@@ -110,6 +111,8 @@ const coreApiCtx = {
   // el generador de PDF se inyecta en vez de requerirse directo desde el
   // paquete (mismo criterio que resolveLiveMetricSources arriba).
   generateOrderPdf,
+  // Igual, para la tarjeta de regalo imprimible (modules/giftCards.js).
+  generateGiftCardPdf,
 };
 
 coreApiModules.forEach((mod) => mod.registerRoutes(app, coreApiCtx));
