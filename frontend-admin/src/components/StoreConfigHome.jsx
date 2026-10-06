@@ -4,6 +4,7 @@ import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import StoreConfigListEditor from "./StoreConfigListEditor";
 import StoreConfigTabs from "./StoreConfigTabs";
 import { ROLES } from "../utils/roles";
+import Alert from "./Alert";
 
 const HERO_MEDIA_TYPE_OPTIONS = [
   { value: "none", label: "Ninguno" },
@@ -132,8 +133,8 @@ const StoreConfigHome = () => {
       <h3>Home del sitio</h3>
       <p>Slides del encabezado principal, las cifras destacadas y los pasos ("cómo funciona") de la página de inicio.</p>
 
-      {message ? <div className="auth-success">{message}</div> : null}
-      {error ? <div className="auth-error">{error}</div> : null}
+      {message ? <Alert type="success">{message}</Alert> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
         <h4>Slides del hero</h4>

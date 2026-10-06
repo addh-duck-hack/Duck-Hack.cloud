@@ -5,6 +5,7 @@ import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatCalendarDate } from "../utils/formatCalendarDate";
 import { ORDER_STATUS_LABELS, statusesFor, paymentLabelOf, deliveryLabelOf } from "../utils/orderStatusLabels";
 import OrderPaymentProofs from "./OrderPaymentProofs";
+import Alert from "./Alert";
 
 const emptyShipment = { carrier: "", trackingNumber: "", trackingUrl: "" };
 const shipmentFormOf = (order) => ({
@@ -98,8 +99,8 @@ const OrderDetail = () => {
         <span className={`badge badge-${statusInfo.color}`}>{statusInfo.label}</span>
       </div>
 
-      {message ? <div className="auth-success">{message}</div> : null}
-      {error ? <div className="auth-error">{error}</div> : null}
+      {message ? <Alert type="success">{message}</Alert> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <div style={{ margin: "1rem 0" }}>
         <p>Fecha: {formatDate(order.createdAt)}</p>

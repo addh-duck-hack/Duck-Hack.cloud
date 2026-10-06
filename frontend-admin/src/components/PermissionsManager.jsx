@@ -7,6 +7,7 @@ import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { ROLE_LABELS } from "../utils/roles";
 import Loader from "./Loader";
+import Alert from "./Alert";
 import "./PermissionsManager.css";
 
 const getAuthHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem("token")}` });
@@ -105,8 +106,8 @@ const PermissionsManager = () => {
       </div>
 
       {isDirty ? <div className="permissions-dirty">Tienes cambios sin guardar.</div> : null}
-      {message ? <div className="auth-success">{message}</div> : null}
-      {error ? <div className="auth-error">{error}</div> : null}
+      {message ? <Alert type="success">{message}</Alert> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <table className="permissions-table">
         <thead>

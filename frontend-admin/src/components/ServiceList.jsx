@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
+import Alert from "./Alert";
 
 // Catálogo de servicios (módulo "services" de los permisos,
 // packages/core-api/modules/services.js). Una cita puede llevar varios
@@ -74,7 +75,7 @@ const ServiceList = () => {
       </div>
       <p>Lo que ofrece el negocio, con su duración y precio. Un servicio que ya está en citas no se borra: desactívalo.</p>
 
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <div style={{ overflowX: "auto" }}>
         <table>

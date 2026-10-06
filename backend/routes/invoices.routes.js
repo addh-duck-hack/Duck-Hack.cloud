@@ -12,7 +12,7 @@ const { sendError } = require("../utils/httpResponses");
 // Auth y permisos viven en @duck-hack/core-api (modules/auth.js,
 // lib/permissions.js) — se arman con sendError y la conexión de esta instancia.
 const mongoose = require("mongoose");
-const { auth, permissions } = require("@duck-hack/core-api");
+const { auth, permissions, validation } = require("@duck-hack/core-api");
 const { verifyToken } = auth.createAuthMiddleware(sendError);
 const { authorizeModuleAccess } = permissions.createModuleAuthorizer({ mongooseConnection: mongoose.connection, sendError });
 const { getNextInvoiceFolio } = require("../utils/accountingHooks");
@@ -139,8 +139,8 @@ router.post("/", validateInvoiceFromTransactionsPayload, async (req, res) => {
     return res.status(201).json({ message: "Factura creada.", invoice: sanitizeDoc(invoice) });
   } catch (error) {
     if (error?.name === "ValidationError") {
-      const messages = Object.values(error.errors || {}).map((e) => e.message);
-      return sendError(res, 400, "VALIDATION_ERROR", "Error de validación", messages);
+      const { message, details } = validation.describeValidationError(error);
+      return sendError(res, 400, "VALIDATION_ERROR", message, details);
     }
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al crear la factura.");
   }
@@ -193,8 +193,8 @@ router.put("/:id", validateObjectIdParam("id"), validateInvoiceUpdatePayload, as
     return res.status(200).json({ message: "Factura actualizada.", invoice: sanitizeDoc(invoice) });
   } catch (error) {
     if (error?.name === "ValidationError") {
-      const messages = Object.values(error.errors || {}).map((e) => e.message);
-      return sendError(res, 400, "VALIDATION_ERROR", "Error de validación", messages);
+      const { message, details } = validation.describeValidationError(error);
+      return sendError(res, 400, "VALIDATION_ERROR", message, details);
     }
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al actualizar la factura.");
   }

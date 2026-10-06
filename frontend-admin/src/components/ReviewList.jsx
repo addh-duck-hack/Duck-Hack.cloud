@@ -4,6 +4,7 @@ import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatCalendarDate } from "../utils/formatCalendarDate";
 import { formatDateTime } from "../utils/schedule";
 import { usePermissions } from "../hooks/usePermissions";
+import Alert from "./Alert";
 
 // Bandeja de reseñas (módulo "reviews" de los permisos,
 // packages/core-api/modules/reviews.js), de producto y de cita (pestañas). Toda
@@ -160,8 +161,8 @@ const ReviewList = () => {
         ))}
       </div>
 
-      {error ? <div className="auth-error">{error}</div> : null}
-      {message ? <div className="auth-success">{message}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
+      {message ? <Alert type="success">{message}</Alert> : null}
 
       <div style={{ overflowX: "auto" }}>
         <table>

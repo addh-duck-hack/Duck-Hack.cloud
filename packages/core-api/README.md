@@ -106,6 +106,14 @@ vault, not in this repo).
   slot. An "appointment-deposit-expiry" job (every 5 min) cancels overdue
   `pending_deposit` appointments (`cancelledBy: "system"`) and emails the
   customer and the business. Staff can also book with `requireDeposit`.
+  Appointment photos/videos (`media`, up to 30): staff first records that
+  the customer allows publishing them (`PUT /:id/media-consent`), then
+  `POST /:id/media` uploads through the same pipeline as `/api/media` into
+  the **public** media library (titled "Cita #N · customer"); `DELETE
+  /:id/media/:fileName` detaches and deletes the file unless something else
+  uses it (`lib/mediaUsages.js`). `GET /:id/reviews` returns this
+  appointment's review plus the customer's review history (needs `reviews`
+  contracted). The customer-facing views never include `media`.
 - `modules/products.js` — product catalog (`/api/products`). Optional
   variants (`options` + `variants`, logic in `lib/variants.js`): each variant
   has its own SKU, stock and optional price/image; `lib/purchaseLimits.js
@@ -129,6 +137,12 @@ vault, not in this repo).
   storefront's order page `FRONTEND_URL/pedido/<id>?token=…`, which reads
   `GET /:id/summary` (and the ticket `GET /:id/pdf`) with `X-Order-Token` —
   every storefront that turns it on must implement that route.
+- `lib/validationMessages.js` — `describeValidationError(error)` turns a
+  Mongoose `ValidationError` into Spanish, per-field messages (`required`,
+  `maxlength` with the current length, `min`/`max`, `enum`, cast errors;
+  custom validator messages kept as-is). Used by
+  `moduleHelpers#handleMongooseError`, `modules/auth.js` and, through the
+  package's `validation` export, `backend/`'s routers.
 - `lib/phone.js` — Mexican phones, 10 digits: `normalizeMxPhone` (strips
   separators and a 52/521 prefix), `parseMxPhone(value, { required, label })`
   → `{ value }` | `{ error }`, `toWhatsappPhone` (stores 52 + 10). Used by
@@ -257,7 +271,8 @@ vault, not in this repo).
 - `modules/media.js` — admin media library over the `uploads/` folder
   (`/api/media`): lists files from disk, uploads images/GIF/MP4/WebM, edits
   title + alt text (stored in the `Media` collection, the file itself is never
-  renamed), and deletes with a usage check (Product/User/StoreConfig/AppHome).
+  renamed), and deletes with a usage check (`lib/mediaUsages.js`:
+  Product/User/StoreConfig/AppHome/Appointment).
   Files can be flagged `inGallery` (+ free `galleryCategory`) for the public
   portfolio at `GET /api/media/public`.
 - `modules/permissions.js` — per-store permissions (`/api/permissions`):

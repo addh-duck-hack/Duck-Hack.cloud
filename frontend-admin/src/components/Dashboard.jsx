@@ -10,6 +10,7 @@ import { ORDER_STATUS_LABELS } from "../utils/orderStatusLabels";
 import { APPOINTMENT_STATUS_LABELS } from "../utils/schedule";
 import { getDateStatusBadge } from "../utils/dateStatusBadge";
 import SeriesBarChart from "./SeriesBarChart";
+import Alert from "./Alert";
 import "./Dashboard.css";
 
 // Inicio del panel (`/admin`), gratis para todas las tiendas: lo primero que
@@ -137,10 +138,10 @@ const TodayAppointments = ({ data }) => {
       {data.items.map((a) => (
         <li key={a._id}>
           <span className="dash-time">{formatTime(a.start, data.timezone)}</span>
-          <span className="dash-grow">
+          <Link to={`/admin/appointments/${a._id}`} className="dash-grow">
             {a.customerName}
             <small className="dash-muted"> · {a.services.join(" + ")} · {a.specialistName}</small>
-          </span>
+          </Link>
           <span className="dash-muted">{APPOINTMENT_STATUS_LABELS[a.status] || a.status}</span>
         </li>
       ))}
@@ -384,7 +385,7 @@ const Dashboard = () => {
       ) : null}
 
       {loaded && !prefs.welcomeDismissed ? <Welcome storeName={config?.storeName} can={can} onDismiss={() => save({ welcomeDismissed: true })} /> : null}
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       <div className="dash-grid">
         {shown.map((w) => (

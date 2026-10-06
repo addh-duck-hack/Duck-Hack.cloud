@@ -15,6 +15,7 @@ const {
   isValidObjectId,
   getOrCreateModel,
 } = require("../lib/moduleHelpers");
+const { describeValidationError } = require("../lib/validationMessages");
 const { parseMxPhone } = require("../lib/phone");
 const { createAuthMiddleware, isValidRole, ROLES, STAFF_ROLES } = require("../lib/authMiddleware");
 const {
@@ -563,8 +564,8 @@ function registerRoutes(app, ctx) {
       });
     } catch (error) {
       if (error.name === "ValidationError") {
-        const messages = Object.values(error.errors).map((e) => e.message).join(", ");
-        return sendError(res, 400, "VALIDATION_ERROR", messages);
+        const { message, details } = describeValidationError(error);
+        return sendError(res, 400, "VALIDATION_ERROR", message, details);
       }
       if (error.code === 11000) {
         return sendError(res, 409, "EMAIL_ALREADY_REGISTERED", "El correo ya está registrado");
@@ -888,8 +889,8 @@ function registerRoutes(app, ctx) {
         res.status(201).json({ message: "Dirección agregada.", user: sanitizeUser(user) });
       } catch (error) {
         if (error.name === "ValidationError") {
-          const messages = Object.values(error.errors).map((e) => e.message).join(", ");
-          return sendError(res, 400, "VALIDATION_ERROR", messages);
+          const { message, details } = describeValidationError(error);
+          return sendError(res, 400, "VALIDATION_ERROR", message, details);
         }
         return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al agregar la dirección");
       }
@@ -944,8 +945,8 @@ function registerRoutes(app, ctx) {
         res.status(200).json({ message: "Dirección actualizada.", user: sanitizeUser(user) });
       } catch (error) {
         if (error.name === "ValidationError") {
-          const messages = Object.values(error.errors).map((e) => e.message).join(", ");
-          return sendError(res, 400, "VALIDATION_ERROR", messages);
+          const { message, details } = describeValidationError(error);
+          return sendError(res, 400, "VALIDATION_ERROR", message, details);
         }
         return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al actualizar la dirección");
       }
@@ -1018,8 +1019,8 @@ function registerRoutes(app, ctx) {
         res.status(201).json({ message: "Usuario creado correctamente.", user: sanitizeUser(user) });
       } catch (error) {
         if (error.name === "ValidationError") {
-          const messages = Object.values(error.errors).map((e) => e.message).join(", ");
-          return sendError(res, 400, "VALIDATION_ERROR", messages);
+          const { message, details } = describeValidationError(error);
+          return sendError(res, 400, "VALIDATION_ERROR", message, details);
         }
         if (error.code === 11000) {
           return sendError(res, 409, "EMAIL_ALREADY_REGISTERED", "El correo ya está registrado");

@@ -13,7 +13,7 @@ const { sendError } = require("../utils/httpResponses");
 // Auth y permisos viven en @duck-hack/core-api (modules/auth.js,
 // lib/permissions.js) — se arman con sendError y la conexión de esta instancia.
 const mongoose = require("mongoose");
-const { auth, permissions } = require("@duck-hack/core-api");
+const { auth, permissions, validation } = require("@duck-hack/core-api");
 const { verifyToken } = auth.createAuthMiddleware(sendError);
 const { authorizeModuleAccess } = permissions.createModuleAuthorizer({ mongooseConnection: mongoose.connection, sendError });
 const { recordIncome, isSourceInvoiced, deleteLinkedAccountingRecords, syncSingleSourceIncome } = require("../utils/accountingHooks");
@@ -54,8 +54,8 @@ const ensureAgencyClientExists = async (req, res, next) => {
 
 const handleMongooseError = (res, error, fallbackMessage) => {
   if (error?.name === "ValidationError") {
-    const messages = Object.values(error.errors || {}).map((e) => e.message);
-    return sendError(res, 400, "VALIDATION_ERROR", "Error de validación", messages);
+    const { message, details } = validation.describeValidationError(error);
+    return sendError(res, 400, "VALIDATION_ERROR", message, details);
   }
   if (error?.code === 11000) {
     return sendError(res, 409, "DUPLICATE_KEY", "Conflicto de unicidad.");

@@ -1,0 +1,247 @@
+/* Vista de una cita (AppointmentDetail.jsx): detalle al centro, fotos y
+   reseñas al lado; una sola columna en pantallas angostas. */
+.appt-detail-nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.appt-detail-nav button {
+  width: auto;
+}
+
+.appt-detail-nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.appt-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr);
+  gap: 1.2rem;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .appt-detail-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.appt-detail-side {
+  display: grid;
+  gap: 1.2rem;
+}
+
+.appt-card {
+  border: 1px solid var(--input-border-color);
+  border-radius: 12px;
+  padding: 1rem 1.2rem;
+  background: var(--form-background-color);
+  min-width: 0;
+}
+
+.appt-card h4 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.8rem;
+}
+
+.appt-card h4 i {
+  color: var(--primary-color);
+}
+
+.appt-card h5 {
+  margin: 1rem 0 0.4rem;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--placeholder-color);
+}
+
+.appt-muted {
+  color: var(--placeholder-color);
+  font-size: 0.85rem;
+}
+
+.appt-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  margin: 0 0 0.6rem;
+}
+
+.appt-consent input {
+  width: auto;
+  margin: 0.2rem 0 0;
+}
+
+.appt-upload {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 1rem;
+  border: 1px dashed var(--input-border-color);
+  border-radius: 10px;
+  text-align: center;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.appt-upload:hover {
+  border-color: var(--link-color);
+}
+
+.appt-upload.is-busy {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.appt-upload input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.appt-media-grid {
+  list-style: none;
+  padding: 0;
+  margin: 0.9rem 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 0.6rem;
+}
+
+.appt-media-grid li {
+  position: relative;
+}
+
+.appt-media-thumb {
+  all: unset;
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--input-background-color);
+  cursor: zoom-in;
+}
+
+.appt-media-thumb:focus-visible {
+  outline: 2px solid var(--link-color);
+}
+
+.appt-media-thumb img,
+.appt-media-thumb video,
+.appt-media-thumb .media-fallback {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.appt-media-play {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  pointer-events: none;
+}
+
+.appt-media-remove {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  width: auto;
+  padding: 0.2rem 0.4rem;
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
+.appt-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(2, 8, 12, 0.9);
+}
+
+.appt-viewer-body {
+  display: grid;
+  gap: 0.8rem;
+  max-width: min(960px, 100%);
+}
+
+.appt-viewer-body img,
+.appt-viewer-body video {
+  max-width: 100%;
+  max-height: calc(100vh - 8rem);
+  border-radius: 8px;
+  justify-self: center;
+}
+
+.appt-viewer-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.appt-viewer-actions button,
+.appt-viewer-actions a {
+  width: auto;
+  text-decoration: none;
+}
+
+.appt-review {
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+.appt-review p {
+  margin: 0.35rem 0;
+}
+
+.appt-review-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.appt-stars {
+  color: var(--primary-color);
+  letter-spacing: 0.08em;
+}
+
+.appt-stars-off {
+  color: var(--input-border-color);
+}
+
+.appt-review-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+.appt-review-actions button {
+  width: auto;
+  padding: 0.3rem 0.8rem;
+}

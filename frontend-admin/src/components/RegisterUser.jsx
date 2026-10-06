@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import PhoneInput from "./PhoneInput";
+import Alert from "./Alert";
 
 const RegisterUser = ({ onBack }) => {
   const [userData, setUserData] = useState({
@@ -119,8 +120,8 @@ const RegisterUser = ({ onBack }) => {
         <button type="submit" disabled={userData.password !== userData.confirmPassword}>Registrar</button>
       </form>
 
-      {error && <div className="auth-error">{error}</div>}
-      {message && <div className="auth-success">{message}</div>}
+      {error && <Alert type="error">{error}</Alert>}
+      {message && <Alert type="success">{message}</Alert>}
 
       <div className="auth-link">
         ¿Ya tienes una cuenta?{" "}

@@ -2830,6 +2830,98 @@ paths:
         "403":
           description: MODULE_NOT_ALLOWED
 
+  /api/appointments/{id}/media-consent:
+    put:
+      tags: [Appointments]
+      summary: Registrar si la clienta autoriza subir sus fotos al sitio
+      operationId: setAppointmentMediaConsent
+      description: >-
+        Módulo `appointments` (una collaborator, solo citas de su especialista). Sin autorización
+        no se pueden subir medios. No se puede retirar mientras la cita tenga medios
+        (`409 MEDIA_ATTACHED`): primero se quitan.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [given], properties: { given: { type: boolean } } }
+      responses:
+        "200":
+          description: "`{ message, appointment }`"
+        "400":
+          description: VALIDATION_ERROR
+        "404":
+          description: APPOINTMENT_NOT_FOUND
+        "409":
+          description: MEDIA_ATTACHED
+
+  /api/appointments/{id}/media:
+    post:
+      tags: [Appointments]
+      summary: Agregar una foto o video a la cita
+      operationId: addAppointmentMedia
+      description: >-
+        Multipart, campo `media`. Mismo procesamiento que POST /api/media (JPG/PNG re-codificados,
+        GIF, MP4/WebM por firma; imágenes hasta 10 MB, videos hasta 50 MB) y queda en la biblioteca
+        de medios con el título "Cita #N · clienta". Requiere `mediaConsent.given` (si no, 409
+        MEDIA_CONSENT_REQUIRED, antes de leer el archivo). Hasta 30 por cita (409 MEDIA_LIMIT).
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { type: object, required: [media], properties: { media: { type: string, format: binary } } }
+      responses:
+        "201":
+          description: "`{ message, appointment }`"
+        "400":
+          description: FILE_REQUIRED / INVALID_FILE_TYPE
+        "404":
+          description: APPOINTMENT_NOT_FOUND
+        "409":
+          description: MEDIA_CONSENT_REQUIRED / MEDIA_LIMIT
+        "413":
+          description: FILE_TOO_LARGE
+
+  /api/appointments/{id}/media/{fileName}:
+    delete:
+      tags: [Appointments]
+      summary: Quitar una foto o video de la cita
+      operationId: removeAppointmentMedia
+      description: >-
+        Sale de la cita y, si nada más lo usa (productos, Configurar tienda, home de la app, otra
+        cita, la galería del sitio), también se borra de la biblioteca de medios. El mensaje dice
+        cuál de los dos pasó.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+        - { in: path, name: fileName, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: "`{ message, appointment }`"
+        "400":
+          description: INVALID_FILE_NAME
+        "404":
+          description: APPOINTMENT_NOT_FOUND / MEDIA_NOT_FOUND
+
+  /api/appointments/{id}/reviews:
+    get:
+      tags: [Appointments]
+      summary: Reseñas de la cita y de la clienta
+      operationId: getAppointmentReviews
+      description: >-
+        La reseña de esta cita y hasta 20 más de la misma clienta (por cuenta o correo: otras citas y
+        productos). Sin el módulo `reviews` contratado → `{ enabled: false }`. Moderar sigue siendo
+        PUT /api/reviews/{id} (módulo `reviews`).
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: "`{ enabled, review, history: [{ _id, kind, targetId, label, rating, comment, status, rejectionReason, createdAt }] }`"
+        "404":
+          description: APPOINTMENT_NOT_FOUND
+
   /api/appointments/{id}:
     parameters:
       - { in: path, name: id, required: true, schema: { type: string } }
@@ -7836,6 +7928,8 @@ components:
           type: string
         description:
           type: string
+          maxLength: 20000
+          description: HTML básico (las etiquetas cuentan).
         price:
           type: number
         compareAtPrice:
@@ -8421,6 +8515,24 @@ components:
             paymentProofs:
               type: array
               items: { $ref: "#/components/schemas/PaymentProof" }
+            media:
+              type: array
+              description: Fotos / videos de la cita, en la biblioteca de medios (URL pública). No salen en la vista de la clienta.
+              items:
+                type: object
+                properties:
+                  path: { type: string, example: uploads/media-1700000000000-uuid.jpg }
+                  kind: { type: string, enum: [image, gif, video] }
+                  addedAt: { type: string, format: date-time }
+                  addedBy: { type: string, nullable: true }
+            mediaConsent:
+              type: object
+              nullable: true
+              description: La clienta autorizó subir sus fotos al sitio (lo registra el staff).
+              properties:
+                given: { type: boolean }
+                at: { type: string, format: date-time }
+                by: { type: string }
             cancelReason: { type: string }
             scheduledAt: { type: string, format: date-time, description: Cuándo se fijó el horario actual (alta o última reprogramación). }
             reminderSentAt: { type: string, format: date-time, nullable: true }

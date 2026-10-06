@@ -3,6 +3,7 @@ import axios from "axios";
 import { Link } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import PhoneInput from "./PhoneInput";
+import Alert from "./Alert";
 
 // Tarjetas de regalo (módulo "giftCards" de los permisos; backend
 // packages/core-api/modules/giftCards.js). Saldo en pesos que se usa en
@@ -136,8 +137,8 @@ const GiftCardList = () => {
           </button>
         </p>
       ) : null}
-      {message ? <div className="auth-success">{message}</div> : null}
-      {error ? <div className="auth-error">{error}</div> : null}
+      {message ? <Alert type="success">{message}</Alert> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       {showSettings && settings ? (
         <form onSubmit={saveSettings} style={{ maxWidth: "none", margin: "1rem 0" }}>

@@ -3,6 +3,7 @@ import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { formatMxn } from "../utils/accountingLabels";
+import Alert from "./Alert";
 
 // Edición acotada de una factura ya emitida: concepto de cada movimiento y
 // fecha de emisión. El monto, el cliente, el folio y qué movimientos cubre no
@@ -104,7 +105,7 @@ const InvoiceEditForm = () => {
   if (!invoice) {
     return (
       <section>
-        {error ? <div className="auth-error">{error}</div> : null}
+        {error ? <Alert type="error">{error}</Alert> : null}
         <button type="button" className="btn-secondary" onClick={() => navigate("/admin/invoices")}>
           Volver a Facturación
         </button>
@@ -120,8 +121,8 @@ const InvoiceEditForm = () => {
         fecha de emisión; el monto y los movimientos cubiertos quedan fijos.
       </p>
 
-      {error ? <div className="auth-error">{error}</div> : null}
-      {message ? <div className="auth-success">{message}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
+      {message ? <Alert type="success">{message}</Alert> : null}
 
       <form onSubmit={handleSubmit} style={{ maxWidth: "none", margin: 0 }}>
         <label>

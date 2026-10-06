@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { HOSTING_PLANS } from "../utils/hostingPlans";
 import { getDateStatusBadge } from "../utils/dateStatusBadge";
+import Alert from "./Alert";
 
 const formatCurrency = (value) => {
   if (!value) return "$0";
@@ -60,7 +61,7 @@ const AgencyClientList = () => {
       <h3>Clientes</h3>
       <p>Desde aqui se mostraran los clientes configurados.</p>
 
-      {error ? <div className="auth-error">{error}</div> : null}
+      {error ? <Alert type="error">{error}</Alert> : null}
 
       {!isLoading && clients.length === 0 && !error ? <p>No hay clientes registrados.</p> : null}
 
