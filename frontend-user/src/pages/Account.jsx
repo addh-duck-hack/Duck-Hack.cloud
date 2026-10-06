@@ -183,6 +183,17 @@ const MyGiftCards = () => {
   );
 };
 
+// Reseñas de productos y calificaciones de citas (GET /api/reviews/mine:
+// `kind` "product" | "appointment"; las de cita se buscan por cuenta o por
+// correo, así salen también las que dejó desde el enlace del correo).
+const reviewTitle = (r) => {
+  if (r.kind === 'appointment') {
+    const services = r.appointment?.services || [];
+    return `Cita${r.appointment?.appointmentNumber ? ` #${r.appointment.appointmentNumber}` : ''}${services.length ? `: ${services.join(' + ')}` : ''}`;
+  }
+  return r.productName || 'Producto';
+};
+
 const MyReviews = () => {
   const { data, isLoading } = useApi('/api/reviews/mine', getAuthHeader());
   const items = listItems(data);
@@ -193,12 +204,21 @@ const MyReviews = () => {
       {items.map((r) => (
         <li key={r._id} className="card row-card">
           <div>
+            <strong>{reviewTitle(r)}</strong>
             <Stars value={r.rating} />
             {r.comment ? <p>{r.comment}</p> : null}
-            <small className="muted">{fmtShortDate(r.createdAt)}{r.rejectionReason ? ` · ${r.rejectionReason}` : ''}</small>
+            <small className="muted">
+              {r.kind === 'appointment' && r.appointment?.start ? `Cita del ${fmtShortDate(r.appointment.start)} · ` : ''}
+              Calificada el {fmtShortDate(r.createdAt)}
+              {r.rejectionReason ? ` · ${r.rejectionReason}` : ''}
+            </small>
           </div>
           <span className="tag">{REVIEW_STATUS[r.status]}</span>
-          {r.product ? <Link to={`/tienda/${r.product}`}>Ver producto</Link> : null}
+          {r.kind === 'appointment' && r.appointment?._id ? (
+            <Link to={`/cita/${r.appointment._id}`}>Ver cita</Link>
+          ) : r.product ? (
+            <Link to={`/tienda/${r.product}`}>Ver producto</Link>
+          ) : null}
         </li>
       ))}
     </ul>
