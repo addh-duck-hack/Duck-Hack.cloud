@@ -2,6 +2,8 @@ import React, { Suspense, lazy } from "react";
 import { HashRouter as Router, Route, Routes, Navigate } from "react-router-dom";
 import AdminShell from "./components/AdminShell";
 import AdminMenu from "./components/AdminMenu";
+import Dashboard from "./components/Dashboard";
+import { DashboardPrefsProvider } from "./hooks/useDashboardPrefs";
 import Login from "./components/Login";
 import RegisterUser from "./components/RegisterUser";
 import StoreConfigManager from "./components/StoreConfigManager";
@@ -63,16 +65,8 @@ import NotFound from "./components/NotFound";
 import { StoreConfigProvider } from "./hooks/useStoreConfig";
 import { PermissionsProvider, usePermissions } from "./hooks/usePermissions";
 import { ROLES, STAFF_ROLES } from "./utils/roles";
-import { firstAllowedPath } from "./utils/permissions";
 import './index.css';
 
-// Staff sin ningún módulo permitido (ej. el super_admin aún no le asigna nada a su rol).
-const NoModules = () => (
-  <div>
-    <h2>Sin módulos disponibles</h2>
-    <p>Tu usuario todavía no tiene acceso a ningún módulo del panel. Pide al administrador que te asigne permisos.</p>
-  </div>
-);
 
 const AppRoutes = () => {
   const token = localStorage.getItem("token");
@@ -93,11 +87,6 @@ const AppRoutes = () => {
   };
   // "Permisos": siempre solo super_admin.
   const superOnly = (element) => (isSuperAdmin ? element : <Navigate to="/admin" replace />);
-  const landing = () => {
-    if (permissionsLoading) return <Loader />;
-    const path = firstAllowedPath(can, role);
-    return path ? <Navigate to={path} replace /> : <NoModules />;
-  };
 
   return (
     <Router>
@@ -106,11 +95,22 @@ const AppRoutes = () => {
           <Route path="/" element={isLoggedIn ? <Navigate to="/admin" /> : <Login />} />
           <Route path="/register" element={<RegisterUser />} />
 
-          <Route path="/admin" element={isLoggedIn ? <AdminShell /> : <Navigate to="/" />}>
-            {/* El índice es el Panel (uso de servidor/infraestructura, ver
-                AdminMenu.jsx), módulo "panel"; sin él se cae al primer módulo
-                permitido (Pedidos si lo tiene). */}
-            <Route index element={permissionsLoading ? <Loader /> : can("panel") ? <AdminMenu /> : landing()} />
+          <Route
+            path="/admin"
+            element={
+              isLoggedIn ? (
+                <DashboardPrefsProvider>
+                  <AdminShell />
+                </DashboardPrefsProvider>
+              ) : (
+                <Navigate to="/" />
+              )
+            }
+          >
+            {/* El índice es el Inicio (Dashboard.jsx) para todo el staff; el uso
+                del servidor (AdminMenu.jsx, módulo "panel") vive en /admin/server. */}
+            <Route index element={<Dashboard />} />
+            <Route path="server" element={gate("panel", <AdminMenu />)} />
             <Route
               path="store-config"
               element={gate("storeConfig", <StoreConfigManager />)}

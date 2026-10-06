@@ -140,6 +140,15 @@ const userSchema = new mongoose.Schema({
     abandonedCart: { type: Boolean, default: true },
     wishlist: { type: Boolean, default: true },
   },
+  // Inicio del admin (modules/dashboard.js): tarjetas ocultas y su orden,
+  // bienvenida descartada y la última novedad del changelog que ya leyó.
+  // Solo staff; se edita con PUT /api/dashboard/preferences, nunca con PUT /:id.
+  dashboardPreferences: {
+    hidden: { type: [String], default: undefined },
+    order: { type: [String], default: undefined },
+    welcomeDismissed: { type: Boolean, default: false },
+    changelogSeen: { type: String, default: "" },
+  },
   profileImage: {
     type: String, // Almacena la ruta de la imagen subida
   },

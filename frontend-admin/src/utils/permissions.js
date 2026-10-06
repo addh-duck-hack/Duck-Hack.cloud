@@ -4,7 +4,7 @@
 // cumplir; esto solo dice qué entrada(s) del menú abre cada módulo.
 // "Permisos" no está aquí: es siempre solo super_admin.
 export const MODULE_NAV = [
-  { key: "panel", items: [{ path: "/admin", label: "Panel", end: true }] },
+  { key: "panel", items: [{ path: "/admin/server", label: "Servidor" }] },
   { key: "storeConfig", items: [{ path: "/admin/store-config", label: "Configurar tienda" }] },
   { key: "appConfig", items: [{ path: "/admin/app-config", label: "Configurar App" }] },
   // `managers`: solo super_admin / store_admin (dentro del módulo, una
@@ -63,7 +63,9 @@ export const MODULE_NAV = [
 // son entradas que no son módulo asignable (solo super_admin). `bottom` = va
 // abajo, en la sección de sesión (junto a "Cerrar sesión"), no en la navegación.
 export const NAV_GROUPS = [
-  { id: "panel", icon: "fa-solid fa-gauge-high", modules: ["panel"] },
+  // Inicio (Dashboard.jsx): para todo el staff, sin clave de permisos.
+  { id: "home", icon: "fa-solid fa-house", modules: [], always: [{ path: "/admin", label: "Inicio", end: true, badge: "news" }] },
+  { id: "panel", icon: "fa-solid fa-server", modules: ["panel"] },
   { id: "config", label: "Configuración", icon: "fa-solid fa-gear", modules: ["storeConfig", "appConfig"] },
   { id: "services", label: "Servicios", icon: "fa-solid fa-spa", modules: ["appointments", "services"] },
   {
@@ -99,19 +101,9 @@ export const navGroupsFor = (can, isSuperAdmin, role) =>
   NAV_GROUPS.map((group) => ({
     ...group,
     items: [
+      ...(group.always || []),
       ...group.modules.flatMap((key) => (can(key) ? visibleItems(key, role) : [])),
       ...(isSuperAdmin ? group.superOnly || [] : []),
     ],
   })).filter((group) => group.items.length > 0);
 
-// Primera pantalla de quien no tiene el Panel (el índice /admin): Pedidos si lo
-// tiene, como antes; si no, su primer módulo permitido; null = ninguno.
-export const firstAllowedPath = (can, role) => {
-  if (can("orders")) return "/admin/orders";
-  for (const module of MODULE_NAV) {
-    if (module.key === "panel" || !can(module.key)) continue;
-    const [first] = visibleItems(module.key, role);
-    if (first) return first.path;
-  }
-  return null;
-};

@@ -7,6 +7,7 @@ import { ROLES, ROLE_LABELS } from "../utils/roles";
 import { navGroupsFor } from "../utils/permissions";
 import { usePermissions } from "../hooks/usePermissions";
 import { useStoreConfig } from "../hooks/useStoreConfig";
+import { useDashboardPrefs } from "../hooks/useDashboardPrefs";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import "./AdminShell.css";
 
@@ -18,7 +19,8 @@ const mediaUrl = (path) => {
 };
 
 const ROUTE_LABELS = {
-  "/admin": "panel",
+  "/admin": "inicio",
+  "/admin/server": "servidor",
   "/admin/store-config": "store-config",
   "/admin/agency-clients": "clientes",
   "/admin/products": "products",
@@ -36,12 +38,22 @@ const matchesItem = (item, pathname) =>
 
 // Dentro de un grupo desplegable cada entrada lleva un punto; un enlace
 // suelto lleva el ícono de su grupo (como los títulos de grupo).
-const NavItem = ({ item, icon }) => (
-  <NavLink to={item.path} end={item.end} className={({ isActive }) => (isActive ? "active" : "")}>
-    {icon ? <i className={`${icon} rail-group-icon`} aria-hidden="true" /> : <span className="dot" />}
-    {item.label}
-  </NavLink>
-);
+// `badge: "news"` (Inicio): contador de novedades del changelog sin leer.
+const NavItem = ({ item, icon }) => {
+  const { unread } = useDashboardPrefs();
+  const count = item.badge === "news" ? unread.size : 0;
+  return (
+    <NavLink to={item.path} end={item.end} className={({ isActive }) => (isActive ? "active" : "")}>
+      {icon ? <i className={`${icon} rail-group-icon`} aria-hidden="true" /> : <span className="dot" />}
+      {item.label}
+      {count ? (
+        <span className="rail-badge" title={`${count} novedad${count === 1 ? "" : "es"} sin leer`}>
+          {count > 9 ? "9+" : count}
+        </span>
+      ) : null}
+    </NavLink>
+  );
+};
 
 // Grupos abiertos/cerrados: se recuerdan por navegador; el del módulo actual
 // siempre se abre.
