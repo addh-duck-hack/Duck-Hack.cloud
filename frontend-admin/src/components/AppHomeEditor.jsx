@@ -7,7 +7,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
-import { SECTION_TYPES, STORE_SECTION_TYPES, createSection, summarizeSection } from "../utils/appHomeSections";
+import { SECTION_TYPES, STORE_SECTION_TYPES, MODULE_SECTION_TYPES, createSection, summarizeSection } from "../utils/appHomeSections";
 import AppConfigTabs from "./AppConfigTabs";
 import AppHomeSectionForm from "./AppHomeSectionForm";
 import Loader from "./Loader";
@@ -27,6 +27,8 @@ const AppHomeEditor = () => {
   const [categories, setCategories] = useState([]);
   // Para contar lo que mostrarán las secciones de tienda (null si aún no existe).
   const [storeConfig, setStoreConfig] = useState(null);
+  // Banners de promociones vigentes del Inicio (null si no se pudieron consultar).
+  const [promoCount, setPromoCount] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [newType, setNewType] = useState("banner");
   const [view, setView] = useState("visual");
@@ -53,7 +55,7 @@ const AppHomeEditor = () => {
     setError("");
     setMessage("");
     try {
-      const [homeRes, productsRes, categoriesRes, storeRes] = await Promise.all([
+      const [homeRes, productsRes, categoriesRes, storeRes, promoRes] = await Promise.all([
         axios.get(`${baseUrl}/api/app-home`, { headers: getAuthHeaders() }),
         axios.get(`${baseUrl}/api/products`, { headers: getAuthHeaders() }),
         axios.get(`${baseUrl}/api/categories`, { headers: getAuthHeaders() }),
@@ -62,11 +64,14 @@ const AppHomeEditor = () => {
         axios
           .get(`${baseUrl}/api/store-config/public`)
           .catch((err) => (err.response?.status === 404 ? { data: null } : Promise.reject(err))),
+        // Lo mismo que verá la app en la sección "Banners de promociones" (público).
+        axios.get(`${baseUrl}/api/promo-banners/public`, { params: { placement: "home" } }).catch(() => ({ data: null })),
       ]);
       applyServerData(homeRes.data);
       setProducts((productsRes.data?.items || []).sort((a, b) => a.name.localeCompare(b.name)));
       setCategories(categoriesRes.data?.items || []);
       setStoreConfig(storeRes.data);
+      setPromoCount(Array.isArray(promoRes.data?.items) ? promoRes.data.items.length : null);
     } catch (err) {
       setError(err.response?.data?.error?.message || "No fue posible cargar el home de la app.");
     } finally {
@@ -209,7 +214,7 @@ const AppHomeEditor = () => {
                       <span className="app-home-section-text">
                         <strong>{section.title || type?.label || section.type}</strong>
                         <small>
-                          {type?.label || section.type} · {summarizeSection(section, productsById, storeConfig)}
+                          {type?.label || section.type} · {summarizeSection(section, productsById, storeConfig, promoCount)}
                         </small>
                       </span>
                       <i className={`fas fa-chevron-${isExpanded ? "up" : "down"}`} aria-hidden="true" />
@@ -248,6 +253,7 @@ const AppHomeEditor = () => {
                       productsById={productsById}
                       categories={categories}
                       storeConfig={storeConfig}
+                      promoCount={promoCount}
                     />
                   ) : null}
                 </li>
@@ -259,12 +265,19 @@ const AppHomeEditor = () => {
             <select value={newType} onChange={(e) => setNewType(e.target.value)}>
               <optgroup label="Contenido propio de la app">
                 {Object.entries(SECTION_TYPES)
-                  .filter(([value]) => !STORE_SECTION_TYPES[value])
+                  .filter(([value]) => !STORE_SECTION_TYPES[value] && !MODULE_SECTION_TYPES[value])
                   .map(([value, type]) => (
                     <option key={value} value={value}>
                       {type.label}
                     </option>
                   ))}
+              </optgroup>
+              <optgroup label="Contenido de otros módulos">
+                {Object.entries(MODULE_SECTION_TYPES).map(([value, type]) => (
+                  <option key={value} value={value}>
+                    {type.label}
+                  </option>
+                ))}
               </optgroup>
               <optgroup label="Contenido de Configurar tienda">
                 {Object.entries(STORE_SECTION_TYPES).map(([value, type]) => (

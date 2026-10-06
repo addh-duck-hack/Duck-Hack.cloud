@@ -22,14 +22,21 @@
 // resuelve en `items`: solo elementos activos, ordenados por sortOrder, sin
 // isActive/sortOrder; métricas automáticas recalculadas como en
 // GET /api/store-config/public (lib/liveMetrics.js). Sin elementos → no se envía.
+//
+// Sección "promoBanners": tampoco guarda contenido; muestra los banners de
+// promociones del módulo Banners (modules/promoBanners.js) marcados para el
+// Inicio o "Inicio y tienda", con las mismas reglas que el sitio web (activos,
+// en fechas, destino vigente). GET /public los resuelve en `items` solo si la
+// tienda tiene contratado `promoBanner`; sin banners vigentes no se envía.
 const crypto = require("crypto");
 const express = require("express");
 const mongoose = require("mongoose");
 const { sanitizeDoc, asTrimmedString, isValidObjectId, getOrCreateModel } = require("../lib/moduleHelpers");
 const { getPurchaseLimit, filterInStock } = require("../lib/purchaseLimits");
 const { resolveLiveMetrics } = require("../lib/liveMetrics");
-const { createModuleAuthorizer } = require("../lib/permissions");
+const { createModuleAuthorizer, isModuleContracted } = require("../lib/permissions");
 const { findCategoryByRef, toPublicCategory } = require("./categories");
+const { listPublicBanners } = require("./promoBanners");
 
 const SCHEMA_VERSION = 1;
 const MAX_SECTIONS = 30;
@@ -181,6 +188,10 @@ Object.keys(STORE_CONTENT).forEach((type) => {
   SECTION_VALIDATORS[type] = () => ({});
 });
 
+// Banners de promociones del módulo Banners (solo los comunes: id, type,
+// visible, title). Se resuelven en GET /public.
+SECTION_VALIDATORS.promoBanners = () => ({});
+
 const SECTION_TYPES = Object.keys(SECTION_VALIDATORS);
 
 // Elementos públicos de una sección de tienda: activos, por sortOrder (estable).
@@ -290,6 +301,11 @@ function registerRoutes(app, ctx) {
           const products = await resolveCarousel(section, purchaseLimit);
           if (products.length === 0) continue;
           sections.push({ ...section, products });
+        } else if (section.type === "promoBanners") {
+          if (!(await isModuleContracted(mongooseConnection, "promoBanner"))) continue;
+          const items = await listPublicBanners(mongooseConnection, "home");
+          if (items.length === 0) continue;
+          sections.push({ ...section, items });
         } else if (STORE_CONTENT[section.type]) {
           const resolved = await resolveStoreSection(section, storeConfig);
           if (resolved.items.length === 0) continue;

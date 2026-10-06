@@ -132,89 +132,100 @@ const validatePayload = (sendError, { partial }) => (req, res, next) => {
   return next();
 };
 
+// Destinos ya resueltos de una lista de banners → Map(id → { target } | { problem }).
+const resolveTargets = async (connection, banners, now = new Date()) => {
+  const { Category, Coupon } = connection.models;
+  const categoryIds = banners.filter((b) => b.target?.type === "category").map((b) => b.target.value);
+  const codes = banners.filter((b) => b.target?.type === "coupon").map((b) => b.target.value);
+  const [categories, coupons] = await Promise.all([
+    categoryIds.length && Category ? Category.find({ _id: { $in: categoryIds }, kind: "product" }).select("name slug isActive").lean() : [],
+    codes.length && Coupon ? Coupon.find({ code: { $in: codes } }).lean() : [],
+  ]);
+  const categoryBy = new Map(categories.map((c) => [String(c._id), c]));
+  const couponBy = new Map(coupons.map((c) => [c.code, c]));
+  const out = new Map();
+  for (const banner of banners) {
+    const { type = "none", value = "" } = banner.target || {};
+    let resolved;
+    if (type === "category") {
+      const category = categoryBy.get(String(value));
+      if (!category) resolved = { problem: "La categoría ya no existe." };
+      else if (category.isActive === false) resolved = { problem: "La categoría está oculta." };
+      else resolved = { target: { type, categoryId: category._id, slug: category.slug, name: category.name } };
+    } else if (type === "coupon") {
+      const coupon = couponBy.get(value);
+      const problem = couponProblem(coupon, now);
+      resolved = problem
+        ? { problem }
+        : {
+            target: {
+              type,
+              code: coupon.code,
+              label: couponLabel(coupon),
+              minPurchase: coupon.minPurchase || null,
+              endsAt: coupon.endsAt || null,
+            },
+          };
+    } else if (type === "url") {
+      resolved = { target: { type, url: value } };
+    } else {
+      resolved = { target: { type: "none" } };
+    }
+    out.set(String(banner._id), resolved);
+  }
+  return out;
+};
+
+// Banners públicos de un lugar ("home" o "shop"; los de "all" salen en los
+// dos): activos, en fechas y con destino vigente, en orden, ya en la forma
+// pública. Lo usan GET /public y el home de la app (modules/appHome.js,
+// sección "promoBanners"). Sin el modelo montado → [].
+const listPublicBanners = async (connection, placement) => {
+  const PromoBanner = connection.models.PromoBanner;
+  if (!PromoBanner) return [];
+  const now = new Date();
+  const filter = {
+    isActive: true,
+    $and: [
+      { $or: [{ startsAt: null }, { startsAt: { $lte: now } }] },
+      { $or: [{ endsAt: null }, { endsAt: { $gte: now } }] },
+    ],
+  };
+  if (placement) filter.placement = { $in: [placement, "all"] };
+  const banners = await PromoBanner.find(filter).sort({ sortOrder: 1, createdAt: -1 }).limit(20).lean();
+  const targets = await resolveTargets(connection, banners, now);
+  return banners
+    .filter((b) => targets.get(String(b._id)).target)
+    .map((b) => {
+      const { target } = targets.get(String(b._id));
+      return {
+        _id: b._id,
+        title: b.title,
+        text: b.text,
+        image: b.image,
+        mobileImage: b.mobileImage || "",
+        buttonLabel: target.type === "none" ? "" : b.buttonLabel,
+        placement: b.placement,
+        endsAt: b.endsAt,
+        target,
+      };
+    });
+};
+
 function registerRoutes(app, ctx) {
   const { mongooseConnection, verifyToken, sendError } = ctx;
   const PromoBanner = getOrCreateModel(mongooseConnection, "PromoBanner", promoBannerSchema);
   const router = express.Router();
-
-  // Destinos ya resueltos de una lista de banners → Map(id → { target } | { problem }).
-  const resolveTargets = async (banners, now = new Date()) => {
-    const { Category, Coupon } = mongooseConnection.models;
-    const categoryIds = banners.filter((b) => b.target?.type === "category").map((b) => b.target.value);
-    const codes = banners.filter((b) => b.target?.type === "coupon").map((b) => b.target.value);
-    const [categories, coupons] = await Promise.all([
-      categoryIds.length && Category ? Category.find({ _id: { $in: categoryIds }, kind: "product" }).select("name slug isActive").lean() : [],
-      codes.length && Coupon ? Coupon.find({ code: { $in: codes } }).lean() : [],
-    ]);
-    const categoryBy = new Map(categories.map((c) => [String(c._id), c]));
-    const couponBy = new Map(coupons.map((c) => [c.code, c]));
-    const out = new Map();
-    for (const banner of banners) {
-      const { type = "none", value = "" } = banner.target || {};
-      let resolved;
-      if (type === "category") {
-        const category = categoryBy.get(String(value));
-        if (!category) resolved = { problem: "La categoría ya no existe." };
-        else if (category.isActive === false) resolved = { problem: "La categoría está oculta." };
-        else resolved = { target: { type, categoryId: category._id, slug: category.slug, name: category.name } };
-      } else if (type === "coupon") {
-        const coupon = couponBy.get(value);
-        const problem = couponProblem(coupon, now);
-        resolved = problem
-          ? { problem }
-          : {
-              target: {
-                type,
-                code: coupon.code,
-                label: couponLabel(coupon),
-                minPurchase: coupon.minPurchase || null,
-                endsAt: coupon.endsAt || null,
-              },
-            };
-      } else if (type === "url") {
-        resolved = { target: { type, url: value } };
-      } else {
-        resolved = { target: { type: "none" } };
-      }
-      out.set(String(banner._id), resolved);
-    }
-    return out;
-  };
 
   // ---- público ----
   // GET /public?placement=home|shop — activos, en fechas y con destino
   // vigente, en orden. Los de placement "all" salen en los dos.
   router.get("/public", async (req, res) => {
     try {
-      const now = new Date();
-      const filter = {
-        isActive: true,
-        $and: [
-          { $or: [{ startsAt: null }, { startsAt: { $lte: now } }] },
-          { $or: [{ endsAt: null }, { endsAt: { $gte: now } }] },
-        ],
-      };
-      if (req.query.placement !== undefined) {
-        if (!["home", "shop"].includes(req.query.placement)) return sendError(res, 400, "VALIDATION_ERROR", "placement debe ser home o shop.");
-        filter.placement = { $in: [req.query.placement, "all"] };
+      if (req.query.placement !== undefined && !["home", "shop"].includes(req.query.placement)) {
+        return sendError(res, 400, "VALIDATION_ERROR", "placement debe ser home o shop.");
       }
-      const banners = await PromoBanner.find(filter).sort({ sortOrder: 1, createdAt: -1 }).limit(20).lean();
-      const targets = await resolveTargets(banners, now);
-      return res.status(200).json({
-        items: banners
-          .filter((b) => targets.get(String(b._id)).target)
-          .map((b) => ({
-            _id: b._id,
-            title: b.title,
-            text: b.text,
-            image: b.image,
-            mobileImage: b.mobileImage || "",
-            buttonLabel: targets.get(String(b._id)).target.type === "none" ? "" : b.buttonLabel,
-            placement: b.placement,
-            endsAt: b.endsAt,
-            target: targets.get(String(b._id)).target,
-          })),
-      });
+      return res.status(200).json({ items: await listPublicBanners(mongooseConnection, req.query.placement) });
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al listar los banners.");
     }
@@ -262,7 +273,7 @@ function registerRoutes(app, ctx) {
     try {
       const now = new Date();
       const banners = await PromoBanner.find().sort({ sortOrder: 1, createdAt: -1 }).lean();
-      const targets = await resolveTargets(banners, now);
+      const targets = await resolveTargets(mongooseConnection, banners, now);
       return res.status(200).json({ items: banners.map((b) => staffView(b, targets.get(String(b._id)), now)) });
     } catch (error) {
       return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al listar los banners.");
@@ -298,13 +309,13 @@ function registerRoutes(app, ctx) {
 
   const respondOne = async (res, status, banner, message) => {
     const doc = banner.toObject ? banner.toObject() : banner;
-    const targets = await resolveTargets([doc]);
+    const targets = await resolveTargets(mongooseConnection, [doc]);
     return res.status(status).json({ message, banner: staffView(doc, targets.get(String(doc._id)), new Date()) });
   };
 
   router.get("/:id", ensureBanner, async (req, res) => {
     const doc = req.banner.toObject();
-    const targets = await resolveTargets([doc]);
+    const targets = await resolveTargets(mongooseConnection, [doc]);
     return res.status(200).json(staffView(doc, targets.get(String(doc._id)), new Date()));
   });
 
@@ -349,4 +360,5 @@ module.exports = {
   name: "promoBanners",
   registerRoutes,
   models: { PromoBanner: promoBannerSchema },
+  listPublicBanners,
 };
