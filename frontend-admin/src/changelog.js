@@ -11,6 +11,14 @@
 // `kind`: "new" (función nueva) | "improvement" | "fix".
 const CHANGELOG = [
   {
+    id: "2026-10-06-app-perfil",
+    date: "2026-10-06",
+    kind: "new",
+    modules: ["appConfig"],
+    title: "Perfil de la app",
+    body: "En Configurar App → Perfil armas el menú del perfil de la app: grupos como \"Mi cuenta\", \"Soporte\" o \"Legales\" con opciones que abren pantallas de la app, llaman, abren WhatsApp o muestran tu aviso de privacidad, más los botones de cerrar sesión y calificar la app.",
+  },
+  {
     id: "2026-10-06-app-banners-promociones",
     date: "2026-10-06",
     kind: "new",

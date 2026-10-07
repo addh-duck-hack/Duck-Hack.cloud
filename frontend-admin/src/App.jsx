@@ -72,6 +72,7 @@ import UserCreateForm from "./components/UserCreateForm";
 import UserForm from "./components/UserForm";
 import MediaLibrary from "./components/MediaLibrary";
 import AppHomeEditor from "./components/AppHomeEditor";
+import AppProfileEditor from "./components/AppProfileEditor";
 import PermissionsManager from "./components/PermissionsManager";
 import Loader from "./components/Loader";
 
@@ -447,6 +448,10 @@ const AppRoutes = () => {
             <Route
               path="app-config/home"
               element={gate("appConfig", <AppHomeEditor />)}
+            />
+            <Route
+              path="app-config/profile"
+              element={gate("appConfig", <AppProfileEditor />)}
             />
             {/* Ruta anterior a "Configurar App" (enlaces viejos). */}
             <Route path="app-home" element={<Navigate to="/admin/app-config/home" replace />} />

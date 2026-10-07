@@ -4,7 +4,10 @@ import { NavLink } from "react-router-dom";
 // Sub-navegación de "Configurar App" (módulo "appConfig") — mismo patrón que
 // StoreConfigTabs. Cada configuración nueva de la app móvil agrega aquí su
 // pestaña y su ruta en App.jsx bajo /admin/app-config/.
-const TABS = [{ path: "/admin/app-config/home", label: "Home" }];
+const TABS = [
+  { path: "/admin/app-config/home", label: "Home" },
+  { path: "/admin/app-config/profile", label: "Perfil" },
+];
 
 const AppConfigTabs = () => (
   <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1.5rem", borderBottom: "1px solid var(--input-border-color)", paddingBottom: "0.75rem" }}>
