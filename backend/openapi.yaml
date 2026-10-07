@@ -84,6 +84,10 @@ tags:
     description: Permisos por tienda — módulos contratados y qué puede usar cada rol (solo super_admin los configura)
   - name: AppHome
     description: Home de la app móvil armado por JSON desde el admin (módulo appConfig de los permisos por tienda)
+  - name: AppProfile
+    description: >-
+      Menú del perfil de la app móvil (grupos con opciones + botones de cerrar sesión y calificar), armado
+      desde Configurar App → Perfil (módulo appConfig), y páginas legales limpias para su web view.
 paths:
   /api/users/register:
     post:
@@ -6651,6 +6655,83 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
+  /api/app-profile/public:
+    get:
+      tags: [AppProfile]
+      summary: Menú del perfil de la app (público)
+      operationId: getPublicAppProfile
+      security: []
+      description: >
+        Grupos (el título es el separador) con sus opciones ya resueltas, en orden. Cada opción trae
+        `visibility` (always | auth = solo con sesión | guest = solo invitados; la app filtra según su
+        sesión) y `action` lista para abrir: screen {screen}, phone {phone, href tel:}, whatsapp {phone,
+        message, href https://wa.me/…}, email {email, href mailto:}, legal {page, title, path, href,
+        openIn: webview} o url {href, openIn: webview|browser}. Se omiten las opciones que no aplican
+        (pantalla de un módulo no contratado, tienda sin teléfono/correo, legal sin texto) y los grupos
+        que quedan vacíos. `logout` = null si está apagado (la app lo muestra solo con sesión); `rateApp`
+        = null si está apagado, con `iosUrl`/`androidUrl` de las tiendas. Sin perfil guardado devuelve uno
+        sugerido. **La app debe ignorar `action.type` y `screen` que no conozca.**
+        Pantallas: login, profile, orders, addresses, changePassword, deleteAccount, favorites, loyalty,
+        giftCards, reviews, appointments, notifications.
+      responses:
+        "200":
+          description: Perfil de la app
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicAppProfile"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/app-profile/legal/{page}:
+    get:
+      tags: [AppProfile]
+      summary: Página legal para el web view de la app
+      operationId: getAppLegalPage
+      security: []
+      description: >
+        HTML sencillo (nombre, logo y color de la tienda) con el texto de Configurar tienda → Identidad
+        legal: privacy = privacyNotice, legal = legalNotice, returns = returnsPolicy. El texto se sanitiza
+        (lib/safeHtml.js: etiquetas de texto básicas, sin atributos salvo href http(s)/mailto/tel en <a>).
+      parameters:
+        - { in: path, name: page, required: true, schema: { type: string, enum: [privacy, legal, returns] } }
+      responses:
+        "200":
+          description: text/html
+        "404":
+          description: LEGAL_PAGE_NOT_FOUND | LEGAL_PAGE_EMPTY
+
+  /api/app-profile:
+    get:
+      tags: [AppProfile]
+      summary: Perfil de la app para el editor
+      operationId: getAppProfile
+      security: [{ bearerAuth: [] }]
+      description: >
+        Módulo appConfig. Perfil guardado (o el sugerido, `isDefault: true`) + catálogos para el editor
+        (`screens`, `legalPages`), contacto de la tienda (`store`) y `problems` (id de opción → por qué hoy
+        no se mostraría en la app).
+      responses:
+        "200": { description: "`{ groups, logout, rateApp, isDefault, updatedAt, problems, screens, legalPages, store }`" }
+    put:
+      tags: [AppProfile]
+      summary: Guardar y publicar el perfil de la app
+      operationId: updateAppProfile
+      security: [{ bearerAuth: [] }]
+      description: >
+        Reemplaza el perfil completo. Hasta 10 grupos y 20 opciones por grupo; texto de opción obligatorio
+        (60). phone/whatsapp: 10 dígitos o vacío (= los de la tienda); url: http(s). rateApp habilitado
+        exige iosAppId (solo números) o androidPackage (com.tienda.app).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppProfileInput"
+      responses:
+        "200": { description: Igual que GET, con `message` }
+        "400": { description: VALIDATION_ERROR }
+
   /api/app-home:
     get:
       tags: [AppHome]
@@ -7006,6 +7087,74 @@ components:
             $ref: "#/components/schemas/ErrorResponse"
 
   schemas:
+    AppProfileAction:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, enum: [screen, phone, whatsapp, email, legal, url] }
+        screen: { type: string, enum: [login, profile, orders, addresses, changePassword, deleteAccount, favorites, loyalty, giftCards, reviews, appointments, notifications] }
+        phone: { type: string, description: "Entrada: 10 dígitos o vacío. Pública: con lada (whatsapp 52…)." }
+        message: { type: string, maxLength: 300 }
+        email: { type: string }
+        page: { type: string, enum: [privacy, legal, returns] }
+        url: { type: string, description: Solo entrada (tipo url) }
+        openIn: { type: string, enum: [webview, browser] }
+        title: { type: string, readOnly: true, description: Pública (legal) }
+        path: { type: string, readOnly: true, description: Pública (legal), relativa al backend }
+        href: { type: string, readOnly: true, description: "Pública: lo que la app abre (tel:, https://wa.me/…, mailto:, URL)" }
+    AppProfileItem:
+      type: object
+      required: [label, action]
+      properties:
+        id: { type: string, maxLength: 40 }
+        label: { type: string, maxLength: 60 }
+        visibility: { type: string, enum: [always, auth, guest], default: always }
+        action: { $ref: "#/components/schemas/AppProfileAction" }
+    AppProfileGroup:
+      type: object
+      properties:
+        id: { type: string, maxLength: 40 }
+        title: { type: string, maxLength: 60 }
+        items:
+          type: array
+          maxItems: 20
+          items: { $ref: "#/components/schemas/AppProfileItem" }
+    AppProfileInput:
+      type: object
+      required: [groups]
+      properties:
+        groups:
+          type: array
+          maxItems: 10
+          items: { $ref: "#/components/schemas/AppProfileGroup" }
+        logout:
+          type: object
+          properties: { enabled: { type: boolean, default: true }, label: { type: string, maxLength: 40 } }
+        rateApp:
+          type: object
+          properties:
+            enabled: { type: boolean }
+            label: { type: string, maxLength: 40 }
+            iosAppId: { type: string, pattern: "^\\d{6,15}$" }
+            androidPackage: { type: string }
+    PublicAppProfile:
+      type: object
+      properties:
+        groups:
+          type: array
+          items: { $ref: "#/components/schemas/AppProfileGroup" }
+        logout:
+          type: object
+          nullable: true
+          properties: { label: { type: string } }
+        rateApp:
+          type: object
+          nullable: true
+          properties:
+            label: { type: string }
+            iosUrl: { type: string, nullable: true }
+            androidUrl: { type: string, nullable: true }
+        updatedAt: { type: string, format: date-time, nullable: true }
     WholesaleCustomerInput:
       type: object
       properties:
