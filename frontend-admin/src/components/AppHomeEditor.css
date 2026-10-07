@@ -174,6 +174,12 @@
   flex: 1 1 200px;
 }
 
+/* Suelto en el formulario (columna) no debe crecer: la base de 200px es para
+   cuando va en una fila (.app-home-row). */
+.app-home-form > .app-home-field {
+  flex: 0 0 auto;
+}
+
 .app-home-field > span {
   font-size: 0.85rem;
 }
