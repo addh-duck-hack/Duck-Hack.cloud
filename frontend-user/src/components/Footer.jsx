@@ -148,7 +148,7 @@ const Footer = () => {
           <span>
             © {year} {storeName}
           </span>
-          <a href="https://duck-hack.com" target="_blank" rel="noopener noreferrer">
+          <a href="https://mx.duck-hack.cloud" target="_blank" rel="noopener noreferrer">
             Diseñado por Duck-Hack
           </a>
         </div>
