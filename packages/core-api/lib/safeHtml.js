@@ -52,4 +52,22 @@ const hasVisibleText = (html) => sanitizeHtml(html).replace(/<[^>]*>/g, "").repl
 const escapeHtml = (text) =>
   String(text ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-module.exports = { sanitizeHtml, hasVisibleText, escapeHtml };
+// Texto plano de un HTML (sin etiquetas, entidades básicas resueltas, espacios
+// colapsados) y recortado a `maxLength` en un límite de palabra, con "…" si se
+// cortó. Para extractos en respuestas JSON (p. ej. productos del home de la app).
+const ENTITIES = { nbsp: " ", amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", "#39": "'" };
+const toPlainExcerpt = (html, maxLength = 160) => {
+  const text = String(html || "")
+    .replace(/<\s*(script|style)[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, "")
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<[^<>]*>/g, " ")
+    .replace(/&(nbsp|amp|lt|gt|quot|apos|#39);/gi, (_, name) => ENTITIES[name.toLowerCase()])
+    .replace(/\s+/g, " ")
+    .trim();
+  if (text.length <= maxLength) return text;
+  const cut = text.slice(0, maxLength);
+  const lastSpace = cut.lastIndexOf(" ");
+  return `${(lastSpace > maxLength * 0.6 ? cut.slice(0, lastSpace) : cut).replace(/[\s.,;:!?¡¿-]+$/, "")}…`;
+};
+
+module.exports = { sanitizeHtml, hasVisibleText, escapeHtml, toPlainExcerpt };

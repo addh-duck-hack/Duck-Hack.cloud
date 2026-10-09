@@ -11,6 +11,14 @@
 // `kind`: "new" (función nueva) | "improvement" | "fix".
 const CHANGELOG = [
   {
+    id: "2026-10-09-app-extracto-productos",
+    date: "2026-10-09",
+    kind: "improvement",
+    modules: ["appConfig"],
+    title: "Descripciones cortas en los carruseles de la app",
+    body: "Los productos de los carruseles del Home de la app ahora muestran un resumen breve y limpio de su descripción; la descripción completa se sigue viendo al abrir el producto.",
+  },
+  {
     id: "2026-10-06-app-perfil",
     date: "2026-10-06",
     kind: "new",

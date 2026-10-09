@@ -33,6 +33,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const { sanitizeDoc, asTrimmedString, isValidObjectId, getOrCreateModel } = require("../lib/moduleHelpers");
 const { getPurchaseLimit, filterInStock } = require("../lib/purchaseLimits");
+const { toPlainExcerpt } = require("../lib/safeHtml");
 const { resolveLiveMetrics } = require("../lib/liveMetrics");
 const { createModuleAuthorizer, isModuleContracted } = require("../lib/permissions");
 const { findCategoryByRef, toPublicCategory } = require("./categories");
@@ -236,6 +237,9 @@ const toResponse = (doc) => ({
   updatedAt: doc?.updatedAt || null,
 });
 
+// Largo máximo de la descripción de los productos de un carrusel en /public.
+const PRODUCT_EXCERPT_LENGTH = 160;
+
 function registerRoutes(app, ctx) {
   const { mongooseConnection, verifyToken, sendError, resolveLiveMetricSources } = ctx;
   const AppHome = getOrCreateModel(mongooseConnection, "AppHome", appHomeSchema);
@@ -261,7 +265,10 @@ function registerRoutes(app, ctx) {
       candidates = await Product.find({ isActive: true }).sort({ createdAt: -1 }).lean();
     }
     const inStock = await filterInStock(Inventory, candidates, purchaseLimit);
-    return inStock.slice(0, section.limit);
+    // La app solo muestra un extracto: la descripción va en texto plano y corta.
+    return inStock
+      .slice(0, section.limit)
+      .map((product) => ({ ...product, description: toPlainExcerpt(product.description, PRODUCT_EXCERPT_LENGTH) }));
   };
 
   const resolveStoreSection = async (section, config) => {

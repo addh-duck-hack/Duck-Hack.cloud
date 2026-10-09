@@ -7684,6 +7684,10 @@ components:
         products:
           type: array
           readOnly: true
+          description: >-
+            Como PublicProduct, pero `description` es un extracto en texto plano
+            (sin etiquetas HTML, máx. ~160 caracteres, con "…" si se recortó).
+            La descripción completa se pide a GET /api/products/public/{id}.
           items:
             $ref: "#/components/schemas/PublicProduct"
       required: [type, source]
