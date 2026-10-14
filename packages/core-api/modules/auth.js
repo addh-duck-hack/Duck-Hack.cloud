@@ -232,7 +232,7 @@ const sanitizeUser = (userDoc) => {
 const passwordFingerprint = (passwordHash) =>
   crypto.createHash("sha256").update(String(passwordHash || "")).digest("hex").slice(0, 16);
 
-const MIN_PASSWORD_LENGTH = 6;
+const MIN_PASSWORD_LENGTH = 8;
 
 // --- Validación (portada de backend/middleware/validationMiddleware.js) ---
 
@@ -250,8 +250,8 @@ const validateRegisterPayload = (sendError) => (req, res, next) => {
   if (!validateEmail(email)) return sendError(res, 400, "VALIDATION_ERROR", "El correo electrónico no es válido.");
 
   if (!password) return sendError(res, 400, "VALIDATION_ERROR", "La contraseña es requerida.");
-  if (password.length < 6) {
-    return sendError(res, 400, "VALIDATION_ERROR", "La contraseña debe tener al menos 6 caracteres.");
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return sendError(res, 400, "VALIDATION_ERROR", `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`);
   }
 
   // Opcional; si viene, 10 dígitos (lib/phone.js).
@@ -299,8 +299,8 @@ const validateCreateStaffPayload = (sendError) => (req, res, next) => {
   if (!validateEmail(email)) return sendError(res, 400, "VALIDATION_ERROR", "El correo electrónico no es válido.");
 
   if (!password) return sendError(res, 400, "VALIDATION_ERROR", "La contraseña es requerida.");
-  if (password.length < 6) {
-    return sendError(res, 400, "VALIDATION_ERROR", "La contraseña debe tener al menos 6 caracteres.");
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return sendError(res, 400, "VALIDATION_ERROR", `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`);
   }
 
   if (!role || !isValidRole(role)) {

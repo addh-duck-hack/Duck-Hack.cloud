@@ -87,7 +87,7 @@ const UserCreateForm = () => {
             value={form.password}
             onChange={handleChange}
             required
-            minLength={6}
+            minLength={8}
           />
         </label>
 

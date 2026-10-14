@@ -14,6 +14,11 @@ const createTransporter = () =>
     // seguro.
     port: parseInt(process.env.EMAIL_PORT || "587", 10),
     secure: false,
+    // Exige STARTTLS: si el servidor no ofrece cifrado, falla en vez de
+    // mandar las credenciales/el correo en claro (defensa de la revisión de
+    // seguridad). Para un SMTP con TLS implícito (puerto 465) habría que usar
+    // secure:true; aquí el default es 587 con STARTTLS.
+    requireTLS: true,
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,

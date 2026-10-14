@@ -28,8 +28,8 @@ const RegisterUser = ({ onBack }) => {
   // Validación en tiempo real para mostrar errores cuando las contraseñas no coinciden
   useEffect(() => {
     // Priorizar longitud mínima
-    if (userData.password && userData.password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres');
+    if (userData.password && userData.password.length < 8) {
+      setError('La contraseña debe tener al menos 8 caracteres');
       return;
     }
 
@@ -46,8 +46,8 @@ const RegisterUser = ({ onBack }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     // Validaciones en cliente
-    if (!userData.password || userData.password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres');
+    if (!userData.password || userData.password.length < 8) {
+      setError('La contraseña debe tener al menos 8 caracteres');
       return;
     }
     if (userData.password !== userData.confirmPassword) {
