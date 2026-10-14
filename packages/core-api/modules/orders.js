@@ -747,17 +747,42 @@ const STATUS_NOTIFICATIONS = ["confirmed", "shipped", "delivered", "ready_for_pi
 // (lib/stockMovements.js). Lo llama syncInventoryForOrder, que decide cuándo.
 // Nunca bloquea la actualización del pedido, que ya se guardó antes de llamar
 // esto — best-effort: un producto sin registro de inventario se ignora.
-const adjustInventoryForOrder = (mongooseConnection, order, sign) =>
-  adjustStock(
-    mongooseConnection,
-    order.items.map((item) => ({ product: item.product, variant: item.variant || null, delta: sign * item.quantity })),
-    {
-      reason: sign < 0 ? "order" : "order_release",
-      refKind: "Order",
-      refId: order._id,
-      refLabel: order.orderNumber ? `Pedido #${order.orderNumber}` : "Pedido",
+const adjustInventoryForOrder = async (mongooseConnection, order, sign) => {
+  let lines;
+  if (sign < 0) {
+    // Descuento: lo vendido. adjustStock recorta a 0 si no alcanzaba (sobreventa
+    // por pedidos pendientes simultáneos) y guarda en el historial el delta que
+    // SÍ se aplicó.
+    lines = order.items.map((item) => ({ product: item.product, variant: item.variant || null, delta: -item.quantity }));
+  } else {
+    // Liberación: devuelve EXACTAMENTE lo que este pedido tiene descontado, no
+    // item.quantity. Si al descontar se recortó a 0, devolver la cantidad
+    // completa inflaba el inventario (stock fantasma). El neto por producto se
+    // saca del historial de este pedido (suma de sus movimientos: order +
+    // order_release previos) y se lleva a 0 — correcto aun con varios ciclos
+    // descontar/liberar.
+    const Movement = mongooseConnection.models.InventoryMovement;
+    const movements = Movement
+      ? await Movement.find({ refKind: "Order", refId: order._id }).select("product variant delta").lean()
+      : [];
+    const net = new Map();
+    for (const m of movements) {
+      const key = stockKey(m.product, m.variant);
+      net.set(key, (net.get(key) || 0) + m.delta);
     }
-  );
+    lines = order.items.map((item) => {
+      const variant = item.variant || null;
+      const already = net.get(stockKey(item.product, variant)) || 0;
+      return { product: item.product, variant, delta: -already };
+    });
+  }
+  return adjustStock(mongooseConnection, lines, {
+    reason: sign < 0 ? "order" : "order_release",
+    refKind: "Order",
+    refId: order._id,
+    refLabel: order.orderNumber ? `Pedido #${order.orderNumber}` : "Pedido",
+  });
+};
 
 // Deja el inventario de acuerdo con el estado del pedido (ya guardado): en
 // DEDUCTED_STATUSES lo vendido debe estar descontado; en pending,
@@ -1379,6 +1404,33 @@ function registerRoutes(app, ctx) {
             }
           }
         }
+
+        // Reactivar un pedido cancelado pagado con tarjeta de regalo: hay que
+        // volver a cobrar el saldo que se le devolvió al cancelarlo. Si la
+        // tarjeta ya no alcanza, se BLOQUEA el cambio (antes de guardar) para
+        // que el pedido no vuelva a activo con esa parte sin cobrar. El cobro
+        // va aquí (no en syncOrderGiftCard) para poder abortar; marcado
+        // refunded=false, syncOrderGiftCard luego no hace nada.
+        const reactivating = statusChanged && previousStatus === "cancelled" && req.order.status !== "cancelled";
+        if (reactivating) {
+          const gift = req.order.giftCard || {};
+          if (gift.amount > 0 && gift.card && gift.refunded) {
+            const charged = await debitCard(mongooseConnection, gift.card, gift.amount, {
+              order: req.order._id,
+              note: `Pedido #${req.order.orderNumber} reactivado`,
+            });
+            if (!charged) {
+              return sendError(
+                res,
+                409,
+                "GIFT_CARD_INSUFFICIENT_FOR_REACTIVATION",
+                "La tarjeta de regalo ya no tiene saldo para reactivar este pedido. Resuelve el cobro con tarjeta antes de reactivarlo."
+              );
+            }
+            req.order.giftCard.refunded = false;
+          }
+        }
+
         await req.order.save();
 
         // Inventario y usos del cupón según el estado nuevo.
