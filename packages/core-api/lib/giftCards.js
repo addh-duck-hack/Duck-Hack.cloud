@@ -84,8 +84,10 @@ const creditCard = async (connection, cardId, amount, movement = {}) => {
 };
 
 // Pedido con tarjeta (Order.giftCard): el saldo usado se devuelve si el
-// pedido se cancela o se borra, y se vuelve a cobrar si se reactiva (si ya no
-// alcanza, queda sin cobrar y se avisa en el log — el staff lo ve en el pedido).
+// pedido se cancela o se borra. La reactivación (volver a cobrar) la maneja
+// ahora el handler PUT /:id ANTES de guardar, para poder bloquearla si la
+// tarjeta ya no alcanza (marca refunded=false al lograrlo); aquí la rama de
+// re-cobro queda solo como red de seguridad para cualquier otro llamador.
 const syncOrderGiftCard = async (Order, connection, order, { release = false } = {}) => {
   const gift = order.giftCard || {};
   if (!(gift.amount > 0) || !gift.card) return;
