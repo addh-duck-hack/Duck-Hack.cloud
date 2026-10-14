@@ -252,18 +252,34 @@ function registerRoutes(app, ctx) {
     sendEmails(card, kinds, extra).catch((error) => console.error(`No fue posible enviar los correos de la tarjeta #${card.number}:`, error.message));
 
   // Activa una tarjeta pagada: vigencia desde hoy, movimiento de compra y correos.
+  // Transición atómica pending_payment -> active (condicionada al estado en la
+  // BD, no al doc cargado): si dos aprobaciones del mismo comprobante llegan a
+  // la vez, solo la primera activa y fija el saldo; la segunda no hace nada
+  // (antes, un save() no atómico podía restaurar el saldo completo tras un
+  // gasto intermedio, un doble gasto). La tarjeta debe existir ya en la BD.
+  // Devuelve el doc activado, o null si otra petición ganó o ya no estaba
+  // pendiente.
   const activate = async (card, { by } = {}) => {
     const settings = await getSettings(mongooseConnection);
     const now = new Date();
-    card.status = "active";
-    card.activatedAt = now;
-    card.expiresAt = settings.validityMonths > 0 ? addMonths(now, settings.validityMonths) : null;
-    card.balance = card.amount;
-    card.movements.push({ type: "purchase", delta: card.amount, note: card.source === "staff" ? "Venta en mostrador" : "Pago confirmado", by: by || null, at: now });
-    card.deliveredAt = now;
-    await card.save();
-    notifyCard(card, ["delivered"]);
-    return card;
+    const GiftCard = mongooseConnection.models.GiftCard;
+    const updated = await GiftCard.findOneAndUpdate(
+      { _id: card._id, status: "pending_payment" },
+      {
+        $set: {
+          status: "active",
+          activatedAt: now,
+          expiresAt: settings.validityMonths > 0 ? addMonths(now, settings.validityMonths) : null,
+          balance: card.amount,
+          deliveredAt: now,
+        },
+        $push: { movements: { type: "purchase", delta: card.amount, note: card.source === "staff" ? "Venta en mostrador" : "Pago confirmado", by: by || null, at: now } },
+      },
+      { new: true }
+    );
+    if (!updated) return null;
+    notifyCard(updated, ["delivered"]);
+    return updated;
   };
 
   // Lo que ve quien compró (sin datos de revisión ni código hasta que se active).
@@ -584,8 +600,9 @@ function registerRoutes(app, ctx) {
         paymentNote: asTrimmedString(p.paymentNote).slice(0, 200),
         ...contact.data,
       });
-      await activate(card, { by: req.user.id });
-      return res.status(201).json({ message: "Tarjeta vendida y activada.", giftCard: sanitizeDoc(card) });
+      await card.save();
+      const activatedCard = await activate(card, { by: req.user.id });
+      return res.status(201).json({ message: "Tarjeta vendida y activada.", giftCard: sanitizeDoc(activatedCard || card) });
     } catch (error) {
       return handleMongooseError(sendError, res, error, "Error al vender la tarjeta.");
     }
@@ -645,8 +662,12 @@ function registerRoutes(app, ctx) {
         notifyCard(card, ["proof_rejected"], { reason });
         return res.status(200).json({ message: "Comprobante rechazado.", giftCard: sanitizeDoc(card) });
       }
-      if (card.status === "pending_payment") await activate(card, { by: req.user.id });
-      else await card.save();
+      if (card.status === "pending_payment") {
+        await card.save(); // persiste la revisión del comprobante antes de activar
+        const activatedCard = await activate(card, { by: req.user.id });
+        return res.status(200).json({ message: "Pago aprobado: la tarjeta quedó activa y se envió.", giftCard: sanitizeDoc(activatedCard || card) });
+      }
+      await card.save();
       return res.status(200).json({ message: "Pago aprobado: la tarjeta quedó activa y se envió.", giftCard: sanitizeDoc(card) });
     } catch (error) {
       return handleMongooseError(sendError, res, error, "Error al revisar el comprobante.");

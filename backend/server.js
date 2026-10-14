@@ -16,7 +16,11 @@ const { generateGiftCardPdf } = require("./utils/giftCardPdf");
 // — verifyToken/authorizeRoles se arman acá con createAuthMiddleware(sendError)
 // (mismo criterio de inyección que el resto del paquete, ver su README.md),
 // ROLES/STAFF_ROLES/validateJwtEnvConfig son estáticos.
-const { verifyToken, authorizeRoles } = auth.createAuthMiddleware(sendError);
+const loadUserForAuth = (id) => {
+  const User = mongoose.connection.models.User;
+  return User ? User.findById(id).select("role deletedAt tokenVersion").lean() : null;
+};
+const { verifyToken, authorizeRoles } = auth.createAuthMiddleware(sendError, { loadUser: loadUserForAuth });
 const { ROLES, STAFF_ROLES, validateJwtEnvConfig } = auth;
 
 const app = express();
