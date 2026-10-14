@@ -13,7 +13,11 @@ const { sendError } = require("../utils/httpResponses");
 // lib/permissions.js) — se arman con sendError y la conexión de esta instancia.
 const mongoose = require("mongoose");
 const { auth, permissions, validation } = require("@duck-hack/core-api");
-const { verifyToken } = auth.createAuthMiddleware(sendError);
+const loadUserForAuth = (id) => {
+  const User = mongoose.connection.models.User;
+  return User ? User.findById(id).select("role deletedAt tokenVersion").lean() : null;
+};
+const { verifyToken } = auth.createAuthMiddleware(sendError, { loadUser: loadUserForAuth });
 const { authorizeModuleAccess } = permissions.createModuleAuthorizer({ mongooseConnection: mongoose.connection, sendError });
 const { getNextInvoiceFolio } = require("../utils/accountingHooks");
 const { generateInvoicePdf } = require("../utils/invoicePdf");
@@ -57,7 +61,7 @@ const buildDefaultConcept = (transactions) => {
 router.get("/", async (req, res) => {
   try {
     const filter = {};
-    if (req.query.client) filter.client = req.query.client;
+    if (req.query.client && mongoose.isValidObjectId(req.query.client)) filter.client = req.query.client;
 
     const invoices = await Invoice.find(filter).sort({ folio: -1 }).populate("client", "businessName");
     return res.status(200).json({ items: invoices.map(sanitizeDoc) });

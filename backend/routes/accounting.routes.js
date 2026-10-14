@@ -11,7 +11,11 @@ const { sendError } = require("../utils/httpResponses");
 // lib/permissions.js) — se arman con sendError y la conexión de esta instancia.
 const mongoose = require("mongoose");
 const { auth, permissions, validation } = require("@duck-hack/core-api");
-const { verifyToken } = auth.createAuthMiddleware(sendError);
+const loadUserForAuth = (id) => {
+  const User = mongoose.connection.models.User;
+  return User ? User.findById(id).select("role deletedAt tokenVersion").lean() : null;
+};
+const { verifyToken } = auth.createAuthMiddleware(sendError, { loadUser: loadUserForAuth });
 const { authorizeModuleAccess } = permissions.createModuleAuthorizer({ mongooseConnection: mongoose.connection, sendError });
 
 // Módulo "Contabilidad y movimientos" de los permisos por tienda
@@ -44,7 +48,7 @@ router.get("/transactions", async (req, res) => {
     if (req.query.type === "income" || req.query.type === "expense") {
       filter.type = req.query.type;
     }
-    if (req.query.client) {
+    if (req.query.client && mongoose.isValidObjectId(req.query.client)) {
       filter.client = req.query.client;
     }
     if (req.query.invoiced === "true") {

@@ -1,5 +1,6 @@
-# Cambia la imagen base a una versión estable de Node.js
-FROM node:20
+# Imagen base: Node.js 22 LTS (Node 20 dejó de tener soporte en abr-2026;
+# nodemailer 10 exige Node >= 20).
+FROM node:22
 
 # Crear y establecer el directorio de la app
 WORKDIR /app

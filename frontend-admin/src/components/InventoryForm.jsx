@@ -3,8 +3,9 @@ import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import Alert from "./Alert";
+import InventoryMovements from "./InventoryMovements";
 
-const initialState = { product: "", variant: "", quantity: "0", lowStockThreshold: "0", notes: "" };
+const initialState = { product: "", variant: "", quantity: "0", lowStockThreshold: "0", notes: "", movementNote: "" };
 
 const variantText = (product, variant) =>
   `${(product.options || []).map((o, i) => `${o.name}: ${variant.optionValues?.[i] ?? ""}`).join(" / ")} (${variant.sku})`;
@@ -50,6 +51,7 @@ const InventoryForm = () => {
           quantity: String(item.quantity ?? "0"),
           lowStockThreshold: String(item.lowStockThreshold ?? "0"),
           notes: item.notes || "",
+          movementNote: "",
         });
       } catch (err) {
         setError(err.response?.data?.error?.message || "No fue posible cargar el registro de inventario.");
@@ -79,6 +81,7 @@ const InventoryForm = () => {
         quantity: Number(form.quantity),
         lowStockThreshold: Number(form.lowStockThreshold),
         notes: form.notes,
+        ...(isEditing ? { movementNote: form.movementNote } : {}),
       };
       if (!isEditing) {
         payload.product = form.product;
@@ -144,6 +147,13 @@ const InventoryForm = () => {
           <input type="number" name="quantity" min="0" value={form.quantity} onChange={handleChange} required />
         </label>
 
+        {isEditing ? (
+          <label>
+            Motivo del ajuste (opcional, va al historial)
+            <input type="text" name="movementNote" value={form.movementNote} onChange={handleChange} maxLength={300} placeholder="Conteo físico, merma, producto dañado…" />
+          </label>
+        ) : null}
+
         <label>
           Umbral de stock bajo
           <input type="number" name="lowStockThreshold" min="0" value={form.lowStockThreshold} onChange={handleChange} />
@@ -163,6 +173,8 @@ const InventoryForm = () => {
           </button>
         </div>
       </form>
+
+      {isEditing && form.product ? <InventoryMovements product={form.product} variant={form.variant} embedded /> : null}
     </section>
   );
 };

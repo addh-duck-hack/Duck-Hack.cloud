@@ -5,6 +5,13 @@ const PAID_STATUSES = ["confirmed", "processing", "shipped", "delivered", "ready
 const DAY = 24 * 60 * 60 * 1000;
 const round2 = (n) => Math.round(Number(n || 0) * 100) / 100;
 
+// CSV para Excel (BOM + CRLF), lo usan Reportes y Contabilidad.
+const csvCell = (value) => {
+  const text = value === null || value === undefined ? "" : String(value);
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+};
+const toCsv = (rows) => `﻿${rows.map((r) => r.map(csvCell).join(",")).join("\r\n")}\r\n`;
+
 // Medianoche local (zona `tz`) de una fecha AAAA-MM-DD, en UTC.
 const localMidnight = (dateStr, tz) => {
   const [y, m, d] = dateStr.split("-").map(Number);
@@ -117,4 +124,4 @@ const timezoneOf = async (connection) => {
   return doc?.timezone || "America/Mexico_City";
 };
 
-module.exports = { PAID_STATUSES, DAY, round2, localMidnight, localDate, periodKey, allPeriods, salesSummary, timezoneOf };
+module.exports = { PAID_STATUSES, DAY, round2, localMidnight, localDate, periodKey, allPeriods, salesSummary, timezoneOf, toCsv };

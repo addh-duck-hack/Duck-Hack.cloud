@@ -369,7 +369,7 @@ function registerRoutes(app, ctx) {
   // necesitan Inventario, Pedidos y Configurar App (selector de productos), aunque la tienda no
   // haya contratado Productos (el catálogo ya es público); escribir, solo Productos.
   const { authorizeModule } = createModuleAuthorizer({ mongooseConnection, sendError });
-  const canRead = authorizeModule("products", { alsoBy: ["inventory", "orders", "appConfig"], requireContract: false });
+  const canRead = authorizeModule("products", { alsoBy: ["inventory", "orders", "appConfig", "wholesale", "storeAccounting"], requireContract: false });
   const canWrite = authorizeModule("products");
 
   router.get("/", canRead, async (req, res) => {

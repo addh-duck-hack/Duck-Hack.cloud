@@ -19,17 +19,11 @@
 // ($dateTrunc es 5.0+).
 const express = require("express");
 const { createModuleAuthorizer, isModuleContracted } = require("../lib/permissions");
-const { DAY, round2, localMidnight, localDate, periodKey, allPeriods, salesSummary, timezoneOf } = require("../lib/reportQueries");
+const { DAY, round2, localMidnight, localDate, periodKey, allPeriods, salesSummary, timezoneOf, toCsv } = require("../lib/reportQueries");
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_DAYS = 366;
 const pct = (part, whole) => (whole > 0 ? Math.round((part / whole) * 1000) / 10 : 0);
-
-const csvCell = (value) => {
-  const text = value === null || value === undefined ? "" : String(value);
-  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-};
-const toCsv = (rows) => `﻿${rows.map((r) => r.map(csvCell).join(",")).join("\r\n")}\r\n`;
 
 function registerRoutes(app, ctx) {
   const { mongooseConnection, verifyToken, sendError } = ctx;

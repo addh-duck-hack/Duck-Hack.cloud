@@ -51,12 +51,16 @@ const validateJwtEnvConfig = () => {
   require("./refreshTokens").readRefreshTtlMs();
 };
 
-const signAccessToken = ({ id, role }) => {
+const signAccessToken = ({ id, role, tokenVersion = 0 }) => {
   const config = readJwtConfig();
   const subject = String(id);
 
+  // `tv` = versión de la sesión del usuario (User.tokenVersion). verifyToken
+  // la compara contra la BD; cambiar contraseña, cambiar rol o borrar la
+  // cuenta la incrementa, invalidando al instante los access tokens viejos
+  // (los refresh ya se revocaban aparte).
   return jwt.sign(
-    { id: subject, role, tokenType: ACCESS_TOKEN_TYPE },
+    { id: subject, role, tv: Number(tokenVersion) || 0, tokenType: ACCESS_TOKEN_TYPE },
     config.secret,
     {
       algorithm: JWT_ALGORITHM,

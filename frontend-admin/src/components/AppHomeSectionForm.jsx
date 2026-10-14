@@ -7,6 +7,7 @@ import {
   NOTICE_STYLE_OPTIONS,
   PRODUCT_SOURCE_OPTIONS,
   STORE_SECTION_TYPES,
+  MODULE_SECTION_TYPES,
   countActiveStoreItems,
 } from "../utils/appHomeSections";
 
@@ -286,6 +287,27 @@ const StoreSectionInfo = ({ section, storeConfig }) => {
   );
 };
 
+// Banners de promociones: se reutilizan los del módulo Banners (los marcados
+// para el Inicio o "Inicio y tienda"), igual que en el sitio web.
+const PromoBannersInfo = ({ promoCount }) => (
+  <div className="app-home-store-info">
+    <i className="fas fa-link" aria-hidden="true" />
+    <div>
+      Muestra los banners de promociones del Inicio
+      {promoCount === null ? "" : (
+        <>
+          : <b>{promoCount}</b> vigente(s) hoy
+        </>
+      )}
+      . Solo salen los activos, dentro de sus fechas y con un destino que sigue sirviendo (cupón vigente, categoría visible).
+      {promoCount === 0 ? " Mientras no haya ninguno vigente, la sección no aparece en la app." : ""}
+      <br />
+      Se editan en <Link to={MODULE_SECTION_TYPES.promoBanners.path}>{MODULE_SECTION_TYPES.promoBanners.pathLabel}</Link> (ubicación
+      "Inicio" o "Inicio y tienda") y salen igual en el sitio web y en la app.
+    </div>
+  </div>
+);
+
 const FORMS = {
   banner: BannerForm,
   productCarousel: ProductCarouselForm,
@@ -295,7 +317,7 @@ const FORMS = {
 
 // Formulario de una sección: campos comunes (título) + los de su tipo.
 // `onChange(patch)` mezcla el patch en la sección.
-const AppHomeSectionForm = ({ section, onChange, products, productsById, categories, storeConfig }) => {
+const AppHomeSectionForm = ({ section, onChange, products, productsById, categories, storeConfig, promoCount = null }) => {
   const TypeForm = FORMS[section.type];
   const isStoreSection = Boolean(STORE_SECTION_TYPES[section.type]);
   return (
@@ -305,6 +327,8 @@ const AppHomeSectionForm = ({ section, onChange, products, productsById, categor
       </Field>
       {isStoreSection ? (
         <StoreSectionInfo section={section} storeConfig={storeConfig} />
+      ) : section.type === "promoBanners" ? (
+        <PromoBannersInfo promoCount={promoCount} />
       ) : TypeForm ? (
         <TypeForm section={section} onChange={onChange} products={products} productsById={productsById} categories={categories} />
       ) : (

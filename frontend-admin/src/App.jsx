@@ -50,6 +50,20 @@ import AppointmentSettingsForm from "./components/AppointmentSettingsForm";
 import { isAgendaManager } from "./utils/schedule";
 import InventoryList from "./components/InventoryList";
 import InventoryForm from "./components/InventoryForm";
+import InventoryMovements from "./components/InventoryMovements";
+import WholesaleCustomerList from "./components/WholesaleCustomerList";
+import WholesaleCustomerForm from "./components/WholesaleCustomerForm";
+import WholesaleCustomerDetail from "./components/WholesaleCustomerDetail";
+import WholesaleSaleList from "./components/WholesaleSaleList";
+import WholesaleSaleForm from "./components/WholesaleSaleForm";
+import WholesaleSaleDetail from "./components/WholesaleSaleDetail";
+import WholesaleReceivables from "./components/WholesaleReceivables";
+import StoreFinanceDashboard from "./components/StoreFinanceDashboard";
+import StoreFinanceLedger from "./components/StoreFinanceLedger";
+import SupplierList from "./components/SupplierList";
+import PurchaseList from "./components/PurchaseList";
+import PurchaseForm from "./components/PurchaseForm";
+import PurchaseDetail from "./components/PurchaseDetail";
 import OrderList from "./components/OrderList";
 import OrderForm from "./components/OrderForm";
 import OrderDetail from "./components/OrderDetail";
@@ -58,6 +72,7 @@ import UserCreateForm from "./components/UserCreateForm";
 import UserForm from "./components/UserForm";
 import MediaLibrary from "./components/MediaLibrary";
 import AppHomeEditor from "./components/AppHomeEditor";
+import AppProfileEditor from "./components/AppProfileEditor";
 import PermissionsManager from "./components/PermissionsManager";
 import Loader from "./components/Loader";
 
@@ -325,6 +340,74 @@ const AppRoutes = () => {
               element={gate("reports", <ReportsPage />)}
             />
             <Route
+              path="inventory/movements"
+              element={gate("inventory", <InventoryMovements />)}
+            />
+            <Route
+              path="wholesale/customers"
+              element={gate("wholesale", <WholesaleCustomerList />)}
+            />
+            <Route
+              path="wholesale/customers/new"
+              element={gate("wholesale", <WholesaleCustomerForm />)}
+            />
+            <Route
+              path="wholesale/customers/:id"
+              element={gate("wholesale", <WholesaleCustomerDetail />)}
+            />
+            <Route
+              path="wholesale/customers/:id/edit"
+              element={gate("wholesale", <WholesaleCustomerForm />)}
+            />
+            <Route
+              path="wholesale/sales"
+              element={gate("wholesale", <WholesaleSaleList />)}
+            />
+            <Route
+              path="wholesale/sales/new"
+              element={gate("wholesale", <WholesaleSaleForm />)}
+            />
+            <Route
+              path="wholesale/sales/:id"
+              element={gate("wholesale", <WholesaleSaleDetail />)}
+            />
+            <Route
+              path="wholesale/sales/:id/edit"
+              element={gate("wholesale", <WholesaleSaleForm />)}
+            />
+            <Route
+              path="wholesale/receivables"
+              element={gate("wholesale", <WholesaleReceivables />)}
+            />
+            <Route
+              path="finance"
+              element={gate("storeAccounting", <StoreFinanceDashboard />)}
+            />
+            <Route
+              path="finance/movements"
+              element={gate("storeAccounting", <StoreFinanceLedger />)}
+            />
+            <Route
+              path="finance/suppliers"
+              element={gate("storeAccounting", <SupplierList />)}
+            />
+            <Route
+              path="finance/purchases"
+              element={gate("storeAccounting", <PurchaseList />)}
+            />
+            <Route
+              path="finance/purchases/new"
+              element={gate("storeAccounting", <PurchaseForm />)}
+            />
+            <Route
+              path="finance/purchases/:id"
+              element={gate("storeAccounting", <PurchaseDetail />)}
+            />
+            <Route
+              path="finance/purchases/:id/edit"
+              element={gate("storeAccounting", <PurchaseForm />)}
+            />
+            <Route
               path="loyalty"
               element={gate("loyalty", <LoyaltyPage />)}
             />
@@ -365,6 +448,10 @@ const AppRoutes = () => {
             <Route
               path="app-config/home"
               element={gate("appConfig", <AppHomeEditor />)}
+            />
+            <Route
+              path="app-config/profile"
+              element={gate("appConfig", <AppProfileEditor />)}
             />
             {/* Ruta anterior a "Configurar App" (enlaces viejos). */}
             <Route path="app-home" element={<Navigate to="/admin/app-config/home" replace />} />
