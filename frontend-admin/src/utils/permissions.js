@@ -45,6 +45,23 @@ export const MODULE_NAV = [
   { key: "loyalty", items: [{ path: "/admin/loyalty", label: "Lealtad" }] },
   { key: "giftCards", items: [{ path: "/admin/gift-cards", label: "Tarjetas de regalo" }] },
   { key: "reports", items: [{ path: "/admin/reports", label: "Reportes" }] },
+  {
+    key: "wholesale",
+    items: [
+      { path: "/admin/wholesale/customers", label: "Clientes mayoristas" },
+      { path: "/admin/wholesale/sales", label: "Ventas de mayoreo" },
+      { path: "/admin/wholesale/receivables", label: "Por cobrar" },
+    ],
+  },
+  {
+    key: "storeAccounting",
+    items: [
+      { path: "/admin/finance", label: "Contabilidad", end: true },
+      { path: "/admin/finance/movements", label: "Movimientos" },
+      { path: "/admin/finance/purchases", label: "Compras" },
+      { path: "/admin/finance/suppliers", label: "Proveedores" },
+    ],
+  },
   { key: "media", items: [{ path: "/admin/media", label: "Medios" }] },
   { key: "users", items: [{ path: "/admin/users", label: "Usuarios" }] },
   { key: "agencyClients", items: [{ path: "/admin/agency-clients", label: "Clientes" }] },
@@ -79,6 +96,8 @@ export const NAV_GROUPS = [
   { id: "loyalty", icon: "fa-solid fa-award", modules: ["loyalty"] },
   { id: "giftCards", icon: "fa-solid fa-gift", modules: ["giftCards"] },
   { id: "reports", icon: "fa-solid fa-chart-column", modules: ["reports"] },
+  // Negocio: mayoreo y contabilidad de la tienda (no la de la agencia).
+  { id: "business", label: "Negocio", icon: "fa-solid fa-chart-line", modules: ["wholesale", "storeAccounting"] },
   { id: "media", icon: "fa-solid fa-photo-film", modules: ["media"] },
   {
     id: "users",

@@ -199,6 +199,16 @@ const Balances = ({ data }) => (
         <small>{data.loyalty.accountsWithPoints} clientes con puntos</small>
       </div>
     ) : null}
+    {data.wholesale ? (
+      <div>
+        <small>Por cobrar de mayoreo</small>
+        <strong>{formatMxn(data.wholesale.receivable)}</strong>
+        <small>
+          {data.wholesale.customers} cliente{data.wholesale.customers === 1 ? "" : "s"}
+          {data.wholesale.overdue > 0 ? ` · ${formatMxn(data.wholesale.overdue)} vencido` : ""}
+        </small>
+      </div>
+    ) : null}
   </div>
 );
 
@@ -296,7 +306,7 @@ const WIDGETS = [
   { id: "todayAppointments", title: "Citas de hoy", icon: "fa-solid fa-calendar-day", available: (can, w) => Boolean(w?.todayAppointments), render: (w) => <TodayAppointments data={w.todayAppointments} /> },
   { id: "latestOrders", title: "Últimos pedidos", icon: "fa-solid fa-receipt", available: (can, w) => Boolean(w?.latestOrders), render: (w) => <LatestOrders items={w.latestOrders} /> },
   { id: "lowStock", title: "Inventario bajo", icon: "fa-solid fa-boxes-stacked", available: (can, w) => Boolean(w?.lowStock), render: (w) => <LowStock items={w.lowStock} /> },
-  { id: "balances", title: "Tarjetas y lealtad", icon: "fa-solid fa-gift", available: (can, w) => Boolean(w?.balances), render: (w) => <Balances data={w.balances} /> },
+  { id: "balances", title: "Saldos", icon: "fa-solid fa-gift", available: (can, w) => Boolean(w?.balances), render: (w) => <Balances data={w.balances} /> },
   { id: "server", title: "Servidor", icon: "fa-solid fa-server", available: (can) => can("panel"), render: () => <Server /> },
 ];
 

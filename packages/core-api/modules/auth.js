@@ -9,6 +9,10 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
+// Hash señuelo para igualar el tiempo del login cuando el correo no existe:
+// sin esto, no correr bcrypt revelaba por temporización qué cuentas existen.
+// No es el hash de ninguna contraseña real.
+const DUMMY_PASSWORD_HASH = "$2b$10$9KFfk5oimUtsuxDsUAYjbeMQLw.Ls1MRpDEUsQ5Zfw5lcF1EFJgCe";
 const crypto = require("crypto");
 const {
   asTrimmedString,
@@ -156,6 +160,13 @@ const userSchema = new mongoose.Schema({
   isVerified: {
     type: Boolean,
     default: false,
+  },
+  // Versión de sesión: cada incremento invalida los access tokens ya emitidos
+  // de este usuario (verifyToken compara User.tokenVersion con el claim `tv`).
+  // Se sube al cambiar contraseña, cambiar rol o borrar la cuenta.
+  tokenVersion: {
+    type: Number,
+    default: 0,
   },
   createdAt: {
     type: Date,
@@ -659,6 +670,7 @@ function registerRoutes(app, ctx) {
       }
       user.password = password; // pre("save") la hashea
       user.isVerified = true;
+      user.tokenVersion = (user.tokenVersion || 0) + 1;
       await user.save();
       await revokeUserRefreshTokens(user._id);
       return res.status(200).json({ message: "Tu contraseña se actualizó. Ya puedes iniciar sesión." });
@@ -732,7 +744,11 @@ function registerRoutes(app, ctx) {
           updateData.role = role;
         }
 
-        const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true });
+        // Cambiar el rol invalida los access tokens viejos del usuario (su
+        // nuevo rol debe aplicar de inmediato, no al vencer el token de 1 h).
+        const roleChanged = updateData.role !== undefined && updateData.role !== currentUser.role;
+        const mongoUpdate = roleChanged ? { $set: updateData, $inc: { tokenVersion: 1 } } : updateData;
+        const updatedUser = await User.findByIdAndUpdate(userId, mongoUpdate, { new: true });
 
         if (!updatedUser) {
           return sendError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado");
@@ -771,6 +787,7 @@ function registerRoutes(app, ctx) {
         const currentFamily = await findActiveRefreshFamily(req.body.refreshToken, user._id);
 
         user.password = newPassword;
+        user.tokenVersion = (user.tokenVersion || 0) + 1;
         await user.save();
         await revokeUserRefreshTokens(user._id, currentFamily);
 
@@ -1078,6 +1095,10 @@ function registerRoutes(app, ctx) {
 
       const user = await User.findOne({ email });
       if (!user) {
+        // Compara contra un hash señuelo para gastar el mismo tiempo que una
+        // cuenta real (ver DUMMY_PASSWORD_HASH) y no delatar por temporización
+        // si el correo existe.
+        await bcrypt.compare(String(password || ""), DUMMY_PASSWORD_HASH);
         return sendError(res, 401, "INVALID_CREDENTIALS", "Error al iniciar sesión. Verifica tus credenciales.");
       }
 
@@ -1094,7 +1115,7 @@ function registerRoutes(app, ctx) {
         return sendError(res, 403, "ROLE_NOT_SUPPORTED", "La cuenta tiene un rol no soportado por el sistema.");
       }
 
-      const token = signAccessToken({ id: user._id, role: user.role });
+      const token = signAccessToken({ id: user._id, role: user.role, tokenVersion: user.tokenVersion });
       const refreshToken = await issueRefreshToken(user._id, req);
 
       const userResponse = {
@@ -1161,6 +1182,7 @@ function registerRoutes(app, ctx) {
         // transformado.
         userToDelete.password = crypto.randomBytes(32).toString("hex");
         userToDelete.deletedAt = new Date();
+        userToDelete.tokenVersion = (userToDelete.tokenVersion || 0) + 1;
         await userToDelete.save();
         await revokeUserRefreshTokens(userToDelete._id);
 
@@ -1217,7 +1239,7 @@ function registerRoutes(app, ctx) {
         return sendError(res, 409, "REFRESH_TOKEN_ALREADY_ROTATED", "La sesión ya se renovó. Usa el token más reciente.");
       }
 
-      const token = signAccessToken({ id: user._id, role: user.role });
+      const token = signAccessToken({ id: user._id, role: user.role, tokenVersion: user.tokenVersion });
       const refreshToken = await issueRefreshToken(user._id, req, stored.family);
       return res.status(200).json({ token, refreshToken });
     } catch (error) {

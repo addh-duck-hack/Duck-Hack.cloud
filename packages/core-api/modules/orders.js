@@ -44,7 +44,7 @@ const {
 const { createPaymentProofUploadMiddlewares } = require("../lib/uploads");
 const { paymentProofSchema, proofRecordFrom, findProof, streamProofFile, discardProofFile } = require("../lib/paymentProofs");
 const { createModuleAuthorizer } = require("../lib/permissions");
-const { recalculateStatus, notifyStockAlerts } = require("./inventory");
+const { adjustStock } = require("../lib/stockMovements");
 const { resolveCoupon, reserveCouponUse, syncCouponUse } = require("../lib/coupons");
 const { findUsableCard, debitCard, creditCard, syncOrderGiftCard } = require("../lib/giftCards");
 const { hasVariants, findVariant, variantLabel, variantPricing, stockKey } = require("../lib/variants");
@@ -300,6 +300,13 @@ const applyShippingAddress = (req, rawAddress) => {
   return null;
 };
 
+// Campos que POST / (staff) y POST /public aceptan del body; ver la lista
+// blanca al final de validateCreatePayload.
+const CREATE_FIELDS = [
+  "customerName", "customerEmail", "customerPhone", "customer", "items", "shippingAddress", "notes",
+  "deliveryMethod", "paymentMethod", "pickupPointId", "couponCode", "giftCardCode", "usePoints",
+];
+
 const validateCreatePayload = (sendError) => (req, res, next) => {
   const payload = req.body || {};
 
@@ -342,8 +349,8 @@ const validateCreatePayload = (sendError) => (req, res, next) => {
       return sendError(res, 400, "VALIDATION_ERROR", "Cada item requiere un product válido.");
     }
     const quantity = asFiniteNumber(item.quantity);
-    if (quantity === null || quantity < 1) {
-      return sendError(res, 400, "VALIDATION_ERROR", "Cada item requiere quantity >= 1.");
+    if (quantity === null || !Number.isInteger(quantity) || quantity < 1) {
+      return sendError(res, 400, "VALIDATION_ERROR", "Cada item requiere una cantidad entera de 1 o más.");
     }
     const normalized = { product: item.product, quantity };
     if (item.variant !== undefined && item.variant !== null && item.variant !== "") {
@@ -356,15 +363,18 @@ const validateCreatePayload = (sendError) => (req, res, next) => {
   }
   req.body.items = normalizedItems;
 
-  // status/total/shippingCost/productName/unitPrice/subtotal se calculan en
-  // el handler, nunca se aceptan del cliente — tampoco lo que solo pone el
-  // servidor después (inventario, comprobantes, guía, fechas de recoger).
-  for (const field of [
-    "status", "total", "shippingCost", "inventoryDeducted", "paymentProofs",
-    "shipment", "readyForPickupAt", "pickedUpAt", "discount", "loyalty",
-  ]) {
-    delete req.body[field];
+  // Lista blanca: solo pasa lo que el cliente/staff puede decidir. Todo lo
+  // demás (status, total, envío, giftCard, loyalty, discount, orderNumber,
+  // createdAt, comprobantes, inventario...) lo pone el servidor. Antes era una
+  // lista negra y la ruta de staff hace `new Order({ ...req.body })`: un
+  // `giftCard` inyectado se acreditaba completo a la tarjeta al cancelar el
+  // pedido. Los campos del checkout (paymentMethod, couponCode...) los
+  // normaliza después validateCheckoutExtras.
+  const allowed = {};
+  for (const field of CREATE_FIELDS) {
+    if (req.body[field] !== undefined) allowed[field] = req.body[field];
   }
+  req.body = allowed;
 
   return next();
 };
@@ -733,45 +743,21 @@ const notifyOrder = (order, kind, deps) => {
 const STATUS_NOTIFICATIONS = ["confirmed", "shipped", "delivered", "ready_for_pickup", "picked_up", "cancelled"];
 
 // Ajusta el inventario de cada producto (o variante) del pedido — sign=-1
-// descuenta lo vendido, sign=+1 lo regresa. Lo llama syncInventoryForOrder,
-// que decide cuándo. Nunca bloquea la actualización del pedido, que ya se
-// guardó antes de llamar esto — best-effort: si Inventory no está montado, o
-// un producto no tiene registro de inventario, ese renglón simplemente se
-// ignora.
-const adjustInventoryForOrder = async (mongooseConnection, order, sign) => {
-  const Inventory = mongooseConnection.models.Inventory;
-  if (!Inventory) return;
-
-  const changes = [];
-  for (const item of order.items) {
-    try {
-      const updated = await Inventory.findOneAndUpdate(
-        { product: item.product, variant: item.variant || null },
-        { $inc: { quantity: sign * item.quantity } },
-        { new: true }
-      );
-      if (!updated) continue; // producto sin registro de inventario — nada que ajustar
-
-      // Nunca queda en negativo: si varios pedidos se confirmaron con más
-      // unidades de las que había, se recorta a 0 en vez de mostrar un stock
-      // imposible.
-      const clampedQuantity = Math.max(0, updated.quantity);
-      const status = recalculateStatus(clampedQuantity, updated.lowStockThreshold || 0);
-      const previousStatus = updated.status;
-      if (clampedQuantity !== updated.quantity || status !== updated.status) {
-        updated.quantity = clampedQuantity;
-        updated.status = status;
-        await updated.save();
-      }
-      changes.push({ item: updated, previousStatus });
-    } catch (error) {
-      console.error(`No fue posible ajustar el inventario del producto ${item.product}:`, error.message);
+// descuenta lo vendido, sign=+1 lo regresa — y lo deja en el historial
+// (lib/stockMovements.js). Lo llama syncInventoryForOrder, que decide cuándo.
+// Nunca bloquea la actualización del pedido, que ya se guardó antes de llamar
+// esto — best-effort: un producto sin registro de inventario se ignora.
+const adjustInventoryForOrder = (mongooseConnection, order, sign) =>
+  adjustStock(
+    mongooseConnection,
+    order.items.map((item) => ({ product: item.product, variant: item.variant || null, delta: sign * item.quantity })),
+    {
+      reason: sign < 0 ? "order" : "order_release",
+      refKind: "Order",
+      refId: order._id,
+      refLabel: order.orderNumber ? `Pedido #${order.orderNumber}` : "Pedido",
     }
-  }
-  // Un solo correo con todo lo que quedó en su mínimo o agotado (sin await:
-  // no retrasa la respuesta del pedido).
-  notifyStockAlerts(mongooseConnection, changes);
-};
+  );
 
 // Deja el inventario de acuerdo con el estado del pedido (ya guardado): en
 // DEDUCTED_STATUSES lo vendido debe estar descontado; en pending,
@@ -1282,7 +1268,7 @@ function registerRoutes(app, ctx) {
   router.get("/", canRead, async (req, res) => {
     try {
       const filter = {};
-      if (req.query.status) filter.status = req.query.status;
+      if (ORDER_STATUSES.includes(req.query.status)) filter.status = req.query.status;
       // populate limitado a name/email (nunca password) — así el admin ve
       // qué pedidos vienen de una cuenta sin exponer el hash de contraseña.
       const orders = await Order.find(filter).sort({ createdAt: -1 }).populate("customer", "name email");

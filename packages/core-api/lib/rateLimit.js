@@ -2,21 +2,39 @@
 // desde que Auth se movió a core-api (que era su otro consumidor,
 // register/login), este es el único lugar donde vive. `sendError` se recibe
 // por parámetro en vez de importarse (mismo criterio que lib/moduleHelpers.js).
-const getClientIp = (req) => {
-  const forwardedFor = req.headers["x-forwarded-for"];
-  if (typeof forwardedFor === "string" && forwardedFor.length > 0) {
-    return forwardedFor.split(",")[0].trim();
+// La IP sale de req.ip, que Express resuelve con `trust proxy` (server.js:
+// un salto, Nginx Proxy Manager). Nunca del X-Forwarded-For crudo: su primer
+// valor lo escribe el cliente (NPM solo agrega la IP real a la derecha), así
+// que mandar uno distinto en cada petición se saltaba todos los límites.
+const getClientIp = (req) => req.ip || req.socket?.remoteAddress || "unknown";
+
+// Tope de IPs distintas en memoria: al pasarlo se purgan las ventanas
+// vencidas y, si aún sobra, las más viejas (un Map itera en orden de
+// inserción). Evita que muchas IPs hagan crecer el proceso sin límite.
+const MAX_TRACKED_KEYS = 10000;
+
+const prune = (requests, now) => {
+  for (const [key, record] of requests) {
+    if (record.resetAt <= now) requests.delete(key);
   }
-  return req.ip || "unknown";
+  for (const key of requests.keys()) {
+    if (requests.size < MAX_TRACKED_KEYS) break;
+    requests.delete(key);
+  }
 };
 
 // En memoria por proceso — no coordina entre múltiples instancias del
 // backend (mismo límite documentado en CLAUDE.md para la copia de backend/).
 const createRateLimiter = ({ windowMs, max, code, message, sendError }) => {
   const requests = new Map();
+  let nextSweepAt = 0;
 
   return (req, res, next) => {
     const now = Date.now();
+    if (now >= nextSweepAt || requests.size >= MAX_TRACKED_KEYS) {
+      prune(requests, now);
+      nextSweepAt = now + windowMs;
+    }
     const key = getClientIp(req);
     const record = requests.get(key);
 

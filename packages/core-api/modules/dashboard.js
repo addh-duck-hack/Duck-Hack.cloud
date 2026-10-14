@@ -5,7 +5,8 @@
 // super_admin ve todo), así nadie ve datos de algo que no tiene.
 //
 // GET /summary → { modules, widgets: { atAGlance, todo, todayAppointments,
-//   latestOrders, lowStock, balances } } (solo las permitidas).
+//   latestOrders, lowStock, balances } } (solo las permitidas). Mayoreo y
+//   Contabilidad de la tienda suman pendientes a `todo` y su saldo a `balances`.
 // GET/PUT /preferences → User.dashboardPreferences: tarjetas ocultas, su
 //   orden, bienvenida descartada y la última novedad leída del changelog
 //   (frontend-admin/src/changelog.js).
@@ -131,6 +132,17 @@ function registerRoutes(app, ctx) {
       add("stockLow", "Productos con poco inventario", low, "/admin/inventory");
       add("stockOut", "Productos agotados", out, "/admin/inventory");
     }
+    if (allowed.has("wholesale") && m.WholesaleSale) {
+      const [drafts, overdue] = await Promise.all([
+        m.WholesaleSale.countDocuments({ status: "draft" }),
+        m.WholesaleSale.countDocuments({ status: "delivered", balance: { $gt: 0.004 }, dueDate: { $lt: new Date() } }),
+      ]);
+      add("wholesaleDrafts", "Ventas de mayoreo por entregar", drafts, "/admin/wholesale/sales");
+      add("wholesaleOverdue", "Ventas de mayoreo con pago vencido", overdue, "/admin/wholesale/receivables");
+    }
+    if (allowed.has("storeAccounting") && m.Purchase) {
+      add("purchasesUnpaid", "Compras recibidas sin pagar", await m.Purchase.countDocuments({ status: "received", paidAt: null }), "/admin/finance/purchases");
+    }
     return items;
   };
 
@@ -199,6 +211,14 @@ function registerRoutes(app, ctx) {
     if (allowed.has("loyalty") && m.LoyaltyAccount) {
       const [row] = await m.LoyaltyAccount.aggregate([{ $group: { _id: null, points: { $sum: "$points" }, accounts: { $sum: { $cond: [{ $gt: ["$points", 0] }, 1, 0] } } } }]);
       out.loyalty = { points: round2(row?.points || 0), accountsWithPoints: row?.accounts || 0 };
+    }
+    if (allowed.has("wholesale") && m.WholesaleSale) {
+      const now = new Date();
+      const [row] = await m.WholesaleSale.aggregate([
+        { $match: { status: "delivered", balance: { $gt: 0.004 } } },
+        { $group: { _id: null, balance: { $sum: "$balance" }, overdue: { $sum: { $cond: [{ $lt: ["$dueDate", now] }, "$balance", 0] } }, customers: { $addToSet: "$customer" } } },
+      ]);
+      out.wholesale = { receivable: round2(row?.balance || 0), overdue: round2(row?.overdue || 0), customers: row?.customers?.length || 0 };
     }
     return Object.keys(out).length ? out : null;
   };

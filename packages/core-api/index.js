@@ -14,10 +14,13 @@ const wishlist = require("./modules/wishlist");
 const promoBanners = require("./modules/promoBanners");
 const giftCards = require("./modules/giftCards");
 const reports = require("./modules/reports");
+const wholesale = require("./modules/wholesale");
+const storeAccounting = require("./modules/storeAccounting");
 const dashboard = require("./modules/dashboard");
 const reviews = require("./modules/reviews");
 const media = require("./modules/media");
 const appHome = require("./modules/appHome");
+const appProfile = require("./modules/appProfile");
 const permissions = require("./modules/permissions");
 const permissionsLib = require("./lib/permissions");
 const phoneLib = require("./lib/phone");
@@ -36,7 +39,7 @@ const notifyLib = require("./lib/notify");
 // — no es estrictamente necesario ya que todos los módulos se montan de
 // forma síncrona antes de que el server empiece a aceptar requests, pero
 // mantiene el orden legible.
-const modules = [auth, mail, storeConfig, categories, services, appointments, products, inventory, orders, coupons, cart, loyalty, wishlist, promoBanners, giftCards, reviews, reports, dashboard, media, appHome, permissions];
+const modules = [auth, mail, storeConfig, categories, services, appointments, products, inventory, orders, coupons, cart, loyalty, wishlist, promoBanners, giftCards, reviews, wholesale, storeAccounting, reports, dashboard, media, appHome, appProfile, permissions];
 
 module.exports = {
   modules,
