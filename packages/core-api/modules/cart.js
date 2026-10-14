@@ -383,23 +383,38 @@ function registerRoutes(app, ctx) {
 
     let coupon = null;
     if (settings.coupon.enabled && Coupon) {
-      const endsAt = new Date(Date.now() + settings.coupon.validDays * 24 * 60 * 60 * 1000);
-      for (let attempt = 0; attempt < 5 && !coupon; attempt += 1) {
-        try {
-          coupon = await Coupon.create({
-            code: randomCode(),
-            description: `Carrito abandonado de ${user.email}`,
-            type: settings.coupon.type,
-            value: settings.coupon.type === "free_shipping" ? 0 : settings.coupon.value,
-            minPurchase: settings.coupon.minPurchase,
-            endsAt,
-            maxUses: 1,
-            maxUsesPerCustomer: 1,
-            customerEmail: user.email,
-            source: "abandoned_cart",
-          });
-        } catch (error) {
-          if (error?.code !== 11000) throw error; // código repetido: otro intento
+      // No acumular códigos: si el cliente ya tiene un cupón de carrito
+      // abandonado vigente sin usar, se reusa en vez de crear otro. Antes
+      // cada abandono creaba un cupón nuevo y editar el carrito reseteaba
+      // reminderClaimedAt, así que esperar y repetir rendía códigos sin
+      // límite.
+      const now = new Date();
+      coupon = await Coupon.findOne({
+        source: "abandoned_cart",
+        customerEmail: user.email,
+        isActive: true,
+        $expr: { $lt: ["$usedCount", "$maxUses"] },
+        $or: [{ endsAt: null }, { endsAt: { $gt: now } }],
+      }).lean();
+      if (!coupon) {
+        const endsAt = new Date(Date.now() + settings.coupon.validDays * 24 * 60 * 60 * 1000);
+        for (let attempt = 0; attempt < 5 && !coupon; attempt += 1) {
+          try {
+            coupon = await Coupon.create({
+              code: randomCode(),
+              description: `Carrito abandonado de ${user.email}`,
+              type: settings.coupon.type,
+              value: settings.coupon.type === "free_shipping" ? 0 : settings.coupon.value,
+              minPurchase: settings.coupon.minPurchase,
+              endsAt,
+              maxUses: 1,
+              maxUsesPerCustomer: 1,
+              customerEmail: user.email,
+              source: "abandoned_cart",
+            });
+          } catch (error) {
+            if (error?.code !== 11000) throw error; // código repetido: otro intento
+          }
         }
       }
     }
