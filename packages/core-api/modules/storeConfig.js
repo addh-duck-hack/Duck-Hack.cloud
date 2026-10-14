@@ -27,6 +27,19 @@ const { resolveLiveMetrics } = require("../lib/liveMetrics");
 const { createModuleAuthorizer } = require("../lib/permissions");
 
 const HEX_COLOR_REGEX = /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/;
+
+// Rechaza URLs con un esquema peligroso (javascript:, data:, vbscript:, file:)
+// que el storefront o los correos podrían ejecutar al ponerlas en un href/src.
+// Permite texto sin esquema (un número de WhatsApp, un dominio sin protocolo,
+// una ruta relativa "uploads/...") y http(s)/mailto/tel. Se normaliza quitando
+// espacios y caracteres de control intercalados ("java\tscript:") antes de ver
+// el esquema, que es como un navegador lo interpretaría.
+const SAFE_URL_SCHEMES = new Set(["http", "https", "mailto", "tel"]);
+const hasUnsafeUrlScheme = (value) => {
+  const normalized = String(value || "").replace(/[\s\u0000-\u001f\u007f-\u009f]/g, "");
+  const match = /^([a-z][a-z0-9+.-]*):/i.exec(normalized);
+  return Boolean(match) && !SAFE_URL_SCHEMES.has(match[1].toLowerCase());
+};
 const SLUG_REGEX = /^[a-z0-9-]+$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CLABE_REGEX = /^\d{18}$/;
@@ -999,6 +1012,7 @@ const validateStoreConfigPayload = (sendError) => (req, res, next) => {
   if (payload.logoUrl !== undefined) {
     const logoUrl = asTrimmedString(payload.logoUrl);
     if (logoUrl.length > 300) return sendError(res, 400, "VALIDATION_ERROR", "logoUrl excede 300 caracteres.");
+    if (hasUnsafeUrlScheme(logoUrl)) return sendError(res, 400, "VALIDATION_ERROR", "logoUrl debe ser una URL http(s) o una ruta de imagen.");
     req.body.logoUrl = logoUrl;
   }
 
@@ -1053,6 +1067,9 @@ const validateStoreConfigPayload = (sendError) => (req, res, next) => {
       const value = payload.socialLinks[key];
       if (value !== undefined && asTrimmedString(value).length > 300) {
         return sendError(res, 400, "VALIDATION_ERROR", `socialLinks.${key} excede 300 caracteres.`);
+      }
+      if (value !== undefined && hasUnsafeUrlScheme(value)) {
+        return sendError(res, 400, "VALIDATION_ERROR", `socialLinks.${key} tiene un enlace no permitido.`);
       }
     }
   }

@@ -300,6 +300,13 @@ const applyShippingAddress = (req, rawAddress) => {
   return null;
 };
 
+// Campos que POST / (staff) y POST /public aceptan del body; ver la lista
+// blanca al final de validateCreatePayload.
+const CREATE_FIELDS = [
+  "customerName", "customerEmail", "customerPhone", "customer", "items", "shippingAddress", "notes",
+  "deliveryMethod", "paymentMethod", "pickupPointId", "couponCode", "giftCardCode", "usePoints",
+];
+
 const validateCreatePayload = (sendError) => (req, res, next) => {
   const payload = req.body || {};
 
@@ -342,8 +349,8 @@ const validateCreatePayload = (sendError) => (req, res, next) => {
       return sendError(res, 400, "VALIDATION_ERROR", "Cada item requiere un product válido.");
     }
     const quantity = asFiniteNumber(item.quantity);
-    if (quantity === null || quantity < 1) {
-      return sendError(res, 400, "VALIDATION_ERROR", "Cada item requiere quantity >= 1.");
+    if (quantity === null || !Number.isInteger(quantity) || quantity < 1) {
+      return sendError(res, 400, "VALIDATION_ERROR", "Cada item requiere una cantidad entera de 1 o más.");
     }
     const normalized = { product: item.product, quantity };
     if (item.variant !== undefined && item.variant !== null && item.variant !== "") {
@@ -356,15 +363,18 @@ const validateCreatePayload = (sendError) => (req, res, next) => {
   }
   req.body.items = normalizedItems;
 
-  // status/total/shippingCost/productName/unitPrice/subtotal se calculan en
-  // el handler, nunca se aceptan del cliente — tampoco lo que solo pone el
-  // servidor después (inventario, comprobantes, guía, fechas de recoger).
-  for (const field of [
-    "status", "total", "shippingCost", "inventoryDeducted", "paymentProofs",
-    "shipment", "readyForPickupAt", "pickedUpAt", "discount", "loyalty",
-  ]) {
-    delete req.body[field];
+  // Lista blanca: solo pasa lo que el cliente/staff puede decidir. Todo lo
+  // demás (status, total, envío, giftCard, loyalty, discount, orderNumber,
+  // createdAt, comprobantes, inventario...) lo pone el servidor. Antes era una
+  // lista negra y la ruta de staff hace `new Order({ ...req.body })`: un
+  // `giftCard` inyectado se acreditaba completo a la tarjeta al cancelar el
+  // pedido. Los campos del checkout (paymentMethod, couponCode...) los
+  // normaliza después validateCheckoutExtras.
+  const allowed = {};
+  for (const field of CREATE_FIELDS) {
+    if (req.body[field] !== undefined) allowed[field] = req.body[field];
   }
+  req.body = allowed;
 
   return next();
 };
@@ -1258,7 +1268,7 @@ function registerRoutes(app, ctx) {
   router.get("/", canRead, async (req, res) => {
     try {
       const filter = {};
-      if (req.query.status) filter.status = req.query.status;
+      if (ORDER_STATUSES.includes(req.query.status)) filter.status = req.query.status;
       // populate limitado a name/email (nunca password) — así el admin ve
       // qué pedidos vienen de una cuenta sin exponer el hash de contraseña.
       const orders = await Order.find(filter).sort({ createdAt: -1 }).populate("customer", "name email");

@@ -187,7 +187,7 @@ function registerRoutes(app, ctx) {
   router.get("/", canReadStock, async (req, res) => {
     try {
       const filter = {};
-      if (req.query.status) filter.status = req.query.status;
+      if (["in_stock", "low_stock", "out_of_stock"].includes(req.query.status)) filter.status = req.query.status;
       if (req.query.product && isValidObjectId(req.query.product)) filter.product = req.query.product;
       const items = await Inventory.find(filter).sort({ updatedAt: -1 }).populate("product", POPULATE_FIELDS);
       return res.status(200).json({ items: items.map(toResponse) });

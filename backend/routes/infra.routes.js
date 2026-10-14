@@ -5,7 +5,11 @@ const { sendError } = require("../utils/httpResponses");
 // lib/permissions.js) — se arman con sendError y la conexión de esta instancia.
 const mongoose = require("mongoose");
 const { auth, permissions } = require("@duck-hack/core-api");
-const { verifyToken } = auth.createAuthMiddleware(sendError);
+const loadUserForAuth = (id) => {
+  const User = mongoose.connection.models.User;
+  return User ? User.findById(id).select("role deletedAt tokenVersion").lean() : null;
+};
+const { verifyToken } = auth.createAuthMiddleware(sendError, { loadUser: loadUserForAuth });
 const { authorizeModule } = permissions.createModuleAuthorizer({ mongooseConnection: mongoose.connection, sendError });
 const { getServerMetrics, PortainerConfigError, PortainerRequestError } = require("../utils/portainerClient");
 

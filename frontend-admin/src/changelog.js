@@ -11,6 +11,13 @@
 // `kind`: "new" (función nueva) | "improvement" | "fix".
 const CHANGELOG = [
   {
+    id: "2026-10-14-cierre-de-sesiones",
+    date: "2026-10-14",
+    kind: "improvement",
+    title: "Más seguridad en las sesiones",
+    body: "Por seguridad, al cambiar tu contraseña se cierran tus demás sesiones abiertas. Igual, cuando cambias el rol de un usuario o eliminas su cuenta, deja de tener acceso al instante.",
+  },
+  {
     id: "2026-10-09-app-extracto-productos",
     date: "2026-10-09",
     kind: "improvement",

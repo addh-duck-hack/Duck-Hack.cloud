@@ -23,7 +23,9 @@ const escapeHtml = (value = "") =>
   String(value)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 
 // Correo de una acción de cuenta (verificar correo, restablecer contraseña) o
 // aviso de un pedido: encabezado con la marca de la tienda, saludo, párrafo,
@@ -72,7 +74,7 @@ const accountActionEmailTemplate = ({ storeName, logoUrl, accent, title, name, i
                 ${url ? `<table role="presentation" cellpadding="0" cellspacing="0">
                   <tr>
                     <td align="center" bgcolor="${color}" style="border-radius:8px;">
-                      <a href="${url}"
+                      <a href="${escapeHtml(url)}"
                          style="display:inline-block; padding:12px 24px; font-family:${monoFont}; font-size:13px; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; color:${BRAND.onAccent}; text-decoration:none; border-radius:8px;">
                         ${escapeHtml(ctaLabel)}
                       </a>
@@ -80,12 +82,12 @@ const accountActionEmailTemplate = ({ storeName, logoUrl, accent, title, name, i
                   </tr>
                 </table>` : ""}
                 ${links.length ? `<p style="margin:16px 0 0; font-family:${bodyFont}; font-size:14px; line-height:1.8;">${links
-                  .map((l) => `<a href="${l.url}" style="color:${color}; text-decoration:underline;">${escapeHtml(l.label)}</a>`)
+                  .map((l) => `<a href="${escapeHtml(l.url)}" style="color:${color}; text-decoration:underline;">${escapeHtml(l.label)}</a>`)
                   .join("<br />")}</p>` : ""}
                 ${note ? `<p style="margin:20px 0 0; font-family:${bodyFont}; font-size:13px; line-height:1.5; color:${BRAND.textDim};">${escapeHtml(note)}</p>` : ""}
                 ${url ? `<p style="margin:24px 0 0; font-family:${bodyFont}; font-size:13px; line-height:1.5; color:${BRAND.textDim};">
                   Si el botón no funciona, copia y pega este enlace en tu navegador:<br />
-                  <a href="${url}" style="color:${color}; word-break:break-all;">${url}</a>
+                  <a href="${escapeHtml(url)}" style="color:${color}; word-break:break-all;">${escapeHtml(url)}</a>
                 </p>` : ""}
               </td>
             </tr>
@@ -291,7 +293,7 @@ const storeSpeiAccount = (storeConfig) => {
 const ctaButtonHtml = (label, url, color) => `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:16px 0 8px;">
           <tr>
             <td align="center" bgcolor="${color}" style="border-radius:8px;">
-              <a href="${url}" style="display:inline-block; padding:12px 24px; font-family:${monoFont}; font-size:13px; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; color:${BRAND.onAccent}; text-decoration:none; border-radius:8px;">${escapeHtml(label)}</a>
+              <a href="${escapeHtml(url)}" style="display:inline-block; padding:12px 24px; font-family:${monoFont}; font-size:13px; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; color:${BRAND.onAccent}; text-decoration:none; border-radius:8px;">${escapeHtml(label)}</a>
             </td>
           </tr>
         </table>`;
@@ -342,7 +344,7 @@ const buildPaymentInstructions = (order, storeConfig, { proofUploadUrl, accent =
         </p>
         ${ctaButtonHtml("Subir mi comprobante", proofUploadUrl, accent)}
         <p style="margin:0; font-family:${bodyFont}; font-size:12px; line-height:1.5; color:${BRAND.textDim};">
-          Si el botón no funciona, copia este enlace: <a href="${proofUploadUrl}" style="color:${accent}; word-break:break-all;">${proofUploadUrl}</a><br/>
+          Si el botón no funciona, copia este enlace: <a href="${escapeHtml(proofUploadUrl)}" style="color:${accent}; word-break:break-all;">${escapeHtml(proofUploadUrl)}</a><br/>
           También puedes responder este correo con tu comprobante.
         </p>`
           : `<p style="margin:0; font-family:${bodyFont}; font-size:13px; line-height:1.5; color:${BRAND.textDim};">
@@ -470,7 +472,7 @@ const PAYMENT_METHOD_LABELS = {
 const renderOrderEmailHeader = (storeName, logoAbsoluteUrl) => `
   <tr>
     <td align="center" style="padding-bottom:24px;">
-      ${logoAbsoluteUrl ? `<img src="${logoAbsoluteUrl}" height="40" alt="${escapeHtml(storeName)}" style="display:inline-block; vertical-align:middle; height:40px; width:auto; max-height:40px; max-width:160px; object-fit:contain; border:0; border-radius:6px;" />` : ""}
+      ${logoAbsoluteUrl ? `<img src="${escapeHtml(logoAbsoluteUrl)}" height="40" alt="${escapeHtml(storeName)}" style="display:inline-block; vertical-align:middle; height:40px; width:auto; max-height:40px; max-width:160px; object-fit:contain; border:0; border-radius:6px;" />` : ""}
       <span style="display:inline-block; vertical-align:middle; margin-left:10px; font-family:${monoFont}; font-size:18px; color:${BRAND.white}; letter-spacing:0.02em;">${escapeHtml(storeName)}</span>
     </td>
   </tr>`;
@@ -910,7 +912,7 @@ const wishlistBackInStockEmailTemplate = ({ branding, name, product, productUrl,
             <h1 style="margin:0 0 16px; font-family:${monoFont}; font-size:20px; color:${BRAND.white}; font-weight:700;">¡Ya está disponible!</h1>
             <p style="margin:0 0 20px; font-family:${bodyFont}; font-size:15px; line-height:1.6; color:${BRAND.textDim};">${safeName ? `Hola ${safeName}, u` : "U"}n producto de tus favoritos volvió a tener existencias:</p>
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-              ${product.imageUrl ? `<td width="96" style="padding:0 16px 0 0;"><img src="${product.imageUrl}" width="88" height="88" alt="" style="display:block; width:88px; height:88px; border-radius:10px; object-fit:cover;" /></td>` : ""}
+              ${product.imageUrl ? `<td width="96" style="padding:0 16px 0 0;"><img src="${escapeHtml(product.imageUrl)}" width="88" height="88" alt="" style="display:block; width:88px; height:88px; border-radius:10px; object-fit:cover;" /></td>` : ""}
               <td style="font-family:${bodyFont}; font-size:16px; color:${BRAND.white};">
                 <strong>${escapeHtml(product.name)}</strong><br />
                 <span style="color:${BRAND.textDim}; font-size:14px;">${price}</span>
@@ -920,7 +922,7 @@ const wishlistBackInStockEmailTemplate = ({ branding, name, product, productUrl,
             <p style="margin:16px 0 0; font-family:${bodyFont}; font-size:12px; color:${BRAND.textDim};">Las existencias pueden agotarse de nuevo; se confirman al pagar.</p>
           </td></tr>
           <tr><td align="center" style="padding-top:24px;">
-            ${unsubscribeUrl ? `<p style="margin:0; font-family:${bodyFont}; font-size:12px; color:${BRAND.textDim};"><a href="${unsubscribeUrl}" style="color:${BRAND.textDim};">No quiero recibir avisos de mis favoritos</a></p>` : ""}
+            ${unsubscribeUrl ? `<p style="margin:0; font-family:${bodyFont}; font-size:12px; color:${BRAND.textDim};"><a href="${escapeHtml(unsubscribeUrl)}" style="color:${BRAND.textDim};">No quiero recibir avisos de mis favoritos</a></p>` : ""}
           </td></tr>
         </table>
       </td></tr>
@@ -969,7 +971,7 @@ const abandonedCartEmailTemplate = ({ branding, name, items, total, cartUrl, cou
     .map(
       (item) => `<tr>
         <td width="56" style="padding:8px 12px 8px 0; border-bottom:1px solid ${BRAND.line};">
-          ${item.imageUrl ? `<img src="${item.imageUrl}" width="48" height="48" alt="" style="display:block; width:48px; height:48px; border-radius:8px; object-fit:cover;" />` : ""}
+          ${item.imageUrl ? `<img src="${escapeHtml(item.imageUrl)}" width="48" height="48" alt="" style="display:block; width:48px; height:48px; border-radius:8px; object-fit:cover;" />` : ""}
         </td>
         <td style="padding:8px 0; border-bottom:1px solid ${BRAND.line}; font-family:${bodyFont}; font-size:14px; color:${BRAND.white};">
           ${escapeHtml(item.name)}${item.variantLabel ? `<br /><span style="color:${BRAND.textDim}; font-size:12px;">${escapeHtml(item.variantLabel)}</span>` : ""}
@@ -1008,7 +1010,7 @@ const abandonedCartEmailTemplate = ({ branding, name, items, total, cartUrl, cou
             <p style="margin:16px 0 0; font-family:${bodyFont}; font-size:12px; color:${BRAND.textDim};">Precios y existencias al momento de este correo; se confirman al pagar.</p>
           </td></tr>
           <tr><td align="center" style="padding-top:24px;">
-            ${unsubscribeUrl ? `<p style="margin:0; font-family:${bodyFont}; font-size:12px; color:${BRAND.textDim};"><a href="${unsubscribeUrl}" style="color:${BRAND.textDim};">No quiero recibir estos recordatorios</a></p>` : ""}
+            ${unsubscribeUrl ? `<p style="margin:0; font-family:${bodyFont}; font-size:12px; color:${BRAND.textDim};"><a href="${escapeHtml(unsubscribeUrl)}" style="color:${BRAND.textDim};">No quiero recibir estos recordatorios</a></p>` : ""}
           </td></tr>
         </table>
       </td></tr>

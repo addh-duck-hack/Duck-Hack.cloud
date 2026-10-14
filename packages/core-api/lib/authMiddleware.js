@@ -37,8 +37,13 @@ const extractBearerToken = (authHeader = "") => {
   return token;
 };
 
-const createAuthMiddleware = (sendError) => {
-  const verifyToken = (req, res, next) => {
+// `loadUser(id)` (opcional) devuelve { role, deletedAt, tokenVersion } de la BD
+// o null. Si se provee, verifyToken revalida el token contra la cuenta en cada
+// request: cuenta inexistente/borrada o `tv` distinto (rol/contraseña cambiados,
+// cuenta borrada) => 401, y el rol se toma fresco de la BD, no del token. Sin
+// loadUser el token se confía tal cual (comportamiento anterior, stateless).
+const createAuthMiddleware = (sendError, { loadUser } = {}) => {
+  const verifyToken = async (req, res, next) => {
     const authHeader = req.header("Authorization");
     const token = extractBearerToken(authHeader);
 
@@ -46,19 +51,39 @@ const createAuthMiddleware = (sendError) => {
       return sendError(res, 401, "TOKEN_REQUIRED", "Acceso denegado. Token Bearer requerido.");
     }
 
+    let verified;
     try {
-      const verified = verifyAccessToken(token);
-      if (!isValidRole(verified.role)) {
-        return sendError(res, 401, "TOKEN_INVALID_ROLE", "Token con rol inválido.");
-      }
-      req.user = {
-        ...verified,
-        role: verified.role,
-      };
-      next();
+      verified = verifyAccessToken(token);
     } catch (error) {
       return sendError(res, 401, "TOKEN_INVALID_OR_EXPIRED", "Token no válido o expirado.");
     }
+
+    if (!isValidRole(verified.role)) {
+      return sendError(res, 401, "TOKEN_INVALID_ROLE", "Token con rol inválido.");
+    }
+
+    let role = verified.role;
+    if (typeof loadUser === "function") {
+      let dbUser;
+      try {
+        dbUser = await loadUser(verified.id);
+      } catch (error) {
+        return sendError(res, 500, "INTERNAL_SERVER_ERROR", "No fue posible validar la sesión.");
+      }
+      if (!dbUser || dbUser.deletedAt) {
+        return sendError(res, 401, "TOKEN_INVALID_OR_EXPIRED", "Token no válido o expirado.");
+      }
+      if ((Number(dbUser.tokenVersion) || 0) !== (Number(verified.tv) || 0)) {
+        return sendError(res, 401, "SESSION_REVOKED", "La sesión ya no es válida. Vuelve a iniciar sesión.");
+      }
+      if (!isValidRole(dbUser.role)) {
+        return sendError(res, 401, "TOKEN_INVALID_ROLE", "Token con rol inválido.");
+      }
+      role = dbUser.role;
+    }
+
+    req.user = { ...verified, role };
+    next();
   };
 
   const authorizeRoles = (...allowedRoles) => {
