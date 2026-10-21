@@ -324,10 +324,13 @@ const validateTransactionPayload = (req, res, next) => {
   // source/sourceCollection/sourceId nunca se aceptan del cliente: los ponen
   // las rutas que generan transacciones automáticas (pagos de hosting, abonos
   // a deuda de diseño). Una transacción creada por esta validación siempre
-  // queda como "manual".
+  // queda como "manual". `invoice` tampoco: el enlace a una factura lo hace el
+  // flujo de facturación, no un alta manual (si no, se podía crear un
+  // movimiento ya ligado a cualquier factura).
   delete req.body.source;
   delete req.body.sourceCollection;
   delete req.body.sourceId;
+  delete req.body.invoice;
 
   return next();
 };

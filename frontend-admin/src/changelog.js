@@ -11,6 +11,29 @@
 // `kind`: "new" (función nueva) | "improvement" | "fix".
 const CHANGELOG = [
   {
+    id: "2026-10-14-contrasena-mas-larga",
+    date: "2026-10-14",
+    kind: "improvement",
+    title: "Contraseñas más seguras",
+    body: "Ahora las contraseñas deben tener al menos 8 caracteres, tanto al crear una cuenta como al cambiarla.",
+  },
+  {
+    id: "2026-10-14-inventario-cancelar-pedido",
+    date: "2026-10-14",
+    kind: "fix",
+    modules: ["inventory", "orders"],
+    title: "Inventario correcto al cancelar pedidos",
+    body: "Si una existencia se agotó y luego cancelas un pedido, el inventario ya no sube de más: solo regresa lo que de verdad se había descontado.",
+  },
+  {
+    id: "2026-10-14-reactivar-pedido-tarjeta",
+    date: "2026-10-14",
+    kind: "fix",
+    modules: ["orders", "giftCards"],
+    title: "Reactivar pedidos pagados con tarjeta de regalo",
+    body: "Al reactivar un pedido cancelado que se pagó con tarjeta de regalo, si la tarjeta ya no tiene saldo el sistema ahora lo detiene y te avisa, en vez de dejar ese cobro sin registrar.",
+  },
+  {
     id: "2026-10-14-cierre-de-sesiones",
     date: "2026-10-14",
     kind: "improvement",
