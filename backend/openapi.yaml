@@ -7845,14 +7845,39 @@ components:
 
     FavoriteProduct:
       type: object
-      description: Resumen del producto — lo que trae el populate de favorites, nunca el Product completo.
+      description: >
+        Resumen del producto para pintar la tarjeta sin pedir el Product
+        completo (no trae options/variants). Con variantes, el precio mostrado
+        es el de la variante activa más barata ("desde").
       properties:
         _id:
           type: string
         name:
           type: string
+        hasVariants:
+          type: boolean
+          description: true = hay que elegir opciones (talla, color…) antes de agregar al carrito.
         price:
           type: number
+          description: Precio a pagar, ya con descuento. Con variantes, el de la más barata.
+        compareAtPrice:
+          type: number
+          nullable: true
+          description: Precio anterior (tachado). Solo si es mayor que price; si no, null.
+        hasDiscount:
+          type: boolean
+        discountPercent:
+          type: integer
+          description: Porcentaje de descuento redondeado (0 si no hay).
+        priceRange:
+          type: object
+          nullable: true
+          description: Solo con variantes — mínimo y máximo de las variantes activas; null si no tiene.
+          properties:
+            min:
+              type: number
+            max:
+              type: number
         category:
           nullable: true
           allOf:
