@@ -40,6 +40,7 @@ const {
   newFamilyId,
 } = require("../lib/refreshTokens");
 const { createSingleImageUploadMiddlewares } = require("../lib/uploads");
+const { hasVariants, variantPricing } = require("../lib/variants");
 const { sendMail } = require("../lib/mailer");
 const { verificationEmailTemplate, passwordResetEmailTemplate } = require("../lib/emailTemplates");
 
@@ -65,10 +66,48 @@ const ADDRESS_REQUIRED_FIELDS = [
 const ADDRESS_FIELDS = [...ADDRESS_REQUIRED_FIELDS, "interiorNumber"];
 
 // Resumen de producto en favoritos, con la categoría resuelta (modules/categories.js).
+// options/variants/compareAtPrice solo se piden para calcular el resumen de
+// summarizeFavorite; no salen en la respuesta.
 const FAVORITES_POPULATE = {
   path: "favorites",
-  select: "name price images category",
+  select: "name price compareAtPrice options variants images category",
   populate: { path: "category", select: "name slug" },
+};
+
+// Lo que la app necesita para pintar la tarjeta sin pedir el producto:
+// `hasVariants` (botón "Elegir opciones" en vez de "Agregar"), `price` = lo que
+// se paga (ya con descuento) y `compareAtPrice` = precio anterior tachado, solo
+// si es mayor (si no, null y hasDiscount false). Con variantes, `price` es el
+// de la variante activa más barata ("desde") con su propio compareAtPrice, y
+// `priceRange` = {min, max} de las activas (precio efectivo, lib/variants.js#variantPricing).
+const summarizeFavorite = (product) => {
+  if (!product || !product._id) return product;
+  const withVariants = hasVariants(product);
+  let priced = withVariants
+    ? (product.variants || []).filter((v) => v.isActive !== false).map((v) => variantPricing(product, v))
+    : [];
+  if (priced.length === 0) priced = [variantPricing(product, null)];
+
+  const discounted = (p) => typeof p.compareAtPrice === "number" && p.compareAtPrice > p.price;
+  // La más barata; a igual precio, la que trae descuento.
+  const shown = priced.reduce((best, p) =>
+    p.price < best.price || (p.price === best.price && discounted(p) && !discounted(best)) ? p : best
+  );
+  const prices = priced.map((p) => p.price);
+  const hasDiscount = discounted(shown);
+
+  return {
+    _id: product._id,
+    name: product.name,
+    images: product.images,
+    category: product.category,
+    hasVariants: withVariants,
+    price: shown.price,
+    compareAtPrice: hasDiscount ? shown.compareAtPrice : null,
+    hasDiscount,
+    discountPercent: hasDiscount ? Math.round((1 - shown.price / shown.compareAtPrice) * 100) : 0,
+    priceRange: withVariants ? { min: Math.min(...prices), max: Math.max(...prices) } : null,
+  };
 };
 
 const userSchema = new mongoose.Schema({
@@ -223,6 +262,13 @@ const sanitizeUser = (userDoc) => {
   if (!userDoc) return null;
   const user = typeof userDoc.toObject === "function" ? userDoc.toObject() : { ...userDoc };
   delete user.password;
+  return user;
+};
+
+// Para las respuestas con FAVORITES_POPULATE (GET /:id, POST/DELETE /:id/favorites).
+const sanitizeUserWithFavorites = (userDoc) => {
+  const user = sanitizeUser(userDoc);
+  if (user && Array.isArray(user.favorites)) user.favorites = user.favorites.map(summarizeFavorite);
   return user;
 };
 
@@ -799,9 +845,9 @@ function registerRoutes(app, ctx) {
   );
 
   // Favoritos — solo el dueño de la cuenta los administra (ni siquiera
-  // super_admin/store_admin, a diferencia de PUT/DELETE /:id), y solo se
-  // exponen name/price/images/category del producto vía el populate de
-  // GET /:id de arriba, nunca se editan por PUT /:id.
+  // super_admin/store_admin, a diferencia de PUT/DELETE /:id), y del producto
+  // solo se expone el resumen de summarizeFavorite (igual que en GET /:id),
+  // nunca se editan por PUT /:id.
   router.post(
     "/:id/favorites",
     validateObjectIdParam("id"),
@@ -831,7 +877,7 @@ function registerRoutes(app, ctx) {
           return sendError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado");
         }
 
-        res.status(200).json({ message: "Agregado a favoritos.", user: sanitizeUser(user) });
+        res.status(200).json({ message: "Agregado a favoritos.", user: sanitizeUserWithFavorites(user) });
       } catch (error) {
         return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al agregar a favoritos");
       }
@@ -855,7 +901,7 @@ function registerRoutes(app, ctx) {
           return sendError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado");
         }
 
-        res.status(200).json({ message: "Quitado de favoritos.", user: sanitizeUser(user) });
+        res.status(200).json({ message: "Quitado de favoritos.", user: sanitizeUserWithFavorites(user) });
       } catch (error) {
         return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al quitar de favoritos");
       }
@@ -1082,7 +1128,7 @@ function registerRoutes(app, ctx) {
           return sendError(res, 403, "FORBIDDEN_VIEW_USER", "No tienes permisos para consultar este usuario.");
         }
 
-        res.status(200).json(sanitizeUser(user));
+        res.status(200).json(sanitizeUserWithFavorites(user));
       } catch (error) {
         return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Error al consultar usuario");
       }
