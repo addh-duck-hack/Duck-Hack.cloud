@@ -5,4 +5,4 @@ Disallow: /login
 Disallow: /register
 Disallow: /users/verify
 
-Sitemap: https://mx.duck-hack.cloud/sitemap.xml
+Sitemap: https://duck-hack.cloud/sitemap.xml
