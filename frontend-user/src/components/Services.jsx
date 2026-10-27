@@ -151,10 +151,61 @@ const FALLBACK_FAQS = [
   },
 ];
 
+// Paquetes "sitio + hosting" (diseño con pago único + un plan de hosting
+// mensual). No hay campo en StoreConfig para esto, así que viven aquí; el
+// precio del hosting sí se toma del plan con ese nombre para que no se
+// desfase si se edita en el admin.
+const DESIGN_PACKAGES = [
+  {
+    slug: 'negocio',
+    name: 'Sitio para tu negocio',
+    description:
+      'Sitio rápido y a la medida de tu marca, ideal para restaurantes, consultorios, despachos, talleres y comercios.',
+    designFrom: 1500,
+    hostingPlan: 'Basic',
+    hostingFallbackPrice: 250,
+    featured: false,
+    features: [
+      'Diseño a la medida de tu marca',
+      'Se ve bien en celular, tablet y computadora',
+      'Botón de WhatsApp y formulario de contacto',
+      'Hosting Basic: 10 GB y 15 cuentas de correo',
+    ],
+  },
+  {
+    slug: 'noticias',
+    name: 'Sitio de noticias',
+    description:
+      'Tema de WordPress diseñado para tu medio: tú publicas tus notas y WordPress se encarga de administrar el sitio.',
+    designFrom: 3000,
+    hostingPlan: 'Medium',
+    hostingFallbackPrice: 500,
+    featured: true,
+    features: [
+      'Tema de WordPress a la medida de tu medio',
+      'Varias cuentas para tu equipo de redacción',
+      'Backups diarios automáticos',
+      'Hosting Medium: 15 GB, 30 cuentas de correo y SSL incluido',
+    ],
+  },
+];
+
+const DEFAULT_WHATSAPP_NUMBER = '5215661653418';
+
+const formatMxn = (value) => Number(value).toLocaleString('es-MX');
+
+// Link de WhatsApp con el mensaje del paquete; el número sale del link
+// configurado en el admin si tiene la forma wa.me/<número>.
+const packageWhatsappLink = (configuredLink, packageName) => {
+  const number = configuredLink?.match(/wa\.me\/(\d+)/)?.[1] || DEFAULT_WHATSAPP_NUMBER;
+  const text = `Hola, me interesa el paquete "${packageName} + hosting". ¿Me pueden dar una cotización?`;
+  return `https://wa.me/${number}?text=${encodeURIComponent(text)}`;
+};
+
 const Services = () => {
   usePageMeta(
-    'Planes y Precios de Hosting',
-    'Cuatro planes de hosting desde $250 MXN al mes con descuento permanente: almacenamiento, correos, ancho de banda y SSL incluido. Soporte técnico en español.'
+    'Precios de Sitios Web y Hosting',
+    'Sitio para tu negocio desde $1,500 MXN, sitio de noticias en WordPress desde $3,000 MXN y hosting desde $250 MXN al mes. Soporte técnico en español.'
   );
 
   const { config } = useStoreConfig();
@@ -164,11 +215,65 @@ const Services = () => {
   );
   const plans = useMemo(() => pickList(config?.pricingPlans, FALLBACK_PLANS), [config]);
   const faqs = useMemo(() => pickList(config?.faqs, FALLBACK_FAQS), [config]);
+  const hostingPrice = (pkg) =>
+    plans.find((plan) => plan.name === pkg.hostingPlan)?.price || pkg.hostingFallbackPrice;
 
   return (
     <section className="pricing-view">
       <span className="eyebrow">/precios</span>
-      <h1 className="section-title">Planes de hosting</h1>
+      <h1 className="section-title">Tu sitio web + hosting</h1>
+      <p className="section-sub">
+        Diseñamos tu sitio y lo mantenemos en línea en nuestros servidores: un solo equipo, un solo
+        lugar para pedir ayuda.
+      </p>
+
+      <div className="package-grid">
+        {DESIGN_PACKAGES.map((pkg) => (
+          <div className={`price-card ${pkg.featured ? 'featured' : ''}`} key={pkg.slug}>
+            <div className="price-badges">
+              <span />
+              <span>{pkg.featured && <span className="badge price-badge">especialidad</span>}</span>
+            </div>
+            <div className="price-head">
+              <div className="route">/paquetes/{pkg.slug}</div>
+              <h3>{pkg.name}</h3>
+              <p>{pkg.description}</p>
+              <div className="package-prices">
+                <div className="price-amount">
+                  <span>Diseño desde </span>${formatMxn(pkg.designFrom)}
+                  <span> MXN pago único</span>
+                </div>
+                <div className="package-hosting">
+                  + Hosting {pkg.hostingPlan} ${formatMxn(hostingPrice(pkg))} MXN/mes
+                </div>
+              </div>
+            </div>
+            <div className="price-body">
+              <ul>
+                {pkg.features.map((feature) => (
+                  <li key={feature}>
+                    <i className="fas fa-check" /> {feature}
+                  </li>
+                ))}
+              </ul>
+              <a
+                className="btn btn-solid package-cta"
+                href={packageWhatsappLink(config?.socialLinks?.whatsapp, pkg.name)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <i className="fab fa-whatsapp" aria-hidden="true" /> Cotizar por WhatsApp
+              </a>
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="package-note">
+        El precio final del diseño depende de la complejidad del sitio; te enviamos una cotización sin
+        compromiso. Mira sitios que ya hicimos en <Link to="/clientes">nuestros clientes</Link>.
+      </p>
+
+      <h2 className="pricing-subtitle">Planes de hosting</h2>
       <p className="section-sub">
         Cuatro niveles según el tamaño de tu proyecto — todos con soporte en español y sin
         permanencia forzosa.
