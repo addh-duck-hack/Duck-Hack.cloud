@@ -152,7 +152,7 @@ const Login = () => {
 
       <p className="auth-footnote">
         Duck-Hack OS — plataforma actualizada por{" "}
-        <a href="https://mx.duck-hack.cloud" target="_blank" rel="noopener noreferrer">
+        <a href="https://duck-hack.cloud" target="_blank" rel="noopener noreferrer">
           Duck-Hack
         </a>
         .
