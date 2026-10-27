@@ -79,7 +79,7 @@ const PrivacyNotice = () => {
       </section>
       <section>
         <h2>8. Modificaciones al Aviso de Privacidad</h2>
-        <p>La Empresa se reserva el derecho de realizar modificaciones o actualizaciones a este Aviso de Privacidad en cualquier momento. Cualquier cambio será comunicado a través de nuestro sitio web https://mx.duck-hack.cloud, en la sección de Aviso de Privacidad.</p>
+        <p>La Empresa se reserva el derecho de realizar modificaciones o actualizaciones a este Aviso de Privacidad en cualquier momento. Cualquier cambio será comunicado a través de nuestro sitio web https://duck-hack.cloud, en la sección de Aviso de Privacidad.</p>
       </section>
       <section>
         <h2>9. Consentimiento</h2>
