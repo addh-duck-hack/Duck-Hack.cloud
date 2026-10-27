@@ -2,7 +2,13 @@
 User-agent: *
 Allow: /
 Disallow: /login
-Disallow: /register
+Disallow: /registro
+Disallow: /olvide-contrasena
+Disallow: /restablecer-contrasena
+Disallow: /cuenta
+Disallow: /carrito
+Disallow: /pedido/
+Disallow: /cita/
 Disallow: /users/verify
 
-Sitemap: https://mx.duck-hack.cloud/sitemap.xml
+Sitemap: https://bella.duck-hack.cloud/sitemap.xml
