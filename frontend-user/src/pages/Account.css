@@ -17,6 +17,8 @@
   line-height: 1.05;
   margin: 0 0 8px;
   color: var(--color-text);
+  /* Un nombre largo sin espacios no debe salirse de la pantalla. */
+  overflow-wrap: anywhere;
 }
 
 .acc-title em {
@@ -123,6 +125,10 @@
 
 .acc-section {
   display: grid;
+  /* minmax(0, …): sin esto la columna crece hasta el contenido más ancho que
+     no se puede encoger (p. ej. el input de archivo del comprobante) y toda
+     la página se desborda a lo ancho en teléfonos. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 20px;
 }
 
@@ -151,6 +157,7 @@
 .acc-danger h2 {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   margin: 0;
   font-family: var(--font-heading);
   font-size: 1.5rem;
@@ -191,6 +198,8 @@
   font-size: 0.95rem;
   line-height: 1.5;
   color: var(--color-text);
+  /* Guías de paquetería, correos y demás textos sin espacios. */
+  overflow-wrap: anywhere;
 }
 
 .acc-lines strong {
@@ -443,6 +452,8 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 4px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .acc-review-link {
@@ -962,9 +973,28 @@ a.acc-fav-name:hover {
     padding: 16px;
   }
 
+  /* Pedido en dos renglones: folio, datos y total arriba; el estado abajo, a
+     todo el ancho. Con todo en un renglón el estado ("Comprobante en
+     revisión") aplastaba el folio hasta partirlo. */
   .acc-order-row {
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 8px 12px;
+    gap: 10px 12px;
+    padding: 14px 16px;
+  }
+
+  .acc-order-main {
+    grid-area: 1 / 1;
+  }
+
+  .acc-order-total {
+    grid-area: 1 / 2;
+    align-self: start;
+  }
+
+  .acc-order-row .acc-status {
+    grid-area: 2 / 1 / auto / -1;
+    justify-self: start;
+    white-space: normal;
   }
 
   .acc-order-row > i {
@@ -983,13 +1013,68 @@ a.acc-fav-name:hover {
     gap: 14px;
   }
 
+  /* Línea de tiempo en vertical: 5 o 6 pasos no caben en un renglón (los
+     textos se encimaban). */
+  .acc-timeline {
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
   .acc-timeline li {
-    font-size: 0.68rem;
+    flex-direction: row;
+    gap: 12px;
+    font-size: 0.9rem;
+    text-align: left;
+  }
+
+  .acc-timeline li::before {
+    top: auto;
+    bottom: 100%;
+    left: 13px;
+    width: 2px;
+    height: 14px;
+  }
+
+  .acc-timeline-dot {
+    flex-shrink: 0;
   }
 
   .acc-favorites {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 14px;
+  }
+
+  /* Tarjetas angostas: el botón ocupa todo el ancho y "quitar" pasa a la
+     esquina de la foto (juntos no caben). */
+  .acc-fav {
+    position: relative;
+  }
+
+  .acc-fav-actions .acc-btn {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: auto;
+    min-height: 38px;
+    padding: 6px 10px;
+    font-size: 0.82rem;
+    line-height: 1.2;
+    text-align: center;
+  }
+
+  .acc-fav .acc-icon-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 34px;
+    height: 34px;
+    margin: 0;
+    background-color: var(--color-bg);
+  }
+
+  .acc-actions .acc-btn {
+    flex: 1 1 auto;
   }
 }
 
@@ -1026,6 +1111,11 @@ a.acc-fav-name:hover {
   font-size: 0.92rem;
 }
 
+.acc-proof-list li > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .acc-proof-list small {
   display: block;
   margin-top: 2px;
@@ -1034,6 +1124,7 @@ a.acc-fav-name:hover {
 
 .acc-proof-form {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   justify-items: start;
 }
@@ -1049,7 +1140,12 @@ a.acc-fav-name:hover {
   color: var(--color-muted);
 }
 
+/* width + min-width: el ancho propio del control (botón + "Sin archivos
+   seleccionados") es mayor que la tarjeta en un teléfono; max-width solo no
+   evita que ensanche la página. */
 .acc-proof-form input[type='file'] {
+  width: 100%;
+  min-width: 0;
   max-width: 100%;
   font-size: 0.9rem;
 }

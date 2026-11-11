@@ -56,7 +56,13 @@
   gap: 4px 12px;
   margin: 0;
   font-weight: 700;
-  word-break: break-all;
+  /* Parte la CLABE o un nombre larguísimo solo si no cabe (break-all
+     cortaba palabras normales a media sílaba). */
+  overflow-wrap: anywhere;
+}
+
+.op-account-row dd > span {
+  min-width: 0;
 }
 
 .op-variant {

@@ -366,11 +366,14 @@
   background-color: color-mix(in srgb, var(--color-accent) 6%, var(--color-bg));
 }
 
+/* flex-basis en vez de min-width: con min-width un correo largo no podía
+   encogerse y sacaba la tarjeta de la pantalla. */
 .co-account > span:nth-child(2) {
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-width: 180px;
+  flex: 1 1 180px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .co-account small {
@@ -470,6 +473,7 @@
 }
 
 .co-review > div {
+  min-width: 0;
   padding: 16px 18px;
   border-radius: 14px;
   background-color: var(--color-placeholder);
@@ -501,6 +505,8 @@
   font-size: 0.92rem;
   line-height: 1.45;
   color: var(--color-text);
+  /* Correos y demás textos sin espacios. */
+  overflow-wrap: anywhere;
 }
 
 .co-notes {
@@ -1031,6 +1037,7 @@
 .co-done-card p {
   display: flex;
   flex-direction: column;
+  overflow-wrap: anywhere;
   gap: 3px;
   margin: 0 0 8px;
   font-size: 0.95rem;
@@ -1130,8 +1137,11 @@
     padding: 14px;
   }
 
+  /* "$599 · gratis desde $1,000" no cabe en un renglón en teléfonos: sin
+     esto ensanchaba toda la página. */
   .co-option-meta {
     grid-column: 2;
+    white-space: normal;
   }
 
   .cart-line--page {
@@ -1147,6 +1157,19 @@
     min-width: 0;
     padding: 0 10px;
     font-size: 0.85rem;
+  }
+}
+
+/* Teléfonos muy angostos: los 4 pasos con el nombre del actual no cabían. */
+@media (max-width: 380px) {
+  .co-stepper ol,
+  .co-step,
+  .co-step button {
+    gap: 5px;
+  }
+
+  .co-step + .co-step::before {
+    width: 8px;
   }
 }
 

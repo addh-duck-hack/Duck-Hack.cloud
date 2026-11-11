@@ -27,6 +27,14 @@
   --topbar-padding: 24px;
 }
 
+/* Teléfonos: con el 80% quedaban ~37px de margen por lado y solo ~300px de
+   contenido (los textos se partían y encimaban). Aquí 20px por lado. */
+@media (max-width: 600px) {
+  :root {
+    --topbar-floating-width: calc(100% - 40px);
+  }
+}
+
 *,
 *::before,
 *::after {

@@ -98,8 +98,11 @@
   z-index: 1;
   margin: auto 0 0;
   display: flex;
+  /* Precio + precio anterior largos ("$1,635.64 $1,970.65") no caben en un
+     renglón en teléfonos angostos. */
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 10px;
+  gap: 0 10px;
 }
 
 .fp-price--stacked {
