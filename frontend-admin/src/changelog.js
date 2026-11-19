@@ -11,6 +11,14 @@
 // `kind`: "new" (función nueva) | "improvement" | "fix".
 const CHANGELOG = [
   {
+    id: "2026-11-18-ver-comprobantes-pedido",
+    date: "2026-11-18",
+    kind: "fix",
+    modules: ["orders"],
+    title: "Ver comprobantes de pago en pedidos",
+    body: "Al pulsar \"Ver\" en un comprobante de pago de un pedido, la imagen o el PDF ahora se muestra en la misma página. Antes aparecía como archivo dañado o bloqueado.",
+  },
+  {
     id: "2026-10-14-contrasena-mas-larga",
     date: "2026-10-14",
     kind: "improvement",
